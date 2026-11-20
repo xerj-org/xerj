@@ -54574,6 +54574,16 @@ pub(crate) fn value_present(v: &Value) -> bool {
     }
 }
 
+/// One analysed token of `text` equals `target` under the token rule the
+/// stored scan uses for a `text` field (whitespace split, punctuation
+/// trimmed from the ends, case folded to match the `standard` analyzer).
+fn analyzed_token_matches(text: &str, target: &str) -> bool {
+    text.split_whitespace().any(|t| {
+        t.trim_matches(|c: char| !c.is_alphanumeric())
+            .eq_ignore_ascii_case(target)
+    })
+}
+
 /// Text-field token fallback shared by the stored-scan `term` and `terms`
 /// arms: if the doc value is a string with whitespace (it looks tokenised),
 /// each space-separated token is a candidate match. This mirrors ES running
@@ -54592,10 +54602,34 @@ fn text_tokens_contain(doc_val: &Option<Value>, v: &Value) -> bool {
     if !dv.contains(char::is_whitespace) {
         return false;
     }
-    dv.split_whitespace().any(|t| {
-        t.trim_matches(|c: char| !c.is_alphanumeric())
-            .eq_ignore_ascii_case(&target)
-    })
+    analyzed_token_matches(dv, &target)
+}
+
+/// #3259 remainder: on a mapped, indexed `text` field a `term`/`terms`
+/// value matches only an analysed token, never the whole raw value. ES does
+/// not analyse the term query, so a multi-token raw phrase is not a term of
+/// the field. Same token rule as `text_tokens_contain`, but without its
+/// whitespace precondition, so a single-token value still matches its own
+/// token. Multi-valued fields match when any element does.
+fn text_token_equals(doc_val: &Option<Value>, v: &Value) -> bool {
+    let target = match v {
+        Value::String(s) => s.to_lowercase(),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        _ => return false,
+    };
+    match doc_val {
+        Some(Value::String(s)) => analyzed_token_matches(s, &target),
+        Some(Value::Number(n)) => n.to_string() == target,
+        Some(Value::Bool(b)) => b.to_string() == target,
+        Some(Value::Array(arr)) => arr.iter().any(|elem| match elem {
+            Value::String(s) => analyzed_token_matches(s, &target),
+            Value::Number(n) => n.to_string() == target,
+            Value::Bool(b) => b.to_string() == target,
+            _ => false,
+        }),
+        _ => false,
+    }
 }
 
 pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bool {
@@ -54615,19 +54649,30 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                     }
                 }
             }
+            // #3259 remainder: on a mapped, indexed `text` field the term
+            // query is answered from the analysed token stream only. The
+            // whole raw value is not a term (ES does not analyse the term
+            // query), so a multi-token raw phrase must not match. This
+            // check runs before the whole-value comparison below, which
+            // is what used to answer the phrase. The token-only answer
+            // is also what `terms` gives for the same value, so `term`
+            // stays `terms` with one value.
+            if field_is_analyzed_text(schema, field) {
+                return text_token_equals(&doc_val, value);
+            }
             if json_values_equal(&doc_val, value) {
                 return true;
             }
-            // #3259: `term` is `terms` with one value. On a mapped, indexed
-            // `text` field the `terms` arm below also matches the analysed
-            // token stream, so `term: "quick"` returned 0 where
-            // `terms: ["quick"]` returned 2. Same token rule here; the raw
-            // whole-value match above is kept (an open question on #3259).
-            field_is_analyzed_text(schema, field) && text_tokens_contain(&doc_val, value)
+            false
         }
 
         QueryNode::Terms { field, values, .. } => {
             let doc_val = get_field_value(source, field);
+            // #3259 remainder: same token-only rule as the `term` arm
+            // above, so a raw phrase matches nothing on analysed text.
+            if field_is_analyzed_text(schema, field) {
+                return values.iter().any(|v| text_token_equals(&doc_val, v));
+            }
             if values.iter().any(|v| json_values_equal(&doc_val, v)) {
                 return true;
             }
@@ -70031,8 +70076,10 @@ mod exact_scan_hydration_tests {
     }
 
     /// #3259: on a mapped, indexed `text` field `term` answers exactly like
-    /// `terms` with one value — token hits added, the raw whole-value hit
-    /// kept. Keyword and undeclared fields keep whole-value `term` matching.
+    /// `terms` with one value, from the analysed tokens only. A multi-token
+    /// raw phrase is not a term, so it matches nothing, while a single-token
+    /// value still matches its own token. Keyword and undeclared fields keep
+    /// whole-value `term` matching.
     #[test]
     fn term_on_indexed_text_matches_tokens_like_terms() {
         let mut schema = Schema::empty();
@@ -70056,6 +70103,7 @@ mod exact_scan_hydration_tests {
             serde_json::json!({ "body": "the quick brown fox", "tag": "a b" }),
             serde_json::json!({ "body": "quick start", "tag": "quick" }),
             serde_json::json!({ "body": "lazy dog", "tag": "c" }),
+            serde_json::json!({ "body": "fox", "tag": "d" }),
         ];
         for v in ["quick", "fox", "the quick brown fox", "slow"] {
             for d in &docs {
@@ -70072,7 +70120,12 @@ mod exact_scan_hydration_tests {
                 .count()
         };
         assert_eq!(hits(&term("body", "quick")), 2);
-        assert_eq!(hits(&term("body", "the quick brown fox")), 1);
+        // #3259 remainder: the whole raw phrase is not an analysed token.
+        assert_eq!(hits(&term("body", "the quick brown fox")), 0);
+        assert_eq!(hits(&terms("body", "the quick brown fox")), 0);
+        // A single-token value still matches its own token.
+        assert_eq!(hits(&term("body", "fox")), 2);
+        assert_eq!(hits(&terms("body", "fox")), 2);
         // Keyword: whole value only, no token fallback for `term`.
         assert_eq!(hits(&term("tag", "a")), 0);
         assert_eq!(hits(&term("tag", "quick")), 1);
