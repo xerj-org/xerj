@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Shell queries this for how SonyCSLParis/cortex implements it: A durable, file-based framework for long-running LLM-assisted work, with persistent context, project continuity, and coordinated specialized (selected work: scripts, roles, the project root)",
+ "domain": "an agent working on Shell queries this for how SonyCSLParis/cortex implements it: A durable, file-based framework for long-running LLM-assisted work, with persistent context, project continuity, and (optional) coordinated  (selected work: scripts, roles, the project root)",
  "repos": [
   {
    "repo": "cortex",

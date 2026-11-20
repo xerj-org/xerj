@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on bash, cd, cli queries this for how jestenough/pcd implements it: Fast project directory navigation from your shell (selected work: tests, src/pcd_cli)",
+ "domain": "an agent working on bash, cd, cli queries this for how jestenough/pcd implements it: Project directory navigation from your shell (selected work: tests, src/pcd_cli)",
  "repos": [
   {
    "repo": "pcd",
