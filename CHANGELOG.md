@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Deterministic `cyber.fuzz_plan` planner in `xerj_common::cyber_fuzz_plan`
+  (Refs #2773, #2767, #2769): ranks parser, decoder, and deserializer entry
+  points by input-surface signals and cited corpus bugs (no model; uncited
+  candidates are abstained), selects seed corpora and dictionaries with an
+  `Excluded` licence gate and pin provenance, deduplicates crashes by a
+  normalized stack hash, and emits cargo-fuzz, libFuzzer, and AFL++ harness
+  skeletons in an RFC 8785 JCS-sealed report.
+
 ## [1.0.0-rc.104] - 2026-11-18
 
 **rc.104: rc.103 on every platform.** rc.104 is the rc.103 code with the
