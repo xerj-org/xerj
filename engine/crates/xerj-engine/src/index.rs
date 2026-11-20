@@ -42938,10 +42938,6 @@ fn glued(a: char, b: char) -> bool {
     is_word_char(a) && is_word_char(b) && !is_unspaced_script(a) && !is_unspaced_script(b)
 }
 
-/// Push the highlight terms of one query token. A token holding Han, kana or
-/// Hangul also yields its non-CJK parts and every adjacent CJK pair (a lone
-/// CJK character stands for itself), so a `match` on `北京天气` tags `北京`
-/// and `天气` in `北京的天气` the way the analyzers matched it.
 /// Every Han, kana or Hangul character of `terms`, sorted and deduplicated:
 /// the highlight terms for a field where no whole term or pair occurs.
 fn cjk_char_fallback_terms(terms: &[String]) -> Vec<String> {
@@ -42956,6 +42952,10 @@ fn cjk_char_fallback_terms(terms: &[String]) -> Vec<String> {
     chars
 }
 
+/// Push the highlight terms of one query token. A token holding Han, kana or
+/// Hangul also yields its non-CJK parts and every adjacent CJK pair (a lone
+/// CJK character stands for itself), so a `match` on `北京天气` tags `北京`
+/// and `天气` in `北京的天气` the way the analyzers matched it.
 fn push_unspaced_terms(tok: &str, out: &mut Vec<String>) {
     if !tok.chars().any(is_unspaced_script) {
         return;
