@@ -43039,6 +43039,10 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
     if query_terms.is_empty() {
         return hits;
     }
+    // A field holding none of the terms may still have matched on single
+    // CJK characters (the standard tokenizer indexes one per ideograph):
+    // tag those there rather than return a hit with no highlight.
+    let cjk_char_terms = cjk_char_fallback_terms(&query_terms);
 
     let pre_default = hl.pre_tag.as_deref().unwrap_or("<em>");
     let post_default = hl.post_tag.as_deref().unwrap_or("</em>");
@@ -43073,12 +43077,18 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                     // so matches can be translated back to original-text char
                     // boundaries (fixes the multibyte highlight SIGABRT).
                     let (text_lower, lower_map) = build_lower_offset_map(&text);
-                    let has_any = query_terms
-                        .iter()
-                        .any(|t| next_term_match(&text_lower, t, 0).is_some());
-                    if !has_any {
+                    let has_any = |terms: &[String]| {
+                        terms
+                            .iter()
+                            .any(|t| next_term_match(&text_lower, t, 0).is_some())
+                    };
+                    let query_terms = if has_any(&query_terms) {
+                        &query_terms
+                    } else if has_any(&cjk_char_terms) {
+                        &cjk_char_terms
+                    } else {
                         continue;
-                    }
+                    };
                     let fragments = if num_frags_raw == 0 {
                         // ES semantics: `number_of_fragments: 0` disables
                         // fragmenting entirely and emits the full text
@@ -43089,7 +43099,7 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                             &text,
                             &text_lower,
                             &lower_map,
-                            &query_terms,
+                            query_terms,
                             pre,
                             post,
                         )]
@@ -43099,7 +43109,7 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                             &text,
                             &text_lower,
                             &lower_map,
-                            &query_terms,
+                            query_terms,
                             pre,
                             post,
                             frag_size,
@@ -43259,16 +43269,31 @@ fn extract_highlight_terms(query: &QueryNode) -> Vec<String> {
 
 fn collect_highlight_terms(query: &QueryNode, out: &mut Vec<String>) {
     match query {
-        QueryNode::Match { query, .. }
-        | QueryNode::MatchPhrase { query, .. }
-        | QueryNode::MultiMatch { query, .. } => {
-            for tok in query.split_whitespace() {
+        QueryNode::Match { query: text, .. }
+        | QueryNode::MatchPhrase { query: text, .. }
+        | QueryNode::MultiMatch { query: text, .. } => {
+            // A phrase is contiguous, so its whole token is the term; `match`
+            // also matched the analyzer's CJK pieces one by one.
+            let phrase = matches!(
+                query,
+                QueryNode::MatchPhrase { .. }
+                    | QueryNode::MultiMatch {
+                        match_type: xerj_query::ast::MultiMatchType::Phrase
+                            | xerj_query::ast::MultiMatchType::PhrasePrefix,
+                        ..
+                    }
+            );
+            for tok in text.split_whitespace() {
                 let tok = tok
                     .trim_matches(|c: char| !c.is_alphanumeric())
                     .to_lowercase();
-                if !tok.is_empty() {
-                    out.push(tok);
+                if tok.is_empty() {
+                    continue;
                 }
+                if !phrase {
+                    push_unspaced_terms(&tok, out);
+                }
+                out.push(tok);
             }
         }
         QueryNode::QueryString { query, .. } => {
@@ -43316,6 +43341,68 @@ fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
+/// Han, kana and Hangul: scripts the analyzers split inside an unbroken run
+/// (the standard tokenizer emits one token per ideograph, the `cjk` analyzer
+/// emits bigrams), so a run of them is not one word for highlighting.
+fn is_unspaced_script(c: char) -> bool {
+    matches!(c as u32,
+        0x3040..=0x30FF | 0x31F0..=0x31FF | 0x3400..=0x4DBF | 0x4E00..=0x9FFF |
+        0xAC00..=0xD7AF | 0xF900..=0xFAFF | 0x20000..=0x3FFFF)
+}
+
+/// Whether `a` followed by `b` is one word, so a highlight may not start or
+/// end between them. A Han, kana or Hangul character on either side is a
+/// token boundary, as in UAX #29 word segmentation.
+fn glued(a: char, b: char) -> bool {
+    is_word_char(a) && is_word_char(b) && !is_unspaced_script(a) && !is_unspaced_script(b)
+}
+
+/// Every Han, kana or Hangul character of `terms`, sorted and deduplicated:
+/// the highlight terms for a field where no whole term or pair occurs.
+fn cjk_char_fallback_terms(terms: &[String]) -> Vec<String> {
+    let mut chars: Vec<String> = terms
+        .iter()
+        .flat_map(|t| t.chars())
+        .filter(|&c| is_unspaced_script(c))
+        .map(String::from)
+        .collect();
+    chars.sort();
+    chars.dedup();
+    chars
+}
+
+/// Push the highlight terms of one query token. A token holding Han, kana or
+/// Hangul also yields its non-CJK parts and every adjacent CJK pair (a lone
+/// CJK character stands for itself), so a `match` on `北京天气` tags `北京`
+/// and `天气` in `北京的天气` the way the analyzers matched it.
+fn push_unspaced_terms(tok: &str, out: &mut Vec<String>) {
+    if !tok.chars().any(is_unspaced_script) {
+        return;
+    }
+    let chars: Vec<char> = tok.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let cjk = is_unspaced_script(chars[i]);
+        let mut j = i;
+        while j < chars.len() && is_unspaced_script(chars[j]) == cjk {
+            j += 1;
+        }
+        let run = &chars[i..j];
+        if cjk && run.len() == 1 {
+            out.push(run[0].to_string());
+        } else if cjk {
+            out.extend(run.windows(2).map(|w| w.iter().collect::<String>()));
+        } else {
+            let part: String = run.iter().collect();
+            let part = part.trim_matches(|c: char| !c.is_alphanumeric());
+            if !part.is_empty() {
+                out.push(part.to_string());
+            }
+        }
+        i = j;
+    }
+}
+
 /// The next occurrence of highlight `term` in `text_lower` at or after byte
 /// `from` that stands as a whole word: the characters on either side are not
 /// word characters. A term ending in `*` (a `query_string` prefix) needs a
@@ -43324,12 +43411,20 @@ fn is_word_char(c: char) -> bool {
 /// Plain substring search (#1948) highlighted `or` inside `for`, `no` inside `not`
 /// and `OR` inside `SECTOR`, and a phrase's short words then claimed the
 /// fragment away from the phrase itself.
+///
+/// Han, kana and Hangul have no spaces between words, so a neighbour in one
+/// of those scripts is a boundary (see [`glued`]). Treating every ideograph
+/// as a word character made `北京` in `我喜欢北京的天气` never a whole word,
+/// and a CJK `match_phrase` hit came back with no highlight at all.
 fn next_term_match(text_lower: &str, term: &str, from: usize) -> Option<(usize, usize)> {
     let (needle, prefix) = match term.strip_suffix('*') {
         Some(stem) => (stem, true),
         None => (term, false),
     };
-    if needle.is_empty() || from > text_lower.len() {
+    let (Some(first), Some(last)) = (needle.chars().next(), needle.chars().next_back()) else {
+        return None;
+    };
+    if from > text_lower.len() {
         return None;
     }
     let mut start = from;
@@ -43339,15 +43434,19 @@ fn next_term_match(text_lower: &str, term: &str, from: usize) -> Option<(usize, 
         let before_ok = !text_lower[..abs]
             .chars()
             .next_back()
-            .is_some_and(is_word_char);
+            .is_some_and(|prev| glued(prev, first));
         if prefix {
             end += text_lower[end..]
                 .char_indices()
-                .find(|&(_, c)| !is_word_char(c))
+                .find(|&(_, c)| !is_word_char(c) || is_unspaced_script(c))
                 .map(|(i, _)| i)
                 .unwrap_or(text_lower.len() - end);
         }
-        let after_ok = prefix || !text_lower[end..].chars().next().is_some_and(is_word_char);
+        let after_ok = prefix
+            || !text_lower[end..]
+                .chars()
+                .next()
+                .is_some_and(|next| glued(last, next));
         if before_ok && after_ok {
             return Some((abs, end));
         }
@@ -64753,6 +64852,118 @@ mod highlight_multibyte_tests {
         let full = highlight_full_text("a wildcard and wild cats", &lower, &map, &prefix, "[", "]");
         assert_eq!(full, "a [wildcard] and [wild] cats");
         assert_eq!(next_term_match("rewild", "wild*", 0), None);
+    }
+
+    fn hl_terms(query: serde_json::Value) -> Vec<String> {
+        extract_highlight_terms(&xerj_query::parse_query(&query).expect("query parses"))
+    }
+
+    #[test]
+    fn cjk_match_phrase_highlights_inside_an_unspaced_run() {
+        let text = "我喜欢北京的天气 and the weather in Beijing";
+        let (lower, map) = build_lower_offset_map(text);
+        let terms = hl_terms(serde_json::json!({"match_phrase": {"body": "北京"}}));
+        assert_eq!(terms, vec!["北京".to_string()]);
+        let frags = build_highlight_fragments(text, &lower, &map, &terms, "<em>", "</em>", 150, 3);
+        assert_eq!(
+            frags,
+            vec![format!(
+                "我喜欢<em>北京</em>的天气 and the weather in Beijing"
+            )]
+        );
+        let full = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert_eq!(full, "我喜欢<em>北京</em>的天气 and the weather in Beijing");
+
+        for (text, term) in [
+            ("東京都に住んでいます", "東京"),
+            ("東京都に住んでいます", "住んで"),
+            ("서울에서 만나요", "서울"),
+        ] {
+            let (lower, map) = build_lower_offset_map(text);
+            let full = highlight_full_text(text, &lower, &map, &[term.to_string()], "[", "]");
+            assert!(
+                full.contains(&format!("[{term}]")),
+                "{text} / {term}: {full}"
+            );
+        }
+    }
+
+    #[test]
+    fn cjk_match_tags_the_query_pairs_the_document_holds() {
+        let terms = hl_terms(serde_json::json!({"match": {"body": "北京天气"}}));
+        for t in ["北京", "京天", "天气", "北京天气"] {
+            assert!(terms.contains(&t.to_string()), "{t} in {terms:?}");
+        }
+        let text = "我喜欢北京的天气";
+        let (lower, map) = build_lower_offset_map(text);
+        let full = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert_eq!(full, "我喜欢<em>北京</em>的<em>天气</em>");
+        let text = "北京天气很好";
+        let (lower, map) = build_lower_offset_map(text);
+        let full = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert_eq!(
+            full, "<em>北京天气</em>很好",
+            "adjacent pairs merge into one tag"
+        );
+
+        // A phrase keeps the whole run; mixed tokens split at the script edge.
+        let phrase = hl_terms(serde_json::json!({"multi_match": {
+            "query": "北京天气", "fields": ["body"], "type": "phrase"}}));
+        assert_eq!(phrase, vec!["北京天气".to_string()]);
+        let mixed = hl_terms(serde_json::json!({"match": {"body": "iPhone手机"}}));
+        assert!(mixed.contains(&"iphone".to_string()), "{mixed:?}");
+        assert!(mixed.contains(&"手机".to_string()), "{mixed:?}");
+        let single = hl_terms(serde_json::json!({"match": {"body": "京"}}));
+        assert_eq!(single, vec!["京".to_string()]);
+    }
+
+    #[test]
+    fn every_cjk_match_hit_gets_a_highlight() {
+        let hit = |id: &str, body: &str| -> Hit {
+            serde_json::from_value(serde_json::json!({
+                "id": id, "score": 1.0, "_source": {"body": body},
+                "sort": [], "matched_queries": [],
+            }))
+            .expect("hit")
+        };
+        let hl: HighlightRequest =
+            serde_json::from_value(serde_json::json!({"fields": {"body": {}}})).expect("hl");
+        let query = xerj_query::parse_query(&serde_json::json!({"match": {"body": "北京天气"}}))
+            .expect("query");
+        let hits = apply_highlight(
+            vec![
+                hit("pair", "我喜欢北京的天气"),
+                hit("char", "東京都に住んでいます"),
+                hit("none", "nothing here"),
+            ],
+            &hl,
+            &query,
+        );
+        let body = |h: &Hit| h.highlight.as_ref().map(|m| m["body"].clone());
+        assert_eq!(
+            body(&hits[0]),
+            Some(vec!["我喜欢<em>北京</em>的<em>天气</em>".to_string()]),
+            "pairs win where they occur: no lone 北 or 天 tags"
+        );
+        assert_eq!(
+            body(&hits[1]),
+            Some(vec!["東<em>京</em>都に住んでいます".to_string()]),
+            "a hit that matched on one character still shows it"
+        );
+        assert_eq!(body(&hits[2]), None);
+    }
+
+    #[test]
+    fn cjk_boundaries_leave_latin_whole_word_rules_alone() {
+        assert!(next_term_match("北京abc", "abc", 0).is_some());
+        assert!(next_term_match("abc北京", "abc", 0).is_some());
+        assert_eq!(next_term_match("xabc北京", "abc", 0), None);
+        assert_eq!(next_term_match("for", "or", 0), None);
+        assert_eq!(next_term_match("sector", "or", 0), None);
+        let text = "a wildcard北京 and wild cats";
+        let (lower, map) = build_lower_offset_map(text);
+        let full = highlight_full_text(text, &lower, &map, &["wild*".to_string()], "[", "]");
+        assert_eq!(full, "a [wildcard]北京 and [wild] cats");
     }
 
     #[test]
