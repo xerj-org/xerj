@@ -2,8 +2,8 @@
  "corpus": "blessed-bless--fleetkit",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how blessed-bless/fleetkit implements it: Self-hosted control plane for bots, workers, cron jobs and webhooks (selected work: frontend, backend)",
+ "shelf": "OPS",
+ "domain": "an agent working on bots, docker, fastapi queries this for how blessed-bless/fleetkit implements it: Self-hosted control plane for bots, workers, cron and webhooks (selected work: frontend, backend)",
  "repos": [
   {
    "repo": "fleetkit",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Go queries this for how iSerganov/gocue implements it: CLI utility for fast calculation of an audio track cue-in, cue-out, overlay, replaygain, loudness and more parameters (selected work: pkg/cue, scripts, example)",
+ "domain": "an agent working on Go queries this for how iSerganov/gocue implements it: CLI utility for fast calculation of track cue points, crossfade overlay, ReplayGain, loudness and more (selected work: pkg/cue, scripts, example)",
  "repos": [
   {
    "repo": "gocue",

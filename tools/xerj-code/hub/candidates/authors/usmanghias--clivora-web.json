@@ -8,15 +8,15 @@
   {
    "repo": "clivora-web",
    "url": "https://github.com/UsmanGhias/clivora-web",
-   "sha": "395268dd5dd7513742eaa7d0a9b88d5d16491fa3",
-   "licence": "AGPL-3.0 (LICENSE file at pin 395268dd5dd7, GitHub licence API 2026-11-20)",
+   "sha": "1b730cbe8eadaa43b89c69af459444d4536c9ea0",
+   "licence": "AGPL-3.0 (LICENSE file at pin 1b730cbe8ead, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-06T07:01Z",
     "consent_receipt": "f279a7af68bc",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T07:01Z (receipt f279a7af68bc); pinned to the default-branch head. LICENSE file at pin 395268dd5dd7 detected as AGPL-3.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T07:01Z (receipt f279a7af68bc); pinned to the default-branch head. LICENSE file at pin 1b730cbe8ead detected as AGPL-3.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution."
    }
   }
  ]

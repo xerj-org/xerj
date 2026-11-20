@@ -8,15 +8,15 @@
   {
    "repo": "ontopoc",
    "url": "https://github.com/Longado/ontopoc",
-   "sha": "bf3ce3ab53a81576a97685f3d56c71c72b4d5b69",
-   "licence": "AGPL-3.0 (LICENSE file at pin bf3ce3ab53a8, GitHub licence API 2026-11-20)",
+   "sha": "e0673e0023bfaa284b45beef7de0601e6f5bdbe2",
+   "licence": "AGPL-3.0 (LICENSE file at pin e0673e0023bf, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-19T01:42Z",
     "consent_receipt": "6ea6ef1f4996",
-    "note": "Inclusion consented by the commit author by email at 2026-11-19T01:42Z (receipt 6ea6ef1f4996); selected commit bf3ce3ab53a8: \"feat: model directed relation roles with verified bindings and correc\u2026\". LICENSE file at pin bf3ce3ab53a8 detected as AGPL-3.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution. Pinned to head bf3ce3ab53a8 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T01:42Z (receipt 6ea6ef1f4996); selected commit e0673e0023bf: \"feat: model directed relation roles with verified bindings and correc\u2026\". LICENSE file at pin e0673e0023bf detected as AGPL-3.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution. Pinned to head e0673e0023bf (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

@@ -8,15 +8,15 @@
   {
    "repo": "QAT-Kits",
    "url": "https://github.com/eraevous/QAT-Kits",
-   "sha": "89c7e482c6a04b51d55bf538e8756c9bfc6138a8",
-   "licence": "author's permission (LICENSE at pin 89c7e482c6a0: NONE; repository: none)",
+   "sha": "b7c724a604b42b51cdcba03559b68deec304e56f",
+   "licence": "author's permission (LICENSE at pin b7c724a604b4: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-12T17:12Z",
     "consent_receipt": "7f86761336e6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt 7f86761336e6); pinned to the default-branch head. LICENSE at pin 89c7e482c6a0: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt 7f86761336e6); pinned to the default-branch head. LICENSE at pin b7c724a604b4: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
