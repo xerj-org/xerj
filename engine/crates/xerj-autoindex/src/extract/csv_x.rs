@@ -1,10 +1,14 @@
 //! CSV with sniffed dialect (delimiter / header / decimal-comma), streaming.
 
-use super::{sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink};
+use super::{
+    sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, RecordByteCap, Sink,
+    MAX_CSV_RECORD_BYTES,
+};
 use crate::sniff::Sniffed;
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::path::Path;
+use std::sync::Arc;
 
 pub fn extract(
     path: &Path,
@@ -17,14 +21,36 @@ pub fn extract(
         has_header: true,
         decimal_comma: false,
     });
-    let r = super::open_reader(path, sn.gzip, limit_bytes)?;
+    // #3201: one quoted field may span newlines, so a single record can be
+    // as large as the whole input stream. The Rust csv crate offers no
+    // record or field size option, so the bound lives in the reader: the
+    // parser errors once one record has consumed more than the cap, before
+    // the allocation happens. The reference is Python's csv module, which
+    // has enforced a per-field limit since 2003 (Modules/_csv.c,
+    // parse_add_char: "field larger than field limit"), because an unmatched
+    // quote could otherwise read the entire file into the field buffer.
+    let cap = Arc::new(RecordByteCap::new(MAX_CSV_RECORD_BYTES as u64));
+    let r = super::open_reader_with_cap(path, sn.gzip, limit_bytes, Some(&cap))?;
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(dialect.delim)
         .has_headers(dialect.has_header)
         .flexible(true)
         .from_reader(r);
+    let mut stats = ExtractStats::default();
     let headers: Vec<String> = if dialect.has_header {
-        let h = rdr.headers()?.clone();
+        let h = match rdr.headers() {
+            Ok(h) => h.clone(),
+            Err(_) if cap.tripped() => {
+                // An oversize header must junk-file the file, never fail it:
+                // an extract error aborts the whole autoindex run unless the
+                // file changed mid-run, so one hostile file must not take
+                // the run down with it.
+                stats.junk += 1;
+                return Ok(stats);
+            }
+            Err(e) => return Err(e.into()),
+        };
+        cap.reset();
         let mut seen = std::collections::HashSet::new();
         h.iter()
             .map(|f| {
@@ -40,15 +66,23 @@ pub fn extract(
         Vec::new()
     };
     let decimal_comma_re = regex::Regex::new(r"^-?\d{1,12},\d+$").unwrap();
-    let mut stats = ExtractStats::default();
     for (i, rec) in rdr.into_records().enumerate() {
         let rec = match rec {
             Ok(r) => r,
             Err(_) => {
                 stats.junk += 1;
+                if cap.tripped() {
+                    // The parser is mid-record inside the oversize field,
+                    // so resuming would re-read the same field past the cap.
+                    // Stop here: the loss is counted as junk, and the
+                    // records before it still extract.
+                    break;
+                }
+                cap.reset();
                 continue;
             }
         };
+        cap.reset();
         let mut fields = Map::new();
         for (j, val) in rec.iter().enumerate() {
             let name = if j < headers.len() {
@@ -233,6 +267,53 @@ mod tests {
         let (stats, recs) = ok(&sn, b"x,y\n1,2\n");
         assert_eq!(stats.records, 1);
         assert_eq!(recs[0].fields["x"], serde_json::json!("1"));
+    }
+
+    /// #3201: one quoted field may span newlines, so a single record can be
+    /// as large as the whole input. The per-record cap must junk-count it
+    /// and stop there; the rows after it are never reached, because the
+    /// parser is mid-record inside the oversize field and cannot resume.
+    #[test]
+    fn a_record_over_the_cap_is_counted_as_junk_and_extraction_stops_there() {
+        let mut bytes = b"a,b\n1,ok\n\"".to_vec();
+        bytes.extend_from_slice(&vec![b'x'; MAX_CSV_RECORD_BYTES + (1 << 20)]);
+        bytes.extend_from_slice(b"\",2\n3,fine\n");
+        let (stats, recs) = ok(&sniffed(b',', true, false), &bytes);
+        assert_eq!(stats.records, 1, "only the row before the oversize one");
+        assert_eq!(stats.junk, 1, "the oversize record is counted, not dropped");
+        assert_eq!(recs.len(), 1);
+        assert_eq!(recs[0].fields["b"], serde_json::json!("ok"));
+    }
+
+    /// A field 1 MiB under the cap must still extract unchanged.
+    #[test]
+    fn a_record_just_under_the_cap_still_extracts() {
+        let mut bytes = b"a,b\n\"".to_vec();
+        bytes.extend_from_slice(&vec![b'x'; MAX_CSV_RECORD_BYTES - (1 << 20)]);
+        bytes.extend_from_slice(b"\",2\n");
+        let (stats, recs) = ok(&sniffed(b',', true, false), &bytes);
+        assert_eq!(stats.records, 1);
+        assert_eq!(stats.junk, 0);
+        assert_eq!(recs[0].fields["b"], serde_json::json!("2"));
+        assert_eq!(
+            recs[0].fields["a"].as_str().unwrap().len(),
+            MAX_CSV_RECORD_BYTES - (1 << 20)
+        );
+    }
+
+    /// #3201: a giant header must junk-file the file, never fail it: an
+    /// extract error aborts the whole autoindex run unless the file changed
+    /// mid-run, so one hostile file must not take the run down with it.
+    #[test]
+    fn an_oversize_header_row_is_junk_not_a_file_error() {
+        let mut bytes = b"\"".to_vec();
+        bytes.extend_from_slice(&vec![b'x'; MAX_CSV_RECORD_BYTES + (1 << 20)]);
+        bytes.extend_from_slice(b"\",b\n1,2\n");
+        let (stats, recs) = run(&sniffed(b',', true, false), &bytes);
+        let stats = stats.unwrap();
+        assert_eq!(stats.records, 0);
+        assert_eq!(stats.junk, 1);
+        assert!(recs.is_empty());
     }
 
     #[test]
