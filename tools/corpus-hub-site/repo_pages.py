@@ -672,7 +672,8 @@ def repo_body(f, esc, people, cats, related, fetched, rel="../", extra=""):
     ahead_txt = (f" {esc(st.get('branch') or 'The default branch')} is {ahead:,} commit{'s' if ahead != 1 else ''} ahead." if isinstance(ahead, int) and ahead > 0
                  else f" It is the newest commit on {esc(st.get('branch'))}." if ahead == 0 and st.get("branch") else "")
     snap = (f'<div class="rpbox"><h3>Snapshot</h3><div class="big">{snap_big}</div>'
-            f'<p>The whole repository at commit {commit_link}{f" ({esc(when)})" if when else ""}.{ahead_txt}</p></div>')
+            f'<p>{("Only " + esc(", ".join(w["paths"])[:300]) + " at commit") if w.get("paths") and not w.get("whole_repo", True) else "The whole repository at commit"} '
+            f'{commit_link}{f" ({esc(when)})" if when else ""}.{ahead_txt}</p></div>')
     pp = people.get(login) or {}
     name = pp.get("name") or login
     t = clean_title(w.get("title"))
@@ -687,7 +688,8 @@ def repo_body(f, esc, people, cats, related, fetched, rel="../", extra=""):
         pin = (ow.get("commit") or ow.get("pin") or "")[:12]
         also_bits.append(f'<a href="{rel}contributors/{esc(ol)}">@{esc(ol)}</a>' + (f" ({esc(pin)})" if pin else ""))
     also = f'<p>Also selected on this repository: {", ".join(also_bits)}.</p>' if also_bits else ""
-    work = f'<div class="rpbox"><h3>Selected work</h3>{who}<p>{work_p}</p>{also}</div>'
+    note = f'<p>{esc(w["author_note"])}</p>' if w.get("author_note") else ""
+    work = f'<div class="rpbox"><h3>Selected work</h3>{who}<p>{work_p}</p>{note}{also}</div>'
     # licence
     spdx = f["spdx"] if f["spdx"] not in ("", "?") else "Not stated"
     reviewed = bool((w.get("reviewed")))
