@@ -7040,4 +7040,33 @@ mod serial_pressure_flush_tests {
         );
         assert_eq!(count_all(&engine, "serial-drain").await, 400);
     }
+
+    /// #2929: an explicit refresh drains its non-empty shards concurrently,
+    /// like `flush`, and still returns with every document searchable.
+    /// FAIL-BEFORE: `Index::refresh` awaited one shard's segment build before
+    /// starting the next (peak 1), so a refresh that touched N shards paid N
+    /// serial segment publishes — on Windows ~7 s each for the autoindex
+    /// catalog's wide schema.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn a_refresh_drains_its_shards_concurrently() {
+        let dir = TempDir::new().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_str().unwrap().to_string();
+        let engine = Engine::new(config).expect("engine::new");
+
+        seed(&engine, "parallel-refresh", 400).await;
+        let idx = engine.get_index("parallel-refresh").unwrap();
+        assert!(idx.memtable_bytes() > 0);
+        idx.refresh().await.expect("refresh");
+        assert_eq!(
+            idx.memtable_bytes(),
+            0,
+            "the refresh published the memtable"
+        );
+        assert!(
+            FlushShardProbe::peak("parallel-refresh") > 1,
+            "the refresh ran its shard flushes concurrently"
+        );
+        assert_eq!(count_all(&engine, "parallel-refresh").await, 400);
+    }
 }
