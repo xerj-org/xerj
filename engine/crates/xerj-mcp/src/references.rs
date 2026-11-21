@@ -259,8 +259,10 @@ pub(crate) fn scan_hit(hit: &Value, symbol: &str) -> Scan {
     };
     let path = hit_path(hit);
     // A stored text whose line count does not match its `start_line..=end_line`
-    // span is lossy (the `txt-lines` blocks drop blank lines, #3333: 40 lines stored
-    // for a 1..=42 span), so its lines cannot be mapped back either.
+    // span is lossy (`txt-lines` blocks indexed before the #3333 fix dropped
+    // blank lines: 40 lines stored for a 1..=42 span), so its lines cannot be
+    // mapped back either. A changed file, or `xerj autoindex --fresh`, stores
+    // every line of the span.
     let start = src.get("start_line").and_then(Value::as_u64);
     let exact = match (start, src.get("end_line").and_then(Value::as_u64)) {
         (Some(s), Some(e)) => e.checked_sub(s).map(|d| d + 1) == Some(body.lines().count() as u64),

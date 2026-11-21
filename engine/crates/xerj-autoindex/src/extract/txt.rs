@@ -327,91 +327,22 @@ pub fn extract_lines(
     let mut offset = 0u64;
     let mut buf: Vec<u8> = Vec::new();
 
-    // Sliding window over non-blank lines.  Each entry carries the line's text,
-    // its 1-based line number, and the byte offset it started at (the offset of
-    // the window's first line becomes the chunk locator, so ids stay stable
-    // across re-runs exactly like the old per-line records did).
-    let mut window: Vec<(String, usize, u64)> = Vec::with_capacity(CHUNK_LINES);
+    // Sliding window over the file's lines.  Each entry carries the line's
+    // text, its 1-based line number, and the byte offset it started at (the
+    // offset of the window's first line becomes the chunk locator, so ids stay
+    // stable across re-runs exactly like the old per-line records did).
+    //
+    // Blank lines are kept INSIDE a window as empty entries (#3333): a
+    // record's `text` then holds every line of `start_line..=end_line`, so
+    // line `i` of the text is file line `start_line + i`. Dropping them stored
+    // 40 lines for a 1..=42 span, and every citation below a blank line was
+    // off by the blanks above it. A window never starts or ends on a blank
+    // line, and the 40-line / 10-overlap sizes still count non-blank lines, so
+    // chunk boundaries and locators stay the ones a blank-dropping run chose.
+    let mut window: Vec<WindowLine> = Vec::with_capacity(CHUNK_LINES);
+    let mut filled = 0usize;
     let mut line_no = 0usize;
     let mut stopped = false;
-
-    // Emit the window's leading lines as one record, up to `CHUNK_MAX_BYTES`,
-    // then drop the non-overlapping prefix of what was emitted.  `drain`
-    // (end of file) keeps emitting until every buffered line is in a record.
-    // Returns false when the sink asks us to stop.
-    //
-    // Only lines that made it into the record may be dropped: when the byte
-    // cap cuts the window short, the lines past the cut stay buffered and lead
-    // the next record.  Dropping `window.len() - CHUNK_OVERLAP` lines
-    // regardless lost every line between the cut and the overlap tail — one
-    // long line among short ones made up to 29 neighbours unsearchable — and
-    // reported an `end_line` the record's text did not reach.
-    fn flush(
-        window: &mut Vec<(String, usize, u64)>,
-        extra: &Map<String, Value>,
-        drain: bool,
-        stats: &mut ExtractStats,
-        sink: Sink,
-    ) -> bool {
-        loop {
-            if window.is_empty() {
-                return true;
-            }
-            let mut text = String::new();
-            let mut used = 0usize;
-            let mut taken = 0usize;
-            for (l, _, _) in window.iter() {
-                if used > 0 && used + l.len() + 1 > CHUNK_MAX_BYTES {
-                    break;
-                }
-                if used > 0 {
-                    text.push('\n');
-                }
-                text.push_str(l);
-                used += l.len() + 1;
-                taken += 1;
-            }
-            let start_line = window[0].1;
-            let start_byte = window[0].2;
-            let end_line = window[taken - 1].1;
-
-            let mut ok = true;
-            if !text.trim().is_empty() {
-                let mut fields = extra.clone();
-                fields.insert("text".into(), Value::String(text));
-                fields.insert(
-                    "start_line".into(),
-                    Value::Number((start_line as u64).into()),
-                );
-                fields.insert("end_line".into(), Value::Number((end_line as u64).into()));
-                stats.records += 1;
-                ok = sink(RawRecord {
-                    fields,
-                    locator: format!("b{start_byte}"),
-                    group: None,
-                    // text/start_line/end_line describe this chunker, not the file.
-                    origin: FieldOrigin::Extractor,
-                });
-            }
-            if taken == window.len() {
-                if drain {
-                    window.clear();
-                } else {
-                    let keep = CHUNK_OVERLAP.min(window.len());
-                    window.drain(..window.len() - keep);
-                }
-                return ok;
-            }
-            // Cut short by the byte cap: keep the overlap tail of what was
-            // emitted plus everything after it.  At least one line is always
-            // dropped, so a run of oversized lines still advances.
-            let keep = CHUNK_OVERLAP.min(taken - 1);
-            window.drain(..taken - keep);
-            if !drain || !ok {
-                return ok;
-            }
-        }
-    }
 
     loop {
         buf.clear();
@@ -424,20 +355,154 @@ pub fn extract_lines(
         line_no += 1;
         let (line, _) = crate::sniff::decode_text(&buf);
         let line = line.trim_end_matches(['\n', '\r']);
-        if line.trim().is_empty() {
+        let blank = line.trim().is_empty();
+        if blank && window.is_empty() {
             continue;
         }
-        window.push((line.to_string(), line_no, start));
-        if window.len() >= CHUNK_LINES && !flush(&mut window, &extra, false, &mut stats, sink) {
-            stopped = true;
-            break;
+        window.push(WindowLine {
+            text: if blank {
+                String::new()
+            } else {
+                line.to_string()
+            },
+            line: line_no,
+            byte: start,
+            blank,
+        });
+        if blank {
+            continue;
+        }
+        filled += 1;
+        if filled >= CHUNK_LINES {
+            let ok = flush_window(&mut window, &extra, false, &mut stats, sink);
+            filled = window.iter().filter(|l| !l.blank).count();
+            if !ok {
+                stopped = true;
+                break;
+            }
         }
     }
     // Trailing partial window (also the whole-file case for short files).
     if !stopped {
-        flush(&mut window, &extra, true, &mut stats, sink);
+        flush_window(&mut window, &extra, true, &mut stats, sink);
     }
     Ok(stats)
+}
+
+/// One buffered line of an [`extract_lines`] window.
+struct WindowLine {
+    text: String,
+    /// 1-based file line.
+    line: usize,
+    /// Byte offset the line starts at.
+    byte: u64,
+    blank: bool,
+}
+
+/// Index of the first of the last `keep` non-blank lines in `window[..end]`
+/// (`end` when `keep` is 0).
+fn tail_start(window: &[WindowLine], end: usize, keep: usize) -> usize {
+    if keep == 0 {
+        return end;
+    }
+    let mut seen = 0usize;
+    for i in (0..end).rev() {
+        if !window[i].blank {
+            seen += 1;
+            if seen == keep {
+                return i;
+            }
+        }
+    }
+    0
+}
+
+/// Emit the window's leading lines as one record, up to `CHUNK_MAX_BYTES`,
+/// then drop the non-overlapping prefix of what was emitted.  `drain` (end of
+/// file) keeps emitting until every buffered line is in a record.  Returns
+/// false when the sink asks us to stop.
+///
+/// Only lines that made it into the record may be dropped: when the byte cap
+/// cuts the window short, the lines past the cut stay buffered and lead the
+/// next record.  Dropping `window.len() - CHUNK_OVERLAP` lines regardless lost
+/// every line between the cut and the overlap tail — one long line among
+/// short ones made up to 29 neighbours unsearchable — and reported an
+/// `end_line` the record's text did not reach.
+fn flush_window(
+    window: &mut Vec<WindowLine>,
+    extra: &Map<String, Value>,
+    drain: bool,
+    stats: &mut ExtractStats,
+    sink: Sink,
+) -> bool {
+    loop {
+        // A record never starts on a blank line.
+        let lead = window.iter().take_while(|l| l.blank).count();
+        window.drain(..lead);
+        if window.is_empty() {
+            return true;
+        }
+        let mut used = 0usize;
+        let mut taken = 0usize;
+        for l in window.iter() {
+            if used > 0 && used + l.text.len() + 1 > CHUNK_MAX_BYTES {
+                break;
+            }
+            used += l.text.len() + 1;
+            taken += 1;
+        }
+        // ...nor ends on one: `end_line` is the last non-blank line taken.
+        // `window[0]` is non-blank, so there always is one.
+        let last = (0..taken).rev().find(|&i| !window[i].blank).unwrap_or(0);
+        let emitted = last + 1;
+        let mut text = String::with_capacity(used);
+        for (i, l) in window[..emitted].iter().enumerate() {
+            if i > 0 {
+                text.push('\n');
+            }
+            text.push_str(&l.text);
+        }
+        let start_line = window[0].line;
+        let start_byte = window[0].byte;
+        let end_line = window[last].line;
+
+        let mut ok = true;
+        if !text.trim().is_empty() {
+            let mut fields = extra.clone();
+            fields.insert("text".into(), Value::String(text));
+            fields.insert(
+                "start_line".into(),
+                Value::Number((start_line as u64).into()),
+            );
+            fields.insert("end_line".into(), Value::Number((end_line as u64).into()));
+            stats.records += 1;
+            ok = sink(RawRecord {
+                fields,
+                locator: format!("b{start_byte}"),
+                group: None,
+                // text/start_line/end_line describe this chunker, not the file.
+                origin: FieldOrigin::Extractor,
+            });
+        }
+        let nonblank = window[..emitted].iter().filter(|l| !l.blank).count();
+        if taken == window.len() {
+            if drain {
+                window.clear();
+            } else {
+                let from = tail_start(window, emitted, CHUNK_OVERLAP.min(nonblank));
+                window.drain(..from);
+            }
+            return ok;
+        }
+        // Cut short by the byte cap: keep the overlap tail of what was
+        // emitted plus everything after it.  At least one non-blank line is
+        // always dropped, so a run of oversized lines still advances.
+        let from = tail_start(window, emitted, CHUNK_OVERLAP.min(nonblank - 1));
+        window.drain(..from);
+        if !drain || !ok {
+            return ok;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -575,7 +640,8 @@ mod chunk_tests {
         }
     }
 
-    /// Blank lines are skipped but must not desynchronise the line numbering.
+    /// Blank lines must not desynchronise the line numbering, and #3333: they
+    /// stay in the text, so line `i` of a record is file line `start_line + i`.
     #[test]
     fn blank_lines_do_not_break_numbering() {
         let out = run(&["alpha", "", "beta", "", "gamma"]);
@@ -585,6 +651,124 @@ mod chunk_tests {
             out[0].2, 5,
             "end_line must be the real file line of `gamma`"
         );
+        assert_eq!(out[0].0, "alpha\n\nbeta\n\ngamma");
+    }
+
+    /// Runs `extract_lines` over raw `bytes`; returns (text, start, end, locator).
+    fn run_bytes(bytes: &[u8]) -> Vec<(String, u64, u64, String)> {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("hasync.volt");
+        std::fs::write(&p, bytes).unwrap();
+        let mut out = Vec::new();
+        {
+            let mut sink = |r: RawRecord| {
+                out.push((
+                    r.fields["text"].as_str().unwrap().to_string(),
+                    r.fields["start_line"].as_u64().unwrap(),
+                    r.fields["end_line"].as_u64().unwrap(),
+                    r.locator.clone(),
+                ));
+                true
+            };
+            extract_lines(&p, false, None, false, &mut sink).unwrap();
+        }
+        out
+    }
+
+    /// #3333, FAIL-BEFORE: the blocks dropped blank lines, so a 1..=42 span
+    /// stored 40 lines and `mapDataToFormUI` on file line 30 counted out to
+    /// line 29. The file is the oracle: every stored line `i` of every record
+    /// is file line `start_line + i` (blank and whitespace-only lines stored
+    /// empty), the locator is that line's byte offset, a record neither
+    /// starts nor ends on a blank line, and every non-blank line is in some
+    /// record — across LF/CRLF, with and without a trailing newline, and
+    /// with the byte cap cutting windows short.
+    #[test]
+    fn stored_lines_map_to_file_lines_3333() {
+        let long = format!("long {}", "z".repeat(3000));
+        let mut lines: Vec<String> = Vec::new();
+        for i in 1..=180 {
+            lines.push(match i {
+                1 | 2 => String::new(),
+                _ if i % 7 == 0 => String::new(),
+                _ if i % 11 == 0 => "   \t".to_string(),
+                30 => "    mapDataToFormUI(data_get_map).done(function () {".to_string(),
+                _ if (90..=96).contains(&i) => format!("{long} {i}"),
+                _ => format!("line {i} {{ ajaxCall(); }}"),
+            });
+        }
+        lines.push(String::new());
+        lines.push(String::new());
+        for (eol, trailing) in [("\n", true), ("\r\n", true), ("\n", false), ("\r\n", false)] {
+            let mut body = lines.join(eol);
+            if trailing {
+                body.push_str(eol);
+            } else {
+                body.push_str("last line");
+            }
+            let file: Vec<&str> = body.split('\n').collect();
+            let mut line_byte = vec![0u64];
+            for l in &file {
+                line_byte.push(line_byte.last().unwrap() + l.len() as u64 + 1);
+            }
+            let want = |n: u64| -> String {
+                let l = file[n as usize - 1].trim_end_matches('\r');
+                if l.trim().is_empty() {
+                    String::new()
+                } else {
+                    l.to_string()
+                }
+            };
+            let out = run_bytes(body.as_bytes());
+            assert!(out.len() >= 5, "{eol:?}: several windows");
+            for (text, s, e, loc) in &out {
+                let got: Vec<&str> = text.split('\n').collect();
+                assert_eq!(
+                    got.len() as u64,
+                    e - s + 1,
+                    "{eol:?} {s}..={e}: text holds every line of its span"
+                );
+                for (i, l) in got.iter().enumerate() {
+                    assert_eq!(*l, want(s + i as u64), "{eol:?}: line {}", s + i as u64);
+                }
+                assert!(!got[0].is_empty() && !got[got.len() - 1].is_empty());
+                assert_eq!(*loc, format!("b{}", line_byte[*s as usize - 1]));
+            }
+            for n in 1..=file.len() as u64 {
+                if !want(n).is_empty() {
+                    assert!(
+                        out.iter().any(|(_, s, e, _)| *s <= n && n <= *e),
+                        "{eol:?}: line {n} in no record"
+                    );
+                }
+            }
+            let first = &out[0];
+            assert_eq!(first.1, 3, "two leading blank lines");
+            let hit = first.0.lines().position(|l| l.contains("mapDataToFormUI"));
+            assert_eq!(hit.map(|i| first.1 + i as u64), Some(30));
+            if !trailing {
+                assert!(out.last().unwrap().0.ends_with("last line"));
+            }
+        }
+    }
+
+    /// The window sizes still count non-blank lines, so blank lines do not
+    /// shrink a window or move its boundaries (and its locator id).
+    #[test]
+    fn blank_lines_do_not_shrink_windows() {
+        let mut lines = Vec::new();
+        for i in 1..=100 {
+            lines.push(format!("l{i}"));
+            lines.push(String::new());
+        }
+        let out = run_bytes(format!("{}\n", lines.join("\n")).as_bytes());
+        let dense: Vec<String> = (1..=100).map(|i| format!("l{i}")).collect();
+        let base = run_bytes(format!("{}\n", dense.join("\n")).as_bytes());
+        assert_eq!(out.len(), base.len());
+        for (a, b) in out.iter().zip(&base) {
+            assert_eq!(a.1, 2 * b.1 - 1, "same first line, spread out");
+            assert_eq!(a.2, 2 * b.2 - 1, "same last line, spread out");
+        }
     }
 
     /// #1941: a prose section carries the FILE line it starts on, so a hit can
