@@ -1,0 +1,36 @@
+== base [xs] how does the WAL rotate segments
+  1.  2030.751  engine/crates/xerj-storage/src/wal.rs  kind= name= line=1
+  2.  2025.986  engine/crates/xerj-storage/src/index_store.rs  kind= name= line=1
+  3.  2020.564  engine/crates/xerj-common/src/config.rs  kind= name= line=1
+  4.  2019.718  engine/crates/xerj-engine/src/engine.rs  kind= name= line=1
+  5.  2017.914  engine/crates/xerj-autoindex/src/search.rs  kind= name= line=1
+== new [xs] how does the WAL rotate segments
+  1.  2030.751  engine/crates/xerj-storage/src/wal.rs  kind= name= line=1
+  2.  2025.986  engine/crates/xerj-storage/src/index_store.rs  kind= name= line=1
+  3.  2020.564  engine/crates/xerj-common/src/config.rs  kind= name= line=1
+  4.  2019.718  engine/crates/xerj-engine/src/engine.rs  kind= name= line=1
+  5.  2017.914  engine/crates/xerj-autoindex/src/search.rs  kind= name= line=1
+== base [xs] lexical feature hashing embedder
+  1.  2125.799  engine/crates/xerj-ai/src/embedder.rs  kind= name= line=1
+  2.  2093.596  scripts/seo/claims_rules.py  kind= name= line=1
+  3.  2081.088  engine/crates/xerj-ai/src/neural.rs  kind= name= line=1
+  4.  2075.711  docs/measurements/autoindex-watch-2026-09-19.md  kind= name= line=1
+  5.  2072.255  AGENTS.md  kind= name= line=200
+== new [xs] lexical feature hashing embedder
+  1.  2125.799  engine/crates/xerj-ai/src/embedder.rs  kind= name= line=1
+  2.  2093.596  scripts/seo/claims_rules.py  kind= name= line=1
+  3.  2081.088  engine/crates/xerj-ai/src/neural.rs  kind= name= line=1
+  4.  2072.255  AGENTS.md  kind= name= line=200
+  5.  2071.727  benchmarks/beir-hybrid/results/2026-09-30-stemming-1059/gate-summary.txt  kind= name= line=32
+== base [xs] autoindex resume journal
+  1.  2075.225  docs/research/llms-txt-2026-09/proposals/proposed-llms-install.md  kind= name= line=267
+  2.  2067.201  docs/research/llms-txt-2026-09/proposals/proposed-llms-install.md  kind= name= line=253
+  3.  2061.022  user-feedback/16-agent-field-reports/2026-11-02-rust-rag-design-corpus-hub.md  kind= name= line=1
+  4.  2055.562  tools/xerj-code/SKILL.md  kind= name= line=188
+  5.  2027.332  engine/crates/xerj-autoindex/src/state.rs  kind= name= line=1
+== new [xs] autoindex resume journal
+  1.  2061.022  user-feedback/16-agent-field-reports/2026-11-02-rust-rag-design-corpus-hub.md  kind= name= line=1
+  2.  2055.562  tools/xerj-code/SKILL.md  kind= name= line=188
+  3.  2027.332  engine/crates/xerj-autoindex/src/state.rs  kind= name= line=1
+  4.  2021.281  engine/crates/xerj-autoindex/src/lib.rs  kind= name= line=1
+  5.  2019.834  engine/crates/xerj-autoindex/src/xc.rs  kind= name= line=1

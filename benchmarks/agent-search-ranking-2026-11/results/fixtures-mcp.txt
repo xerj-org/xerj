@@ -1,0 +1,33 @@
+##### base
+== mcp [cr] 雷同
+  1.     2.857  b-noise.md  kind=
+  2.     2.826  c-noise.md  kind=
+  3.     2.506  a-target.md  kind=
+== mcp [cr] 无名小炒
+  1.     5.492  e-noise.md  kind=
+  2.     4.874  d-target-dish.md  kind=
+  3.     3.975  f-noise.md  kind=
+== mcp [tk] query live orders
+  1.  2002.575  README.md  kind=
+  2.  2002.404  docs/orders.md  kind=
+  3.  2002.038  trader_broker_demo/query_orders.py  kind=
+  4.  2000.311  src/orders/live.rs  kind=
+== mcp [ps] Position.open_price
+##### new
+== mcp [cr] 雷同
+  1.    12.532  a-target.md  kind=
+  2.     2.857  b-noise.md  kind=
+  3.     2.826  c-noise.md  kind=
+== mcp [cr] 无名小炒
+  1.    24.371  d-target-dish.md  kind=
+  2.     5.492  e-noise.md  kind=
+  3.     3.975  f-noise.md  kind=
+== mcp [tk] query live orders
+  1.  2000.311  src/orders/live.rs  kind=
+  2.  1001.288  README.md  kind=
+  3.  1001.202  docs/orders.md  kind=
+  4.  1001.019  trader_broker_demo/query_orders.py  kind=
+== mcp [ps] Position.open_price
+  1.    20.931  core/src/position.rs  kind=struct
+  2.     8.000  strategy/src/open_jump.rs  kind=
+  3.     4.000  strategy/src/open_jump.rs  kind=function
