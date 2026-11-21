@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-tools, claude-code, codex queries this for how eogee/a4agent implements it: a4agent\uff080.4.0 \u8d77\u7531 a4api \u662f\u300c\u516b\u7aef AI \u7f16\u7a0b\u5de5\u5177\u7ba1\u7406\u53f0 + \u672c\u5730\u5927\u6a21\u578b\u63a8\u7406\u63a7\u5236\u53f0\u300d\uff1a\u4e3a Claude Code\u3001Codex\u3001dsh\uff08DeepSeek Harness\uff09\u3001ZCode\u3001pi\u3001Qoder\u3001OpenCode \u4e0e WorkBuddy \u63d0\u4f9b\u7edf\u4e00\u7684\u6280\u80fd\u7ba1\u7406 (selected work: backend, resources, tools)",
+ "domain": "an agent working on ai-tools, claude-code, codex queries this for how eogee/a4agent implements it: a4agent\uff080.4.0 \u8d77\u7531 a4api \u662f\u300c\u591a\u7aef AI \u7f16\u7a0b\u5de5\u5177\u7ba1\u7406\u53f0 + \u672c\u5730\u5927\u6a21\u578b\u63a8\u7406\u63a7\u5236\u53f0\u300d\uff1a\u4e3a Claude Code\u3001Codex\u3001dsh\uff08DeepSeek Harness\uff09\u3001ZCode\u3001pi\u3001Qoder\u3001OpenCode \u4e0e WorkBuddy \u63d0\u4f9b\u7edf\u4e00\u7684\u6280\u80fd\u7ba1\u7406 (selected work: backend, resources, tools)",
  "repos": [
   {
    "repo": "a4agent",
