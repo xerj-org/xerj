@@ -8,15 +8,15 @@
   {
    "repo": "papercompany-runtime",
    "url": "https://github.com/insightflo/papercompany-runtime",
-   "sha": "d1df83ba74d749e5e416f5cf3c8db2ce387d89e1",
-   "licence": "AGPL-3.0 (LICENSE file at pin d1df83ba74d7, GitHub licence API 2026-11-21)",
+   "sha": "b1f9a5b6b014a2620bb59703cb1fb0d5b4a90057",
+   "licence": "AGPL-3.0 (LICENSE file at pin b1f9a5b6b014, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-14T21:50Z",
     "consent_receipt": "9e9b7b24e2a7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T21:50Z (receipt 9e9b7b24e2a7); selected commit d1df83ba74d7: \"feat(search): experimental broad-search allowlists (company/mission/a\u2026\". LICENSE file at pin d1df83ba74d7 detected as AGPL-3.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Pinned to head d1df83ba74d7 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T21:50Z (receipt 9e9b7b24e2a7); selected commit b1f9a5b6b014: \"feat(search): experimental broad-search allowlists (company/mission/a\u2026\". LICENSE file at pin b1f9a5b6b014 detected as AGPL-3.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Pinned to head b1f9a5b6b014 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

@@ -1,9 +1,9 @@
 {
- "corpus": "kundankishore8929-gif--ripple-drive",
+ "corpus": "kundankishore8929-gif--spotlight-drive",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on fskit, google-drive, macos queries this for how kundankishore8929-gif/ripple-drive implements it: Your whole Google Drive as a disk on your Mac, or a drive on Windows (beta). Files stream as you use them, so they take almost no space. mac (selected work: windows)",
+ "domain": "an agent working on fskit, google-drive, macos queries this for how kundankishore8929-gif/spotlight-drive implements it: Your whole Google Drive as a disk on your Mac, or a drive on Windows (beta). Files stream as you use them, so they take almost no space. mac (selected work: windows)",
  "repos": [
   {
    "repo": "ripple-drive",

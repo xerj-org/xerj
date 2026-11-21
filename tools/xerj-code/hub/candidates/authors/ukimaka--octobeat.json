@@ -2,8 +2,8 @@
  "corpus": "ukimaka--octobeat",
  "cloned_at": null,
  "status": "draft",
- "shelf": "DB",
- "domain": "an agent working on Python queries this for how ukimaka/OctoBeat implements it: A lightweight, native desktop music player built with PyQt5 and SQLite. No Electron \u2014 just your local music with modern features (selected work: the project root)",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how ukimaka/OctoBeat implements it: OctoBeat is a local music player with YouTube search, downloads, playlists, cover art, lyrics, MPRIS media keys and a native Rust audio engi (selected work: the project root)",
  "repos": [
   {
    "repo": "OctoBeat",

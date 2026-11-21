@@ -8,15 +8,15 @@
   {
    "repo": "SIPPER",
    "url": "https://github.com/Yafet-wenda/SIPPER",
-   "sha": "93beef373ede3c68b0b20ed0a8c2754273db3670",
-   "licence": "MIT (LICENSE file at pin 93beef373ede, GitHub licence API 2026-11-21)",
+   "sha": "5f14bd7d09f367b27ecca4661360c244c2fca913",
+   "licence": "MIT (LICENSE file at pin 5f14bd7d09f3, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-14T10:35Z",
     "consent_receipt": "3c85c6e9a1f5",
-    "note": "Inclusion consented by the commit author by email at 2026-11-14T10:35Z (receipt 3c85c6e9a1f5); selected commit 93beef373ede: \"feat(prod): aktifkan TLS, batas waktu OCR, penutupan kartu, dan tugas\u2026\". LICENSE file at pin 93beef373ede detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution. Pinned to head 93beef373ede (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T10:35Z (receipt 3c85c6e9a1f5); selected commit 5f14bd7d09f3: \"feat(prod): aktifkan TLS, batas waktu OCR, penutupan kartu, dan tugas\u2026\". LICENSE file at pin 5f14bd7d09f3 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution. Pinned to head 5f14bd7d09f3 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
