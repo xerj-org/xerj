@@ -2330,6 +2330,29 @@ mod tests {
         assert!(!rendered.contains("\"code\""), "{rendered}");
     }
 
+    /// #3007: the 1000-point coverage tiers (#2327) stay on code corpora and
+    /// the historical unread-mapping body, and leave a prose mapping, where
+    /// they ranked "matches half the words" above BM25 (BEIR SciFact nDCG@10
+    /// 0.6229 with them, 0.6550 without).
+    #[test]
+    fn coverage_clauses_only_on_code_corpora() {
+        let question = "microstructural development of newborn white matter";
+        let has_coverage = |body: &Value| body.to_string().contains("constant_score");
+        let prose = names_of(&["title", "text"]);
+        let body = search_query_body_for_mapping(question, 10, Some(&prose), None);
+        assert!(!has_coverage(&body), "{body}");
+        let should = body["query"]["bool"]["should"].as_array().unwrap();
+        assert_eq!(should[0]["multi_match"]["fields"], json!(["title", "text"]));
+        let code = names_of(&["name", "code", "body", "defs", "text"]);
+        assert!(has_coverage(&search_query_body_for_mapping(
+            question,
+            10,
+            Some(&code),
+            None
+        )));
+        assert!(has_coverage(&search_query_body(question, 10)));
+    }
+
     /// A log index whose text lives in `message` still gets a query the
     /// strict mapping will accept.
     #[test]
@@ -2337,12 +2360,12 @@ mod tests {
         let mapped = names_of(&["message", "ts", "host"]);
         let body = search_query_body_for_mapping("SIP 403 Forbidden", 3, Some(&mapped), None);
         let should = body["query"]["bool"]["should"].as_array().unwrap();
-        // Recall multi_match, the exact-phrase leg, then the two coverage
-        // clauses a three-token question adds (#2327).
-        assert_eq!(should.len(), 4, "{body}");
+        // Recall multi_match and the exact-phrase leg. No coverage clauses:
+        // those are for code corpora (#2327), and on prose they cost BEIR
+        // nDCG (#3007).
+        assert_eq!(should.len(), 2, "{body}");
         assert_eq!(should[0]["multi_match"]["fields"], json!(["message"]));
-        assert!(should[2].get("constant_score").is_some(), "{body}");
-        assert!(should[3].get("constant_score").is_some(), "{body}");
+        assert!(!body.to_string().contains("constant_score"), "{body}");
         assert_eq!(phrase_fields(&body), vec!["message"], "{body}");
         let rendered = body["query"].to_string();
         assert!(!rendered.contains("\"code\""), "{rendered}");
