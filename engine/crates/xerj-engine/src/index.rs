@@ -26473,6 +26473,7 @@ impl Index {
                     self.build_collection_stats(
                         &snap,
                         query,
+                        &dmq_schema,
                         &text_fields,
                         &exact_fields,
                         fts_kw_fields,
@@ -26488,6 +26489,20 @@ impl Index {
 
         let mem_snapshot = {
             let mem = &*self.memtable;
+            // #3329: the analyzer the multi_match / phrase / filtered-bool
+            // memtable arms count query tokens with. Taken once, and only for
+            // the shapes those arms can serve (a shard read lock per call).
+            let mem_analyzer = if mem_doc_count > 0
+                && matches!(
+                    query,
+                    QueryNode::MultiMatch { .. }
+                        | QueryNode::MatchPhrase { .. }
+                        | QueryNode::Bool { .. }
+                ) {
+                mem.default_analyzer()
+            } else {
+                None
+            };
             if mem_doc_count == 0 {
                 MemSnapshot::Empty
             } else if matches!(query, QueryNode::MatchAll) && size == 0 && request.aggs.is_none() {
@@ -26619,8 +26634,90 @@ impl Index {
                         uncollected,
                     )
                 }
-            } else if let Some((bf_field, bf_text, bf_must, bf_gate)) =
-                bool_filter_mem_fts_must(query)
+            } else if let Some((mm_subs, mm_tie)) =
+                multi_match_mem_fts_subs(query, &dmq_schema, &text_fields, mem_analyzer.as_deref())
+            {
+                // #3329: a field-centric `multi_match` used to fall through
+                // to the stored-doc scan, whose scorer gives 1.0 per matched
+                // field — every buffered hit tied and the ranking changed at
+                // flush (BEIR scifact nDCG@10 0.19 unflushed vs 0.62
+                // flushed). Score each field through the SAME memtable BM25
+                // path a standalone `match` takes and combine per doc like the
+                // segment projection: MAX for `best_fields`, SUM for
+                // `most_fields` / `cross_fields`. Same ghost-window widening
+                // as the `dis_max` arm above.
+                let mem_limit = if self.store.version_map.ghost_events() > 0 {
+                    usize::MAX
+                } else {
+                    fetch_limit
+                };
+                let mem_stats = collection_stats();
+                let (hits, mem_total) = mem.search_dis_max_boosted_with_total_using(
+                    &mm_subs,
+                    mm_tie,
+                    mem_limit,
+                    mem_stats.as_deref(),
+                );
+                if hits.is_empty() {
+                    MemSnapshot::Empty
+                } else {
+                    let uncollected = mem_total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::FtsHits(
+                        hits.into_iter().map(|h| (h.doc_id, h.score)).collect(),
+                        uncollected,
+                    )
+                }
+            } else if let Some(ph_subs) = self
+                .scan_phrase_analyzer()
+                .is_none()
+                .then(|| {
+                    phrase_mem_fts_subs(query, &dmq_schema, &text_fields, mem_analyzer.as_deref())
+                })
+                .flatten()
+            {
+                // #3329: `match_phrase` and `multi_match` `type: phrase` fell
+                // to the stored-doc scan too (1.0 per hit). Score each field
+                // like a `match` of the phrase text — what the segment's
+                // `execute_phrase` sums for a matching doc — gated by the
+                // stored-doc phrase predicate the scan already used, combined
+                // by MAX (dis_max, tie 0.0) like the segment projection.
+                // Each sub runs UNCAPPED inside
+                // `search_dis_max_gated_with_total_using` (a capped page could
+                // lose a gated hit); only the combined list is capped.
+                // Standard text analyzer only: under a non-standard one
+                // (`code`, #3285) the scan's phrase predicate needs the
+                // `ScanPhraseAnalyzer` scope and the segment phrase walks
+                // stacked positions, so that index keeps the doc-scan route.
+                let mem_limit = if self.store.version_map.ghost_events() > 0 {
+                    usize::MAX
+                } else {
+                    fetch_limit
+                };
+                let subs: Vec<(&str, &str, f32)> = ph_subs.iter().map(|(sub, _)| *sub).collect();
+                let admit = |i: usize, doc_id: &str| {
+                    mem.get_doc_source_arc(doc_id).is_some_and(|src| {
+                        doc_matches_query_typed(&ph_subs[i].1, &src, &dmq_schema)
+                    })
+                };
+                let mem_stats = collection_stats();
+                let (hits, mem_total) = mem.search_dis_max_gated_with_total_using(
+                    &subs,
+                    0.0,
+                    mem_limit,
+                    mem_stats.as_deref(),
+                    &admit,
+                );
+                if hits.is_empty() {
+                    MemSnapshot::Empty
+                } else {
+                    let uncollected = mem_total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::FtsHits(
+                        hits.into_iter().map(|h| (h.doc_id, h.score)).collect(),
+                        uncollected,
+                    )
+                }
+            } else if let Some((bf_plan, bf_must, bf_gate)) =
+                bool_filter_mem_fts_must(query, &dmq_schema, &text_fields, mem_analyzer.as_deref())
             {
                 // #2403: `bool{must:[match], filter|must_not:[..]}` used to
                 // fall through to the stored-doc scan, which scored every
@@ -26633,17 +26730,31 @@ impl Index {
                 // admits. UNCAPPED: the gate runs after scoring, so a capped
                 // list could drop a hit the gate would keep, and the consume
                 // arm's ghost-window liveness filter needs every hit anyway.
-                let mut field_boosts: std::collections::HashMap<String, f32> =
-                    std::collections::HashMap::new();
-                collect_field_boosts(bf_must, &mut field_boosts);
+                //
+                // #3329: a `multi_match` `must` scores through the same
+                // per-field combine as the standalone `multi_match` arm above.
                 let mem_stats = collection_stats();
-                let (hits, _) = mem.search_text_boosted_with_total_using(
-                    bf_text,
-                    &[bf_field],
-                    usize::MAX,
-                    &field_boosts,
-                    mem_stats.as_deref(),
-                );
+                let (hits, _) = match bf_plan {
+                    MemFtsMust::Match(bf_field, bf_text) => {
+                        let mut field_boosts: std::collections::HashMap<String, f32> =
+                            std::collections::HashMap::new();
+                        collect_field_boosts(bf_must, &mut field_boosts);
+                        mem.search_text_boosted_with_total_using(
+                            bf_text,
+                            &[bf_field],
+                            usize::MAX,
+                            &field_boosts,
+                            mem_stats.as_deref(),
+                        )
+                    }
+                    MemFtsMust::MultiMatch(subs, tie) => mem
+                        .search_dis_max_boosted_with_total_using(
+                            &subs,
+                            tie,
+                            usize::MAX,
+                            mem_stats.as_deref(),
+                        ),
+                };
                 // Same conservative `_id` detection as the doc-scan arm: only
                 // a gate that can read `_id` pays for injecting it.
                 let gate_may_read_id: bool = serde_json::to_string(&bf_gate)
@@ -34555,6 +34666,7 @@ impl Index {
         &self,
         snap: &xerj_storage::index_store::IndexSnapshot,
         query: &QueryNode,
+        schema: &Schema,
         text_fields: &[String],
         exact_fields: &HashSet<String>,
         keyword_fields: &HashSet<String>,
@@ -34624,11 +34736,31 @@ impl Index {
         // A filtered `bool` (#2403) has no query text of its own, but its
         // memtable arm scores the one `must` match: count that clause, or a
         // mixed index scores its segment hits against a union that left the
-        // unflushed docs out.
-        let mem_text = match bool_filter_mem_fts_must(query) {
-            Some((_, text, _, _)) => Some(text.to_string()),
-            None => extract_query_text(query),
-        };
+        // unflushed docs out. A field-centric `multi_match` (#3329) has no
+        // `extract_query_text` either; its memtable arm scores its query text
+        // over its fields, so count that too.
+        let mem_analyzer = self.memtable.default_analyzer();
+        let mem_text =
+            match bool_filter_mem_fts_must(query, schema, text_fields, mem_analyzer.as_deref()) {
+                Some((plan, _, _)) => plan.text().map(str::to_string),
+                None => extract_query_text(query)
+                    .or_else(|| {
+                        multi_match_mem_fts_subs(
+                            query,
+                            schema,
+                            text_fields,
+                            mem_analyzer.as_deref(),
+                        )
+                        .and_then(|(subs, _)| subs.first().map(|s| s.1.to_string()))
+                    })
+                    .or_else(|| {
+                        if self.scan_phrase_analyzer().is_some() {
+                            return None;
+                        }
+                        phrase_mem_fts_subs(query, schema, text_fields, mem_analyzer.as_deref())
+                            .and_then(|subs| subs.first().map(|((_, text, _), _)| text.to_string()))
+                    }),
+            };
         let mem_stats: Option<xerj_fts::CollectionStats> = if mem_doc_count > 0 {
             mem_text.and_then(|text| self.memtable.collection_stats(&text, &field_refs))
         } else {
@@ -53023,6 +53155,199 @@ fn dis_max_mem_fts_subs(q: &QueryNode) -> Option<(Vec<(&str, &str, f32)>, f32)> 
     }
 }
 
+/// The per-field `(field, query, boost)` subs and the combine `tie_breaker`
+/// of a field-centric `multi_match` the memtable BM25 path can score the way
+/// the segment projection does (#3329).
+///
+/// `query_node_to_fts_projected` lowers `best_fields` / `most_fields` /
+/// `cross_fields` to one clause per field — the per-token BM25 sum, times the
+/// field's `^boost` — and combines them with `dis_max` (tie 0.0) for
+/// `best_fields` and a summing `bool.should` for the other two, under the
+/// outer `boost`. Each field clause is exactly what the memtable scores for a
+/// standalone single-field `match`, so the combination is
+/// `max + tie × (Σ − max)` with tie 0.0 (max) or 1.0 (sum), and the outer
+/// boost folds into every sub because both combines are linear.
+///
+/// Without this every buffered `multi_match` hit took the stored-doc scan,
+/// whose scorer gives 1.0 per matched field, so the ranking changed at
+/// `_flush` (BEIR scifact nDCG@10 0.19 unflushed vs 0.62 flushed).
+///
+/// Declines (`None`, keeping the doc-scan route) wherever the segment
+/// projection would take a different path or the memtable could not
+/// reproduce it: phrase types, a per-query `analyzer`, multi-token
+/// `operator: and`, a query that analyses to no token, a wildcard field, or
+/// any field that is not an analysed, indexed `text` field of the mapping
+/// (keyword fields are already split out by
+/// `rewrite_keyword_full_text_to_term`; unmapped and dotted sub-field names
+/// keep their existing routing).
+fn multi_match_mem_fts_subs<'a>(
+    q: &'a QueryNode,
+    schema: &Schema,
+    text_fields: &'a [String],
+    analyzer: Option<&AnalyzerPipeline>,
+) -> Option<(Vec<(&'a str, &'a str, f32)>, f32)> {
+    use xerj_query::ast::{BoolOperator, MultiMatchType};
+    let QueryNode::MultiMatch {
+        fields,
+        query,
+        match_type,
+        operator,
+        analyzer: None,
+        boost,
+        ..
+    } = q
+    else {
+        return None;
+    };
+    let tie = match match_type {
+        MultiMatchType::BestFields => 0.0,
+        MultiMatchType::MostFields | MultiMatchType::CrossFields => 1.0,
+        MultiMatchType::Phrase | MultiMatchType::PhrasePrefix => return None,
+    };
+    let tokens = analyzer?.analyze(query).len();
+    if tokens == 0 || (matches!(operator, Some(BoolOperator::And)) && tokens > 1) {
+        return None;
+    }
+    let outer = boost.unwrap_or(1.0);
+    let specs: Vec<(&'a str, f32)> = if fields.is_empty() {
+        text_fields.iter().map(|f| (f.as_str(), 1.0)).collect()
+    } else {
+        fields.iter().map(|s| parse_field_boost(s)).collect()
+    };
+    if specs.is_empty()
+        || !specs
+            .iter()
+            .all(|(f, _)| mem_fts_scorable_text_field(schema, f))
+    {
+        return None;
+    }
+    Some((
+        specs
+            .into_iter()
+            .map(|(f, fb)| (f, query.as_str(), fb * outer))
+            .collect(),
+        tie,
+    ))
+}
+
+/// `true` when the memtable BM25 path scores `name` exactly as the segment
+/// does: an analysed, indexed `text` field of the mapping, named outright (no
+/// wildcard).
+fn mem_fts_scorable_text_field(schema: &Schema, name: &str) -> bool {
+    !name.contains('*')
+        && schema.fields.iter().any(|f| {
+            f.name == name
+                && matches!(f.field_type, FieldType::Text)
+                && f.options.indexed
+                && f.options.analyzed
+        })
+}
+
+/// Per-field phrase subs for the memtable BM25 path (#3329): each
+/// `(field, query, boost)` plus the single-field clause whose stored-doc
+/// match is that sub's membership gate.
+type MemPhraseSubs<'a> = Vec<((&'a str, &'a str, f32), QueryNode)>;
+
+/// The phrase shapes the segment projection lowers to positional
+/// `FtsQuery::Phrase` clauses (#3329): `match_phrase` with slop 0, and
+/// `multi_match` `type: phrase` (any slop, one clause per field, combined by
+/// `dis_max` with tie 0.0). `execute_phrase` scores a matching doc as the sum
+/// of its phrase terms' BM25 on that field — the same number a single-field
+/// `match` of the phrase text gives that doc — so the memtable scores each
+/// field through the `match` path and keeps only the docs the stored-doc
+/// phrase predicate admits (the predicate the doc-scan already used, so the
+/// hit set is unchanged).
+///
+/// Same declines as the segment projection plus the memtable's own:
+/// `phrase_prefix`, a per-query `analyzer`, sloppy `match_phrase`, a query
+/// with no analysed token, and any field that is not an analysed, indexed
+/// `text` field.
+fn phrase_mem_fts_subs<'a>(
+    q: &'a QueryNode,
+    schema: &Schema,
+    text_fields: &'a [String],
+    analyzer: Option<&AnalyzerPipeline>,
+) -> Option<MemPhraseSubs<'a>> {
+    match q {
+        QueryNode::MatchPhrase {
+            field,
+            query,
+            slop: 0,
+            analyzer: None,
+            boost,
+            ..
+        } => {
+            if !mem_fts_scorable_text_field(schema, field) || analyzer?.analyze(query).is_empty() {
+                return None;
+            }
+            Some(vec![(
+                (field.as_str(), query.as_str(), boost.unwrap_or(1.0)),
+                q.clone(),
+            )])
+        }
+        QueryNode::MultiMatch {
+            fields,
+            query,
+            match_type: xerj_query::ast::MultiMatchType::Phrase,
+            analyzer: None,
+            boost,
+            ..
+        } => {
+            if analyzer?.analyze(query).is_empty() {
+                return None;
+            }
+            let specs: Vec<&'a str> = if fields.is_empty() {
+                text_fields.iter().map(String::as_str).collect()
+            } else {
+                fields.iter().map(String::as_str).collect()
+            };
+            if specs.is_empty()
+                || !specs
+                    .iter()
+                    .all(|s| mem_fts_scorable_text_field(schema, parse_field_boost(s).0))
+            {
+                return None;
+            }
+            let outer = boost.unwrap_or(1.0);
+            Some(
+                specs
+                    .into_iter()
+                    .map(|spec| {
+                        let (field, fb) = parse_field_boost(spec);
+                        let mut gate = q.clone();
+                        if let QueryNode::MultiMatch { fields, .. } = &mut gate {
+                            *fields = vec![spec.to_string()];
+                        }
+                        ((field, query.as_str(), fb * outer), gate)
+                    })
+                    .collect(),
+            )
+        }
+        _ => None,
+    }
+}
+
+/// How the memtable BM25 path scores the lone `must` clause of a filtered
+/// `bool` (#2403, #3329).
+enum MemFtsMust<'a> {
+    /// A single-field `match`: `(field, query)`, boost via
+    /// `collect_field_boosts`.
+    Match(&'a str, &'a str),
+    /// A field-centric `multi_match`: per-field subs and the combine tie.
+    MultiMatch(Vec<(&'a str, &'a str, f32)>, f32),
+}
+
+impl MemFtsMust<'_> {
+    /// The query text the memtable scores, for its share of the index-wide
+    /// collection statistics.
+    fn text(&self) -> Option<&str> {
+        match self {
+            MemFtsMust::Match(_, text) => Some(text),
+            MemFtsMust::MultiMatch(subs, _) => subs.first().map(|s| s.1),
+        }
+    }
+}
+
 /// The lone `must` match's `(field, query)` and the non-scoring gate of a
 /// `bool{must:[match], filter:[..], must_not:[..]}` whose `must` clause would
 /// take the standalone-`Match` memtable FTS arm on its own (#2403): same
@@ -53033,7 +53358,15 @@ fn dis_max_mem_fts_subs(q: &QueryNode) -> Option<(Vec<(&str, &str, f32)>, f32)> 
 /// `filter` and `must_not` clauses, evaluated per hit by the stored-doc
 /// matcher, so membership stays what the doc-scan route enforced. Any other
 /// shape answers `None` and keeps its existing route.
-fn bool_filter_mem_fts_must(q: &QueryNode) -> Option<(&str, &str, &QueryNode, QueryNode)> {
+///
+/// #3329: a `multi_match` `must` clause qualifies on the same terms as a
+/// standalone one (`multi_match_mem_fts_subs`).
+fn bool_filter_mem_fts_must<'a>(
+    q: &'a QueryNode,
+    schema: &Schema,
+    text_fields: &'a [String],
+    analyzer: Option<&AnalyzerPipeline>,
+) -> Option<(MemFtsMust<'a>, &'a QueryNode, QueryNode)> {
     let QueryNode::Bool {
         must,
         should,
@@ -53052,18 +53385,24 @@ fn bool_filter_mem_fts_must(q: &QueryNode) -> Option<(&str, &str, &QueryNode, Qu
     // the index default, while the stored-doc matcher and the segment
     // projection honour it, so taking this arm would change the hit set at
     // flush.
-    let QueryNode::Match {
-        field,
-        query,
-        analyzer: None,
-        ..
-    } = clause
-    else {
-        return None;
+    let plan = match clause {
+        QueryNode::Match {
+            field,
+            query,
+            analyzer: None,
+            ..
+        } => {
+            if is_doc_scan_query(clause) || extract_query_text(clause).is_none() {
+                return None;
+            }
+            MemFtsMust::Match(field.as_str(), query.as_str())
+        }
+        QueryNode::MultiMatch { .. } => {
+            let (subs, tie) = multi_match_mem_fts_subs(clause, schema, text_fields, analyzer)?;
+            MemFtsMust::MultiMatch(subs, tie)
+        }
+        _ => return None,
     };
-    if is_doc_scan_query(clause) || extract_query_text(clause).is_none() {
-        return None;
-    }
     let gate = QueryNode::Bool {
         must: Vec::new(),
         should: Vec::new(),
@@ -53071,7 +53410,7 @@ fn bool_filter_mem_fts_must(q: &QueryNode) -> Option<(&str, &str, &QueryNode, Qu
         filter: filter.clone(),
         minimum_should_match: None,
     };
-    Some((field.as_str(), query.as_str(), clause, gate))
+    Some((plan, clause, gate))
 }
 
 /// Erase `bool` wrappers whose only clause is a single SCORING clause.
