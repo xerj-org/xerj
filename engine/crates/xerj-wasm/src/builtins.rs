@@ -282,6 +282,13 @@ impl TransformPlugin for AddFieldPlugin {
     }
 
     fn process(&self, doc: &mut Value) -> ProcessAction {
+        // Issue #3174: indexing into a non-object root panics under
+        // `IndexMut`, and the release profile aborts on panic. The engine
+        // refuses non-object documents before the pipeline runs; this keeps
+        // a direct `Pipeline` caller from hitting the same abort.
+        if !doc.is_object() {
+            return ProcessAction::Pass;
+        }
         doc[&self.field] = self.value.clone();
         ProcessAction::Pass
     }
@@ -864,6 +871,11 @@ impl TransformPlugin for SetPlugin {
     }
 
     fn process(&self, doc: &mut Value) -> ProcessAction {
+        // Issue #3174: see `AddFieldPlugin::process`. The write below
+        // panics on a non-object root under `IndexMut`.
+        if !doc.is_object() {
+            return ProcessAction::Pass;
+        }
         let exists = doc.get(&self.field).map(|v| !v.is_null()).unwrap_or(false);
 
         if self.override_existing || !exists {
@@ -1161,6 +1173,37 @@ mod tests {
         let mut doc = json!({ "status": "old" });
         plugin.process(&mut doc);
         assert_eq!(doc["status"], "new");
+    }
+
+    // Issue #3174: `serde_json` `IndexMut` panics on a non-object root,
+    // and the release profile aborts on panic, so one malformed document
+    // killed the whole node. The engine refuses non-object documents
+    // before the pipeline runs; the plugins themselves must not panic
+    // either, so a direct `Pipeline` caller cannot hit the same abort.
+    #[test]
+    fn add_field_passes_non_object_document_unchanged() {
+        let plugin = AddFieldPlugin::new("env", json!("production"));
+        let mut doc = json!([1, 2, 3]);
+        assert_eq!(plugin.process(&mut doc), ProcessAction::Pass);
+        assert_eq!(doc, json!([1, 2, 3]));
+    }
+
+    // ── SetPlugin ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn set_writes_new_field() {
+        let plugin = SetPlugin::new("env", json!("production"), false);
+        let mut doc = json!({ "msg": "hello" });
+        assert_eq!(plugin.process(&mut doc), ProcessAction::Pass);
+        assert_eq!(doc["env"], "production");
+    }
+
+    #[test]
+    fn set_passes_non_object_document_unchanged() {
+        let plugin = SetPlugin::new("env", json!("production"), true);
+        let mut doc = json!(["a", "b"]);
+        assert_eq!(plugin.process(&mut doc), ProcessAction::Pass);
+        assert_eq!(doc, json!(["a", "b"]));
     }
 
     // ── RoutePlugin ──────────────────────────────────────────────────────────
