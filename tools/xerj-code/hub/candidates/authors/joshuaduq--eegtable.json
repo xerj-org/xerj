@@ -2,8 +2,8 @@
  "corpus": "joshuaduq--eegtable",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how JoshuaDuq/EEGTable implements it: JoshuaDuq/EEGTable (Python) (selected work: tests, src/eegtable)",
+ "shelf": "AI",
+ "domain": "an agent working on bids, computational-neuroscience, eeg queries this for how JoshuaDuq/EEGTable implements it: Labelled, provenance-tracked EEG feature extraction from MNE objects: spectral, temporal, connectivity, complexity, cycle and microstate mea (selected work: tests, src/eegtable)",
  "repos": [
   {
    "repo": "EEGTable",

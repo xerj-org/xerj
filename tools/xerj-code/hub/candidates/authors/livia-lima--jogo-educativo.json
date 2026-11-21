@@ -1,0 +1,27 @@
+{
+ "corpus": "livia-lima--jogo-educativo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Game Maker Language queries this for how livia-lima/jogo-educativo implements it: Jogo educativo sobre cidades sustent\u00e1veis e casas inteligentes, desenvolvido para pessoas com defici\u00eancia intelectual, como crit\u00e9rio de aval (selected work: game)",
+ "repos": [
+  {
+   "repo": "jogo-educativo",
+   "url": "https://github.com/livia-lima/jogo-educativo",
+   "sha": "4cda2282ce87e8ca607c298844965616113a9bb2",
+   "licence": "MIT (LICENSE file at pin 4cda2282ce87, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T04:40Z",
+    "consent_receipt": "7060c21a8f6f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T04:40Z (receipt 7060c21a8f6f); selected commit 4cda2282ce87: \"Telas da Fase 2 e de falha + \u00e1udios\". LICENSE file at pin 4cda2282ce87 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @livia-lima, who has not added it."
+   },
+   "paths": [
+    "assets/game/assets&sprites",
+    "game/jogo-educativo"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "nicowalter256--ugpayments",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dart, east-africa, flutter queries this for how nicowalter256/ugpayments implements it: ugpayments is a Flutter package that simplifies payment integrations for Uganda-based applications. It provides a unified API for Mobile Mon (selected work: test, lib/src, the project root)",
+ "repos": [
+  {
+   "repo": "ugpayments",
+   "url": "https://github.com/nicowalter256/ugpayments",
+   "sha": "d5baddcb49db9a4e06bf6475363d4e5660c720fc",
+   "licence": "MIT (LICENSE file at pin d5baddcb49db, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T07:44Z",
+    "consent_receipt": "c3bb61b22a1b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T07:44Z (receipt c3bb61b22a1b); selected commit d5baddcb49db: \"fix: stop sending credentials to non-PesaPal hosts, cache IPN IDs, sc\u2026\". LICENSE file at pin d5baddcb49db detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

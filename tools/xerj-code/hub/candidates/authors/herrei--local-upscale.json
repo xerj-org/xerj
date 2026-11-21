@@ -1,0 +1,23 @@
+{
+ "corpus": "herrei--local-upscale",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apple-silicon, image-upscaling, pytorch queries this for how HerRei/local-upscale implements it: Free, open-source desktop app for offline AI image and video upscaling, denoising and restoration. Runs entirely on your machine: macOS (Met (selected work: desktop)",
+ "repos": [
+  {
+   "repo": "local-upscale",
+   "url": "https://github.com/HerRei/local-upscale",
+   "sha": "10f4ae8ecfd530ae3627cf87b457f164e6b8bfed",
+   "licence": "MIT (LICENSE file at pin 10f4ae8ecfd5, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T20:59Z",
+    "consent_receipt": "2db153822ddd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T20:59Z (receipt 2db153822ddd); selected commit 10f4ae8ecfd5: \"Compare video results: slider for two, boxes for three or four, one t\u2026\". LICENSE file at pin 10f4ae8ecfd5 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

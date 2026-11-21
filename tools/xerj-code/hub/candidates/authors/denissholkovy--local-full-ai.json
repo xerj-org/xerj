@@ -1,0 +1,23 @@
+{
+ "corpus": "denissholkovy--local-full-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how Denissholkovy/local-full-ai implements it: Denissholkovy/local-full-ai (JavaScript) (selected work: src, test, src/chat)",
+ "repos": [
+  {
+   "repo": "local-full-ai",
+   "url": "https://github.com/Denissholkovy/local-full-ai",
+   "sha": "4a39830fc3ad98aab26f846d1dd2add538d6c95b",
+   "licence": "MIT (LICENSE file at pin 4a39830fc3ad, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T15:52Z",
+    "consent_receipt": "37819de3552a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T15:52Z (receipt 37819de3552a); selected commit 4a39830fc3ad: \"Work modes, cloud and local fixes, images, completion, MCP and tests\". LICENSE file at pin 4a39830fc3ad detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

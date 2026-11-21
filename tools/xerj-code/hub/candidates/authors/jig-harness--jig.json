@@ -1,0 +1,29 @@
+{
+ "corpus": "jig-harness--jig",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how jig-harness/jig implements it: A jig for AI coding agents: modular delivery practices, shared skills and gates, and an auditor that scores your repository (selected work: plugin, tools)",
+ "repos": [
+  {
+   "repo": "jig",
+   "url": "https://github.com/jig-harness/jig",
+   "sha": "069f1ef53891993e2f82f0eee5aa2fe488f134f7",
+   "licence": "author's permission (LICENSE at pin 069f1ef53891: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T16:55Z",
+    "consent_receipt": "a442fb2ace80",
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T16:55Z (receipt a442fb2ace80); selected commit 069f1ef53891: \"feat(plugin): support Git Bash commands and Windows agent shims (#18)\". LICENSE at pin 069f1ef53891: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @jig-harness, who has not added it."
+   },
+   "paths": [
+    "changes",
+    "design",
+    "plugin",
+    "tools/plugin"
+   ]
+  }
+ ]
+}

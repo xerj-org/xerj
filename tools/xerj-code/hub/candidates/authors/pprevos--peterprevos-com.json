@@ -1,0 +1,23 @@
+{
+ "corpus": "pprevos--peterprevos-com",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Emacs Lisp queries this for how pprevos/peterprevos.com implements it: peterprevos.com Website and Gemini Capsule Publishing Engine (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "peterprevos.com",
+   "url": "https://github.com/pprevos/peterprevos.com",
+   "sha": "5fed623b86e139ec80e9ba63363df5493f5f2f7d",
+   "licence": "GPL-3.0 (LICENSE file at pin 5fed623b86e1, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T19:25Z",
+    "consent_receipt": "4ed4f5234720",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T19:25Z (receipt 4ed4f5234720); selected commit 5fed623b86e1: \"Final draft - website and capsule published\". LICENSE file at pin 5fed623b86e1 detected as GPL-3.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

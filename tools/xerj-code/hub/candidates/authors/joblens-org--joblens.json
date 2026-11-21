@@ -1,0 +1,30 @@
+{
+ "corpus": "joblens-org--joblens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how joblens-org/JobLens implements it: joblens-org/JobLens (C++) (selected work: src/common, tests, include)",
+ "repos": [
+  {
+   "repo": "JobLens",
+   "url": "https://github.com/joblens-org/JobLens",
+   "sha": "48996ab42d453ae0de9b1e86d12481d46a3cc1be",
+   "licence": "Apache-2.0 (LICENSE file at pin 48996ab42d45, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T04:21Z",
+    "consent_receipt": "f25e013bc113",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T04:21Z (receipt f25e013bc113); selected commit 48996ab42d45: \"fix(scheduler): \u963b\u6b62\u6162\u91c7\u96c6\u5668\u91cd\u590d\u6392\u961f\u5e76\u66b4\u9732\u91c7\u96c6\u5668/Job/\u961f\u5217\u72b6\u6001\". LICENSE file at pin 48996ab42d45 detected as Apache-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @joblens-org, who has not added it."
+   },
+   "paths": [
+    "include/common",
+    "include/core",
+    "src/common",
+    "src/core",
+    "tests/integration"
+   ]
+  }
+ ]
+}

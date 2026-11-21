@@ -1,0 +1,23 @@
+{
+ "corpus": "hamzadenizyilmaz--gib-framework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on e-fatura, e-fatura-v1, earsip queries this for how hamzadenizyilmaz/GIB-Framework implements it: G\u0130B (Gelir \u0130daresi Ba\u015fkanl\u0131\u011f\u0131) servisleri i\u00e7in .NET Core k\u00fct\u00fcphanesi: e-Fatura, e-Ar\u015fiv Portal, vergi numaras\u0131 / TC kimlik do\u011frulama, vergi  (selected work: GIBFramework, database, the project root)",
+ "repos": [
+  {
+   "repo": "GIB-Framework",
+   "url": "https://github.com/hamzadenizyilmaz/GIB-Framework",
+   "sha": "4c0faf9887908de33e90e15751b2124343d3de6c",
+   "licence": "GPL-3.0 (LICENSE file at pin 4c0faf988790, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T00:14Z",
+    "consent_receipt": "59446150a797",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T00:14Z (receipt 59446150a797); selected commit 4c0faf988790: \"GIB Framework v5.5.1\". LICENSE file at pin 4c0faf988790 detected as GPL-3.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

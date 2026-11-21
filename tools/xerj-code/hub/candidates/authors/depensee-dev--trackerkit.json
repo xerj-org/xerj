@@ -1,0 +1,31 @@
+{
+ "corpus": "depensee-dev--trackerkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how depensee-dev/trackerkit implements it: Unified async client library for Jira, Yandex Tracker (selected work: src/trackerkit, tests, examples)",
+ "repos": [
+  {
+   "repo": "trackerkit",
+   "url": "https://github.com/depensee-dev/trackerkit",
+   "sha": "615c4820b590b80812502e2ea435f2b751b82fa3",
+   "licence": "author's permission (LICENSE at pin 615c4820b590: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T18:55Z",
+    "consent_receipt": "c5b9c997ce3b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T18:55Z (receipt c5b9c997ce3b); selected commit 615c4820b590: \"add github\". LICENSE at pin 615c4820b590: NOASSERTION (repository: MIT); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @depensee-dev, who has not added it."
+   },
+   "paths": [
+    ".wheel-check/trackerkit",
+    ".wheel-check/trackerkit-0.4.0.dist-info",
+    "docs",
+    "examples",
+    "src/trackerkit",
+    "tests"
+   ]
+  }
+ ]
+}

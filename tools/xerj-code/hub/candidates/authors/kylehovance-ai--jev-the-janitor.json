@@ -1,0 +1,23 @@
+{
+ "corpus": "kylehovance-ai--jev-the-janitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on cli, knowledge-management, llm queries this for how kylehovance-ai/jev-the-janitor implements it: A brain scan for your Obsidian or markdown vault. Redacts each note on your machine, asks TypeSafe's Jev typed questions about it, and lets  (selected work: tests, the project root, janitor)",
+ "repos": [
+  {
+   "repo": "jev-the-janitor",
+   "url": "https://github.com/kylehovance-ai/jev-the-janitor",
+   "sha": "79be0508895233681d3e386129a190e0020b3c09",
+   "licence": "MIT (LICENSE file at pin 79be05088952, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T18:30Z",
+    "consent_receipt": "b1cb014e4a8c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T18:30Z (receipt b1cb014e4a8c); selected commit 79be05088952: \"jev-the-janitor 0.5.9: a short README, the detail in docs/, and what \u2026\". LICENSE file at pin 79be05088952 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

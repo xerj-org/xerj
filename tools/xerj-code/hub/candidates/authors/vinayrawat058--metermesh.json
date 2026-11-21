@@ -1,0 +1,23 @@
+{
+ "corpus": "vinayrawat058--metermesh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how vinayrawat058/metermesh implements it: Distributed usage ingestion mesh (selected work: cmd/ops, frontend, the project root)",
+ "repos": [
+  {
+   "repo": "metermesh",
+   "url": "https://github.com/vinayrawat058/metermesh",
+   "sha": "9033a494594876a54aa7954b44eade432208902f",
+   "licence": "MIT (LICENSE file at pin 9033a4945948, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T19:50Z",
+    "consent_receipt": "08c88d876a93",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T19:50Z (receipt 08c88d876a93); selected commit 9033a4945948: \"Add dashboard restart via a localhost ops service.\". LICENSE file at pin 9033a4945948 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}
