@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on openglobus, javascript, maps queries this for how openglobus/openglobus implements it: TypeScript/JavaScript 3D maps and geospatial data visualization engine library (selected work: src/renderer, tests, sandbox)",
+ "domain": "an agent working on openglobus, javascript, maps queries this for how openglobus/openglobus implements it: TypeScript/JavaScript 3D maps and geospatial data visualization engine library (selected work: sandbox, tests, src/layer)",
  "repos": [
   {
    "repo": "openglobus",
    "url": "https://github.com/openglobus/openglobus",
-   "sha": "02317a5f411732dfb5ab336397d39981bf0e6424",
-   "licence": "Apache-2.0 (LICENSE file at pin 02317a5f4117, GitHub licence API 2026-11-11)",
+   "sha": "c545856374f6ca48846ee42251d9c3d8921c53e9",
+   "licence": "Apache-2.0 (LICENSE file at pin c545856374f6, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-03T18:05Z",
-    "consent_receipt": "521ab1f76551",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T18:05Z (receipt 521ab1f76551); selected commit 02317a5f4117: \"video projector, multi video support. performance optimized\". LICENSE file at pin 02317a5f4117 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @openglobus, who has not added it."
+    "at": "2026-10-15T19:37Z",
+    "consent_receipt": "a6e2f5743d1b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T19:37Z (receipt a6e2f5743d1b); selected commit c545856374f6: \"optimize crs re-projection\". LICENSE file at pin c545856374f6 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @openglobus, who has not added it."
    },
    "paths": [
     "sandbox/entityGizmo",

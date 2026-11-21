@@ -8,15 +8,15 @@
   {
    "repo": "openlaunch-sdk",
    "url": "https://github.com/kobyldav/openlaunch-sdk",
-   "sha": "efb5ae4377838727257092c901eb00f5dba95e2d",
-   "licence": "MIT (LICENSE file at pin efb5ae437783, GitHub licence API 2026-11-17)",
+   "sha": "9e9e88f659e50dfe57e6bedd63f15ef463676288",
+   "licence": "MIT (LICENSE file at pin 9e9e88f659e5, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-05T15:32Z",
     "consent_receipt": "b15879213412",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T15:32Z (receipt b15879213412); pinned to the default-branch head. LICENSE file at pin efb5ae437783 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T15:32Z (receipt b15879213412); pinned to the default-branch head. LICENSE file at pin 9e9e88f659e5 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
    }
   }
  ]
