@@ -12245,6 +12245,10 @@ pub struct Index {
     /// Cold segments answered by row-selective hydration (observability and
     /// tests).
     cold_row_hydrations: AtomicU64,
+    /// #3018: hybrid requests whose deferred page could not be hydrated as
+    /// the version the legs scored (a concurrent write or merge), and were
+    /// answered by the undeferred pass instead.
+    hybrid_deferred_hand_backs: AtomicU64,
     /// Per-(segment, field, bounds) Range pre-filter position sets.
     /// `build_range_prefilter_cached` was cached in name only — it re-ran
     /// the O(matches) `range_doc_ids` walk + HashSet build per query per
@@ -12962,6 +12966,7 @@ impl Index {
             cold_stored_warm_live: std::sync::atomic::AtomicUsize::new(0),
             cold_stored_warms_skipped: AtomicU64::new(0),
             cold_row_hydrations: AtomicU64::new(0),
+            hybrid_deferred_hand_backs: AtomicU64::new(0),
         });
         let _ = index.self_ref.set(Arc::downgrade(&index));
         // #871 — event-driven merge scheduling: the store fires this hook on
@@ -13446,6 +13451,7 @@ impl Index {
             cold_stored_warm_live: std::sync::atomic::AtomicUsize::new(0),
             cold_stored_warms_skipped: AtomicU64::new(0),
             cold_row_hydrations: AtomicU64::new(0),
+            hybrid_deferred_hand_backs: AtomicU64::new(0),
         });
         let _ = index.self_ref.set(Arc::downgrade(&index));
         // #871 — event-driven merge scheduling (see `Index::create` and
@@ -20594,6 +20600,130 @@ impl Index {
         out
     }
 
+    /// #3018: fill the `_source` of the hybrid page hits a deferred leg left
+    /// `Null`, reading only those documents.
+    ///
+    /// Each one is read as the version the leg scored. The leg recorded the
+    /// hit's `seq_no` from the version-map entry it checked the scored copy
+    /// against, and a `seq_no` names exactly one write of the document. So
+    /// the entry is read again here: when it is live and still carries that
+    /// `seq_no`, the segment it names holds that very write (segments are
+    /// immutable; a flush or merge repoints a document without changing its
+    /// `seq_no`), and its row there is the document the leg scored. The row
+    /// is read from the segment's cached offset index when it is resident —
+    /// one JSON parse per page hit, the FTS walk's warm read — and
+    /// row-selectively otherwise (the cold FTS page read, #2422/#2423).
+    ///
+    /// `None` hands the request back to the undeferred pass: a hit without a
+    /// `seq_no`, a document deleted or rewritten since it was scored, one
+    /// that now lives in the memtable, or a segment that can no longer be
+    /// read (a merge retired it). Hits that already carry a source (memtable
+    /// documents, stored-scan hits) are kept as they are.
+    fn hydrate_deferred_hybrid_page(&self, mut page: Vec<Hit>) -> Option<Vec<Hit>> {
+        // segment -> (doc count, [(page slot, row)])
+        let mut by_segment: HashMap<Arc<str>, Vec<(usize, u32)>> = HashMap::new();
+        let mut wanted: Vec<usize> = Vec::new();
+        for (slot, hit) in page.iter().enumerate() {
+            if hit.source.is_null() {
+                wanted.push(slot);
+            }
+        }
+        if wanted.is_empty() {
+            return Some(page);
+        }
+        let snap = self.store.snapshot();
+        let mut doc_counts: HashMap<Arc<str>, u64> = HashMap::new();
+        for slot in wanted {
+            let hit = &page[slot];
+            let seq_no = hit.seq_no?;
+            let entry = self.store.version_map.get(&hit.id)?;
+            if entry.deleted || entry.seq_no.saturating_sub(1) != seq_no {
+                return None;
+            }
+            let segment = Arc::clone(&entry.segment_id);
+            drop(entry);
+            if &*segment == xerj_storage::version_map::IN_MEMORY_SEGMENT_ID {
+                return None;
+            }
+            let doc_count = match doc_counts.get(&segment) {
+                Some(&count) => count,
+                None => {
+                    // Same resolution as GET: the snapshot, else the segment
+                    // header (a merged segment between repoint and publish).
+                    let count = match snap.segments.iter().find(|m| m.id.as_str() == &*segment) {
+                        Some(meta) => meta.doc_count,
+                        None => {
+                            self.store
+                                .open_segment_arc(&segment)
+                                .ok()?
+                                .header()
+                                .doc_count
+                        }
+                    };
+                    doc_counts.insert(Arc::clone(&segment), count);
+                    count
+                }
+            };
+            let position = *self.id_pos_map_for(&segment, doc_count)?.get(&hit.id)?;
+            by_segment
+                .entry(segment)
+                .or_default()
+                .push((slot, position));
+        }
+        drop(snap);
+        for (segment, rows) in by_segment {
+            let doc_count = doc_counts.get(&segment).copied().unwrap_or(0);
+            let warm = self
+                .stored_slices_cache
+                .get(&*segment)
+                .map(|entry| Arc::clone(entry.value()));
+            let positions: Vec<u32> = rows.iter().map(|&(_, position)| position).collect();
+            let cold = match warm {
+                Some(_) => None,
+                None => self.hydrate_fts_rows_cold(&segment, &positions, None),
+            };
+            // A section the row decoder cannot address (the LZ4 layout of a
+            // small segment, a legacy wrapper) is read through its offset
+            // index, as the undeferred legs would have read it.
+            let warm = match (&warm, &cold) {
+                (None, None) => Some(self.stored_slices_for(&segment, doc_count)?),
+                _ => warm,
+            };
+            match warm {
+                Some(slices) => {
+                    for (slot, position) in rows {
+                        let &(start, end) = slices.offsets.get(position as usize)?;
+                        let slice = slices.bytes.get(start as usize..end as usize)?;
+                        // serde_json, not simd_json: see ffd49ac.
+                        let mut doc = serde_json::from_slice::<Value>(slice).ok()?;
+                        if doc.get("_id").and_then(Value::as_str) != Some(page[slot].id.as_str()) {
+                            return None;
+                        }
+                        page[slot].source = doc
+                            .get_mut("_source")
+                            .map(Value::take)
+                            .unwrap_or(Value::Null);
+                    }
+                }
+                None => {
+                    let mut docs = cold?;
+                    for (slot, position) in rows {
+                        let mut doc = docs.remove(&position)?;
+                        if doc.get("_id").and_then(Value::as_str) != Some(page[slot].id.as_str()) {
+                            return None;
+                        }
+                        page[slot].source = doc
+                            .get_mut("_source")
+                            .map(Value::take)
+                            .unwrap_or(Value::Null);
+                    }
+                    self.schedule_cold_stored_warm(&segment, doc_count);
+                }
+            }
+        }
+        Some(page)
+    }
+
     #[allow(clippy::too_many_arguments)]
     async fn run_knn_brute_force_with_deadline(
         &self,
@@ -21303,12 +21433,19 @@ impl Index {
         let candidate_of = |entry: &(String, f32, Value, Option<u32>)| {
             entry.2.as_u64().expect("candidate index") as usize
         };
+        // #3018: a hybrid leg leaves a column-scanned winner unhydrated: the
+        // hybrid executor reads the fused page alone. Aggregations read every
+        // neighbour, and a semantic highlight or `_passage` reads the page.
+        let defer_columnar = request.defer_source
+            && request.aggs.is_none()
+            && request.highlight.is_none()
+            && request.fields.is_empty();
         // #1091: winners in a column-scanned segment are hydrated together,
         // one row-selective decode per segment, before the page is assembled.
         let mut by_view: HashMap<usize, Vec<usize>> = HashMap::new();
         for entry in &ordered[page.clone()] {
             if let KnnCandidateAt::Segment { view, position } = candidates[candidate_of(entry)] {
-                if segment_views[view].docs.is_none() {
+                if segment_views[view].docs.is_none() && !defer_columnar {
                     by_view.entry(view).or_default().push(position);
                 }
             }
@@ -21458,6 +21595,12 @@ impl Index {
                 KnnHydrated::Columnar { view, position } => {
                     match column_hits.remove(&(view, position)) {
                         Some(hit) => hit,
+                        None if defer_columnar => {
+                            match segment_views[view].column.identity(position) {
+                                Some((id, _)) => (id.to_string(), Value::Null),
+                                None => return Ok(None),
+                            }
+                        }
                         None => return Ok(None),
                     }
                 }
@@ -22556,6 +22699,50 @@ impl Index {
             )));
         }
 
+        // #3018: fuse on ids, then hydrate only the page. The legs leave
+        // `_source` unread where they can (`SearchRequest::defer_source`),
+        // and `hydrate_deferred_hybrid_page` reads the page's documents
+        // afterwards — `size` documents instead of `legs × max(50, size)`.
+        // A page document that changed between scoring and hydration hands
+        // the request back (`None`), and it is answered by the undeferred
+        // pass below, which hydrates inside the legs as before.
+        if hybrid_defer_source_enabled() {
+            if let Some(result) = self
+                .run_hybrid_pass(request, deadline, started, &sub_queries, &fusion, true)
+                .await?
+            {
+                return Ok(result);
+            }
+            self.hybrid_deferred_hand_backs
+                .fetch_add(1, Ordering::Relaxed);
+        }
+        self.run_hybrid_pass(request, deadline, started, &sub_queries, &fusion, false)
+            .await?
+            .ok_or_else(|| {
+                EngineError::Common(xerj_common::XerjError::internal(
+                    "hybrid pass without deferred sources handed the request back",
+                ))
+            })
+    }
+
+    /// One execution of a hybrid request: run the legs, fuse, paginate.
+    ///
+    /// With `defer` the legs run with `SearchRequest::defer_source`: each
+    /// hit carries its id, score and `seq_no`, and a `Null` `_source` where
+    /// the leg would have had to read it from a segment. The page alone is
+    /// then hydrated and filtered here. `Ok(None)` when a page document can
+    /// no longer be read as the version the leg scored; without `defer`
+    /// the pass always answers.
+    #[allow(clippy::too_many_arguments)]
+    async fn run_hybrid_pass(
+        &self,
+        request: &SearchRequest,
+        deadline: std::time::Instant,
+        started: std::time::Instant,
+        sub_queries: &[xerj_query::ast::WeightedQuery],
+        fusion: &xerj_query::ast::FusionStrategy,
+        defer: bool,
+    ) -> Result<Option<SearchResult>> {
         // Each sub-list needs to be deeper than the final top-N so
         // fusion has enough material for stable rank-merge. ES uses
         // 50 by default; we mirror that, growing if the caller asked
@@ -22611,8 +22798,15 @@ impl Index {
                 fields: Vec::new(),
                 profile: false,
                 leaf_ts_field: None,
-                savings: request.savings,
+                // A deferred leg leaves `_source` unfiltered; the page is
+                // filtered, and its savings measured, after hydration.
+                savings: if defer {
+                    xerj_query::ast::SavingsMode::Off
+                } else {
+                    request.savings
+                },
                 ids_only: false,
+                defer_source: defer,
             })
             .collect();
         let mut leg_outcomes: Vec<Option<Result<SearchResult>>> =
@@ -22655,7 +22849,7 @@ impl Index {
         // rules: the first failing leg in that order is the error returned,
         // and a leg that timed out ends the list — the legs after it are
         // dropped, as they were when they had simply never been started.
-        for (wq, outcome) in sub_queries.into_iter().zip(leg_outcomes) {
+        for (wq, outcome) in sub_queries.iter().zip(leg_outcomes) {
             let Some(outcome) = outcome else {
                 break;
             };
@@ -22699,8 +22893,8 @@ impl Index {
         // fused document, which is at most `legs × per_query_topk` lookups.
         let seq_no_of = |id: &str| self.lookup_seq_no(id).unwrap_or(u64::MAX);
         let fused = match fusion {
-            xerj_query::ast::FusionStrategy::Rrf { k } => fuse_rrf(&sub_results, k, &seq_no_of),
-            xerj_query::ast::FusionStrategy::Linear => fuse_linear(&sub_results, &seq_no_of),
+            xerj_query::ast::FusionStrategy::Rrf { k } => fuse_rrf(sub_results, *k, &seq_no_of),
+            xerj_query::ast::FusionStrategy::Linear => fuse_linear(sub_results, &seq_no_of),
             // Defense in depth: the parser already rejects `fusion: learned`
             // with a 400 (see xerj-query parser.rs::parse_hybrid), so this
             // arm is unreachable via the ES API. Fail loud rather than
@@ -22720,9 +22914,23 @@ impl Index {
             .skip(request.from)
             .take(request.size)
             .collect();
+        let (page, savings) = if defer {
+            let Some(page) = self.hydrate_deferred_hybrid_page(page) else {
+                return Ok(None);
+            };
+            let generated_companion_fields = self.embedding_companion_fields().await;
+            apply_source_filter_measured(
+                page,
+                &request.source,
+                &generated_companion_fields,
+                Some(request),
+            )
+        } else {
+            (page, merge_sub_savings(sub_savings))
+        };
 
         let took_ms = started.elapsed().as_millis() as u64;
-        Ok(SearchResult {
+        Ok(Some(SearchResult {
             hits: page,
             total: TotalHits {
                 value: total_value,
@@ -22738,8 +22946,8 @@ impl Index {
             profile: None,
             max_score: None,
             script_failure: None,
-            savings: merge_sub_savings(sub_savings),
-        })
+            savings,
+        }))
     }
 
     /// #825: execute one `Knn` clause standalone and return a replacement
@@ -22803,6 +23011,7 @@ impl Index {
                 leaf_ts_field: None,
                 savings: request.savings,
                 ids_only: false,
+                defer_source: false,
             };
             let plain = filter.is_none()
                 && boost.is_none()
@@ -27814,6 +28023,23 @@ impl Index {
         // Cold score-ordered FTS hits whose `_source` is read only once the
         // segment loop has settled the page: `_id` -> (segment, row).
         let mut deferred_sources: HashMap<String, (String, u32, u64)> = HashMap::new();
+        // #3018: a hybrid leg (`defer_source`) whose page reads nothing from
+        // `_source`. Its score-ordered FTS walk reads each candidate's `_id`
+        // alone from a warm segment too (as the cold walk already does), and
+        // when the page is exact BM25 the deferred sources are left for the
+        // hybrid executor to read for its fused page only.
+        let defer_walk: bool = request.defer_source
+            && request.sort.is_empty()
+            && request.search_after.is_none()
+            && request.aggs.is_none()
+            && request.collapse.is_none()
+            && request.rescore.is_empty()
+            && request.min_score.is_none()
+            && !request.explain
+            && request.highlight.is_none()
+            && request.fields.is_empty()
+            && request.script_fields.is_none()
+            && !query_may_read_source_after_scoring(query);
         let materialisation_limit: usize = if mem_doc_count == 0
             && !deletes_present
             && size > 0
@@ -28984,6 +29210,7 @@ impl Index {
                                         let past_window: std::cell::OnceCell<
                                             Option<Resident<StoredSlices>>,
                                         > = std::cell::OnceCell::new();
+                                        let identity_walk = defer_walk && sort_topk.is_none();
                                         let fetch_doc = |pos: u32| -> Option<Value> {
                                             if let Some(ids) = cold_ids.as_ref() {
                                                 // Identity only: `_source` is
@@ -29024,6 +29251,21 @@ impl Index {
                                                 let slice = slices
                                                     .bytes
                                                     .get(start as usize..end as usize)?;
+                                                // #3018: identity only, as
+                                                // the cold walk above; an
+                                                // escaped `_id` takes the
+                                                // full parse.
+                                                if identity_walk {
+                                                    if let Some(id) = extract_stored_id_str(slice) {
+                                                        let mut doc =
+                                                            serde_json::Map::with_capacity(1);
+                                                        doc.insert(
+                                                            "_id".to_string(),
+                                                            Value::String(id.to_string()),
+                                                        );
+                                                        return Some(Value::Object(doc));
+                                                    }
+                                                }
                                                 serde_json::from_slice::<Value>(slice).ok()
                                             } else {
                                                 whole_fallback
@@ -29163,7 +29405,11 @@ impl Index {
                                             let source =
                                                 doc.get("_source").cloned().unwrap_or(Value::Null);
                                             seen_ids.insert(id.clone());
-                                            if cold_ids.is_some() {
+                                            if cold_ids.is_some()
+                                                || (defer_walk
+                                                    && slices_opt.is_some()
+                                                    && doc.get("_source").is_none())
+                                            {
                                                 deferred_sources.insert(
                                                     id.clone(),
                                                     (seg_id.to_string(), sh.doc_id, meta.doc_count),
@@ -29959,13 +30205,25 @@ impl Index {
                 }
             }
         }
-        if !deferred_sources.is_empty() {
+        // #3018: a deferred hybrid leg leaves them unread when nothing below
+        // reads a hit's source: an exact-BM25 page (every hit scored by the
+        // segment FTS path — the heuristic rescores stay off) with no
+        // function_score and no pinned ids.
+        let keep_sources_deferred = defer_walk
+            && fts_scored_applied
+            && !heuristic_scored_applied
+            && !scored_fast_applied
+            && !fs_fast_applied
+            && peeled_fs.is_none()
+            && !matches!(query, QueryNode::Pinned { .. });
+        if !deferred_sources.is_empty() && !keep_sources_deferred {
             all_hits = self.hydrate_deferred_cold_sources(
                 all_hits,
                 &deferred_sources,
                 fts_row_keep.as_deref(),
                 &mut row_projected,
             );
+            deferred_sources.clear();
         }
         drop(snap);
 
@@ -29993,7 +30251,9 @@ impl Index {
         };
 
         // --- Fill memtable sources (for hits that don't yet have a source) ---
-        let mut final_hits = self.fill_memtable_sources(final_hits).await;
+        let mut final_hits = self
+            .fill_memtable_sources(final_hits, &deferred_sources)
+            .await;
 
         // --- Apply pinned query: boost pinned IDs to the top ---
         // Assign pinned IDs a score higher than any organic result so they sort first.
@@ -30987,16 +31247,22 @@ impl Index {
         };
 
         // --- Apply _source filtering ---
-        let generated_companion_fields = {
-            let schema = self.schema.read().await;
-            generated_embedding_companion_fields(&schema.schema)
+        // #3018: a hybrid leg returns its sources raw; the hybrid executor
+        // filters (and measures) the fused page.
+        let (page, savings) = if request.defer_source {
+            (page, None)
+        } else {
+            let generated_companion_fields = {
+                let schema = self.schema.read().await;
+                generated_embedding_companion_fields(&schema.schema)
+            };
+            apply_source_filter_measured(
+                page,
+                &request.source,
+                &generated_companion_fields,
+                Some(request),
+            )
         };
-        let (page, savings) = apply_source_filter_measured(
-            page,
-            &request.source,
-            &generated_companion_fields,
-            Some(request),
-        );
 
         // --- Build profile data if requested ---
         let profile = if request.profile {
@@ -32720,13 +32986,24 @@ impl Index {
         }
     }
 
-    async fn fill_memtable_sources(&self, hits: Vec<Hit>) -> Vec<Hit> {
+    async fn fill_memtable_sources(
+        &self,
+        hits: Vec<Hit>,
+        deferred: &HashMap<String, (String, u32, u64)>,
+    ) -> Vec<Hit> {
         // Look up sources from the active memtable for unflushed docs.
         // Flushed docs already have their sources filled by the segment reader
         // path in search_inner().
+        //
+        // #3018: a segment hit a hybrid leg deferred (`deferred`) is left as
+        // it is: its source is read by the hybrid executor from the version
+        // the leg scored, and a later memtable copy of the same id is not it.
         let mem = &*self.memtable;
         hits.into_iter()
             .map(|mut h| {
+                if deferred.contains_key(&h.id) {
+                    return h;
+                }
                 if h.source.is_null() {
                     if let Some(source) = mem.get_doc_source_as_value(&h.id) {
                         h.source = source;
@@ -47625,6 +47902,22 @@ fn knn_exact_scan_max_bytes_default() -> u64 {
     })
 }
 
+/// #3018: whether a hybrid request fuses its legs on ids and hydrates only
+/// the page (`Index::run_hybrid_pass` with `defer`). On by default;
+/// `XERJ_HYBRID_DEFER_SOURCE=0` hydrates inside every leg, the pre-change
+/// execution — for measuring what the deferral is worth.
+fn hybrid_defer_source_enabled() -> bool {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        !matches!(
+            std::env::var("XERJ_HYBRID_DEFER_SOURCE")
+                .as_deref()
+                .map(str::trim),
+            Ok("0") | Ok("false") | Ok("off")
+        )
+    })
+}
+
 /// #3018: whether a hybrid request on the multi-thread runtime runs its legs
 /// on one OS thread each. On by default; `XERJ_HYBRID_PARALLEL_LEGS=0` keeps
 /// every leg on the request's thread, the pre-#3018 execution — for a node
@@ -48656,12 +48949,18 @@ fn knn_result_from_ranked(
         }
     })
     .collect();
-    let (hits, savings) = apply_source_filter_measured(
-        hits,
-        &request.source,
-        generated_companion_fields,
-        Some(request),
-    );
+    // #3018: a hybrid leg returns its sources raw; the hybrid executor
+    // filters (and measures) the fused page.
+    let (hits, savings) = if request.defer_source {
+        (hits, None)
+    } else {
+        apply_source_filter_measured(
+            hits,
+            &request.source,
+            generated_companion_fields,
+            Some(request),
+        )
+    };
 
     SearchResult {
         hits,
@@ -49296,12 +49595,15 @@ fn replace_direct_knn_with_pinned(q: &QueryNode, pinned: &QueryNode) -> QueryNod
 // when matched.
 // ── Hybrid fusion helpers ────────────────────────────────────────────────────
 //
-// Both fuse_rrf and fuse_linear take a slice of (hits, weight) pairs and
+// Both fuse_rrf and fuse_linear take the (hits, weight) pairs by value and
 // return a single Vec<Hit> in the fused order below. The same doc_id
 // appearing across multiple lists collapses to one Hit; the source is taken
 // from the first list that produced it (sub-lists may differ on what they
-// materialise, e.g. a kNN list returns the full source while a BM25 list
-// with `_source: false` returns null — first non-null wins).
+// materialise, e.g. a kNN list returns the full source while a deferred
+// BM25 leg returns null — first non-null wins). #3018: the hits are MOVED
+// into the fused list, never cloned. Cloning every leg hit's `_source`
+// (each one carrying its stored vector) cost ~1.2 ms of a ~5 ms two-leg
+// request on a 768-dim index, to keep `size` of the 100 copies.
 //
 // THE FUSED ORDER (#940) is the ONE total order every score-ranked page in
 // this engine uses (#270, `Index::sort_hits_page_order`):
@@ -49355,26 +49657,30 @@ fn fuse_accumulate(
     entries: &mut Vec<FusedEntry>,
     slot_by_id: &mut HashMap<String, usize>,
     contrib: f32,
-    h: &Hit,
+    mut h: Hit,
     seq_no_of: &dyn Fn(&str) -> u64,
 ) {
     match slot_by_id.get(&h.id) {
         Some(&slot) => {
             let existing = &mut entries[slot];
             existing.score += contrib;
-            // Take a non-null source from a later list if the first had
-            // `_source: false`.
+            // Take a non-null source from a later list if the first left it
+            // null (a deferred leg, #3018).
             if existing.hit.source.is_null() && !h.source.is_null() {
-                existing.hit.source = h.source.clone();
+                existing.hit.source = std::mem::take(&mut h.source);
+                if existing.hit.seq_no.is_none() {
+                    existing.hit.seq_no = h.seq_no;
+                    existing.hit.version = h.version;
+                }
             }
         }
         None => {
-            let mut hit = h.clone();
+            let mut hit = h;
             hit.score = 0.0; // overwritten with the fused score on output
-            slot_by_id.insert(h.id.clone(), entries.len());
+            slot_by_id.insert(hit.id.clone(), entries.len());
             entries.push(FusedEntry {
                 score: contrib,
-                seq_no: seq_no_of(&h.id),
+                seq_no: seq_no_of(&hit.id),
                 hit,
             });
         }
@@ -49420,12 +49726,16 @@ fn fuse_finish(mut entries: Vec<FusedEntry>) -> Vec<Hit> {
 /// OpenSearch / TREC convention) and is small enough that the top
 /// few ranks still dominate. Output is in THE FUSED ORDER (#940);
 /// `seq_no_of` resolves a document's arrival `seq_no` for the tie-break.
-fn fuse_rrf(sub_results: &[(Vec<Hit>, f32)], k: u32, seq_no_of: &dyn Fn(&str) -> u64) -> Vec<Hit> {
+fn fuse_rrf(
+    sub_results: Vec<(Vec<Hit>, f32)>,
+    k: u32,
+    seq_no_of: &dyn Fn(&str) -> u64,
+) -> Vec<Hit> {
     let kf = k as f32;
     let mut entries: Vec<FusedEntry> = Vec::new();
     let mut slot_by_id: HashMap<String, usize> = HashMap::new();
     for (hits, weight) in sub_results {
-        for (rank_zero_based, h) in hits.iter().enumerate() {
+        for (rank_zero_based, h) in hits.into_iter().enumerate() {
             let rank = (rank_zero_based + 1) as f32;
             let contrib = weight / (kf + rank);
             fuse_accumulate(&mut entries, &mut slot_by_id, contrib, h, seq_no_of);
@@ -49440,13 +49750,13 @@ fn fuse_rrf(sub_results: &[(Vec<Hit>, f32)], k: u32, seq_no_of: &dyn Fn(&str) ->
 /// score outliers. Output is in THE FUSED ORDER (#940) — a constant-score
 /// leg contributes 0.0 to every document it returns, so whole lists tie
 /// here, not just pairs.
-fn fuse_linear(sub_results: &[(Vec<Hit>, f32)], seq_no_of: &dyn Fn(&str) -> u64) -> Vec<Hit> {
+fn fuse_linear(sub_results: Vec<(Vec<Hit>, f32)>, seq_no_of: &dyn Fn(&str) -> u64) -> Vec<Hit> {
     let mut entries: Vec<FusedEntry> = Vec::new();
     let mut slot_by_id: HashMap<String, usize> = HashMap::new();
     for (hits, weight) in sub_results {
         // Min-max normalise within this sub-list.
         let (mut lo, mut hi) = (f32::INFINITY, f32::NEG_INFINITY);
-        for h in hits {
+        for h in &hits {
             if h.score < lo {
                 lo = h.score;
             }
@@ -49466,6 +49776,51 @@ fn fuse_linear(sub_results: &[(Vec<Hit>, f32)], seq_no_of: &dyn Fn(&str) -> u64)
         }
     }
     fuse_finish(entries)
+}
+
+/// #3018: whether `search_inner` may read a hit's `_source` after the
+/// segment walk has scored it, other than to return it — today that is the
+/// `matched_queries` pass, which evaluates every `_name`d clause against the
+/// hit's source. Conservative: a node not listed as a plain leaf or a
+/// transparent wrapper answers `true`, which keeps a deferred hybrid leg on
+/// the hydrating path.
+fn query_may_read_source_after_scoring(q: &QueryNode) -> bool {
+    match q {
+        QueryNode::MatchAll
+        | QueryNode::MatchNone
+        | QueryNode::Term { .. }
+        | QueryNode::Terms { .. }
+        | QueryNode::Range { .. }
+        | QueryNode::Prefix { .. }
+        | QueryNode::Wildcard { .. }
+        | QueryNode::Exists { .. }
+        | QueryNode::Ids { .. }
+        | QueryNode::Match { .. }
+        | QueryNode::MatchPhrase { .. }
+        | QueryNode::MatchPhrasePrefix { .. }
+        | QueryNode::MultiMatch { .. }
+        | QueryNode::Fuzzy { .. }
+        | QueryNode::Regexp { .. } => false,
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should)
+            .chain(must_not)
+            .chain(filter)
+            .any(query_may_read_source_after_scoring),
+        QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
+            query_may_read_source_after_scoring(query)
+        }
+        QueryNode::DisMax { queries, .. } => {
+            queries.iter().any(query_may_read_source_after_scoring)
+        }
+        _ => true,
+    }
 }
 
 /// Detect a semantic query (parser node `QueryNode::SemanticSearch`)
@@ -68747,6 +69102,207 @@ mod pinned_knn_fts_892_tests {
     }
 }
 
+/// #3018 — a hybrid leg leaves `_source` unread (`defer_source`), and the
+/// hybrid executor reads the fused page alone, as the version the leg scored.
+#[cfg(test)]
+mod hybrid_deferred_source_tests {
+    use super::*;
+    use serde_json::json;
+    use xerj_common::config::Config;
+    use xerj_common::types::{FieldConfig, FieldType, Schema};
+
+    const DIMS: usize = 8;
+
+    fn vector(i: usize) -> Vec<f32> {
+        (0..DIMS)
+            .map(|d| (((i * 31 + d * 17) % 97) as f32 / 97.0) - 0.5)
+            .collect()
+    }
+
+    fn body(i: usize) -> String {
+        let words = ["alpha", "beta", "gamma", "delta"];
+        let mut tokens: Vec<&str> = Vec::new();
+        for (w, word) in words.iter().enumerate() {
+            for _ in 0..((i + w * 3) % 4) {
+                tokens.push(word);
+            }
+        }
+        tokens.resize(10, "filler");
+        tokens.join(" ")
+    }
+
+    async fn index_with(docs: usize) -> (tempfile::TempDir, crate::Engine, Arc<Index>) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        let mut v = FieldConfig::new("vec", FieldType::Vector);
+        v.options.dimensions = Some(DIMS);
+        schema.add_field(v).unwrap();
+        engine.create_index("defer3018", schema).unwrap();
+        let idx = engine.get_index("defer3018").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..docs {
+            idx.index_document(
+                Some(format!("d{i:04}")),
+                json!({"body": body(i), "vec": vector(i), "n": i}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        (dir, engine, idx)
+    }
+
+    fn leg(query: Value, size: usize, defer: bool) -> SearchRequest {
+        let mut request =
+            xerj_query::parse_request(&json!({"query": query, "size": size})).unwrap();
+        request.defer_source = defer;
+        request
+    }
+
+    async fn run(idx: &Arc<Index>, request: &SearchRequest) -> SearchResult {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        idx.search_inner(request, deadline).await.unwrap()
+    }
+
+    fn key(result: &SearchResult) -> Vec<(String, u32, Option<u64>)> {
+        result
+            .hits
+            .iter()
+            .map(|h| (h.id.clone(), h.score.to_bits(), h.seq_no))
+            .collect()
+    }
+
+    /// The BM25 walk and the kNN exact scan answer a deferred leg with the
+    /// same ids, scores and `seq_no`s, and without a decoded `_source`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn deferred_legs_rank_identically_and_leave_sources_unread() {
+        let (_dir, _engine, idx) = index_with(600).await;
+        for query in [
+            json!({"match": {"body": "alpha gamma"}}),
+            json!({"knn": {"field": "vec", "query_vector": vector(7), "k": 50}}),
+        ] {
+            let full = run(&idx, &leg(query.clone(), 50, false)).await;
+            let deferred = run(&idx, &leg(query.clone(), 50, true)).await;
+            assert_eq!(full.hits.len(), 50, "{query}");
+            assert_eq!(key(&deferred), key(&full), "{query}: ranking moved");
+            assert!(full.hits.iter().all(|h| h.source.is_object()), "{query}");
+            assert!(
+                deferred.hits.iter().all(|h| h.source.is_null()),
+                "{query}: a deferred leg decoded a segment source"
+            );
+            assert!(deferred.hits.iter().all(|h| h.seq_no.is_some()), "{query}");
+        }
+        // A `_name`d clause is matched against each hit's source after the
+        // walk, so that leg keeps hydrating.
+        let named = json!({"bool": {"must": [
+            {"match": {"body": {"query": "alpha", "_name": "a"}}}
+        ]}});
+        let deferred = run(&idx, &leg(named, 20, true)).await;
+        assert!(!deferred.hits.is_empty());
+        assert!(deferred.hits.iter().all(|h| h.source.is_object()));
+        assert!(deferred
+            .hits
+            .iter()
+            .all(|h| h.matched_queries == vec!["a".to_string()]));
+    }
+
+    /// The page hydrator reads each deferred hit as the version the leg
+    /// scored, and hands the request back when that version is gone.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn page_hydration_reads_the_scored_version_or_hands_back() {
+        let (_dir, _engine, idx) = index_with(600).await;
+        let query = json!({"match": {"body": "alpha gamma"}});
+        let deferred = run(&idx, &leg(query.clone(), 10, true)).await;
+        assert_eq!(deferred.hits.len(), 10);
+        let page = idx
+            .hydrate_deferred_hybrid_page(deferred.hits.clone())
+            .expect("an unchanged page hydrates");
+        for hit in &page {
+            let stored = idx.get_document_uncounted(&hit.id).await.unwrap().unwrap();
+            assert_eq!(hit.source, stored, "{}", hit.id);
+        }
+
+        // A hit without a `seq_no` cannot be tied to a version.
+        let mut unknown = deferred.hits.clone();
+        unknown[3].seq_no = None;
+        assert!(idx.hydrate_deferred_hybrid_page(unknown).is_none());
+
+        // A document rewritten after it was scored is not the scored copy,
+        // in the memtable or flushed.
+        let rewritten = deferred.hits[4].id.clone();
+        idx.index_document(
+            Some(rewritten),
+            json!({"body": "rewritten", "vec": vector(1)}),
+        )
+        .await
+        .unwrap();
+        assert!(idx
+            .hydrate_deferred_hybrid_page(deferred.hits.clone())
+            .is_none());
+        idx.flush().await.unwrap();
+        assert!(idx
+            .hydrate_deferred_hybrid_page(deferred.hits.clone())
+            .is_none());
+
+        // And one deleted since.
+        let fresh = run(&idx, &leg(query, 10, true)).await;
+        assert!(idx
+            .hydrate_deferred_hybrid_page(fresh.hits.clone())
+            .is_some());
+        idx.delete_document(&fresh.hits[0].id).await.unwrap();
+        assert!(idx.hydrate_deferred_hybrid_page(fresh.hits).is_none());
+    }
+
+    /// End to end: the hybrid page carries the stored documents, filtered by
+    /// the request's `_source`, over a flushed segment plus memtable writes.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn hybrid_page_sources_match_the_stored_documents() {
+        let (_dir, _engine, idx) = index_with(600).await;
+        for i in 600..640 {
+            idx.index_document(
+                Some(format!("d{i:04}")),
+                json!({"body": body(i), "vec": vector(i), "n": i}),
+            )
+            .await
+            .unwrap();
+        }
+        for source in [json!(true), json!({"excludes": ["vec"]}), json!(["n"])] {
+            let request = xerj_query::parse_request(&json!({
+                "size": 10,
+                "_source": source,
+                "query": {"hybrid": {"queries": [
+                    {"query": {"match": {"body": "beta delta"}}},
+                    {"query": {"knn": {"field": "vec", "query_vector": vector(605), "k": 50}}}
+                ]}}
+            }))
+            .unwrap();
+            idx.query_cache.clear();
+            let result = idx.search(&request).await.unwrap();
+            assert_eq!(result.hits.len(), 10);
+            for hit in &result.hits {
+                let mut stored = idx.get_document(&hit.id).await.unwrap().unwrap();
+                match &source {
+                    Value::Bool(true) => {}
+                    Value::Array(_) => stored = json!({"n": stored["n"].clone()}),
+                    _ => {
+                        stored.as_object_mut().unwrap().remove("vec");
+                    }
+                }
+                let mut got = hit.source.clone();
+                xerj_common::packed_f32::expand_packed_f32_values(&mut got);
+                assert_eq!(got, stored, "{} with _source {source}", hit.id);
+            }
+        }
+        assert_eq!(idx.hybrid_deferred_hand_backs.load(Ordering::Relaxed), 0);
+    }
+}
+
 /// #940 — the fused order is total, and a function of the leg lists and the
 /// documents' arrival order alone.
 ///
@@ -68809,7 +69365,7 @@ mod hybrid_fused_order_tests {
         // doc-10 ahead of doc-2.
         let expected: Vec<String> = (0..24).map(|n| format!("doc-{n}")).collect();
         for call in 0..64 {
-            let fused = fuse_rrf(&legs, 60, &arrival);
+            let fused = fuse_rrf(legs.clone(), 60, &arrival);
             assert_eq!(
                 ids(&fused),
                 expected.iter().map(String::as_str).collect::<Vec<_>>(),
@@ -68837,7 +69393,7 @@ mod hybrid_fused_order_tests {
             (vec![hit("doc-4", 0.9), hit("doc-7", 0.8)], 1.0),
         ];
         for _ in 0..64 {
-            let fused = fuse_rrf(&legs, 60, &arrival);
+            let fused = fuse_rrf(legs.clone(), 60, &arrival);
             assert_eq!(fused[0].score.to_bits(), fused[1].score.to_bits());
             assert_eq!(ids(&fused), ["doc-4", "doc-7"]);
         }
@@ -68852,8 +69408,8 @@ mod hybrid_fused_order_tests {
         let mut swapped = legs.clone();
         swapped.reverse();
         assert_eq!(
-            ids(&fuse_rrf(&legs, 60, &arrival)),
-            ids(&fuse_rrf(&swapped, 60, &arrival))
+            ids(&fuse_rrf(legs.clone(), 60, &arrival)),
+            ids(&fuse_rrf(swapped.clone(), 60, &arrival))
         );
     }
 
@@ -68866,7 +69422,7 @@ mod hybrid_fused_order_tests {
             (vec![hit("alpha", 1.0)], 1.0),
         ];
         for _ in 0..64 {
-            let fused = fuse_rrf(&legs, 60, &|_| u64::MAX);
+            let fused = fuse_rrf(legs.clone(), 60, &|_| u64::MAX);
             assert_eq!(ids(&fused), ["alpha", "zeta"]);
         }
     }
@@ -68882,7 +69438,7 @@ mod hybrid_fused_order_tests {
             .collect();
         let legs = vec![(constant, 1.0)];
         for call in 0..64 {
-            let fused = fuse_linear(&legs, &arrival);
+            let fused = fuse_linear(legs.clone(), &arrival);
             assert!(fused.iter().all(|h| h.score == 0.0));
             assert_eq!(
                 ids(&fused),
@@ -68900,7 +69456,7 @@ mod hybrid_fused_order_tests {
             vec![hit("doc-1", 4.0), hit("doc-2", f32::NAN), hit("doc-3", 1.0)],
             1.0,
         )];
-        let fused = fuse_linear(&legs, &arrival);
+        let fused = fuse_linear(legs.clone(), &arrival);
         assert_eq!(ids(&fused), ["doc-1", "doc-3", "doc-2"]);
         assert!(fused[2].score.is_nan());
     }
@@ -68913,7 +69469,7 @@ mod hybrid_fused_order_tests {
             (vec![hit("doc-9", 3.0), hit("doc-1", 2.0)], 1.0),
             (vec![hit("doc-9", 0.9), hit("doc-2", 0.8)], 1.0),
         ];
-        let fused = fuse_rrf(&legs, 60, &arrival);
+        let fused = fuse_rrf(legs.clone(), 60, &arrival);
         assert_eq!(ids(&fused), ["doc-9", "doc-1", "doc-2"]);
         assert!(fused[0].score > fused[1].score);
         assert_eq!(fused[1].score.to_bits(), fused[2].score.to_bits());

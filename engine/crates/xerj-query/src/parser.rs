@@ -388,6 +388,8 @@ pub fn parse_request(body: &Value) -> Result<SearchRequest> {
         savings: SavingsMode::Off,
         // #1019: ids-only is engine-internal and never arrives from the wire.
         ids_only: false,
+        // #3018: hybrid-leg deferral is engine-internal too.
+        defer_source: false,
     })
 }
 
