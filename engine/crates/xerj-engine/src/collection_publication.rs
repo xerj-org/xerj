@@ -43,6 +43,8 @@ pub(crate) struct CollectionPublication {
 pub(crate) struct CollectionPublicationGuard {
     state: Arc<CollectionPublication>,
     outcome: GuardOutcome,
+    opened: std::time::Instant,
+    site: &'static std::panic::Location<'static>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -182,6 +184,7 @@ impl CollectionPublication {
         }
     }
 
+    #[track_caller]
     pub(crate) fn begin(
         self: &Arc<Self>,
     ) -> Result<CollectionPublicationGuard, CollectionPublicationPoisoned> {
@@ -204,6 +207,8 @@ impl CollectionPublication {
         Ok(CollectionPublicationGuard {
             state: Arc::clone(self),
             outcome: GuardOutcome::Pending,
+            opened: std::time::Instant::now(),
+            site: std::panic::Location::caller(),
         })
     }
 
@@ -267,6 +272,15 @@ impl CollectionPublicationGuard {
 
 impl Drop for CollectionPublicationGuard {
     fn drop(&mut self) {
+        let held = self.opened.elapsed();
+        if xerj_storage::stall_trace::is_slow(held) {
+            tracing::warn!(
+                held_ms = held.as_millis() as u64,
+                site = %self.site,
+                readers_waiting = self.state.readers_waiting.load(Ordering::Acquire),
+                "collection publication bracket held long; searches on this index wait for it"
+            );
+        }
         if self.outcome == GuardOutcome::Pending {
             self.state.poisoned.store(true, Ordering::Release);
         }

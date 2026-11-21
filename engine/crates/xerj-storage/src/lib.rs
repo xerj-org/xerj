@@ -32,6 +32,7 @@ pub mod index_store;
 pub mod merge;
 pub mod s3;
 pub mod segment;
+pub mod stall_trace;
 pub mod stored_codec;
 pub mod version_map;
 pub mod wal;
