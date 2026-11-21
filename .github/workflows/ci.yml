@@ -304,6 +304,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
+      - name: Gate's own fixture tests (offline)
+        run: bash .github/scripts/test_release_notes_gate.sh
+
       - name: Notes vs tree (#474)
         env:
           GH_TOKEN: ${{ github.token }}

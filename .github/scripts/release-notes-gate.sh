@@ -54,6 +54,8 @@
 # USAGE
 #   .github/scripts/release-notes-gate.sh          # gate HEAD (a release branch)
 #
+#   bash .github/scripts/test_release_notes_gate.sh  # fixture tests, offline
+#
 #   Replay the rc.18 release PR head (#460) and watch every check fire:
 #       git fetch origin pull/460/head
 #       git worktree add /tmp/rc18-replay FETCH_HEAD
@@ -198,6 +200,11 @@ printf '\n== coverage: merges since the previous tag are all in the notes ==\n'
 PREV_TAG="$(git describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null || true)"
 if [ -z "$PREV_TAG" ]; then
   fail "no previous v* tag reachable from HEAD - coverage needs full history (checkout with fetch-depth: 0)"
+elif [ "$(git rev-list --count "$PREV_TAG..HEAD")" -eq 0 ]; then
+  # An empty window is a real state, not a broken parse: HEAD is the tagged
+  # commit itself (a re-run after the tag was pushed) or nothing has landed
+  # since it. No merge can be missing from the notes.
+  pass "no commits in $PREV_TAG..HEAD - nothing merged since $PREV_TAG, nothing to cover"
 elif [ -n "$SECTION" ]; then
   exempt="$(printf '%s\n' "$SECTION" | grep -oE '<!--[[:space:]]*notes-exempt:[^>]*' | grep -oE '#[0-9]+' | tr -d '#' | sort -un)"
   merged_prs="$(git log --first-parent --format='%s' "$PREV_TAG..HEAD" | awk '
@@ -205,7 +212,7 @@ elif [ -n "$SECTION" ]; then
     match($0, /^Merge pull request #[0-9]+/) { s = substr($0, RSTART + 20, RLENGTH - 20); print s }
   ' | sort -un)"
   if [ -z "$merged_prs" ]; then
-    fail "found no PR-numbered merges in $PREV_TAG..HEAD - wrong window or the parse broke; fix the gate, do not merge around it"
+    fail "found no PR-numbered merges among the $(git rev-list --count --first-parent "$PREV_TAG..HEAD") commit(s) in $PREV_TAG..HEAD - wrong window or the parse broke; fix the gate, do not merge around it"
   fi
   for n in $merged_prs; do
     # grep reads to EOF (no -q): under `set -o pipefail`, a -q that exits on
