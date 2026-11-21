@@ -7649,19 +7649,55 @@ fn leaf_terms_params(spec: &Value) -> Option<&Value> {
     Some(params)
 }
 
+/// How many candidate terms each index returns for a leaf terms agg: the
+/// explicit `shard_size` (never below `size`), else `size * 3 / 2 + 10`.
+/// `0` means every term: `size: 0` asks for all of them, and a primary
+/// `_count: asc` order has no usable error bound once an index cuts its list.
+/// Clamped to the bucket cap, so per-index work is bounded by the request
+/// rather than by field cardinality.
+fn leaf_terms_fetch_size(params: &Value, cap: usize) -> u64 {
+    let size = params.get("size").and_then(Value::as_u64).unwrap_or(10);
+    let count_asc = leaf_terms_orders(params)
+        .and_then(|orders| orders.into_iter().next())
+        .is_some_and(|(key, asc)| key == "_count" && asc);
+    if size == 0 || count_asc {
+        return 0;
+    }
+    let fetch = match params.get("shard_size").and_then(Value::as_u64) {
+        Some(shard_size) => shard_size.max(size),
+        None => size.saturating_mul(3) / 2 + 10,
+    };
+    fetch.min(cap as u64)
+}
+
+/// Union bound for merging one leaf terms agg across indices. Only an
+/// all-terms request (fetch 0) returns the whole union, so only it is refused
+/// past the cap; a bounded request holds at most `indices x fetch` rows and
+/// emits at most `size`.
+fn leaf_terms_union_cap(request: Option<&Value>, name: &str, cap: usize) -> usize {
+    match request
+        .and_then(|r| r.get(name))
+        .and_then(leaf_terms_params)
+    {
+        Some(params) if leaf_terms_fetch_size(params, cap) != 0 => usize::MAX,
+        _ => cap,
+    }
+}
+
 fn prepare_leaf_terms_summaries(request: &Value) -> (Value, Vec<String>) {
+    let cap = xerj_engine::aggs::max_buckets();
     let mut rewritten = request.clone();
     let mut names = Vec::new();
     if let Some(object) = rewritten.as_object_mut() {
         for (name, spec) in object {
-            if leaf_terms_params(spec).is_none() {
+            let Some(fetch) = leaf_terms_params(spec).map(|p| leaf_terms_fetch_size(p, cap)) else {
                 continue;
-            }
+            };
             let params = spec
                 .get_mut("terms")
                 .and_then(Value::as_object_mut)
                 .unwrap();
-            params.insert("size".into(), json!(0));
+            params.insert("size".into(), json!(fetch));
             params.remove("shard_size");
             if params.get("min_doc_count").and_then(Value::as_u64) != Some(0) {
                 params.insert("min_doc_count".into(), json!(1));
@@ -7710,6 +7746,37 @@ fn leaf_terms_identity(bucket: &Value) -> String {
     }
 }
 
+const LEAF_TERMS_OTHER: &str = "__xy_terms_other__";
+const LEAF_TERMS_ERROR: &str = "__xy_terms_error__";
+
+/// Fold one index's own cut-off into private accumulators, once. `other` is
+/// the documents in terms that index cut; `error` is the count of its last
+/// returned term when it cut any (the most an unseen term can have there).
+fn leaf_terms_accumulate(summary: &mut Value) {
+    let Some(object) = summary.as_object_mut() else {
+        return;
+    };
+    if object.contains_key(LEAF_TERMS_OTHER) {
+        return;
+    }
+    let other = object
+        .get("sum_other_doc_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let error = if other > 0 {
+        object
+            .get("buckets")
+            .and_then(Value::as_array)
+            .and_then(|rows| rows.last())
+            .and_then(|b| b["doc_count"].as_u64())
+            .unwrap_or(0)
+    } else {
+        0
+    };
+    object.insert(LEAF_TERMS_OTHER.into(), json!(other));
+    object.insert(LEAF_TERMS_ERROR.into(), json!(error));
+}
+
 fn merge_leaf_terms_summary(old: &Value, new: &Value, cap: usize) -> Value {
     if old.get("error").is_some() {
         return old.clone();
@@ -7718,6 +7785,17 @@ fn merge_leaf_terms_summary(old: &Value, new: &Value, cap: usize) -> Value {
         return new.clone();
     }
     let mut result = old.clone();
+    if result.get("buckets").and_then(Value::as_array).is_none() {
+        return new.clone();
+    }
+    let mut incoming_summary = new.clone();
+    leaf_terms_accumulate(&mut result);
+    leaf_terms_accumulate(&mut incoming_summary);
+    for key in [LEAF_TERMS_OTHER, LEAF_TERMS_ERROR] {
+        let a = result[key].as_u64().unwrap_or(0);
+        let b = incoming_summary[key].as_u64().unwrap_or(0);
+        result[key] = json!(a.saturating_add(b));
+    }
     let Some(rows) = result.get_mut("buckets").and_then(Value::as_array_mut) else {
         return new.clone();
     };
@@ -7729,7 +7807,7 @@ fn merge_leaf_terms_summary(old: &Value, new: &Value, cap: usize) -> Value {
         .enumerate()
         .map(|(i, b)| (leaf_terms_identity(b), i))
         .collect();
-    if let Some(incoming) = new.get("buckets").and_then(Value::as_array) {
+    if let Some(incoming) = incoming_summary.get("buckets").and_then(Value::as_array) {
         for bucket in incoming {
             let key = leaf_terms_identity(bucket);
             if let Some(&i) = positions.get(&key) {
@@ -7787,13 +7865,24 @@ fn finalize_leaf_terms_summaries(
         if result.get("error").is_some() {
             continue;
         }
+        if result.get("buckets").and_then(Value::as_array).is_none() {
+            continue;
+        }
+        leaf_terms_accumulate(result);
+        let Some(object) = result.as_object_mut() else {
+            continue;
+        };
+        let index_other = object
+            .remove(LEAF_TERMS_OTHER)
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let index_error = object
+            .remove(LEAF_TERMS_ERROR)
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
         let Some(rows) = result.get_mut("buckets").and_then(Value::as_array_mut) else {
             continue;
         };
-        if rows.len() > cap {
-            *result = leaf_terms_limit_error(cap);
-            continue;
-        }
         let minimum = params
             .get("min_doc_count")
             .and_then(Value::as_u64)
@@ -7826,16 +7915,25 @@ fn finalize_leaf_terms_summaries(
         } else {
             usize::try_from(size).unwrap_or(usize::MAX)
         };
-        let other = rows.iter().skip(size).try_fold(0u64, |sum, b| {
+        let other = rows.iter().skip(size).try_fold(index_other, |sum, b| {
             sum.checked_add(b["doc_count"].as_u64().unwrap_or(0))
         });
         rows.truncate(size);
+        if rows.len() > cap {
+            *result = leaf_terms_limit_error(cap);
+            continue;
+        }
         let Some(other) = other else {
             *result = json!({"error":"terms document count overflow","__error_status__":400});
             continue;
         };
+        // Only a count-descending list has a meaningful bound: an unseen term
+        // has at most the last count each cutting index returned.
+        let count_desc = orders
+            .first()
+            .is_some_and(|(key, asc)| key == "_count" && !asc);
         result["sum_other_doc_count"] = json!(other);
-        result["doc_count_error_upper_bound"] = json!(0);
+        result["doc_count_error_upper_bound"] = json!(if count_desc { index_error } else { 0 });
     }
 }
 
@@ -7851,7 +7949,8 @@ mod leaf_terms_coordinator_tests {
         let (rewritten, names) = prepare_leaf_terms_summaries(&req);
         assert_eq!(names, vec!["yes"]);
         assert_eq!(req["yes"]["terms"]["size"], 1);
-        assert_eq!(rewritten["yes"]["terms"]["size"], 0);
+        // An explicit shard_size is honoured but never below size.
+        assert_eq!(rewritten["yes"]["terms"]["size"], 1);
         assert_eq!(rewritten["yes"]["terms"]["min_doc_count"], 1);
         assert!(rewritten["yes"]["terms"].get("shard_size").is_none());
         assert_eq!(rewritten["child"], req["child"]);
@@ -8046,6 +8145,145 @@ mod leaf_terms_coordinator_tests {
         assert_eq!(r["t"]["buckets"][0]["key"], 3);
         assert_eq!(r["t"]["buckets"].as_array().unwrap().len(), 2);
         assert_eq!(r["t"]["sum_other_doc_count"], 0);
+    }
+
+    #[test]
+    fn fetch_size_is_bounded_by_the_request_not_by_cardinality() {
+        let fetch = |p: Value| leaf_terms_fetch_size(&p, 65_536);
+        assert_eq!(fetch(json!({"field":"k","size":1})), 11);
+        assert_eq!(fetch(json!({"field":"k"})), 25);
+        assert_eq!(fetch(json!({"field":"k","size":10,"shard_size":50})), 50);
+        assert_eq!(fetch(json!({"field":"k","size":10,"shard_size":3})), 10);
+        assert_eq!(fetch(json!({"field":"k","size":0})), 0);
+        assert_eq!(
+            fetch(json!({"field":"k","size":5,"order":{"_count":"asc"}})),
+            0
+        );
+        assert_eq!(
+            fetch(json!({"field":"k","size":5,"order":{"_key":"desc"}})),
+            17
+        );
+        assert_eq!(
+            leaf_terms_fetch_size(&json!({"field":"k","size":100}), 40),
+            40
+        );
+        let req =
+            json!({"b":{"terms":{"field":"k","size":3}},"all":{"terms":{"field":"k","size":0}}});
+        assert_eq!(leaf_terms_union_cap(Some(&req), "b", 9), usize::MAX);
+        assert_eq!(leaf_terms_union_cap(Some(&req), "all", 9), 9);
+        assert_eq!(leaf_terms_union_cap(None, "b", 9), 9);
+    }
+
+    /// #2935 finding 4, the issue's own fixture: A = key1 x10 + key3 x9,
+    /// B = key2 x10 + key3 x9. The global winner is key3 x18 and `_key: desc`
+    /// is [3,2,1], in both index orders, equal to the one-index union.
+    #[test]
+    fn issue_2935_fixture_global_winner_and_key_order() {
+        let docs = |tags: &[(&str, usize)]| -> Vec<Value> {
+            tags.iter()
+                .flat_map(|(t, n)| std::iter::repeat_n(json!({ "tag": t }), *n))
+                .collect()
+        };
+        let a = docs(&[("1", 10), ("3", 9)]);
+        let b = docs(&[("2", 10), ("3", 9)]);
+        let union: Vec<Value> = a.iter().chain(&b).cloned().collect();
+        let request = json!({
+            "top":{"terms":{"field":"tag","size":1}},
+            "key_desc":{"terms":{"field":"tag","size":10,"order":{"_key":"desc"}}}
+        });
+        let (summary_request, names) = prepare_leaf_terms_summaries(&request);
+        assert_eq!(names.len(), 2);
+        let ar = xerj_engine::aggs::run_aggs(&summary_request, &a);
+        let br = xerj_engine::aggs::run_aggs(&summary_request, &b);
+        let expected = xerj_engine::aggs::run_aggs(&request, &union);
+        for (left, right) in [(&ar, &br), (&br, &ar)] {
+            let mut got = json!({
+                "top": merge_leaf_terms_summary(&left["top"], &right["top"], usize::MAX),
+                "key_desc": merge_leaf_terms_summary(&left["key_desc"], &right["key_desc"], usize::MAX),
+            });
+            finalize_leaf_terms_summaries(&mut got, &request, &names, 65_536);
+            assert_eq!(got, expected);
+            strip_internal_tracking(&mut got);
+            assert_eq!(got["top"]["buckets"], json!([{"key":"3","doc_count":18}]));
+            assert_eq!(got["top"]["sum_other_doc_count"], 20);
+            let keys: Vec<&str> = got["key_desc"]["buckets"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|b| b["key"].as_str().unwrap())
+                .collect();
+            assert_eq!(keys, ["3", "2", "1"]);
+        }
+    }
+
+    /// High cardinality: each index returns only its bounded candidate list,
+    /// yet the buckets and `sum_other_doc_count` equal the one-index union,
+    /// and the cut is disclosed in `doc_count_error_upper_bound` instead of a
+    /// false exact 0. Before the bounded fetch each index shipped every term.
+    #[test]
+    fn bounded_fetch_reports_cut_terms_in_other_and_error_bound() {
+        let mut a: Vec<Value> = std::iter::repeat_n(json!({"k":"hot"}), 50).collect();
+        let mut b: Vec<Value> = std::iter::repeat_n(json!({"k":"hot"}), 40).collect();
+        a.extend((0..200).map(|i| json!({ "k": format!("a{i:03}") })));
+        b.extend((0..200).map(|i| json!({ "k": format!("b{i:03}") })));
+        let union: Vec<Value> = a.iter().chain(&b).cloned().collect();
+        let request = json!({"t":{"terms":{"field":"k","size":3}}});
+        let (summary_request, names) = prepare_leaf_terms_summaries(&request);
+        assert_eq!(summary_request["t"]["terms"]["size"], 14);
+        let ar = xerj_engine::aggs::run_aggs(&summary_request, &a);
+        let br = xerj_engine::aggs::run_aggs(&summary_request, &b);
+        assert_eq!(ar["t"]["buckets"].as_array().unwrap().len(), 14);
+        let expected = xerj_engine::aggs::run_aggs(&request, &union);
+        for (left, right) in [(&ar, &br), (&br, &ar)] {
+            let mut got =
+                json!({"t":merge_leaf_terms_summary(&left["t"], &right["t"], usize::MAX)});
+            finalize_leaf_terms_summaries(&mut got, &request, &names, 65_536);
+            assert_eq!(got["t"]["buckets"], expected["t"]["buckets"]);
+            assert_eq!(got["t"]["buckets"][0]["doc_count"], 90);
+            assert_eq!(
+                got["t"]["sum_other_doc_count"],
+                expected["t"]["sum_other_doc_count"]
+            );
+            assert_eq!(got["t"]["sum_other_doc_count"], 398);
+            // Each index cut terms whose count was at most 1.
+            assert_eq!(got["t"]["doc_count_error_upper_bound"], 2);
+            assert!(got["t"].get(LEAF_TERMS_OTHER).is_none());
+            assert!(got["t"].get(LEAF_TERMS_ERROR).is_none());
+        }
+        // Key order is exact under the cut: no error bound is claimed.
+        let request = json!({"t":{"terms":{"field":"k","size":3,"order":{"_key":"desc"}}}});
+        let (summary_request, names) = prepare_leaf_terms_summaries(&request);
+        let ar = xerj_engine::aggs::run_aggs(&summary_request, &a);
+        let br = xerj_engine::aggs::run_aggs(&summary_request, &b);
+        let expected = xerj_engine::aggs::run_aggs(&request, &union);
+        let mut got = json!({"t":merge_leaf_terms_summary(&ar["t"], &br["t"], usize::MAX)});
+        finalize_leaf_terms_summaries(&mut got, &request, &names, 65_536);
+        assert_eq!(got, expected);
+    }
+
+    /// A bounded request emits at most `size`, so the union is not refused at
+    /// the cap; an emitted list larger than the cap still is.
+    #[test]
+    fn cap_binds_emitted_buckets_not_bounded_candidates() {
+        let a = summary(json!([{"key":"a","doc_count":2},{"key":"c","doc_count":1}]));
+        let b = summary(json!([{"key":"b","doc_count":3}]));
+        let mut r = json!({"t":merge_leaf_terms_summary(&a, &b, usize::MAX)});
+        finalize_leaf_terms_summaries(
+            &mut r,
+            &json!({"t":{"terms":{"field":"k","size":1}}}),
+            &["t".into()],
+            2,
+        );
+        assert_eq!(r["t"]["buckets"], json!([{"key":"b","doc_count":3}]));
+        assert_eq!(r["t"]["sum_other_doc_count"], 3);
+        let mut r = json!({"t":merge_leaf_terms_summary(&a, &b, usize::MAX)});
+        finalize_leaf_terms_summaries(
+            &mut r,
+            &json!({"t":{"terms":{"field":"k","size":3}}}),
+            &["t".into()],
+            2,
+        );
+        assert_eq!(r["t"]["__error_status__"], 400);
     }
 }
 
@@ -18780,7 +19018,13 @@ async fn search_impl(
                                             let merged = merge_leaf_terms_summary(
                                                 &old,
                                                 v,
-                                                xerj_engine::aggs::max_buckets(),
+                                                leaf_terms_union_cap(
+                                                    body.aggs
+                                                        .as_ref()
+                                                        .or(body.aggregations.as_ref()),
+                                                    k,
+                                                    xerj_engine::aggs::max_buckets(),
+                                                ),
                                             );
                                             ex_obj.insert(k.clone(), merged);
                                             continue;

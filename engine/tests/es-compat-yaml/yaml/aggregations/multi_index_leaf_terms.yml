@@ -128,3 +128,147 @@ setup:
   - length: { aggregations.t.buckets: 1 }
   - match: { aggregations.t.buckets.0.key: a }
   - is_false: aggregations.t.buckets.0.__xy_terms_key__
+---
+"issue 2935 fixture: global 18-count winner and global key order across indices":
+  - do:
+      indices.create:
+        index: issue2935-top-a
+        body:
+          mappings:
+            properties:
+              tag: { type: keyword }
+  - do:
+      indices.create:
+        index: issue2935-top-b
+        body:
+          mappings:
+            properties:
+              tag: { type: keyword }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - index: { _index: issue2935-top-a, _id: "0" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "1" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "2" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "3" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "4" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "5" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "6" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "7" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "8" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "9" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "10" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "11" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "12" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "13" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "14" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "15" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "16" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "17" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "18" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b0" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b1" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b2" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b3" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b4" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b5" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b6" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b7" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b8" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b9" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b10" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b11" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b12" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b13" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b14" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b15" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b16" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b17" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b18" }
+          - { tag: "3" }
+  - do:
+      search:
+        index: issue2935-top-a,issue2935-top-b
+        body:
+          size: 0
+          aggs:
+            top:
+              terms: { field: tag, size: 1 }
+            key_desc:
+              terms: { field: tag, size: 10, order: { _key: desc } }
+  - length: { aggregations.top.buckets: 1 }
+  - match: { aggregations.top.buckets.0.key: "3" }
+  - match: { aggregations.top.buckets.0.doc_count: 18 }
+  - match: { aggregations.top.sum_other_doc_count: 20 }
+  - match: { aggregations.top.doc_count_error_upper_bound: 0 }
+  - length: { aggregations.key_desc.buckets: 3 }
+  - match: { aggregations.key_desc.buckets.0.key: "3" }
+  - match: { aggregations.key_desc.buckets.0.doc_count: 18 }
+  - match: { aggregations.key_desc.buckets.1.key: "2" }
+  - match: { aggregations.key_desc.buckets.1.doc_count: 10 }
+  - match: { aggregations.key_desc.buckets.2.key: "1" }
+  - match: { aggregations.key_desc.buckets.2.doc_count: 10 }
+  - match: { aggregations.key_desc.sum_other_doc_count: 0 }
+  - is_false: aggregations.top.buckets.0.__xy_terms_key__
+  - do:
+      search:
+        index: issue2935-top-b,issue2935-top-a
+        body:
+          size: 0
+          aggs:
+            top:
+              terms: { field: tag, size: 1 }
+            key_desc:
+              terms: { field: tag, size: 10, order: { _key: desc } }
+  - length: { aggregations.top.buckets: 1 }
+  - match: { aggregations.top.buckets.0.key: "3" }
+  - match: { aggregations.top.buckets.0.doc_count: 18 }
+  - match: { aggregations.top.sum_other_doc_count: 20 }
+  - match: { aggregations.top.doc_count_error_upper_bound: 0 }
+  - length: { aggregations.key_desc.buckets: 3 }
+  - match: { aggregations.key_desc.buckets.0.key: "3" }
+  - match: { aggregations.key_desc.buckets.0.doc_count: 18 }
+  - match: { aggregations.key_desc.buckets.1.key: "2" }
+  - match: { aggregations.key_desc.buckets.1.doc_count: 10 }
+  - match: { aggregations.key_desc.buckets.2.key: "1" }
+  - match: { aggregations.key_desc.buckets.2.doc_count: 10 }
+  - match: { aggregations.key_desc.sum_other_doc_count: 0 }
+  - is_false: aggregations.top.buckets.0.__xy_terms_key__

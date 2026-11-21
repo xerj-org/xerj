@@ -2985,10 +2985,18 @@ impl<'a> FastCtx<'a> {
         // the exact OOM vector the cap exists to close, honoured on brute and
         // ignored here.
         //
-        // Refuse the columnar route when its distinct-term map would exceed
-        // the cap. The brute evaluator returns the shared too-many-buckets
-        // error, never an apparently exact iteration-dependent subset. Keep
-        // the existing bail route so unsupported fast shapes agree with it.
+        // We do NOT enforce the cap by truncating the map: brute drops the
+        // terms past `max_buckets` in doc-iteration order and reports a
+        // `sum_other_doc_count` computed only over the terms it kept, so the
+        // dropped terms vanish silently (order-dependent, and the total
+        // conceals them). Reproducing that on the fast path would copy the bug,
+        // not the contract. Instead we BAIL to brute the moment the distinct
+        // count would exceed the cap (checked below as the map grows, so the
+        // map is bounded to ~`bucket_cap`): after the bail the request is
+        // answered by the very `run_terms` a test would measure the fast path
+        // against, so the two paths AGREE past the cap by construction — the
+        // same shape as the #104 / #120 bail-to-brute fallbacks. An index whose
+        // distinct count is at or under the cap is served here as before.
         let bucket_cap = crate::aggs::max_buckets();
 
         let plan = self.plan_subs(sub, true)?;
