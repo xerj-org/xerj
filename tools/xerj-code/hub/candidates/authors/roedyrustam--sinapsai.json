@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on circuit-breaker, llm, llm-gateway queries this for how roedyrustam/sinapsai implements it: Zero-dependency Universal AI Gateway & Smart Router for Node.js/Edge - Circuit Breakers, Semantic Cache, MCP Tool Loop, Reversible PII Vault",
+ "domain": "an agent working on circuit-breaker, llm-gateway, typescript queries this for how roedyrustam/sinapsai implements it: Zero-dependency In-Process AI Gateway & Control Plane for TypeScript/Node/Edge \u2014 15 Frontier LLM Providers (OpenAI, Claude, Gemini, Qwen, Ki",
  "repos": [
   {
    "repo": "sinapsai",
    "url": "https://github.com/roedyrustam/sinapsai",
-   "sha": "30a1ec153f3aefae9bf2f8168eec9f3ceb1a8c13",
-   "licence": "MIT (LICENSE file at pin 30a1ec153f3a, GitHub licence API 2026-11-21)",
+   "sha": "9e5be52d6b518db79a78897c69b60edd5c493ba5",
+   "licence": "MIT (LICENSE file at pin 9e5be52d6b51, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T00:09Z",
     "consent_receipt": "efcc8d19c055",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:09Z (receipt efcc8d19c055); pinned to the default-branch head. LICENSE file at pin 30a1ec153f3a detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:09Z (receipt efcc8d19c055); pinned to the default-branch head. LICENSE file at pin 9e5be52d6b51 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
    }
   }
  ]

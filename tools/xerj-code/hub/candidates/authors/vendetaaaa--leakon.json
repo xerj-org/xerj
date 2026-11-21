@@ -1,9 +1,9 @@
 {
- "corpus": "vendetaaaa--rosef26-27",
+ "corpus": "vendetaaaa--leakon",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on 2026, cnn, esp32 queries this for how Vendetaaaa/RoSEF26-27 implements it: Cercetarea open-source realizat\u0103 de 2 elevi de la CNCNI (selected work: informatica)",
+ "domain": "an agent working on 2026, cnn, esp32 queries this for how Vendetaaaa/LEAKON implements it: The open-source research made by 2 students from CNCNI; Sustained now by Vendeta (selected work: informatica)",
  "repos": [
   {
    "repo": "RoSEF26-27",

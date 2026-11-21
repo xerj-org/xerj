@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agents, ai, ai-agents queries this for how omnigent-ai/omnigent implements it: Omnigent is an open-source AI agent framework and meta-harness: orchestrate Claude Code, Codex, Cursor, Pi, and custom agents \u2014 swap harness (selected work: web, tests)",
+ "domain": "an agent working on agents, ai, ai-agents queries this for how omnigent-ai/omnigent implements it: Omnigent is an open-source AI agent framework and meta-harness: orchestrate Claude Code, Codex, Cursor, Pi, and custom agents \u2014 swap harness (selected work: tests, omnigent, web)",
  "repos": [
   {
    "repo": "omnigent",
    "url": "https://github.com/omnigent-ai/omnigent",
-   "sha": "d24856cb01aa5f0d29081c4a4700b4808cae3d21",
-   "licence": "Apache-2.0 (LICENSE file at pin d24856cb01aa, GitHub licence API 2026-10-24)",
+   "sha": "1c756be2d31b55a41c2bfd9e536c6b41caea2c8e",
+   "licence": "Apache-2.0 (LICENSE file at pin 1c756be2d31b, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-10T19:09Z",
-    "consent_receipt": "52484154f1ed",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T19:09Z (receipt 52484154f1ed); selected commit d24856cb01aa: \"Polish mobile chat and settings UX (part 1) (#9191)\". LICENSE file at pin d24856cb01aa detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @omnigent-ai, who has not added it."
+    "at": "2026-10-22T01:39Z",
+    "consent_receipt": "fff36847e223",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T01:39Z (receipt fff36847e223); selected commit 1c756be2d31b: \"feat: accept archives, Office documents and SQLite files for Claude C\u2026\". LICENSE file at pin 1c756be2d31b detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @omnigent-ai, who has not added it."
    },
    "paths": [
     "docs",
