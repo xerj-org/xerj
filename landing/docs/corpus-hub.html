@@ -546,7 +546,7 @@ claude mcp add --scope user xerj -- "$(command -v xerj)" mcp
 <pre class="code">$ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"check","version":"0"}}}' \
     '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | xerj mcp 2&gt;/dev/null | grep -o '"name":"xerj_hub_ask"'
 "name":"xerj_hub_ask"</pre>
-  <p>A build with no hub key serves 19 tools and omits the three hub tools. The full schemas are in
+  <p>A build with no hub key serves 22 tools and omits the three hub tools. The full schemas are in
   <a href="/docs/agents/schemas/mcp-tools.json">mcp-tools.json</a>; the
   <a href="/docs/agents/endpoints#hub-tools">endpoint contract</a> lists them with the other agent
   operations.</p>

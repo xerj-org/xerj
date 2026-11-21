@@ -161,12 +161,19 @@ do not inherit a shell `PATH`. Add `"XERJ_AUTH": "ApiKey <key>"` when the node
 is not running `--insecure` — the key is `<data-dir>/admin.key`. `--url` and
 `--auth` flags override the two environment variables.
 
-Twenty-four tools: `xerj_search`, `xerj_semantic_search`, `xerj_vector_search`,
+A cloud agent or URL-only client that cannot start a process can use
+`xerj mcp --http` (on main, after rc.104): MCP Streamable HTTP at
+`http://127.0.0.1:9330/mcp`, read-only unless `--allow-writes`, bearer token
+from `XERJ_MCP_TOKEN` (required on a non-loopback bind; set it before any
+tunnel). Verify: `tools/list` over HTTP returns 15 tools (14 with no hub key).
+Setup: `landing/docs/agents/endpoints.html#remote-mcp`.
+
+Twenty-five tools: `xerj_search`, `xerj_semantic_search`, `xerj_vector_search`,
 `xerj_hybrid_search`, `xerj_memory_store`, `xerj_memory_recall`,
 `xerj_brain_overview`, `xerj_brain_ego`, `xerj_brain_link`, `xerj_brain_unlink`,
 `xerj_plan`, `xerj_map`, `xerj_status`, `xerj_code_search`, `xerj_index_budget`,
 `xerj_autoindex_remove`, `xerj_field_report`, `xerj_corpus_feedback`,
-`xerj_hub_find`, `xerj_hub_def`, `xerj_hub_ask`, `xerj_def`, `xerj_batch_search`, `xerj_sources`. The first eleven are
+`xerj_hub_find`, `xerj_hub_def`, `xerj_hub_ask`, `xerj_def`, `xerj_references`, `xerj_batch_search`, `xerj_sources`. The first eleven are
 each a *thin proxy*: they build exactly the request the ES-compatible surface already accepts
 (`xerj_plan` is `POST /_ask`, the deterministic rule-based planner) and hand back
 whatever the engine returned, errors and refusals verbatim — no capability of
@@ -201,6 +208,11 @@ empty hit list. As in the CLI, kind/language filters are ignored when no target
 index maps the field or any target index maps it as numeric. Unlike
 `xerj_hub_def`, this queries the configured node rather than a named Hub pack.
 
+`xerj_references` (on main, after rc.104) takes the identifier `xerj_def`
+found and returns every indexed line that names it, definitions listed apart.
+It is lexical, not a call graph: comments and strings count, and a call
+through an alias does not. Contract: `landing/docs/agents/endpoints.html#references`.
+
 The remaining seven are not proxies either. `xerj_index_budget` counts a folder
 and estimates its index against the node's flood-stage budget before
 `xerj autoindex` hashes anything; it does not index. `xerj_autoindex_remove`
@@ -209,13 +221,13 @@ true. `xerj_field_report` files an agent field report (a GitHub PR first, the
 `/api/field-report` endpoint when GitHub is unavailable). `xerj_corpus_feedback`
 rates a hub corpus. `xerj_hub_find`, `xerj_hub_def` and `xerj_hub_ask` answer
 from Corpus Hub packs already on the machine, the `xerj ask` flow. A binary with
-no hub key omits the three hub tools and serves nineteen.
+no hub key omits the three hub tools and serves twenty-two.
 
-A twenty-fourth tool, `xerj_facts_ask`, is a thin, read-only proxy of
+One more tool, `xerj_facts_ask`, is a thin, read-only proxy of
 `POST /_facts/{ns}/_ask` — question in, the engine's verified answer out, same
 contract as the HTTP call. `xerj mcp` lists it only when the node it proxies
 was started with `--facts-model-dir` (a default node keeps the published
-twenty-three; `XERJ_MCP_FACTS=on|off` decides instead of probing). Verify: the
+twenty-five; `XERJ_MCP_FACTS=on|off` decides instead of probing). Verify: the
 tool list carries `xerj_facts_ask` after the node is started with the flag.
 
 Two honesty notes that bind how you describe results: `xerj_semantic_search`
