@@ -47,6 +47,50 @@
       }
     },
     {
+      "name": "xerj_references",
+      "description": "Every indexed line that names an exact identifier, excluding its definitions: path, line, the line's text and the enclosing symbol (narrowest declaration around it). Use it for \"where is X used / who calls X\" after xerj_def found the definition. Lexical, not a call graph: finds the files whose text holds `symbol` as a phrase, then scans each file's stored text for it with identifier boundaries, case-sensitive. Comments and strings count; calls through an alias do not; same-named symbols are not told apart. Lines that declare `symbol` (from the file's symbol catalogue) come back in `definitions`, not `references`. A mention inside a section of a long text file that the index stores without a line number comes back in `unlocated` (path, section, text; first 50, counted in `unlocated_total`), never with a guessed line. `total` counts every located reference line; `references` is the page `from`..`from+size`, sorted by path then line. `truncated: true` means more than 2000 matching files and the scan stopped. Indices that map neither `body` nor `text` are skipped. Optional max_tokens trims the page from its end and says so in `budget`.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Exact identifier, e.g. `activeDialog`, `SEND_PROTOCOL` or a dotted `ActiveUtils.activeDialog` / `Vec::new`. No spaces."
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Autoindex prefix: project searches project-*. Cannot be combined with a non-empty index. Defaults to ax when neither scope is given."
+          },
+          "index": {
+            "type": "string",
+            "description": "Explicit index name or pattern instead of prefix."
+          },
+          "from": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "First reference of the page (0-based)."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50,
+            "description": "References per page (1..=500, default 50)."
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 32,
+            "default": 8000,
+            "description": "Word budget for the successful JSON result, counted with XERJ's StandardTokenizer (UAX #29 word boundaries). References are dropped from the end of the page until it fits; `budget.trimmed` says how many and `next_from` continues there. Totals, definitions and unlocated counts are kept. Minimum 32; when omitted the budget is 8000 UAX #29 words. Not a byte cap or a model-token count."
+          }
+        },
+        "required": [
+          "symbol"
+        ]
+      }
+    },
+    {
       "name": "xerj_batch_search",
       "description": "Search 1..50 IDs or questions in one call, in input order. Shares the CLI xerj batch-search adapter. Each result has its zero-based position, optional caller key, and status hits, abstain (only a complete empty search), or error. Hits carry citations: index/id plus file/line or record locator when available. This retrieves evidence, not generated answers or calibrated confidence. Use identifier plus an explicitly keyword-mapped field for exact IDs; query takes plain text or an ES query clause. One bad item never discards its siblings; identical inputs remain separate. The batch shares one 25 s time budget; an item it does not reach fails alone as search_incomplete. Uses one _msearch request, plus at most one mapping read; a response over 32 MiB is retried in halves, and an item still over it alone fails alone. Omitted or null max_tokens defaults to 8000 UAX #29 words and caps the entire successful JSON response using StandardTokenizer UAX #29 words, not BPE. Budgeting removes raw hit bodies, then extra hits, retaining each item's status and at least one citation per matched item. If that minimum cannot fit, returns an actionable tool error, never truncated JSON or a false abstention. Errors are not truncated.",
       "inputSchema": {
