@@ -49,6 +49,7 @@ fn index_cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         stub_globs: Vec::new(),
         default_stubs: true,
         url: url.to_owned(),
+        ca_cert: None,
         api_key: None,
         api_key_file: None,
         workers: 2,

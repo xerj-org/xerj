@@ -5003,6 +5003,7 @@ mod phase_a_grouping_tests {
             stub_globs: Vec::new(),
             default_stubs: true,
             url: "http://unused.invalid".into(),
+            ca_cert: None,
             api_key: None,
             api_key_file: None,
             workers: 1,
@@ -9249,8 +9250,13 @@ fn run_index_report_inner(
     if let Some(err) = dataset::index_prefix_error(&cfg.prefix) {
         anyhow::bail!("{err}");
     }
-    let es = Es::with_bulk_timeout(&cfg.url, cfg.api_key.clone(), cfg.bulk_timeout_secs)?
-        .with_bulk_concurrency(cfg.workers, pr.enabled());
+    let es = Es::with_bulk_timeout_and_ca_cert(
+        &cfg.url,
+        cfg.api_key.clone(),
+        cfg.bulk_timeout_secs,
+        cfg.ca_cert.clone(),
+    )?
+    .with_bulk_concurrency(cfg.workers, pr.enabled());
     // #1102: ping's raw context is honest but teaches a first-time user
     // nothing — autoindex is the onboarding verb, so the no-node case here
     // gets the same recipe `xerj def` already prints: start one, or aim at
@@ -13947,6 +13953,15 @@ fn node_ping_failure(url: &str, err: &anyhow::Error) -> String {
     } else if err.is::<esclient::UnexpectedNode>() {
         let endpoint = xerj_common::config::redact_url_userinfo(url);
         format!("the endpoint at {endpoint} answered, but {err}. Check the port or pass --url for a running XERJ node.")
+    } else if esclient::Es::ping_failure_is_tls_cert(err) {
+        // A remote node serving the self-signed certificate it minted on
+        // first start: the failure names the escape hatch, so the operator
+        // is not left with a bare UnknownIssuer.
+        format!(
+            "the node at {url} presented a TLS certificate this machine does not trust ({err:#})\n\n\
+             If the node uses the self-signed certificate it minted on first start, trust it with \
+             --ca-cert <file> (or set XERJ_CA_CERT to that file) and re-run."
+        )
     } else {
         let existing = ExistingNode::discover(url);
         node_ping_failure_text(url, err, existing.as_ref())
@@ -14001,7 +14016,7 @@ fn loopback_retry_hint(url: &str) -> Option<String> {
 
 #[cfg(test)]
 mod node_ping_failure_tests {
-    use super::{node_ping_failure_text, ExistingNode};
+    use super::{node_ping_failure, node_ping_failure_text, ExistingNode};
 
     /// A machine with no data dir: the first-run recipe.
     fn no_existing_dir(url: &str, err: &anyhow::Error) -> String {
@@ -14079,6 +14094,30 @@ mod node_ping_failure_tests {
             "an existing dir is not replaced by a fresh insecure node: {msg}"
         );
     }
+
+    /// A remote node serving its self-signed certificate: the failure must
+    /// name the escape hatch, not leave the operator with a bare
+    /// UnknownIssuer. A plain refused connection must not mention it.
+    #[test]
+    fn a_tls_certificate_failure_names_the_ca_cert_option() {
+        let err = anyhow::anyhow!(
+            "endpoint unreachable: https://node.example.com:9200: invalid peer certificate: UnknownIssuer"
+        );
+        let msg = node_ping_failure("https://node.example.com:9200", &err);
+        assert!(msg.contains("does not trust"), "{msg}");
+        assert!(msg.contains("UnknownIssuer"), "{msg}");
+        assert!(msg.contains("--ca-cert"), "{msg}");
+        assert!(msg.contains("XERJ_CA_CERT"), "{msg}");
+        assert!(!msg.contains("no XERJ node reachable"), "{msg}");
+        assert!(!msg.contains("xerj --insecure"), "{msg}");
+
+        let refused = anyhow::anyhow!(
+            "endpoint unreachable: https://node.example.com:9200: Connection refused (os error 111)"
+        );
+        let msg = node_ping_failure("https://node.example.com:9200", &refused);
+        assert!(!msg.contains("--ca-cert"), "{msg}");
+        assert!(!msg.contains("XERJ_CA_CERT"), "{msg}");
+    }
 }
 
 fn run_remove(cfg: cli::RemoveCfg) -> Result<i32> {
@@ -14118,7 +14157,7 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
     }
     // #3267: a stopped loopback node is started (detached) before the read.
     xerj_common::localnode::ensure_for_cli("autoindex map", &cfg.url);
-    let es = Es::new(&cfg.url, cfg.api_key.clone())?;
+    let es = Es::with_ca_cert(&cfg.url, cfg.api_key.clone(), cfg.ca_cert.clone())?;
     // The same first-run miss as `xerj search`: nothing is listening, and a
     // raw `endpoint unreachable` does not say how to start a node.
     if let Err(e) = es.ping() {
@@ -14736,7 +14775,7 @@ fn run_status(cfg: StatusCfg) -> Result<i32> {
         }
     }
     // live indices
-    if let Ok(es) = Es::new(&cfg.url, cfg.api_key.clone()) {
+    if let Ok(es) = Es::with_ca_cert(&cfg.url, cfg.api_key.clone(), cfg.ca_cert.clone()) {
         if es.ping().is_ok() {
             let pat = format!("{}-", cfg.prefix);
             let all_live = es.cat_indices().unwrap_or_default();

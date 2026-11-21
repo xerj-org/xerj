@@ -338,6 +338,7 @@ The model, its bundle and its serve rule are those of rc.102.
   per-aggregation cap from `limits.max_buckets` still applies too, so a
   setting above it does not raise that cap. `_async_search`,
   `_search/template` and `_msearch/template` do not read the setting yet.
+- Autoindex clients no longer accept any TLS certificate on non-loopback node URLs: the certificate bypass now applies only to loopback nodes, which mint a self-signed certificate on first start, and a non-loopback node must present a certificate the system roots trust. Before this, the bulk client sent the admin API key over a connection that accepted any certificate, so a man in the middle on a non-loopback node URL could read the key and every indexed document. (issue [#3195](https://github.com/xerj-org/xerj/issues/3195))
 
 ## [1.0.0-rc.102] - 2026-11-06
 

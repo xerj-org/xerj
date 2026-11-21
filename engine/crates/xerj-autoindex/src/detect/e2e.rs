@@ -403,6 +403,7 @@ pub(super) fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         root: root.to_owned(),
         endpoint_url: None,
         url: url.to_owned(),
+        ca_cert: None,
         api_key: None,
         api_key_file: None,
         workers: 1,
