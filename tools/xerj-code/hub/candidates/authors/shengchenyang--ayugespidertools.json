@@ -1,0 +1,23 @@
+{
+ "corpus": "shengchenyang--ayugespidertools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on aiohttp, scrapy, asyncio queries this for how shengchenyang/AyugeSpiderTools implements it: \u4f7f scrapy \u5f00\u53d1\u4e0d\u7528\u5728\u610f item\uff0cpipeline\uff0cmiddleware \u7b49\u901a\u7528\u573a\u666f\u4e0b\u6a21\u5757\u7684\u7f16\u5199\uff0c\u89e3\u653e\u5f00\u53d1\u8005\u7684\u53cc\u624b\u3002 (selected work: tests, ayugespidertools)",
+ "repos": [
+  {
+   "repo": "AyugeSpiderTools",
+   "url": "https://github.com/shengchenyang/AyugeSpiderTools",
+   "sha": "dafa048f7d8e3b9074100bee76af663834a02232",
+   "licence": "MIT (LICENSE file at pin dafa048f7d8e, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-20T09:26Z",
+    "consent_receipt": "572ff1b72ed8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-20T09:26Z (receipt 572ff1b72ed8); selected commit dafa048f7d8e: \"Fix sqlformat (#60)\". LICENSE file at pin dafa048f7d8e detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

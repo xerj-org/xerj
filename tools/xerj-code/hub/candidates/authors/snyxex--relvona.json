@@ -1,0 +1,23 @@
+{
+ "corpus": "snyxex--relvona",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Snyxex/Relvona implements it: AI Customer Support Platform (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "Relvona",
+   "url": "https://github.com/Snyxex/Relvona",
+   "sha": "caad52c7103091cb1df5d28d274cf2b9ea3d4b82",
+   "licence": "Apache-2.0 (LICENSE file at pin caad52c71030, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T05:35Z",
+    "consent_receipt": "3b93e055ca60",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T05:35Z (receipt 3b93e055ca60); selected commit caad52c71030: \"feat(support): tenant-safe automation rules, execution history and ru\u2026\". LICENSE file at pin caad52c71030 detected as Apache-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

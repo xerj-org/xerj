@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how SphaeroX/GeminiTray implements it: A desktop app that integrates Google Gemini into your workflow via system tray (selected work: electron, src/components, the project root)",
+ "domain": "an agent working on Rust queries this for how SphaeroX/GeminiTray implements it: A desktop app that integrates Google Gemini into your workflow via system tray (selected work: electron, src/components, the project root)",
  "repos": [
   {
    "repo": "GeminiTray",

@@ -1,0 +1,33 @@
+{
+ "corpus": "thryveframework--thryve",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on c-api, concurrency, ffi queries this for how thryveframework/thryve implements it: A multithreading task engine in Rust, with a C API: plugins and observers, typed tasks with follow-ups, joins and fan-out, a priority queue  (selected work: tests, crates/thryve_ffi, crates/thryve_utils)",
+ "repos": [
+  {
+   "repo": "thryve",
+   "url": "https://github.com/thryveframework/thryve",
+   "sha": "8691db9c60431954923cd061c9a19f6f8c991956",
+   "licence": "AGPL-3.0 (LICENSE file at pin 8691db9c6043, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-19T10:59Z",
+    "consent_receipt": "11572a855631",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T10:59Z (receipt 11572a855631); selected commit 8691db9c6043: \"fixed hangs that could occure before the engine existed.\". LICENSE file at pin 8691db9c6043 detected as AGPL-3.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @thryveframework, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "crates/thryve",
+    "crates/thryve_core",
+    "crates/thryve_ffi",
+    "crates/thryve_observers",
+    "crates/thryve_run",
+    "crates/thryve_utils",
+    "tests"
+   ]
+  }
+ ]
+}

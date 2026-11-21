@@ -8,15 +8,15 @@
   {
    "repo": "WebApi.Authentication",
    "url": "https://github.com/steffenskov/WebApi.Authentication",
-   "sha": "c954a1ee5fd775b1ea6ee87cfd7eb5e4e25a60b9",
-   "licence": "MIT (LICENSE file at pin c954a1ee5fd7, GitHub licence API 2026-11-14)",
+   "sha": "03e76994700882fa234667aaf048764e4baa7ad8",
+   "licence": "MIT (LICENSE file at pin 03e769947008, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:41Z",
     "consent_receipt": "44ce70641326",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt 44ce70641326); pinned to the default-branch head. LICENSE file at pin c954a1ee5fd7 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt 44ce70641326); pinned to the default-branch head. LICENSE file at pin 03e769947008 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
    }
   }
  ]

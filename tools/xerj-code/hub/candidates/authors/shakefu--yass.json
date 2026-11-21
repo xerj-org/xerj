@@ -1,0 +1,23 @@
+{
+ "corpus": "shakefu--yass",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how shakefu/yass implements it: yass \u2014 Yet Another Spec Syntax: a YAML spec language for AI-agent-driven development (specs drive TDD + implementation generation) (selected work: cli, script)",
+ "repos": [
+  {
+   "repo": "yass",
+   "url": "https://github.com/shakefu/yass",
+   "sha": "d1a845ab2539f2bba1b2b02cb39e9ed98e1d62fe",
+   "licence": "AGPL-3.0 (LICENSE file at pin d1a845ab2539, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-20T06:03Z",
+    "consent_receipt": "8c9b40b8ad90",
+    "note": "Inclusion consented by the commit author by email at 2026-11-20T06:03Z (receipt 8c9b40b8ad90); selected commit d1a845ab2539: \"feat(cli): orient a cold reader from bare invocation\". LICENSE file at pin d1a845ab2539 detected as AGPL-3.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

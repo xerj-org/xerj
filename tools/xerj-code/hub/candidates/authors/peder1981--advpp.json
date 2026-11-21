@@ -8,15 +8,15 @@
   {
    "repo": "AdvPP",
    "url": "https://github.com/peder1981/AdvPP",
-   "sha": "d401db6f33d74ed86aae6fd404c5a1c15ece12d9",
-   "licence": "Apache-2.0 (LICENSE file at pin d401db6f33d7, GitHub licence API 2026-11-20)",
+   "sha": "64d9d2dfdaaeb3194b5159b4ea3cb2f305857b82",
+   "licence": "Apache-2.0 (LICENSE file at pin 64d9d2dfdaae, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-09T09:22Z",
     "consent_receipt": "dbd01d8c5adf",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T09:22Z (receipt dbd01d8c5adf); selected commit d401db6f33d7: \"feat(rpo): injetor de bytecode RPO, parser APO e scripts de captura\". LICENSE file at pin d401db6f33d7 detected as Apache-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution. Pinned to head d401db6f33d7 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T09:22Z (receipt dbd01d8c5adf); selected commit 64d9d2dfdaae: \"feat(rpo): injetor de bytecode RPO, parser APO e scripts de captura\". LICENSE file at pin 64d9d2dfdaae detected as Apache-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Pinned to head 64d9d2dfdaae (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

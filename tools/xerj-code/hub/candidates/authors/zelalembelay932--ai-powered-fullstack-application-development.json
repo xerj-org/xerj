@@ -1,0 +1,23 @@
+{
+ "corpus": "zelalembelay932--ai-powered-fullstack-application-development",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how zelalembelay932/AI-Powered-Fullstack-Application-Development implements it: My AI Powered Fullstack Application Development course projects and assignments (selected work: Phase-3)",
+ "repos": [
+  {
+   "repo": "AI-Powered-Fullstack-Application-Development",
+   "url": "https://github.com/zelalembelay932/AI-Powered-Fullstack-Application-Development",
+   "sha": "b7ca5536e3280164290dddc5452ce1869021a8d6",
+   "licence": "MIT (LICENSE file at pin b7ca5536e328, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-20T07:13Z",
+    "consent_receipt": "80de780ec7e4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-20T07:13Z (receipt 80de780ec7e4); selected commit b7ca5536e328: \"add any pages in self file inside pages folder and add add react router\". LICENSE file at pin b7ca5536e328 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}
