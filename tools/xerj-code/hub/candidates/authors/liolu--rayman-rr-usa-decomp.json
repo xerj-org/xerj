@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on decompilation, matching-decompilation, nintendo-ds queries this for how liolu/Rayman-RR-usa-decomp implements it: Matching decompilation of Rayman Raving Rabbids (Nintendo DS, USA) (selected work: tools)",
+ "domain": "an agent working on decompilation, matching-decompilation, nintendo-ds queries this for how liolu/Rayman-RR-usa-decomp implements it: Moved to liolu/All-nds-decomp-games (games/R/rayman-rr). Matching decompilation, archived (selected work: tools)",
  "repos": [
   {
    "repo": "Rayman-RR-usa-decomp",
