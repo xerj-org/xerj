@@ -8,15 +8,15 @@
   {
    "repo": "ha-smartphone-card",
    "url": "https://github.com/jan-tdy/ha-smartphone-card",
-   "sha": "b47aca20fe56717ab876586a4a3145c03e6f6193",
-   "licence": "MIT (LICENSE file at pin b47aca20fe56, GitHub licence API 2026-11-20)",
+   "sha": "38e6cd120fd364063e3a10e428efb22901496320",
+   "licence": "MIT (LICENSE file at pin 38e6cd120fd3, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:53Z",
     "consent_receipt": "b9f63fa4cb86",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt b9f63fa4cb86); pinned to the default-branch head. LICENSE file at pin b47aca20fe56 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt b9f63fa4cb86); pinned to the default-branch head. LICENSE file at pin 38e6cd120fd3 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
    }
   }
  ]
