@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agents, agentskill, documents queries this for how chicagobuss/tracker implements it: A minimalist document storage and retrieval system for coding agents designed for private use",
+ "domain": "an agent working on agents, agentskill, documents queries this for how chicagobuss/tracker implements it: A minimalist agent coordination system with docs, tasks, and streams",
  "repos": [
   {
    "repo": "tracker",

@@ -8,15 +8,15 @@
   {
    "repo": "RsyncUI",
    "url": "https://github.com/rsyncOSX/RsyncUI",
-   "sha": "9f5ba881717c4f80365938de6d343c90d1f611a1",
-   "licence": "MIT (LICENSE file at pin 9f5ba881717c, GitHub licence API 2026-11-13)",
+   "sha": "ac9f8e3a566767ec3a071032ec5fd1a0121a0af7",
+   "licence": "MIT (LICENSE file at pin ac9f8e3a5667, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:52Z",
     "consent_receipt": "788adf07fd76",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:52Z (receipt 788adf07fd76); pinned to the default-branch head. LICENSE file at pin 9f5ba881717c detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:52Z (receipt 788adf07fd76); pinned to the default-branch head. LICENSE file at pin ac9f8e3a5667 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
    }
   }
  ]

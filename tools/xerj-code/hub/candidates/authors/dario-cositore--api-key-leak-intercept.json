@@ -8,15 +8,15 @@
   {
    "repo": "api-key-leak-intercept",
    "url": "https://github.com/dario-cositore/api-key-leak-intercept",
-   "sha": "190720c626a09950ec644a7af11286f53f588e43",
-   "licence": "MIT (LICENSE file at pin 190720c626a0, GitHub licence API 2026-11-15)",
+   "sha": "fca394e0f4e3d9503be5af92bdb5b68fe7788cd7",
+   "licence": "MIT (LICENSE file at pin fca394e0f4e3, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T06:11Z",
     "consent_receipt": "6f7152c6987f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T06:11Z (receipt 6f7152c6987f); pinned to the default-branch head. LICENSE file at pin 190720c626a0 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T06:11Z (receipt 6f7152c6987f); pinned to the default-branch head. LICENSE file at pin fca394e0f4e3 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
    }
   }
  ]

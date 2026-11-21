@@ -8,15 +8,15 @@
   {
    "repo": "parapdf",
    "url": "https://github.com/yhay81/parapdf",
-   "sha": "8740c20add74bf7ea48ef4a5dc4ca06f1983d793",
-   "licence": "Apache-2.0 (LICENSE file at pin 8740c20add74, GitHub licence API 2026-11-21)",
+   "sha": "6208c00ddf57866543595ea626881b0970f4ae2e",
+   "licence": "Apache-2.0 (LICENSE file at pin 6208c00ddf57, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-17T22:08Z",
     "consent_receipt": "064d564b8145",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt 064d564b8145); pinned to the default-branch head. LICENSE file at pin 8740c20add74 detected as Apache-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt 064d564b8145); pinned to the default-branch head. LICENSE file at pin 6208c00ddf57 detected as Apache-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution."
    }
   }
  ]
