@@ -1,0 +1,8 @@
+q1_hnsw_maxconn	When this codebase builds an HNSW graph, what is the default maximum number of connections per node? Give the constant name, its value, and the file that defines it.
+q2_bm25_idf	What exact formula does the default BM25 scoring implementation use to compute IDF from docFreq and docCount? Write the expression.
+q3_max_term_len	What is the maximum length, in bytes, of a single indexed term, and how is that limit derived? Give the numeric value and the two constants involved.
+q4_ram_buffer	What is the default RAM buffer size (in MB) that the index writer uses before flushing, and which constant holds it?
+q5_fsdir_choice	When you open a filesystem directory without naming a concrete implementation, what decides which implementation you actually get, and what are the two possible outcomes?
+q6_maxclause_locality	What is the default limit on the number of clauses a boolean query may contain, and in which class is that limit actually defined?
+q8_deletes_pct	In the default merge policy, what percentage of deleted documents is tolerated in the index before merges are triggered to reclaim them, and what is the field called?
+q9_min_java	What is the minimum Java language version this project requires to build, and which file declares it?

@@ -528,6 +528,186 @@ pub fn exact_ids(query: &str) -> Vec<String> {
     out
 }
 
+/// The exact-identifier clauses for `query` (#1788): an advisory ID or
+/// `pkg@version` names one record. Exact `term` on the keyword ID fields a
+/// read mapping names (never on an unread mapping: autoindex indices are
+/// strict and do not map `id`), on `name` when the ID is not the whole
+/// query, and a phrase on each of `content_fields` that cite it. Empty when
+/// the query holds no such ID.
+///
+/// Shared by `xerj search` / `xerj_search` (`cited` = [`IdCitation::Phrase`])
+/// and the `xerj code` BM25 body ([`IdCitation::Constant`]).
+pub fn exact_id_clauses(
+    query: &str,
+    mapped: Option<&BTreeSet<String>>,
+    numeric: Option<&BTreeSet<String>>,
+    content_fields: &[&str],
+    cited: IdCitation,
+) -> Vec<Value> {
+    let mut out = Vec::new();
+    for id in exact_ids(query) {
+        for field in EXACT_ID_KEYWORD_FIELDS {
+            if mapped.is_some_and(|set| set.contains(*field))
+                && !numeric.is_some_and(|set| set.contains(*field))
+            {
+                out.push(exact_id_clause(field, &id));
+            }
+        }
+        if id != query.trim() && field_lookup_ok(mapped, numeric, "name") {
+            out.push(exact_id_clause("name", &id));
+        }
+        for base in content_fields {
+            out.push(match cited {
+                IdCitation::Phrase => json!({ "match_phrase": { *base: {
+                    "query": id,
+                    "boost": EXACT_ID_PHRASE_BOOST
+                } } }),
+                IdCitation::Constant => json!({ "constant_score": {
+                    "filter": { "match_phrase": { *base: id.as_str() } },
+                    "boost": EXACT_ID_CITED_BOOST
+                }}),
+            });
+        }
+    }
+    out
+}
+
+/// How a content field that cites an exact ID scores.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IdCitation {
+    /// `match_phrase` at [`EXACT_ID_PHRASE_BOOST`] (BM25-scaled), the
+    /// `xerj search` body #3336 measured on the rust-vulns pack, where the
+    /// record's own keyword `id` carries the constant.
+    Phrase,
+    /// `constant_score` at [`EXACT_ID_CITED_BOOST`]. A code corpus has no
+    /// `id` keyword: the ID sits in a comment or a string (`RUSTSEC-2021-0003`
+    /// in a lockfile gate), and a BM25-scaled phrase scored under 3 there,
+    /// behind a file that holds `rustsec`, `2021`, `0003` and `affect` apart
+    /// and so collects both coverage boosts (fixture
+    /// benchmarks/code-search-field-bm25-2026-11/fixtures/ids: rank 3).
+    Constant,
+}
+
+/// Constant score of a content field that cites an exact ID in `xerj code`
+/// ([`IdCitation::Constant`]): above a question's two coverage boosts, below
+/// the keyword `id` term, so the record that IS the advisory still outranks
+/// a file that only mentions it.
+pub const EXACT_ID_CITED_BOOST: f64 = 2.5 * COVERAGE_MATCH_BOOST;
+const _: () = assert!(EXACT_ID_CITED_BOOST > 2.0 * COVERAGE_MATCH_BOOST);
+const _: () = assert!(EXACT_ID_CITED_BOOST < EXACT_ID_TERM_BOOST);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// File-name lane for `xerj code` (#1788)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Score of a symbol whose `name` is the query's words joined as one
+/// identifier (#1788): `cat pending tasks` → `cat_pending_tasks`.
+///
+/// A constant, and below one [`COVERAGE_MATCH_BOOST`]: a file that holds
+/// every word of a three-word question still outranks the bare symbol
+/// record, while the symbol beats files that only share some of the words.
+/// The clause may match alone — a symbol record has no `body`, so the
+/// `multi_match` never reached it for a spaced-out name. Swept 50 and 500
+/// in `xerj search`-style bodies first (no change while it could not match
+/// alone), then 500 as an alternative recall clause: +5 rank-1 on the 300
+/// search-exact-phrase questions, no change on 208 Lucene questions.
+pub const IDENT_SPELLING_BOOST: f64 = 500.0;
+const _: () = assert!(IDENT_SPELLING_BOOST < COVERAGE_MATCH_BOOST);
+
+/// The identifier spellings of a two- to six-word query of plain ASCII
+/// words: `snake_case`, `camelCase`, `PascalCase`, `SCREAMING_SNAKE`,
+/// sorted and deduplicated. Empty for one word (that is already the name),
+/// more than six, or any word with punctuation (`Tree::flush`, a question
+/// mark): those are not a name read aloud.
+pub fn identifier_spellings(query: &str) -> Vec<String> {
+    let words: Vec<String> = query
+        .split_whitespace()
+        .map(str::to_ascii_lowercase)
+        .collect();
+    if !(2..=6).contains(&words.len())
+        || !words
+            .iter()
+            .all(|w| w.bytes().all(|b| b.is_ascii_alphanumeric()))
+    {
+        return Vec::new();
+    }
+    let capital = |w: &str| {
+        let mut c = w.chars();
+        c.next()
+            .map(|f| f.to_ascii_uppercase().to_string() + c.as_str())
+            .unwrap_or_default()
+    };
+    let snake = words.join("_");
+    let camel = words[0].clone() + &words[1..].iter().map(|w| capital(w)).collect::<String>();
+    let pascal: String = words.iter().map(|w| capital(w)).collect();
+    let mut out = vec![snake.to_ascii_uppercase(), snake, camel, pascal];
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// Score a document gets per query word its `title` contains (#1788).
+///
+/// On a code corpus `title` is the file name of a file record and the
+/// symbol name of a symbol record, mapped `keyword`, so the BM25
+/// `multi_match` only ever matched it when the whole query was the name.
+/// `HNSW graph` never reached `HnswGraphBuilder.java` through it. Swept 2,
+/// 3, 5, 8 and 15 on the 300 search-exact-phrase questions and 200 Lucene
+/// Javadoc questions (benchmarks/code-search-field-bm25-2026-11): 5 had the
+/// best sum (3 was 0.001 nDCG@10 higher on the first set and 0.008 lower on
+/// the second); 15 lost on the first set.
+pub const NAME_LANE_BOOST: f64 = 5.0;
+
+/// At most this many words get a name clause, so a pasted paragraph does
+/// not grow the body by one wildcard per word.
+pub const MAX_NAME_LANE_TOKENS: usize = 8;
+
+/// English words that are in a question but say nothing about which file
+/// is meant. Three-letter words shorter than this list are already cut by
+/// the length floor in [`name_lane_tokens`].
+const NAME_LANE_STOP_WORDS: &[&str] = &[
+    "the", "and", "for", "are", "with", "from", "its", "this", "that", "how", "what", "when",
+    "where", "which", "who", "does",
+];
+
+/// Lower-cased query words of three or more ASCII letters, digits, or `_`,
+/// minus [`NAME_LANE_STOP_WORDS`], in order, deduplicated, at most
+/// [`MAX_NAME_LANE_TOKENS`].
+pub fn name_lane_tokens(query: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for word in query.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
+        let lower = word.to_ascii_lowercase();
+        if lower.len() < 3 || NAME_LANE_STOP_WORDS.contains(&lower.as_str()) || out.contains(&lower)
+        {
+            continue;
+        }
+        out.push(lower);
+        if out.len() == MAX_NAME_LANE_TOKENS {
+            break;
+        }
+    }
+    out
+}
+
+/// One `constant_score` case-insensitive `*word*` wildcard on `field` per
+/// [`name_lane_tokens`] word, each worth [`NAME_LANE_BOOST`]. A constant,
+/// not BM25: the field is a keyword, and the lane is a tie-breaker inside
+/// the coverage tiers ([`COVERAGE_MATCH_BOOST`] is 200 times larger).
+pub fn name_lane_clauses(query: &str, field: &str) -> Vec<Value> {
+    name_lane_tokens(query)
+        .into_iter()
+        .map(|word| {
+            json!({ "constant_score": {
+                "filter": { "wildcard": { field: {
+                    "value": format!("*{word}*"),
+                    "case_insensitive": true
+                } } },
+                "boost": NAME_LANE_BOOST
+            }})
+        })
+        .collect()
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // All-terms-first tier (#3007, opt-in)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -916,28 +1096,13 @@ fn build_search_query(
             }}));
         }
     }
-    // #1788: an advisory ID or `pkg@version` names one record. Exact `term`
-    // on the keyword ID fields a read mapping names (never on an unread
-    // mapping: autoindex indices are strict and do not map `id`), and a
-    // phrase on the content fields that cite it.
-    for id in exact_ids(query) {
-        for field in EXACT_ID_KEYWORD_FIELDS {
-            if mapped.is_some_and(|set| set.contains(*field))
-                && !numeric.is_some_and(|set| set.contains(*field))
-            {
-                should.push(exact_id_clause(field, &id));
-            }
-        }
-        if id != query.trim() && field_lookup_ok(mapped, numeric, "name") {
-            should.push(exact_id_clause("name", &id));
-        }
-        for base in &content_fields {
-            should.push(json!({ "match_phrase": { *base: {
-                "query": id,
-                "boost": EXACT_ID_PHRASE_BOOST
-            } } }));
-        }
-    }
+    should.extend(exact_id_clauses(
+        query,
+        mapped,
+        numeric,
+        &content_fields,
+        IdCitation::Phrase,
+    ));
     json!({
         "size": k,
         "query": { "bool": { "should": should }},
@@ -973,6 +1138,65 @@ mod tests {
 
     fn names(fields: &[&str]) -> BTreeSet<String> {
         fields.iter().map(|f| f.to_string()).collect()
+    }
+
+    #[test]
+    fn spaced_words_spell_the_identifier_four_ways() {
+        assert_eq!(
+            identifier_spellings("cat pending tasks"),
+            vec![
+                "CAT_PENDING_TASKS",
+                "CatPendingTasks",
+                "catPendingTasks",
+                "cat_pending_tasks"
+            ]
+        );
+        assert_eq!(
+            identifier_spellings("max term length"),
+            vec![
+                "MAX_TERM_LENGTH",
+                "MaxTermLength",
+                "maxTermLength",
+                "max_term_length"
+            ]
+        );
+        assert_eq!(identifier_spellings("encode v2 Block").len(), 4);
+        for not_a_name in [
+            "cat_pending_tasks",
+            "Tree::flush now",
+            "how are segments merged?",
+            "a b c d e f g",
+            "",
+        ] {
+            assert!(identifier_spellings(not_a_name).is_empty(), "{not_a_name}");
+        }
+    }
+
+    #[test]
+    fn name_lane_words_skip_glue_short_words_and_repeats_and_are_capped() {
+        assert_eq!(
+            name_lane_tokens("When does the HNSW graph builder link nodes?"),
+            vec!["hnsw", "graph", "builder", "link", "nodes"]
+        );
+        assert_eq!(
+            name_lane_tokens("cat_pending_tasks"),
+            vec!["cat_pending_tasks"]
+        );
+        assert_eq!(name_lane_tokens("Tree::flush"), vec!["tree", "flush"]);
+        assert_eq!(name_lane_tokens("io db x"), Vec::<String>::new());
+        assert_eq!(name_lane_tokens("graph Graph GRAPH"), vec!["graph"]);
+        assert!(name_lane_tokens("WAL 雷同 rotation").contains(&"rotation".to_string()));
+        let long = "alpha bravo charlie delta echo foxtrot golf hotel india juliet";
+        assert_eq!(name_lane_tokens(long).len(), MAX_NAME_LANE_TOKENS);
+        let lane = name_lane_clauses("graph builder", "title");
+        assert_eq!(lane.len(), 2);
+        assert_eq!(
+            lane[0],
+            json!({ "constant_score": {
+                "filter": { "wildcard": { "title": { "value": "*graph*", "case_insensitive": true } } },
+                "boost": NAME_LANE_BOOST
+            }})
+        );
     }
 
     #[test]

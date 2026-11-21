@@ -1,0 +1,17 @@
+pass 1 base  15:01:47 up 4 days,  7:10,  4 users,  load average: 57.89, 51.12, 41.24
+  sep all {"n": 300, "ndcg": 0.6699, "recall": 0.79, "mrr": 0.6321, "r1": 167, "top5": 217, "top10": 237, "errors": 0, "latency_p50_ms": 372.0, "took_p50_ms": 262, "took_p95_ms": 405}
+  lucene all {"n": 8, "ndcg": 0.4814, "recall": 0.75, "mrr": 0.397, "r1": 2, "top5": 5, "top10": 6, "errors": 0, "latency_p50_ms": 347.2, "took_p50_ms": 294, "took_p95_ms": 2373}
+  javadoc all {"n": 200, "ndcg": 0.8597, "recall": 0.955, "mrr": 0.8273, "r1": 147, "top5": 190, "top10": 191, "errors": 0, "latency_p50_ms": 225.9, "took_p50_ms": 172, "took_p95_ms": 310}
+pass 2 new  15:06:39 up 4 days,  7:15,  4 users,  load average: 83.83, 72.22, 53.31
+  sep all {"n": 300, "ndcg": 0.6917, "recall": 0.81, "mrr": 0.6546, "r1": 175, "top5": 222, "top10": 243, "errors": 0, "latency_p50_ms": 428.4, "took_p50_ms": 312, "took_p95_ms": 475}
+  lucene all {"n": 8, "ndcg": 0.5561, "recall": 0.75, "mrr": 0.4938, "r1": 3, "top5": 6, "top10": 6, "errors": 0, "latency_p50_ms": 555.6, "took_p50_ms": 491, "took_p95_ms": 749}
+  javadoc all {"n": 200, "ndcg": 0.928, "recall": 0.985, "mrr": 0.9085, "r1": 170, "top5": 196, "top10": 197, "errors": 0, "latency_p50_ms": 446.4, "took_p50_ms": 388, "took_p95_ms": 465}
+pass 3 new  15:13:16 up 4 days,  7:22,  4 users,  load average: 87.70, 79.87, 64.36
+  sep all {"n": 300, "ndcg": 0.6917, "recall": 0.81, "mrr": 0.6546, "r1": 175, "top5": 222, "top10": 243, "errors": 0, "latency_p50_ms": 441.2, "took_p50_ms": 320, "took_p95_ms": 486}
+  lucene all {"n": 8, "ndcg": 0.5561, "recall": 0.75, "mrr": 0.4938, "r1": 3, "top5": 6, "top10": 6, "errors": 0, "latency_p50_ms": 992.5, "took_p50_ms": 497, "took_p95_ms": 752}
+  javadoc all {"n": 200, "ndcg": 0.928, "recall": 0.985, "mrr": 0.9085, "r1": 170, "top5": 196, "top10": 197, "errors": 0, "latency_p50_ms": 447.7, "took_p50_ms": 389, "took_p95_ms": 469}
+pass 4 base  15:20:05 up 4 days,  7:29,  4 users,  load average: 70.88, 74.63, 68.05
+  sep all {"n": 300, "ndcg": 0.6699, "recall": 0.79, "mrr": 0.6321, "r1": 167, "top5": 217, "top10": 237, "errors": 0, "latency_p50_ms": 388.0, "took_p50_ms": 271, "took_p95_ms": 411}
+  lucene all {"n": 8, "ndcg": 0.4814, "recall": 0.75, "mrr": 0.397, "r1": 2, "top5": 5, "top10": 6, "errors": 0, "latency_p50_ms": 342.7, "took_p50_ms": 282, "took_p95_ms": 610}
+  javadoc all {"n": 200, "ndcg": 0.8597, "recall": 0.955, "mrr": 0.8273, "r1": 147, "top5": 190, "top10": 191, "errors": 0, "latency_p50_ms": 244.7, "took_p50_ms": 178, "took_p95_ms": 286}
+end  15:23:38 up 4 days,  7:32,  4 users,  load average: 69.86, 71.93, 68.23
