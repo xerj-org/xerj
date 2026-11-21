@@ -25295,6 +25295,10 @@ impl Index {
         // partial by construction and MUST be replaced by `shortcut_count`
         // post-loop (mirrors `scan_hit_cap` for the unsorted bounded scan).
         let mut sort_candidates_narrowed = false;
+        // Set when a `residual_gate` segment pass stopped after its own best
+        // `materialisation_limit` hits; its `total_count` is then partial and
+        // the post-loop overwrite replaces it with the shortcut total.
+        let mut residual_truncated = false;
         // Slow-query phase attribution (logged for >1 s queries).
         let phase_t0 = std::time::Instant::now();
         let mut phase_marks: Vec<(&'static str, u64)> = Vec::new();
@@ -27638,6 +27642,27 @@ impl Index {
             // itself is made delete-aware. (`deletes_present` hoisted above.)
             let count_authoritative: bool = !query_needs_fts
                 && (is_match_all_effective || (shortcut_count.is_some() && !deletes_present));
+            // Read-under-write bool collapse: `bool{must:[keyword term],
+            // filter:[range]}` takes the `residual_gate` FTS pass whenever the
+            // memtable holds a document (`scored_columnar` needs it empty).
+            // That pass decodes and re-tests EVERY match of every segment just
+            // to tally `hits.total` — ~4.5 µs per match, 6.6 s at 1.4M
+            // matches, while the same index with an empty memtable answers in
+            // ~20 ms. When the doc-values shortcut already holds the exact
+            // total (same delete-blind gate as F1 above), a segment can stop
+            // after it has admitted its own best `materialisation_limit` hits:
+            // `seg_hits` is sorted (score DESC, position ASC) and positions are
+            // `seq_no` order, so later hits of the same segment cannot displace
+            // them. The post-loop overwrite then takes the shortcut total.
+            let residual_bounded_ok: bool = residual_gate
+                && !count_only
+                && !deletes_present
+                && sort_topk.is_none()
+                && shortcut_count.is_some()
+                && request.aggs.is_none()
+                && request.min_score.is_none()
+                && request.collapse.is_none()
+                && request.rescore.is_empty();
 
             // Whether a Regexp query's field is keyword-typed — gates the
             // FST term-dictionary route of the regexp pre-filter (computed
@@ -27998,6 +28023,7 @@ impl Index {
                                                 .and_then(|d| d.get(pos as usize).cloned())
                                         }
                                     };
+                                    let mut seg_admitted: usize = 0;
                                     for (scanned, sh) in seg_hits.iter().enumerate() {
                                         // #2431: per-hit source reads + full
                                         // query re-test over O(matches) hits.
@@ -28005,6 +28031,8 @@ impl Index {
                                             deadline_exceeded = true;
                                             break;
                                         }
+                                        #[cfg(test)]
+                                        RESIDUAL_HITS_DECODED.with(|c| c.set(c.get() + 1));
                                         let doc = match fetch(sh.doc_id) {
                                             Some(d) => d,
                                             None => continue,
@@ -28085,6 +28113,7 @@ impl Index {
                                                 topk.offer(hit, seq, self);
                                             } else {
                                                 all_hits.push(hit);
+                                                seg_admitted += 1;
                                                 #[cfg(test)]
                                                 RESIDUAL_HITS_PEAK
                                                     .with(|c| c.set(c.get().max(all_hits.len())));
@@ -28107,6 +28136,22 @@ impl Index {
                                                         materialisation_limit,
                                                     );
                                                     all_hits = kept;
+                                                }
+                                                // This segment has admitted its own best
+                                                // `materialisation_limit` hits; with the
+                                                // shortcut total standing in for the tally
+                                                // (`residual_bounded_ok`), the rest of its
+                                                // matches can only be counted, so stop. A
+                                                // shortcut already below the exact running
+                                                // tally is not trusted (it under-counts
+                                                // some field shapes, see the F1 overwrite).
+                                                if residual_bounded_ok
+                                                    && seg_admitted >= materialisation_limit
+                                                    && shortcut_count
+                                                        .is_some_and(|sc| total_count <= sc)
+                                                {
+                                                    residual_truncated = true;
+                                                    break;
                                                 }
                                             }
                                         }
@@ -29955,6 +30000,16 @@ impl Index {
         // same overwrite.
         if is_match_all_effective {
             total_count = self.live_doc_count();
+        } else if residual_truncated {
+            // A `residual_gate` segment pass stopped once it held its own
+            // best page (see `residual_bounded_ok`), so the tally is partial;
+            // the doc-values shortcut (segments + memtable, no deletes) is
+            // the exact total. Same sanity floor as the F1 branch below.
+            if let Some(sc) = shortcut_count {
+                if sc >= total_count.max(final_hits.len() as u64) {
+                    total_count = sc;
+                }
+            }
         } else if !count_only
             && !query_needs_fts
             && !scored_fast_applied
@@ -39905,7 +39960,7 @@ async fn do_flush_shard(
             callback();
         }
         let joined = tokio::task::spawn_blocking(move || {
-            let _fin_permit = fin_permit;
+            let fin_permit = fin_permit;
             let _pressure_permit = pressure_permit;
             let flush_reservation = flush_reservation;
             let flush_build_trace = flush_build_trace;
@@ -40012,6 +40067,11 @@ async fn do_flush_shard(
                         std::panic::resume_unwind(payload);
                     }
                 };
+                // #3324 — the finalize permit bounds CPU-heavy segment builds.
+                // What follows is disk and network wait (snapshot fsync, WAL
+                // checkpoint, bucket catalog PUT), so the next queued
+                // finalize may start now instead of waiting on this disk.
+                drop(fin_permit);
                 // ── POST-publish maintenance — OUTSIDE the bracket (#1015):
                 // the bucket catalog PUT is network I/O and the WAL
                 // checkpoint/prune takes locks; neither belongs between
@@ -67517,6 +67577,9 @@ thread_local! {
     /// reached inside the `residual_gate` per-segment loop.
     pub(crate) static RESIDUAL_HITS_PEAK: std::cell::Cell<usize> =
         const { std::cell::Cell::new(0) };
+    /// How many segment hits the `residual_gate` loop decoded and re-tested.
+    pub(crate) static RESIDUAL_HITS_DECODED: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
     /// #892 fail-before instrument: how many segments the search answered
     /// from the inverted index (`fts_handled`) and how many it answered by
     /// parsing their stored section. Which route a request took is invisible
@@ -67691,6 +67754,102 @@ mod residual_gate_trim_577_tests {
             peak <= 513,
             "residual survivors must stay O(page cap), not O(matches): peak={peak} (N={N})"
         );
+    }
+
+    /// Read-under-write bool collapse: with ONE document in the memtable,
+    /// `bool{must:[keyword match], filter:[range]}` loses the columnar scored
+    /// path and takes the residual pass, which decoded and re-tested every
+    /// match of every segment to tally `hits.total` (6.6 s at 1.4M matches
+    /// under a bulk writer). With the doc-values shortcut holding the exact
+    /// total, each segment now stops after its own best page. Fail-before:
+    /// the residual pass decoded every `ok` hit (2,000 here). Page and total
+    /// must equal the same query with `min_score: 0`, which stays unbounded.
+    #[tokio::test]
+    async fn residual_gate_stops_counting_when_the_shortcut_is_exact() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        // One segment per flush, so each segment holds more matches than
+        // the page cap and the per-segment stop can fire.
+        config.engine.ingest_shards = 1;
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("status", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("n", FieldType::Long))
+            .unwrap();
+        engine.create_index("residual-ruw", schema).unwrap();
+        let idx = engine.get_index("residual-ruw").unwrap();
+        idx.abort_background_tasks();
+
+        // Two flushed segments of 2,000 docs; half `ok`, n = 0..3999.
+        for batch in 0..2u64 {
+            for i in batch * 2000..(batch + 1) * 2000 {
+                let status = if i % 2 == 0 { "ok" } else { "err" };
+                idx.index_document(Some(format!("d{i}")), json!({"status": status, "n": i}))
+                    .await
+                    .unwrap();
+            }
+            idx.flush().await.unwrap();
+        }
+        // One unflushed doc: the memtable is no longer empty.
+        idx.index_document(Some("m0".into()), json!({"status": "ok", "n": 9000}))
+            .await
+            .unwrap();
+        assert_eq!(idx.memtable.doc_count(), 1);
+        assert_eq!(idx.store.snapshot().segments.len(), 2);
+
+        // ok docs with n >= 200: 1,900 in segments + the memtable doc.
+        let expected_total = 1901u64;
+        for size in [10usize, 300] {
+            let body = json!({
+                "size": size,
+                "track_total_hits": true,
+                "query": {"bool": {
+                    "must": [{"match": {"status": "ok"}}],
+                    "filter": [{"range": {"n": {"gte": 200}}}]
+                }}
+            });
+            let mut reference_body = body.clone();
+            reference_body["min_score"] = json!(0.0);
+
+            RESIDUAL_HITS_DECODED.with(|c| c.set(0));
+            let bounded = idx
+                .search(&xerj_query::parse_request(&body).unwrap())
+                .await
+                .unwrap();
+            let bounded_decoded = RESIDUAL_HITS_DECODED.with(|c| c.get());
+
+            // `min_score` keeps the bounded stop off (and takes another
+            // route), so it is an independent answer to compare against.
+            let reference = idx
+                .search(&xerj_query::parse_request(&reference_body).unwrap())
+                .await
+                .unwrap();
+
+            assert_eq!(reference.total.value, expected_total, "size {size}");
+            assert_eq!(bounded.total.value, expected_total, "size {size}");
+            let ids = |r: &SearchResult| r.hits.iter().map(|h| h.id.clone()).collect::<Vec<_>>();
+            assert_eq!(
+                ids(&bounded),
+                ids(&reference),
+                "page must not change (size {size})"
+            );
+            assert_eq!(bounded.hits.len(), size);
+            // 2,000 `ok` hits sit in the two segments; the old pass decoded
+            // every one of them.
+            assert!(
+                bounded_decoded > 0,
+                "the residual pass must have run for this query (size {size})"
+            );
+            assert!(
+                bounded_decoded < 2000,
+                "the residual pass must stop once each segment holds its page: \
+                 decoded {bounded_decoded} of 2000 ok hits (size {size})"
+            );
+        }
     }
 }
 
