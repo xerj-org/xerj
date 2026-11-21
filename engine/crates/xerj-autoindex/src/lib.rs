@@ -29,6 +29,8 @@ mod generation_catalog;
 #[cfg(test)]
 mod generation_catalog_http_tests;
 pub mod gitref;
+/// `xerj hook` — struggle-gated search profiler for AI coding harnesses.
+pub mod harness;
 /// `xerj corpus build` — harvested-record corpus packs (recipe → store →
 /// identity → merge → deterministic pack).
 pub mod harvest;

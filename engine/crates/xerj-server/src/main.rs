@@ -221,6 +221,7 @@ fn is_top_level_command(arg: &str) -> bool {
             | "hub"
             | "ask"
             | "mcp"
+            | "hook"
             | "__extract-pdf"
             | xerj_autoindex::extract::xls::WORKER_ARG
     )
@@ -3674,6 +3675,13 @@ fn main() -> Result<()> {
         Some(xerj_autoindex::extract::xls::WORKER_ARG)
     ) {
         std::process::exit(xerj_autoindex::extract::xls::run_worker_cli());
+    }
+
+    // `xerj hook …`: harness hook entry point. Runs on every tool batch, so
+    // it is dispatched before any runtime or banner exists.
+    if matches!(xerj_common::argv::subcommand().as_deref(), Some("hook")) {
+        let args = xerj_common::argv::args_after_subcommand();
+        std::process::exit(xerj_autoindex::harness::run_cli(&args));
     }
 
     // `xerj --detach …` (#3267): start the node in the background, detached

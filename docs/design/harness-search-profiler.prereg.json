@@ -1,0 +1,150 @@
+{
+  "name": "xerj hook (harness search profiler) - pre-registered verification",
+  "frozen": "2026-11-21",
+  "status": "frozen before any replay run; changes are dated amendments below",
+  "parameters": {
+    "max_tokens": 300,
+    "stream_cap": 3,
+    "stream_tokens": 900,
+    "min_gap_calls": 8,
+    "chain_max_calls": 6,
+    "chain_max_secs": 300,
+    "tier0_budget_ms": 150,
+    "min_files": 50,
+    "min_pair_streams": 2,
+    "half_life_days": 14,
+    "gate_b_ratio": 1.3,
+    "uptake_window_calls": 6,
+    "mute": {
+      "min_nudges": 10,
+      "min_uptake": 0.2,
+      "days": 7
+    },
+    "tier1": "off (probe P0 not run)"
+  },
+  "stage1_offline_replay": {
+    "data": "local transcript miner events (195,422 tool calls); joined private file stays local",
+    "split": {
+      "dev": "2026-10-09..2026-10-31",
+      "test": "2026-11-01..2026-11-21"
+    },
+    "tuning": "none: parameters above are the design's, fixed before the first replay; dev is reported for transparency only",
+    "leakage_guard": "history pairs fold only at stream end, replayed in global time order, so a prior never contains the replayed chain's own target",
+    "tree_drift": "ranking runs on today's tree; events whose search root no longer exists are excluded and counted",
+    "metrics": {
+      "R-1": {
+        "def": "share of code-tree content searches where an active rule (R1-R3) fires; share of streams with no U1 T1 event that get no injection",
+        "pass": "fire <= 0.12 and silent >= 0.95",
+        "kill": "fire > 0.20 or silent < 0.90"
+      },
+      "R-2": {
+        "def": "trigger precision/recall against 300 blind hand-labelled episodes",
+        "pass": "precision >= 0.70 and recall >= 0.50",
+        "kill": "precision < 0.50 at recall >= 0.30",
+        "note": "U1 T1 agreement is reported, not gating (circular)"
+      },
+      "R-3": {
+        "def": "recall@5 of the eventually-read target on fired events with a scan; arms t0, t0+history, t0+history+t1; baseline target_in_output on the same events",
+        "pass": "best arm >= 0.40 and >= baseline + 15pp",
+        "kill": "best arm < baseline + 5pp"
+      },
+      "R-3b": {
+        "def": "median calls between the fire and the agent's read of the target, R-3 hits",
+        "pass": "median >= 1.5",
+        "kill": "median < 1"
+      },
+      "R-4": {
+        "def": "emitted nudges whose top-1 is the eventual target or a file read in the next 6 calls",
+        "pass": ">= 0.35",
+        "kill": "< 0.20"
+      },
+      "R-5": {
+        "def": "hook self-time; silent p99, firing p99; plus end-to-end process spawn on the real binary",
+        "pass": "silent p99 <= 25 ms and firing p99 <= 250 ms",
+        "kill": "silent p99 > 50 ms"
+      },
+      "R-6": {
+        "def": "tokens per nudge, per stream; non-T1 streams with any injected token",
+        "pass": "<= 300 / <= 900 and non-T1 streams with tokens <= 0.01",
+        "kill": "any nudge > 300"
+      },
+      "R-7": {
+        "def": "emitted path:line that fails re-anchoring now",
+        "pass": "0",
+        "kill": ">= 1 is a bug to fix before the pilot"
+      },
+      "R-8": {
+        "def": "20 synthetic positive chains fire, 20 negatives stay silent",
+        "pass": ">= 18/20 and >= 19/20",
+        "kill": "either < 15"
+      }
+    },
+    "go_to_stage2": "R-2, R-3, R-5 and R-7 pass"
+  },
+  "stage2_live_pilot": {
+    "arms": [
+      "C: no hook",
+      "T: hook active",
+      "S: hook shadow (overhead only)",
+      "M: tool-less memory probe"
+    ],
+    "model": "claude-sonnet-5-5 (modelUsage asserted per run)",
+    "seed": 20261121,
+    "answer_format": "ANSWER: <repo-relative path>::<symbol>",
+    "answer_key_sha256": {
+      "U1": "62e9b822daf986d2d7f02752de5c037ccafc89dbe0849a5b9dd33c7d006b4567",
+      "U2": "40d3f70cdeca2a58a177f3db2c602c434906bdf6eb151d4d8f54753fea67fd71",
+      "U3": "8649f79a3fe2898b97b156286a8f8ce49322b472d72d9e2ec46cebdf050df6c8",
+      "U4": "96e554d6f31ce892d844033ce87e27c46c747072aff39683baaf50731d09144a",
+      "U5": "9aa8188d68cc41169d08030c4ca5d6ddd628dfe948d3a876b0642660f5982265",
+      "U6": "1453c589e1de1657ff191f520f85f88ef8d71bfd82e52ab17ed5a1bc719d7913",
+      "U7": "79d5d43baaa0224948eb53492b2c472db19227152fb027087dbc6277a6f30382",
+      "U8": "771ae151b21fe272acb5b683f0c913e66931e38a0dee80ba6110b1c81739a8d3",
+      "E1": "8ba6a18219e032fb4421eada2a525e26279cdebb1eef47ec8713010313600b50",
+      "E2": "fd800c22cb6c4e82eecb5f8e5b151d28a4f61ed8db6879cd5f2d9534b71f4488",
+      "E3": "3a55f03c893d61b4d96547a2fd53a2720f5bf2fae5b8800b3d59a1132f309be6",
+      "E4": "20d51f2a55785233bd713d78b257e5f46a1e63aa6af5937722600f048a23a7b0",
+      "hash_of": "sha256 of '<repo-relative path>::<symbol>' exactly"
+    },
+    "pass_kill": {
+      "U": {
+        "pass": "median paired turns -20% and cost -15%, T success >= C success - 1, >= 50% of T runs nudge with uptake",
+        "kill": "T cost > C +10%, or T success <= C - 2, or < 25% of T runs ever nudge"
+      },
+      "E": {
+        "pass": "T nudges in <= 2 of 8 runs and cost <= C +5%",
+        "kill": "nudges in >= 5 of 8 or cost > +10%"
+      },
+      "S": {
+        "pass": "wall <= +1%, 0 injected tokens",
+        "kill": "wall > +5%"
+      }
+    }
+  },
+  "amendments": [
+    {
+      "id": "A1",
+      "date": "2026-11-21",
+      "before_replay": true,
+      "text": "Gate (b) read literally ('>=2 unseen files each covering >=2 terms, top >= 1.3x second') can never pass when exactly one file matches, the most confident case. Implemented as: the top unseen file covers >= 2 distinct chain terms and scores >= 1.3x the next unseen candidate (or has none); every unseen file with >= 2 terms is listed, up to 5."
+    },
+    {
+      "id": "A2",
+      "date": "2026-11-21",
+      "before_replay": true,
+      "text": "Stage-2 answer keys are stored only as sha256 above; plain keys stay with the local pilot runner. Stage 2 has not started."
+    },
+    {
+      "id": "A3",
+      "date": "2026-11-21",
+      "before_replay": true,
+      "text": "Replay feeds one PostToolUse-shaped call at a time (the miner did not keep batch grouping), so the detector runs per call, not per batch. Output text is the miner's 1 KB preview plus its list of output paths; a cut preview is flagged so its last section never counts as empty."
+    },
+    {
+      "id": "A4",
+      "date": "2026-11-21",
+      "before_replay": true,
+      "text": "Chain token specificity lowered from >= 4 to >= 3 characters (stop-words still excluded). The synthetic R-8 check scored 17/20 positives (below the 18/20 pass, above the 15/20 kill) because 3-letter domain words (wal, lod) could not link two searches. Reported both ways; no replay had run."
+    }
+  ]
+}
