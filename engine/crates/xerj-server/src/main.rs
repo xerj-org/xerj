@@ -204,6 +204,7 @@ fn is_top_level_command(arg: &str) -> bool {
         "index"
             | "search"
             | "batch-search"
+            | "eval"
             | "sessions"
             | "def"
             | "status"
@@ -505,6 +506,8 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20xerj sources    [name]          live sources on a node: state, lag, rows/s\n\
          \x20\x20\x20\x20xerj search     \"<text>\"         retrieve code/passages from a running node — the\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20query client, no wrapper scripts (see xerj search --help)\n\
+         \x20\x20\x20\x20xerj eval       --qrels F --queries F  nDCG@k, recall@k, MRR per query + paired\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20significance test vs a saved run (see xerj eval --help)\n\
          \x20\x20\x20\x20xerj def        \"<symbol>\"       go-to-definition: where is this symbol defined, and\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20what is its signature (see xerj def --help)\n\
          \x20\x20\x20\x20xerj status     [--prefix <p>]  when a prefix was indexed, its commit then and now,\n\
@@ -3722,6 +3725,11 @@ fn main() -> Result<()> {
         let args = xerj_common::argv::args_after_subcommand();
         std::process::exit(xerj_autoindex::sessions::run_cli(&args));
     }
+    // `xerj eval` (#1798): blocking HTTP client, no async runtime needed.
+    if matches!(xerj_common::argv::subcommand().as_deref(), Some("eval")) {
+        let args = xerj_common::argv::args_after_subcommand();
+        std::process::exit(xerj_autoindex::eval::run_cli(&args));
+    }
     // Cores from the resource policy, so `XERJ_NUM_CPUS` and a container CPU
     // quota reach the async runtime the same way they reach every pool (#240).
     let cores = xerj_common::resource::cores();
@@ -4017,6 +4025,16 @@ mod neural_startup_tests {
 #[cfg(test)]
 mod help_text_tests {
     use super::{auth_disabled_line, embed_mode_fixed_at_ingest_warning, help_text};
+
+    /// #1798: `xerj eval` is a listed subcommand, and a flag written before
+    /// it (`xerj --url U eval …`) is hoisted behind it like the others.
+    #[test]
+    fn eval_is_a_listed_top_level_command() {
+        assert!(super::is_top_level_command("eval"));
+        let help = help_text(false);
+        assert!(help.contains("xerj eval"), "{help}");
+        assert!(help.contains("see xerj eval --help"), "{help}");
+    }
 
     /// #2368: top-level help used to call `autoindex map` "the discovered data
     /// map" and not say that a folder argument previews an unindexed folder.
