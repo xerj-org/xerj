@@ -4725,6 +4725,150 @@ mod oversized_update {
     }
 }
 
+#[cfg(test)]
+mod deep_update_path {
+    use super::*;
+    use axum::body::{to_bytes, Body};
+    use axum::http::Request;
+    use tower::ServiceExt;
+    use xerj_common::config::{Config, WalSync};
+    use xerj_common::metrics::Metrics;
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    /// A deeply nested `ctx._source` path must be refused with a 400, not
+    /// abort the process. One update statement builds one nested object per
+    /// path segment, and the resulting document is then walked recursively
+    /// by FTS analysis, serialisation and `Value` drop, so an unbounded
+    /// path is a stack overflow on the request thread (release profile:
+    /// `panic = "abort"`).
+    #[tokio::test]
+    async fn deep_update_path_is_refused_not_fatal() {
+        let app = crate::router::build_es_compat_router(test_state());
+        let created = app
+            .clone()
+            .oneshot(
+                Request::put("/upddeep/_doc/1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"n":1}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(created.status(), StatusCode::CREATED);
+
+        // 200,000 segments: ~400 KiB of script, far under the 16 MiB update
+        // body envelope, far past any worker stack.
+        let deep_path = "a.".repeat(200_000);
+        let script = format!("ctx._source.{deep_path}a = 1");
+        let body = serde_json::json!({ "script": script }).to_string();
+        let updated = app
+            .clone()
+            .oneshot(
+                Request::post("/upddeep/_update/1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(updated.status(), StatusCode::BAD_REQUEST);
+        let bytes = to_bytes(updated.into_body(), usize::MAX).await.unwrap();
+        let text = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(text.contains("too deep"), "{text}");
+
+        // The document is unchanged: the refused update wrote nothing.
+        let fetched = app
+            .oneshot(Request::get("/upddeep/_doc/1").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(fetched.status(), StatusCode::OK);
+        let bytes = to_bytes(fetched.into_body(), usize::MAX).await.unwrap();
+        let doc: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(doc["_source"], json!({"n": 1}));
+    }
+
+    /// The cap is a boundary, not a wall at zero: a path at the cap applies,
+    /// one segment past it is refused with a 400.
+    #[tokio::test]
+    async fn update_path_depth_boundary_is_enforced() {
+        let app = crate::router::build_es_compat_router(test_state());
+        let created = app
+            .clone()
+            .oneshot(
+                Request::put("/updbound/_doc/1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"n":1}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(created.status(), StatusCode::CREATED);
+
+        // 64 segments: at the cap, applies.
+        let at_cap = format!("ctx._source.{}a = 7", "a.".repeat(63));
+        let ok = app
+            .clone()
+            .oneshot(
+                Request::post("/updbound/_update/1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({ "script": at_cap }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(ok.status(), StatusCode::OK);
+
+        // 65 segments: one past the cap, refused.
+        let past_cap = format!("ctx._source.{}a = 7", "a.".repeat(64));
+        let refused = app
+            .clone()
+            .oneshot(
+                Request::post("/updbound/_update/1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({ "script": past_cap }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
+        let bytes = to_bytes(refused.into_body(), usize::MAX).await.unwrap();
+        let text = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(text.contains("too deep"), "{text}");
+
+        // The at-cap update landed: walk the 64-deep path to the leaf.
+        let fetched = app
+            .oneshot(
+                Request::get("/updbound/_doc/1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(fetched.status(), StatusCode::OK);
+        let bytes = to_bytes(fetched.into_body(), usize::MAX).await.unwrap();
+        let doc: Value = serde_json::from_slice(&bytes).unwrap();
+        let mut cur = &doc["_source"];
+        for _ in 0..64 {
+            cur = &cur["a"];
+        }
+        assert_eq!(cur, &json!(7));
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /{index}/_doc/{id}?_source_includes=f1,f2&_source_excludes=f3
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26217,6 +26361,16 @@ fn eval_update_expr(expr: &str, source: &Value, params: &Value) -> Result<Value,
     Ok(painless_update_value(pv))
 }
 
+/// Maximum depth of a `ctx._source` path an update script may address.
+///
+/// One statement builds one nested object per path segment, and the resulting
+/// document is then walked recursively by FTS analysis (`collect_text_fields`),
+/// serialisation and `Value` drop, so an unbounded path is a stack overflow on
+/// the request thread (issue #3222). 64 is far above any legitimate update path
+/// and far below any stack risk, and it sits under the other depth caps in
+/// this area (painless `MAX_PARSE_DEPTH` 100, serde_json's 128 nesting cap).
+const MAX_UPDATE_PATH_DEPTH: usize = 64;
+
 /// Apply a painless update script to `source` in place. Supports the common
 /// `ctx._source.*` mutation forms: assignment (`=`), compound assignment
 /// (`+= -= *= /=`), increment / decrement (`++ --`), and `remove(...)`.
@@ -26296,6 +26450,16 @@ fn apply_one_update_stmt(source: &mut Value, stmt: &str, params: &Value) -> Resu
     let (path, consumed) = consume_source_path(rest);
     if path.is_empty() {
         return Err(format!("invalid update script target: {s}"));
+    }
+    // Bound the depth before any nesting is built: each segment adds one
+    // nested object, and the document is walked recursively downstream, so
+    // a path past this cap is a stack overflow, not an update (#3222).
+    if path.len() > MAX_UPDATE_PATH_DEPTH {
+        return Err(format!(
+            "update script path is too deep ({} segments, max {}); split the update into shallower paths",
+            path.len(),
+            MAX_UPDATE_PATH_DEPTH
+        ));
     }
     let opr = rest[consumed..].trim_start();
 
