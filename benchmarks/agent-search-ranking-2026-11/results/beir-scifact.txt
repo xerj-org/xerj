@@ -1,0 +1,5 @@
+index=sf-scifact queries=300 load=['32.22', '52.90', '51.36']
+plain    nDCG@10=0.6572  R@1=0.5333  p50=4.7ms p95=11.3ms
+default  nDCG@10=0.6229  R@1=0.5133  p50=31.9ms p95=61.8ms
+tiered   nDCG@10=0.6228  R@1=0.5133  p50=32.6ms p95=62.0ms
+tiered: queries that needed the any-term fill = 300/300

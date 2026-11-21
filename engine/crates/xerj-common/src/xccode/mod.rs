@@ -544,7 +544,7 @@ pub fn run_code_query(
     // #1504: translation catalogs and minified bundles repeat every UI phrase
     // and win natural-language queries. They stay searchable, behind source.
     let mut hits = hits;
-    render::demote_sparse_definition_hits(&mut hits, &query);
+    render::demote_sparse_definitions(&mut hits, &query);
     let mut hits = demote_catalog_noise(hits);
     // #2426: a compound identifier (`LabPanoAdapter`) is a lookup. Its
     // definition goes first, and a page that only shares parts of the name

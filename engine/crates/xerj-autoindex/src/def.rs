@@ -479,7 +479,7 @@ pub(crate) fn rerank_def_hits(hits: &mut [Value], query: &str) {
     }
     // After the kind/visibility sort, so a +20 preferred kind cannot put a
     // one-word type back above a definition that covers the question (#2327).
-    xerj_common::xccode::render::demote_sparse_definition_hits(hits, query);
+    xerj_common::xccode::render::demote_sparse_definitions(hits, query);
 }
 
 /// True when `text` names `name` (as a whole identifier) at least once and

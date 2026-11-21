@@ -1,0 +1,970 @@
+qid	arm	nDCG@10	R@1	ms	query
+PLAIN-2	plain	0.804275	1	12.0	Do Cholesterol Statin Drugs Cause Breast Cancer?
+PLAIN-2	default	0.742267	1	24.3	Do Cholesterol Statin Drugs Cause Breast Cancer?
+PLAIN-2	tiered	0.742267	1	23.3	Do Cholesterol Statin Drugs Cause Breast Cancer?
+PLAIN-12	plain	0.000000	0	3.4	Exploiting Autophagy to Live Longer
+PLAIN-12	default	0.000000	0	27.7	Exploiting Autophagy to Live Longer
+PLAIN-12	tiered	0.000000	0	22.4	Exploiting Autophagy to Live Longer
+PLAIN-23	plain	0.169074	0	3.7	How to Reduce Exposure to Alkylphenols Through Your Diet
+PLAIN-23	default	0.148685	0	29.6	How to Reduce Exposure to Alkylphenols Through Your Diet
+PLAIN-23	tiered	0.148685	0	25.7	How to Reduce Exposure to Alkylphenols Through Your Diet
+PLAIN-33	plain	0.071712	0	2.3	What’s Driving America’s Obesity Problem?
+PLAIN-33	default	0.215137	0	33.2	What’s Driving America’s Obesity Problem?
+PLAIN-33	tiered	0.215137	0	25.7	What’s Driving America’s Obesity Problem?
+PLAIN-44	plain	0.000000	0	3.6	Who Should be Careful About Curcumin?
+PLAIN-44	default	0.000000	0	31.9	Who Should be Careful About Curcumin?
+PLAIN-44	tiered	0.000000	0	33.3	Who Should be Careful About Curcumin?
+PLAIN-56	plain	0.697598	1	3.7	Foods for Glaucoma
+PLAIN-56	default	0.700817	1	30.2	Foods for Glaucoma
+PLAIN-56	tiered	0.700817	1	36.5	Foods for Glaucoma
+PLAIN-68	plain	0.420909	1	5.1	What is Actually in Chicken Nuggets?
+PLAIN-68	default	0.417686	1	36.7	What is Actually in Chicken Nuggets?
+PLAIN-68	tiered	0.417686	1	39.2	What is Actually in Chicken Nuggets?
+PLAIN-78	plain	0.042472	0	5.7	What Do Meat Purge and Cola Have in Common?
+PLAIN-78	default	0.042472	0	41.6	What Do Meat Purge and Cola Have in Common?
+PLAIN-78	tiered	0.042472	0	37.0	What Do Meat Purge and Cola Have in Common?
+PLAIN-91	plain	0.191941	1	4.7	Chronic Headaches and Pork Parasites
+PLAIN-91	default	0.168374	1	38.4	Chronic Headaches and Pork Parasites
+PLAIN-91	tiered	0.168374	1	39.5	Chronic Headaches and Pork Parasites
+PLAIN-102	plain	0.161957	0	4.6	Stopping Heart Disease in Childhood
+PLAIN-102	default	0.000000	0	37.1	Stopping Heart Disease in Childhood
+PLAIN-102	tiered	0.000000	0	36.4	Stopping Heart Disease in Childhood
+PLAIN-112	plain	0.402714	1	4.4	Food Dyes and ADHD
+PLAIN-112	default	0.422228	1	29.5	Food Dyes and ADHD
+PLAIN-112	tiered	0.422228	1	32.5	Food Dyes and ADHD
+PLAIN-123	plain	0.036832	0	3.1	How Citrus Might Help Keep Your Hands Warm
+PLAIN-123	default	0.080391	0	26.3	How Citrus Might Help Keep Your Hands Warm
+PLAIN-123	tiered	0.080391	0	33.6	How Citrus Might Help Keep Your Hands Warm
+PLAIN-133	plain	0.000000	0	4.3	Starving Tumors of Their Blood Supply
+PLAIN-133	default	0.000000	0	41.2	Starving Tumors of Their Blood Supply
+PLAIN-133	tiered	0.000000	0	40.4	Starving Tumors of Their Blood Supply
+PLAIN-143	plain	0.323913	1	4.1	Are Dental X-Rays Safe?
+PLAIN-143	default	0.323913	1	38.8	Are Dental X-Rays Safe?
+PLAIN-143	tiered	0.323913	1	30.7	Are Dental X-Rays Safe?
+PLAIN-153	plain	0.291599	1	3.0	How Should I Take Probiotics?
+PLAIN-153	default	0.431466	1	51.1	How Should I Take Probiotics?
+PLAIN-153	tiered	0.431466	1	28.0	How Should I Take Probiotics?
+PLAIN-165	plain	0.337451	0	3.3	Breast Cancer & Alcohol: How Much is Safe?
+PLAIN-165	default	0.356452	0	81.4	Breast Cancer & Alcohol: How Much is Safe?
+PLAIN-165	tiered	0.356452	0	28.5	Breast Cancer & Alcohol: How Much is Safe?
+PLAIN-175	plain	0.368640	1	4.0	Diet and Cellulite
+PLAIN-175	default	0.351164	1	23.3	Diet and Cellulite
+PLAIN-175	tiered	0.351164	1	26.3	Diet and Cellulite
+PLAIN-186	plain	0.110046	0	3.5	Best Treatment for Constipation
+PLAIN-186	default	0.094788	0	25.0	Best Treatment for Constipation
+PLAIN-186	tiered	0.094788	0	26.3	Best Treatment for Constipation
+PLAIN-196	plain	0.640591	1	2.7	Should We Avoid Titanium Dioxide?
+PLAIN-196	default	0.727330	1	20.4	Should We Avoid Titanium Dioxide?
+PLAIN-196	tiered	0.727330	1	82.2	Should We Avoid Titanium Dioxide?
+PLAIN-207	plain	0.188444	0	2.2	Avoiding Cooked Meat Carcinogens
+PLAIN-207	default	0.510716	1	25.3	Avoiding Cooked Meat Carcinogens
+PLAIN-207	tiered	0.510716	1	72.9	Avoiding Cooked Meat Carcinogens
+PLAIN-217	plain	0.000000	0	7.7	Plant-Based Diets for Psoriasis
+PLAIN-217	default	0.000000	0	21.9	Plant-Based Diets for Psoriasis
+PLAIN-217	tiered	0.000000	0	20.9	Plant-Based Diets for Psoriasis
+PLAIN-227	plain	0.094788	0	2.7	Increasing Muscle Strength with Fenugreek
+PLAIN-227	default	0.000000	0	33.4	Increasing Muscle Strength with Fenugreek
+PLAIN-227	tiered	0.000000	0	25.1	Increasing Muscle Strength with Fenugreek
+PLAIN-238	plain	0.000000	0	2.7	How Chemically Contaminated Are We?
+PLAIN-238	default	0.000000	0	24.8	How Chemically Contaminated Are We?
+PLAIN-238	tiered	0.000000	0	27.9	How Chemically Contaminated Are We?
+PLAIN-248	plain	0.094788	0	3.5	Treating an Enlarged Prostate With Diet
+PLAIN-248	default	0.158409	0	26.3	Treating an Enlarged Prostate With Diet
+PLAIN-248	tiered	0.158409	0	27.2	Treating an Enlarged Prostate With Diet
+PLAIN-259	plain	0.358954	1	3.5	Optimal Phytosterol Dose and Source
+PLAIN-259	default	0.000000	0	80.7	Optimal Phytosterol Dose and Source
+PLAIN-259	tiered	0.000000	0	22.9	Optimal Phytosterol Dose and Source
+PLAIN-270	plain	0.220092	1	2.8	Is Caffeinated Tea Really Dehydrating?
+PLAIN-270	default	0.393278	1	25.6	Is Caffeinated Tea Really Dehydrating?
+PLAIN-270	tiered	0.393278	1	176.0	Is Caffeinated Tea Really Dehydrating?
+PLAIN-280	plain	0.393278	1	57.9	Mercury Testing Recommended Before Pregnancy
+PLAIN-280	default	0.289523	1	174.1	Mercury Testing Recommended Before Pregnancy
+PLAIN-280	tiered	0.289523	1	23.1	Mercury Testing Recommended Before Pregnancy
+PLAIN-291	plain	0.358954	1	4.0	Stool Size and Breast Cancer Risk
+PLAIN-291	default	0.000000	0	24.2	Stool Size and Breast Cancer Risk
+PLAIN-291	tiered	0.000000	0	184.2	Stool Size and Breast Cancer Risk
+PLAIN-307	plain	0.202107	0	4.2	Vitamin D: Shedding some light on the new recommendations
+PLAIN-307	default	0.348702	0	26.8	Vitamin D: Shedding some light on the new recommendations
+PLAIN-307	tiered	0.348702	0	56.0	Vitamin D: Shedding some light on the new recommendations
+PLAIN-320	plain	0.000000	0	4.2	Breast Cancer and Diet
+PLAIN-320	default	0.000000	0	25.9	Breast Cancer and Diet
+PLAIN-320	tiered	0.000000	0	29.7	Breast Cancer and Diet
+PLAIN-332	plain	0.613147	1	5.9	Can antioxidant-rich spices counteract the effects of a high-fat meal?
+PLAIN-332	default	0.613147	1	35.3	Can antioxidant-rich spices counteract the effects of a high-fat meal?
+PLAIN-332	tiered	0.613147	1	30.2	Can antioxidant-rich spices counteract the effects of a high-fat meal?
+PLAIN-344	plain	0.118373	0	4.0	Dioxins Stored in Our Own Fat May Increase Diabetes Risk
+PLAIN-344	default	0.091815	0	24.5	Dioxins Stored in Our Own Fat May Increase Diabetes Risk
+PLAIN-344	tiered	0.091815	0	27.7	Dioxins Stored in Our Own Fat May Increase Diabetes Risk
+PLAIN-358	plain	0.000000	0	4.0	Didn't another study show carnitine was good for the heart?
+PLAIN-358	default	0.000000	0	28.7	Didn't another study show carnitine was good for the heart?
+PLAIN-358	tiered	0.000000	0	23.5	Didn't another study show carnitine was good for the heart?
+PLAIN-371	plain	0.190047	0	4.4	Any update on the scary in vitro avocado data?
+PLAIN-371	default	0.114420	0	25.0	Any update on the scary in vitro avocado data?
+PLAIN-371	tiered	0.114420	0	25.2	Any update on the scary in vitro avocado data?
+PLAIN-383	plain	0.131205	0	3.5	What do you think of Dr. Jenkins' take on paleolithic diets?
+PLAIN-383	default	0.169580	0	24.5	What do you think of Dr. Jenkins' take on paleolithic diets?
+PLAIN-383	tiered	0.169580	0	22.6	What do you think of Dr. Jenkins' take on paleolithic diets?
+PLAIN-395	plain	0.000000	0	3.3	What about pepper plus turmeric in V8 juice?
+PLAIN-395	default	0.000000	0	22.9	What about pepper plus turmeric in V8 juice?
+PLAIN-395	tiered	0.000000	0	29.0	What about pepper plus turmeric in V8 juice?
+PLAIN-407	plain	0.638788	1	2.9	Is annatto food coloring safe?
+PLAIN-407	default	0.638788	1	30.0	Is annatto food coloring safe?
+PLAIN-407	tiered	0.638788	1	24.5	Is annatto food coloring safe?
+PLAIN-418	plain	0.760622	1	2.9	Fresh fruit versus frozen--which is better?
+PLAIN-418	default	0.531652	1	23.2	Fresh fruit versus frozen--which is better?
+PLAIN-418	tiered	0.531652	1	29.1	Fresh fruit versus frozen--which is better?
+PLAIN-430	plain	0.569193	1	3.0	Are krill oil supplements better than fish oil capsules?
+PLAIN-430	default	0.472602	1	25.3	Are krill oil supplements better than fish oil capsules?
+PLAIN-430	tiered	0.472602	1	25.7	Are krill oil supplements better than fish oil capsules?
+PLAIN-441	plain	0.940289	1	3.7	Is apple cider vinegar good for you?
+PLAIN-441	default	0.956913	1	29.3	Is apple cider vinegar good for you?
+PLAIN-441	tiered	0.956913	1	28.3	Is apple cider vinegar good for you?
+PLAIN-457	plain	0.000000	0	3.9	How can you believe in any scientific study?
+PLAIN-457	default	0.000000	0	25.8	How can you believe in any scientific study?
+PLAIN-457	tiered	0.000000	0	25.4	How can you believe in any scientific study?
+PLAIN-468	plain	0.240687	0	3.5	Is vitamin D3 (cholecalciferol) preferable to D2 (ergocalciferol)?
+PLAIN-468	default	0.280094	0	26.1	Is vitamin D3 (cholecalciferol) preferable to D2 (ergocalciferol)?
+PLAIN-468	tiered	0.280094	0	26.8	Is vitamin D3 (cholecalciferol) preferable to D2 (ergocalciferol)?
+PLAIN-478	plain	0.000000	0	1.9	accidents
+PLAIN-478	default	0.000000	0	24.9	accidents
+PLAIN-478	tiered	0.000000	0	21.2	accidents
+PLAIN-488	plain	0.933746	1	2.3	adenovirus 36
+PLAIN-488	default	0.921602	1	22.3	adenovirus 36
+PLAIN-488	tiered	0.921602	1	31.8	adenovirus 36
+PLAIN-499	plain	0.424926	1	2.4	African-American
+PLAIN-499	default	0.424926	1	22.5	African-American
+PLAIN-499	tiered	0.424926	1	21.3	African-American
+PLAIN-510	plain	0.000000	0	2.0	airport scanners
+PLAIN-510	default	0.000000	0	34.2	airport scanners
+PLAIN-510	tiered	0.000000	0	26.2	airport scanners
+PLAIN-520	plain	0.000000	0	1.9	Alli
+PLAIN-520	default	0.000000	0	28.6	Alli
+PLAIN-520	tiered	0.000000	0	19.9	Alli
+PLAIN-531	plain	0.227162	0	2.7	alternative medicine
+PLAIN-531	default	0.437352	1	23.7	alternative medicine
+PLAIN-531	tiered	0.422575	1	27.6	alternative medicine
+PLAIN-541	plain	0.334858	0	2.2	American Dental Association
+PLAIN-541	default	0.282013	0	21.8	American Dental Association
+PLAIN-541	tiered	0.282013	0	22.3	American Dental Association
+PLAIN-551	plain	0.000000	0	2.1	amnesia
+PLAIN-551	default	0.000000	0	24.0	amnesia
+PLAIN-551	tiered	0.000000	0	19.9	amnesia
+PLAIN-561	plain	0.358954	1	2.2	aneurysm
+PLAIN-561	default	0.358954	1	26.6	aneurysm
+PLAIN-561	tiered	0.358954	1	25.4	aneurysm
+PLAIN-571	plain	0.255821	0	2.2	anisakis
+PLAIN-571	default	0.243775	0	21.5	anisakis
+PLAIN-571	tiered	0.243775	0	23.5	anisakis
+PLAIN-583	plain	0.000000	0	1.9	antinutrients
+PLAIN-583	default	0.000000	0	22.5	antinutrients
+PLAIN-583	tiered	0.000000	0	24.7	antinutrients
+PLAIN-593	plain	0.469279	1	2.0	apnea
+PLAIN-593	default	0.469279	1	20.9	apnea
+PLAIN-593	tiered	0.469279	1	20.6	apnea
+PLAIN-603	plain	0.000000	0	1.8	Arkansas
+PLAIN-603	default	0.000000	0	27.8	Arkansas
+PLAIN-603	tiered	0.000000	0	24.2	Arkansas
+PLAIN-613	plain	0.000000	0	2.3	ascorbic acid
+PLAIN-613	default	0.000000	0	25.4	ascorbic acid
+PLAIN-613	tiered	0.000000	0	22.6	ascorbic acid
+PLAIN-623	plain	0.248908	0	2.4	Atkins diet
+PLAIN-623	default	0.248908	0	22.9	Atkins diet
+PLAIN-623	tiered	0.248908	0	20.3	Atkins diet
+PLAIN-634	plain	0.220092	1	2.0	avocados
+PLAIN-634	default	0.220092	1	23.4	avocados
+PLAIN-634	tiered	0.220092	1	21.8	avocados
+PLAIN-645	plain	0.000000	0	2.0	bagels
+PLAIN-645	default	0.000000	0	20.9	bagels
+PLAIN-645	tiered	0.000000	0	29.0	bagels
+PLAIN-660	plain	1.000000	1	2.2	beans
+PLAIN-660	default	0.921602	1	22.3	beans
+PLAIN-660	tiered	0.921602	1	22.3	beans
+PLAIN-671	plain	1.000000	1	2.0	benzene
+PLAIN-671	default	1.000000	1	19.9	benzene
+PLAIN-671	tiered	1.000000	1	23.5	benzene
+PLAIN-681	plain	1.000000	1	2.1	betel nuts
+PLAIN-681	default	1.000000	1	20.9	betel nuts
+PLAIN-681	tiered	1.000000	1	21.4	betel nuts
+PLAIN-691	plain	0.000000	0	1.9	bioavailability
+PLAIN-691	default	0.000000	0	22.9	bioavailability
+PLAIN-691	tiered	0.000000	0	22.4	bioavailability
+PLAIN-701	plain	0.361879	1	1.8	black raspberries
+PLAIN-701	default	0.379414	1	20.1	black raspberries
+PLAIN-701	tiered	0.379414	1	20.1	black raspberries
+PLAIN-711	plain	0.220092	1	2.0	blood clots
+PLAIN-711	default	0.220092	1	25.4	blood clots
+PLAIN-711	tiered	0.220092	1	25.2	blood clots
+PLAIN-721	plain	1.000000	1	2.1	BMAA
+PLAIN-721	default	1.000000	1	23.0	BMAA
+PLAIN-721	tiered	1.000000	1	22.2	BMAA
+PLAIN-731	plain	0.793584	1	2.4	bone fractures
+PLAIN-731	default	0.683084	1	26.2	bone fractures
+PLAIN-731	tiered	0.800694	1	44.8	bone fractures
+PLAIN-741	plain	0.848603	1	1.8	BPH
+PLAIN-741	default	0.848603	1	27.0	BPH
+PLAIN-741	tiered	0.848603	1	24.8	BPH
+PLAIN-751	plain	0.000000	0	2.3	BRCA genes
+PLAIN-751	default	0.000000	0	30.8	BRCA genes
+PLAIN-751	tiered	0.000000	0	24.6	BRCA genes
+PLAIN-761	plain	0.151301	0	11.8	breast pain
+PLAIN-761	default	0.151301	0	23.4	breast pain
+PLAIN-761	tiered	0.151301	0	20.4	breast pain
+PLAIN-771	plain	1.000000	1	2.2	bronchiolitis obliterans
+PLAIN-771	default	1.000000	1	29.0	bronchiolitis obliterans
+PLAIN-771	tiered	1.000000	1	28.4	bronchiolitis obliterans
+PLAIN-782	plain	0.000000	0	2.2	Bush administration
+PLAIN-782	default	0.000000	0	22.6	Bush administration
+PLAIN-782	tiered	0.000000	0	22.2	Bush administration
+PLAIN-792	plain	0.644824	1	2.0	cadaverine
+PLAIN-792	default	0.644824	1	22.3	cadaverine
+PLAIN-792	tiered	0.644824	1	22.3	cadaverine
+PLAIN-806	plain	0.851236	1	1.9	caloric restriction
+PLAIN-806	default	0.851236	1	21.6	caloric restriction
+PLAIN-806	tiered	0.851236	1	22.4	caloric restriction
+PLAIN-817	plain	0.000000	0	2.0	canker sores
+PLAIN-817	default	0.000000	0	24.4	canker sores
+PLAIN-817	tiered	0.000000	0	23.7	canker sores
+PLAIN-827	plain	0.416285	0	2.3	carcinogens
+PLAIN-827	default	0.570404	1	29.9	carcinogens
+PLAIN-827	tiered	0.570404	1	25.2	carcinogens
+PLAIN-838	plain	0.855096	1	2.5	carrageenan
+PLAIN-838	default	0.855096	1	24.9	carrageenan
+PLAIN-838	tiered	0.855096	1	26.7	carrageenan
+PLAIN-850	plain	0.648932	1	3.1	cauliflower
+PLAIN-850	default	0.648932	1	30.4	cauliflower
+PLAIN-850	tiered	0.648932	1	24.5	cauliflower
+PLAIN-872	plain	0.000000	0	2.0	chanterelle mushrooms
+PLAIN-872	default	0.000000	0	23.2	chanterelle mushrooms
+PLAIN-872	tiered	0.000000	0	20.0	chanterelle mushrooms
+PLAIN-882	plain	0.358954	1	14.5	Chernobyl
+PLAIN-882	default	0.358954	1	19.6	Chernobyl
+PLAIN-882	tiered	0.358954	1	22.9	Chernobyl
+PLAIN-892	plain	0.727330	1	2.1	chickpeas
+PLAIN-892	default	0.727330	1	19.0	chickpeas
+PLAIN-892	tiered	0.727330	1	20.9	chickpeas
+PLAIN-902	plain	0.636682	1	2.1	chlorophyll
+PLAIN-902	default	0.636682	1	24.7	chlorophyll
+PLAIN-902	tiered	0.636682	1	24.4	chlorophyll
+PLAIN-913	plain	0.933746	1	2.3	cinnamon
+PLAIN-913	default	0.933746	1	21.0	cinnamon
+PLAIN-913	tiered	0.933746	1	24.4	cinnamon
+PLAIN-924	plain	0.220092	1	2.5	cocaine
+PLAIN-924	default	0.220092	1	19.0	cocaine
+PLAIN-924	tiered	0.220092	1	20.3	cocaine
+PLAIN-934	plain	0.823700	1	2.1	coffee
+PLAIN-934	default	0.697596	1	27.2	coffee
+PLAIN-934	tiered	0.697596	1	20.0	coffee
+PLAIN-946	plain	0.330138	1	2.2	coma
+PLAIN-946	default	0.330138	1	19.2	coma
+PLAIN-946	tiered	0.330138	1	24.7	coma
+PLAIN-956	plain	0.352946	0	2.3	cooking methods
+PLAIN-956	default	0.284814	0	19.9	cooking methods
+PLAIN-956	tiered	0.284814	0	20.4	cooking methods
+PLAIN-966	plain	0.148041	0	2.0	cortisol
+PLAIN-966	default	0.148041	0	19.6	cortisol
+PLAIN-966	tiered	0.148041	0	23.1	cortisol
+PLAIN-977	plain	0.000000	0	2.4	crib death
+PLAIN-977	default	0.156426	0	23.8	crib death
+PLAIN-977	tiered	0.156426	0	23.1	crib death
+PLAIN-987	plain	0.234639	0	2.3	cumin
+PLAIN-987	default	0.234639	0	26.8	cumin
+PLAIN-987	tiered	0.234639	0	19.5	cumin
+PLAIN-997	plain	0.000000	0	2.2	Czechoslovakia
+PLAIN-997	default	0.000000	0	22.2	Czechoslovakia
+PLAIN-997	tiered	0.000000	0	20.9	Czechoslovakia
+PLAIN-1008	plain	0.000000	0	2.3	deafness
+PLAIN-1008	default	0.000000	0	30.3	deafness
+PLAIN-1008	tiered	0.000000	0	20.8	deafness
+PLAIN-1018	plain	0.521098	0	2.4	DHA
+PLAIN-1018	default	0.467379	0	19.8	DHA
+PLAIN-1018	tiered	0.467379	0	20.6	DHA
+PLAIN-1028	plain	0.000000	0	2.5	dietary scoring
+PLAIN-1028	default	0.000000	0	19.5	dietary scoring
+PLAIN-1028	tiered	0.000000	0	20.3	dietary scoring
+PLAIN-1039	plain	1.000000	1	2.5	domoic acid
+PLAIN-1039	default	1.000000	1	20.5	domoic acid
+PLAIN-1039	tiered	1.000000	1	20.9	domoic acid
+PLAIN-1050	plain	0.066254	0	2.1	Dr. Dean Ornish
+PLAIN-1050	default	0.066254	0	22.0	Dr. Dean Ornish
+PLAIN-1050	tiered	0.066254	0	23.9	Dr. Dean Ornish
+PLAIN-1066	plain	0.000000	0	2.0	Dr. Walter Willett
+PLAIN-1066	default	0.000000	0	20.2	Dr. Walter Willett
+PLAIN-1066	tiered	0.000000	0	24.7	Dr. Walter Willett
+PLAIN-1088	plain	0.553146	1	1.9	ECMO
+PLAIN-1088	default	0.553146	1	24.1	ECMO
+PLAIN-1088	tiered	0.553146	1	20.7	ECMO
+PLAIN-1098	plain	0.000000	0	1.8	eggnog
+PLAIN-1098	default	0.000000	0	25.3	eggnog
+PLAIN-1098	tiered	0.000000	0	24.6	eggnog
+PLAIN-1109	plain	0.653049	1	2.5	endocrine disruptors
+PLAIN-1109	default	0.593361	1	24.9	endocrine disruptors
+PLAIN-1109	tiered	0.593361	1	20.0	endocrine disruptors
+PLAIN-1119	plain	0.000000	0	2.1	energy drinks
+PLAIN-1119	default	0.000000	0	20.1	energy drinks
+PLAIN-1119	tiered	0.000000	0	24.9	energy drinks
+PLAIN-1130	plain	1.000000	1	2.1	ergothioneine
+PLAIN-1130	default	1.000000	1	22.2	ergothioneine
+PLAIN-1130	tiered	1.000000	1	19.9	ergothioneine
+PLAIN-1141	plain	0.220092	1	2.4	Evidence-based medicine
+PLAIN-1141	default	0.220092	1	21.9	Evidence-based medicine
+PLAIN-1141	tiered	0.220092	1	24.8	Evidence-based medicine
+PLAIN-1151	plain	0.158409	0	2.4	factory farming practices
+PLAIN-1151	default	0.222128	0	23.8	factory farming practices
+PLAIN-1151	tiered	0.222128	0	21.8	factory farming practices
+PLAIN-1161	plain	0.000000	0	2.6	fava beans
+PLAIN-1161	default	0.000000	0	20.0	fava beans
+PLAIN-1161	tiered	0.000000	0	23.2	fava beans
+PLAIN-1172	plain	0.220092	1	1.9	fenugreek
+PLAIN-1172	default	0.220092	1	20.7	fenugreek
+PLAIN-1172	tiered	0.220092	1	29.3	fenugreek
+PLAIN-1183	plain	0.289523	1	2.6	Finland
+PLAIN-1183	default	0.289523	1	24.8	Finland
+PLAIN-1183	tiered	0.289523	1	24.6	Finland
+PLAIN-1193	plain	0.069431	0	2.2	flax oil
+PLAIN-1193	default	0.144652	0	23.4	flax oil
+PLAIN-1193	tiered	0.144652	0	19.6	flax oil
+PLAIN-1203	plain	0.358954	1	2.0	folic acid
+PLAIN-1203	default	0.358954	1	22.6	folic acid
+PLAIN-1203	tiered	0.358954	1	26.5	folic acid
+PLAIN-1214	plain	0.000000	0	2.0	Fosamax
+PLAIN-1214	default	0.000000	0	22.6	Fosamax
+PLAIN-1214	tiered	0.000000	0	27.4	Fosamax
+PLAIN-1225	plain	0.536356	0	2.4	fructose
+PLAIN-1225	default	0.639944	1	21.7	fructose
+PLAIN-1225	tiered	0.639944	1	20.0	fructose
+PLAIN-1236	plain	0.339160	1	2.1	galactosemia
+PLAIN-1236	default	0.339160	1	26.8	galactosemia
+PLAIN-1236	tiered	0.339160	1	21.2	galactosemia
+PLAIN-1249	plain	0.000000	0	1.9	genetic manipulation
+PLAIN-1249	default	0.000000	0	21.0	genetic manipulation
+PLAIN-1249	tiered	0.000000	0	22.9	genetic manipulation
+PLAIN-1262	plain	0.299905	0	4.2	Global Burden of Disease Study
+PLAIN-1262	default	0.469000	1	22.7	Global Burden of Disease Study
+PLAIN-1262	tiered	0.469000	1	26.0	Global Burden of Disease Study
+PLAIN-1275	plain	0.469000	1	2.0	goji berries
+PLAIN-1275	default	0.444097	1	21.8	goji berries
+PLAIN-1275	tiered	0.444097	1	20.1	goji berries
+PLAIN-1288	plain	0.753449	1	2.6	grapes
+PLAIN-1288	default	0.753449	1	23.7	grapes
+PLAIN-1288	tiered	0.753449	1	26.1	grapes
+PLAIN-1299	plain	0.293456	1	3.1	growth promoters
+PLAIN-1299	default	0.358954	1	24.4	growth promoters
+PLAIN-1299	tiered	0.330138	1	25.0	growth promoters
+PLAIN-1309	plain	0.000000	0	2.1	halibut
+PLAIN-1309	default	0.000000	0	23.4	halibut
+PLAIN-1309	tiered	0.000000	0	21.3	halibut
+PLAIN-1320	plain	0.610586	1	2.9	Harvard Physicians’ Study II
+PLAIN-1320	default	0.472546	0	23.5	Harvard Physicians’ Study II
+PLAIN-1320	tiered	0.472546	0	23.3	Harvard Physicians’ Study II
+PLAIN-1331	plain	0.000000	0	2.1	hearing
+PLAIN-1331	default	0.000000	0	22.3	hearing
+PLAIN-1331	tiered	0.000000	0	20.9	hearing
+PLAIN-1342	plain	0.312049	0	2.4	heme iron
+PLAIN-1342	default	0.334051	0	21.8	heme iron
+PLAIN-1342	tiered	0.334051	0	24.8	heme iron
+PLAIN-1353	plain	0.000000	0	2.5	hernia
+PLAIN-1353	default	0.000000	0	50.6	hernia
+PLAIN-1353	tiered	0.000000	0	22.8	hernia
+PLAIN-1363	plain	0.220092	1	1.7	Hiroshima
+PLAIN-1363	default	0.220092	1	89.6	Hiroshima
+PLAIN-1363	tiered	0.220092	1	22.1	Hiroshima
+PLAIN-1374	plain	0.286346	1	2.1	hormonal dysfunction
+PLAIN-1374	default	0.208294	0	27.4	hormonal dysfunction
+PLAIN-1374	tiered	0.208294	0	94.0	hormonal dysfunction
+PLAIN-1387	plain	0.647336	1	46.6	hyperactivity
+PLAIN-1387	default	0.550966	1	21.1	hyperactivity
+PLAIN-1387	tiered	0.550966	1	25.7	hyperactivity
+PLAIN-1398	plain	1.000000	1	2.2	IGF-1
+PLAIN-1398	default	1.000000	1	24.5	IGF-1
+PLAIN-1398	tiered	1.000000	1	19.2	IGF-1
+PLAIN-1409	plain	0.000000	0	2.2	industrial toxins
+PLAIN-1409	default	0.000000	0	20.8	industrial toxins
+PLAIN-1409	tiered	0.000000	0	20.5	industrial toxins
+PLAIN-1419	plain	0.204834	0	2.2	insects
+PLAIN-1419	default	0.314880	1	316.4	insects
+PLAIN-1419	tiered	0.314880	1	30.0	insects
+PLAIN-1429	plain	0.000000	0	3.2	Iowa Women’s Health Study
+PLAIN-1429	default	0.100867	0	36.7	Iowa Women’s Health Study
+PLAIN-1429	tiered	0.100867	0	34.9	Iowa Women’s Health Study
+PLAIN-1441	plain	0.388526	0	2.4	Japan
+PLAIN-1441	default	0.460813	0	30.9	Japan
+PLAIN-1441	tiered	0.460813	0	23.4	Japan
+PLAIN-1453	plain	0.388244	1	2.3	junk food
+PLAIN-1453	default	0.318794	0	22.2	junk food
+PLAIN-1453	tiered	0.318794	0	20.3	junk food
+PLAIN-1463	plain	0.432318	1	2.1	kidney beans
+PLAIN-1463	default	0.425208	1	78.3	kidney beans
+PLAIN-1463	tiered	0.422575	1	26.0	kidney beans
+PLAIN-1473	plain	1.000000	1	53.0	kohlrabi
+PLAIN-1473	default	1.000000	1	27.9	kohlrabi
+PLAIN-1473	tiered	1.000000	1	22.4	kohlrabi
+PLAIN-1485	plain	0.000000	0	2.2	lard
+PLAIN-1485	default	0.000000	0	24.8	lard
+PLAIN-1485	tiered	0.000000	0	25.9	lard
+PLAIN-1496	plain	0.000000	0	1.5	leeks
+PLAIN-1496	default	0.000000	0	23.4	leeks
+PLAIN-1496	tiered	0.000000	0	23.9	leeks
+PLAIN-1506	plain	0.298490	1	2.6	leucine
+PLAIN-1506	default	0.298490	1	21.9	leucine
+PLAIN-1506	tiered	0.298490	1	29.6	leucine
+PLAIN-1516	plain	0.000000	0	2.6	Lindane
+PLAIN-1516	default	0.000000	0	21.8	Lindane
+PLAIN-1516	tiered	0.000000	0	21.0	Lindane
+PLAIN-1527	plain	1.000000	1	2.6	liver disease
+PLAIN-1527	default	0.848238	1	21.1	liver disease
+PLAIN-1527	tiered	0.848238	1	23.7	liver disease
+PLAIN-1537	plain	0.094788	0	2.0	low-carb diets
+PLAIN-1537	default	0.195189	0	26.5	low-carb diets
+PLAIN-1537	tiered	0.195189	0	39.9	low-carb diets
+PLAIN-1547	plain	0.000000	0	2.5	lyme disease
+PLAIN-1547	default	0.000000	0	37.7	lyme disease
+PLAIN-1547	tiered	0.000000	0	20.0	lyme disease
+PLAIN-1557	plain	0.278198	0	1.7	magnesium
+PLAIN-1557	default	0.307015	0	22.6	magnesium
+PLAIN-1557	tiered	0.307015	0	19.5	magnesium
+PLAIN-1568	plain	1.000000	1	1.9	maple syrup
+PLAIN-1568	default	1.000000	1	19.6	maple syrup
+PLAIN-1568	tiered	1.000000	1	27.3	maple syrup
+PLAIN-1579	plain	0.213986	0	1.7	mastitis
+PLAIN-1579	default	0.339160	1	20.8	mastitis
+PLAIN-1579	tiered	0.339160	1	20.2	mastitis
+PLAIN-1590	plain	0.220092	1	2.1	medical ethics
+PLAIN-1590	default	0.138862	0	28.2	medical ethics
+PLAIN-1590	tiered	0.138862	0	23.5	medical ethics
+PLAIN-1601	plain	0.644223	0	1.8	memory
+PLAIN-1601	default	0.718363	1	19.3	memory
+PLAIN-1601	tiered	0.718363	1	24.7	memory
+PLAIN-1611	plain	0.000000	0	2.1	mesquite
+PLAIN-1611	default	0.000000	0	20.6	mesquite
+PLAIN-1611	tiered	0.000000	0	21.6	mesquite
+PLAIN-1621	plain	0.000000	0	1.7	Mevacor
+PLAIN-1621	default	0.000000	0	122.6	Mevacor
+PLAIN-1621	tiered	0.000000	0	22.5	Mevacor
+PLAIN-1635	plain	0.582939	1	2.3	milk
+PLAIN-1635	default	0.574792	0	22.4	milk
+PLAIN-1635	tiered	0.574792	0	27.2	milk
+PLAIN-1645	plain	0.302602	1	1.9	molasses
+PLAIN-1645	default	0.302602	1	19.6	molasses
+PLAIN-1645	tiered	0.302602	1	22.0	molasses
+PLAIN-1656	plain	0.110046	0	6.3	mouth cancer
+PLAIN-1656	default	0.094788	0	23.8	mouth cancer
+PLAIN-1656	tiered	0.094788	0	30.4	mouth cancer
+PLAIN-1667	plain	0.852171	1	2.2	muscle health
+PLAIN-1667	default	0.770204	1	22.7	muscle health
+PLAIN-1667	tiered	0.376446	0	23.7	muscle health
+PLAIN-1679	plain	0.000000	0	2.0	myelopathy
+PLAIN-1679	default	0.000000	0	22.7	myelopathy
+PLAIN-1679	tiered	0.000000	0	26.7	myelopathy
+PLAIN-1690	plain	0.000000	0	3.5	National Academy of Sciences
+PLAIN-1690	default	0.000000	0	23.5	National Academy of Sciences
+PLAIN-1690	tiered	0.000000	0	23.4	National Academy of Sciences
+PLAIN-1700	plain	0.000000	0	2.3	Native Americans
+PLAIN-1700	default	0.000000	0	22.3	Native Americans
+PLAIN-1700	tiered	0.000000	0	23.3	Native Americans
+PLAIN-1710	plain	1.000000	1	1.8	neurocysticercosis
+PLAIN-1710	default	1.000000	1	29.6	neurocysticercosis
+PLAIN-1710	tiered	1.000000	1	25.0	neurocysticercosis
+PLAIN-1721	plain	0.671759	1	9.0	NIH-AARP study
+PLAIN-1721	default	0.665291	1	23.5	NIH-AARP study
+PLAIN-1721	tiered	0.665291	1	30.5	NIH-AARP study
+PLAIN-1731	plain	0.765361	1	2.7	norovirus
+PLAIN-1731	default	0.765361	1	20.2	norovirus
+PLAIN-1731	tiered	0.765361	1	21.9	norovirus
+PLAIN-1741	plain	0.936379	1	2.1	nuts
+PLAIN-1741	default	1.000000	1	21.4	nuts
+PLAIN-1741	tiered	1.000000	1	22.5	nuts
+PLAIN-1752	plain	0.000000	0	2.0	okra
+PLAIN-1752	default	0.000000	0	21.6	okra
+PLAIN-1752	tiered	0.000000	0	18.4	okra
+PLAIN-1762	plain	0.412532	1	2.3	oral intraepithelial neoplasia
+PLAIN-1762	default	0.412532	1	28.7	oral intraepithelial neoplasia
+PLAIN-1762	tiered	0.412532	1	26.0	oral intraepithelial neoplasia
+PLAIN-1772	plain	1.000000	1	2.8	organotins
+PLAIN-1772	default	1.000000	1	22.2	organotins
+PLAIN-1772	tiered	1.000000	1	22.7	organotins
+PLAIN-1784	plain	0.000000	0	2.1	oxen meat
+PLAIN-1784	default	0.000000	0	19.9	oxen meat
+PLAIN-1784	tiered	0.000000	0	25.1	oxen meat
+PLAIN-1794	plain	1.000000	1	1.7	Panama
+PLAIN-1794	default	1.000000	1	22.4	Panama
+PLAIN-1794	tiered	1.000000	1	23.8	Panama
+PLAIN-1805	plain	0.573690	1	2.6	Parkinson's disease
+PLAIN-1805	default	0.696162	1	32.3	Parkinson's disease
+PLAIN-1805	tiered	0.696162	1	26.7	Parkinson's disease
+PLAIN-1817	plain	0.535254	1	2.2	peanut butter
+PLAIN-1817	default	0.538431	1	28.3	peanut butter
+PLAIN-1817	tiered	0.538431	1	22.9	peanut butter
+PLAIN-1827	plain	0.000000	0	2.0	Peoria
+PLAIN-1827	default	0.000000	0	23.3	Peoria
+PLAIN-1827	tiered	0.000000	0	23.9	Peoria
+PLAIN-1837	plain	1.000000	1	6.6	pesticides
+PLAIN-1837	default	1.000000	1	20.4	pesticides
+PLAIN-1837	tiered	1.000000	1	52.3	pesticides
+PLAIN-1847	plain	0.330138	1	2.4	philippines
+PLAIN-1847	default	0.330138	1	23.4	philippines
+PLAIN-1847	tiered	0.330138	1	58.2	philippines
+PLAIN-1857	plain	0.627409	1	2.1	phytic acid
+PLAIN-1857	default	0.627409	1	28.5	phytic acid
+PLAIN-1857	tiered	0.627409	1	25.1	phytic acid
+PLAIN-1867	plain	0.000000	0	2.5	pineapples
+PLAIN-1867	default	0.000000	0	20.4	pineapples
+PLAIN-1867	tiered	0.000000	0	27.4	pineapples
+PLAIN-1877	plain	0.000000	0	2.5	plant-based diet
+PLAIN-1877	default	0.000000	0	24.0	plant-based diet
+PLAIN-1877	tiered	0.000000	0	26.7	plant-based diet
+PLAIN-1887	plain	0.000000	0	2.1	poisonous plants
+PLAIN-1887	default	0.000000	0	25.7	poisonous plants
+PLAIN-1887	tiered	0.000000	0	21.4	poisonous plants
+PLAIN-1897	plain	0.000000	0	2.3	polypropylene plastic
+PLAIN-1897	default	0.000000	0	29.1	polypropylene plastic
+PLAIN-1897	tiered	0.000000	0	24.6	polypropylene plastic
+PLAIN-1909	plain	0.936379	1	2.3	pork
+PLAIN-1909	default	0.933746	1	23.1	pork
+PLAIN-1909	tiered	0.933746	1	25.8	pork
+PLAIN-1919	plain	0.727330	1	2.4	poultry workers
+PLAIN-1919	default	0.866948	1	22.2	poultry workers
+PLAIN-1919	tiered	0.866948	1	21.8	poultry workers
+PLAIN-1929	plain	0.000000	0	1.7	prenatal vitamins
+PLAIN-1929	default	0.000000	0	32.3	prenatal vitamins
+PLAIN-1929	tiered	0.000000	0	19.6	prenatal vitamins
+PLAIN-1940	plain	0.358954	1	2.3	prolactin
+PLAIN-1940	default	0.358954	1	21.0	prolactin
+PLAIN-1940	tiered	0.358954	1	24.3	prolactin
+PLAIN-1950	plain	0.248908	0	2.3	prunes
+PLAIN-1950	default	0.248908	0	25.1	prunes
+PLAIN-1950	tiered	0.248908	0	24.5	prunes
+PLAIN-1962	plain	0.000000	0	2.0	pumpkin
+PLAIN-1962	default	0.000000	0	32.0	pumpkin
+PLAIN-1962	tiered	0.000000	0	19.6	pumpkin
+PLAIN-1972	plain	0.000000	0	1.9	quinine
+PLAIN-1972	default	0.000000	0	21.0	quinine
+PLAIN-1972	tiered	0.000000	0	23.0	quinine
+PLAIN-1983	plain	1.000000	1	2.2	rapamycin
+PLAIN-1983	default	1.000000	1	23.3	rapamycin
+PLAIN-1983	tiered	1.000000	1	29.1	rapamycin
+PLAIN-1995	plain	0.000000	0	2.6	red tea
+PLAIN-1995	default	0.000000	0	28.1	red tea
+PLAIN-1995	tiered	0.000000	0	23.7	red tea
+PLAIN-2009	plain	0.252943	1	1.9	rhabdomyolysis
+PLAIN-2009	default	0.108936	0	28.7	rhabdomyolysis
+PLAIN-2009	tiered	0.108936	0	26.1	rhabdomyolysis
+PLAIN-2019	plain	0.469279	1	2.6	rickets
+PLAIN-2019	default	0.469279	1	29.3	rickets
+PLAIN-2019	tiered	0.469279	1	30.6	rickets
+PLAIN-2030	plain	0.302602	1	3.0	Rutin
+PLAIN-2030	default	0.302602	1	32.5	Rutin
+PLAIN-2030	tiered	0.302602	1	23.3	Rutin
+PLAIN-2040	plain	0.767027	1	2.6	salmon
+PLAIN-2040	default	0.767027	1	29.7	salmon
+PLAIN-2040	tiered	0.767027	1	32.3	salmon
+PLAIN-2051	plain	0.718342	1	3.2	saturated fat
+PLAIN-2051	default	0.753814	1	25.6	saturated fat
+PLAIN-2051	tiered	0.753814	1	29.5	saturated fat
+PLAIN-2061	plain	0.905212	1	2.4	seafood
+PLAIN-2061	default	0.861138	1	25.4	seafood
+PLAIN-2061	tiered	0.861138	1	25.8	seafood
+PLAIN-2071	plain	0.581082	1	2.0	serotonin
+PLAIN-2071	default	0.476749	0	26.4	serotonin
+PLAIN-2071	tiered	0.476749	0	27.8	serotonin
+PLAIN-2081	plain	1.000000	1	2.5	shelf life
+PLAIN-2081	default	1.000000	1	37.4	shelf life
+PLAIN-2081	tiered	1.000000	1	32.7	shelf life
+PLAIN-2092	plain	0.648932	1	2.8	sirtuins
+PLAIN-2092	default	0.648932	1	36.6	sirtuins
+PLAIN-2092	tiered	0.648932	1	36.2	sirtuins
+PLAIN-2102	plain	0.605985	1	2.5	smoking
+PLAIN-2102	default	0.611019	1	31.5	smoking
+PLAIN-2102	tiered	0.611019	1	31.3	smoking
+PLAIN-2113	plain	0.000000	0	2.6	soil health
+PLAIN-2113	default	0.000000	0	28.4	soil health
+PLAIN-2113	tiered	0.000000	0	27.9	soil health
+PLAIN-2124	plain	0.358954	1	2.2	spearmint
+PLAIN-2124	default	0.358954	1	24.9	spearmint
+PLAIN-2124	tiered	0.358954	1	29.9	spearmint
+PLAIN-2134	plain	0.000000	0	3.0	Splenda
+PLAIN-2134	default	0.000000	0	39.0	Splenda
+PLAIN-2134	tiered	0.000000	0	28.2	Splenda
+PLAIN-2145	plain	0.148297	0	2.3	St. John's wort
+PLAIN-2145	default	0.148297	0	22.1	St. John's wort
+PLAIN-2145	tiered	0.148297	0	34.5	St. John's wort
+PLAIN-2156	plain	0.644824	1	2.8	stevia
+PLAIN-2156	default	0.644824	1	33.6	stevia
+PLAIN-2156	tiered	0.644824	1	34.3	stevia
+PLAIN-2167	plain	0.000000	0	2.4	subsidies
+PLAIN-2167	default	0.000000	0	27.5	subsidies
+PLAIN-2167	tiered	0.000000	0	48.2	subsidies
+PLAIN-2177	plain	0.258810	0	12.1	sulfur
+PLAIN-2177	default	0.258810	0	90.8	sulfur
+PLAIN-2177	tiered	0.258810	0	29.5	sulfur
+PLAIN-2187	plain	0.383343	1	2.0	suppositories
+PLAIN-2187	default	0.383343	1	29.1	suppositories
+PLAIN-2187	tiered	0.383343	1	69.6	suppositories
+PLAIN-2197	plain	0.857981	1	3.1	sweeteners
+PLAIN-2197	default	0.857981	1	40.0	sweeteners
+PLAIN-2197	tiered	0.857981	1	25.7	sweeteners
+PLAIN-2209	plain	0.000000	0	2.7	taro
+PLAIN-2209	default	0.000000	0	26.6	taro
+PLAIN-2209	tiered	0.000000	0	32.5	taro
+PLAIN-2220	plain	0.235046	1	5.5	tempeh
+PLAIN-2220	default	0.235046	1	35.4	tempeh
+PLAIN-2220	tiered	0.235046	1	35.3	tempeh
+PLAIN-2230	plain	0.000000	0	3.1	thiamine
+PLAIN-2230	default	0.000000	0	37.6	thiamine
+PLAIN-2230	tiered	0.000000	0	25.7	thiamine
+PLAIN-2240	plain	0.583433	1	2.1	titanium dioxide
+PLAIN-2240	default	0.588467	1	24.9	titanium dioxide
+PLAIN-2240	tiered	0.588467	1	33.2	titanium dioxide
+PLAIN-2250	plain	0.000000	0	3.3	tongue worm
+PLAIN-2250	default	0.000000	0	35.4	tongue worm
+PLAIN-2250	tiered	0.000000	0	32.9	tongue worm
+PLAIN-2261	plain	0.413884	0	2.5	trans fats
+PLAIN-2261	default	0.633220	1	24.5	trans fats
+PLAIN-2261	tiered	0.576971	1	28.8	trans fats
+PLAIN-2271	plain	0.000000	0	2.4	Tufts
+PLAIN-2271	default	0.000000	0	31.5	Tufts
+PLAIN-2271	tiered	0.000000	0	25.1	Tufts
+PLAIN-2281	plain	0.000000	0	2.7	turnips
+PLAIN-2281	default	0.000000	0	22.7	turnips
+PLAIN-2281	tiered	0.000000	0	30.7	turnips
+PLAIN-2291	plain	0.459972	1	2.7	ultra-processed foods
+PLAIN-2291	default	0.339160	1	31.0	ultra-processed foods
+PLAIN-2291	tiered	0.102097	0	29.3	ultra-processed foods
+PLAIN-2301	plain	0.000000	0	2.9	uterine health
+PLAIN-2301	default	0.000000	0	32.0	uterine health
+PLAIN-2301	tiered	0.000000	0	31.7	uterine health
+PLAIN-2311	plain	0.000000	0	2.6	veal
+PLAIN-2311	default	0.000000	0	25.0	veal
+PLAIN-2311	tiered	0.000000	0	27.1	veal
+PLAIN-2321	plain	0.000000	0	2.8	veggie chicken
+PLAIN-2321	default	0.000000	0	30.9	veggie chicken
+PLAIN-2321	tiered	0.000000	0	33.0	veggie chicken
+PLAIN-2332	plain	0.510069	1	2.5	viral infections
+PLAIN-2332	default	0.293456	1	28.1	viral infections
+PLAIN-2332	tiered	0.423331	1	27.7	viral infections
+PLAIN-2343	plain	0.000000	0	2.1	vitamin K
+PLAIN-2343	default	0.000000	0	36.6	vitamin K
+PLAIN-2343	tiered	0.000000	0	24.9	vitamin K
+PLAIN-2354	plain	0.553146	1	2.2	walnut oil
+PLAIN-2354	default	0.553146	1	28.0	walnut oil
+PLAIN-2354	tiered	0.553146	1	29.3	walnut oil
+PLAIN-2364	plain	0.000000	0	2.6	weight gain
+PLAIN-2364	default	0.000000	0	25.7	weight gain
+PLAIN-2364	tiered	0.000000	0	26.4	weight gain
+PLAIN-2375	plain	0.000000	0	2.2	whiting
+PLAIN-2375	default	0.000000	0	27.1	whiting
+PLAIN-2375	tiered	0.000000	0	24.7	whiting
+PLAIN-2386	plain	0.000000	0	1.9	worms
+PLAIN-2386	default	0.000000	0	25.8	worms
+PLAIN-2386	tiered	0.000000	0	29.8	worms
+PLAIN-2396	plain	0.000000	0	2.6	Yale
+PLAIN-2396	default	0.000000	0	26.0	Yale
+PLAIN-2396	tiered	0.000000	0	34.0	Yale
+PLAIN-2408	plain	0.000000	0	2.2	Zoloft
+PLAIN-2408	default	0.000000	0	22.5	Zoloft
+PLAIN-2408	tiered	0.000000	0	29.0	Zoloft
+PLAIN-2430	plain	0.432318	1	4.1	Preventing Brain Loss with B Vitamins?
+PLAIN-2430	default	0.358954	1	32.5	Preventing Brain Loss with B Vitamins?
+PLAIN-2430	tiered	0.358954	1	35.0	Preventing Brain Loss with B Vitamins?
+PLAIN-2440	plain	0.000000	0	4.1	More Than an Apple a Day: Combating Common Diseases
+PLAIN-2440	default	0.000000	0	31.4	More Than an Apple a Day: Combating Common Diseases
+PLAIN-2440	tiered	0.000000	0	33.5	More Than an Apple a Day: Combating Common Diseases
+PLAIN-2450	plain	0.314880	1	3.0	Are Organic Foods Safer?
+PLAIN-2450	default	0.314880	1	32.7	Are Organic Foods Safer?
+PLAIN-2450	tiered	0.314880	1	33.1	Are Organic Foods Safer?
+PLAIN-2460	plain	0.103271	0	6.8	Diabetes as a Disease of Fat Toxicity
+PLAIN-2460	default	0.095090	0	32.1	Diabetes as a Disease of Fat Toxicity
+PLAIN-2460	tiered	0.095090	0	29.9	Diabetes as a Disease of Fat Toxicity
+PLAIN-2470	plain	0.215304	0	9.7	Is Milk Good for Our Bones?
+PLAIN-2470	default	0.179303	0	25.6	Is Milk Good for Our Bones?
+PLAIN-2470	tiered	0.179303	0	31.5	Is Milk Good for Our Bones?
+PLAIN-2480	plain	0.299035	1	3.3	Preventing Ulcerative Colitis with Diet
+PLAIN-2480	default	0.184572	0	30.9	Preventing Ulcerative Colitis with Diet
+PLAIN-2480	tiered	0.184572	0	34.3	Preventing Ulcerative Colitis with Diet
+PLAIN-2490	plain	0.435378	1	5.1	The Actual Benefit of Diet vs. Drugs
+PLAIN-2490	default	0.538649	1	28.8	The Actual Benefit of Diet vs. Drugs
+PLAIN-2490	tiered	0.538649	1	31.1	The Actual Benefit of Diet vs. Drugs
+PLAIN-2500	plain	0.187351	0	4.5	The Saturated Fat Studies: Buttering Up the Public
+PLAIN-2500	default	0.114266	0	33.7	The Saturated Fat Studies: Buttering Up the Public
+PLAIN-2500	tiered	0.114266	0	36.8	The Saturated Fat Studies: Buttering Up the Public
+PLAIN-2510	plain	0.772160	1	4.1	Coffee and Artery Function
+PLAIN-2510	default	0.652088	1	30.9	Coffee and Artery Function
+PLAIN-2510	tiered	0.652088	1	30.0	Coffee and Artery Function
+PLAIN-2520	plain	0.075881	0	2.9	Caloric Restriction vs. Plant-Based Diets
+PLAIN-2520	default	0.146708	0	24.4	Caloric Restriction vs. Plant-Based Diets
+PLAIN-2520	tiered	0.107691	0	24.3	Caloric Restriction vs. Plant-Based Diets
+PLAIN-2530	plain	0.924119	1	4.1	Infectobesity: Adenovirus 36 and Childhood Obesity
+PLAIN-2530	default	0.932157	1	67.1	Infectobesity: Adenovirus 36 and Childhood Obesity
+PLAIN-2530	tiered	0.932157	1	25.9	Infectobesity: Adenovirus 36 and Childhood Obesity
+PLAIN-2540	plain	0.179281	0	2.2	Does Cholesterol Size Matter?
+PLAIN-2540	default	0.162613	0	23.3	Does Cholesterol Size Matter?
+PLAIN-2540	tiered	0.162613	0	22.3	Does Cholesterol Size Matter?
+PLAIN-2550	plain	0.054876	0	241.5	Barriers to Heart Disease Prevention
+PLAIN-2550	default	0.000000	0	21.7	Barriers to Heart Disease Prevention
+PLAIN-2550	tiered	0.000000	0	23.1	Barriers to Heart Disease Prevention
+PLAIN-2560	plain	0.797517	1	3.3	Childhood Constipation and Cow’s Milk
+PLAIN-2560	default	0.860382	1	21.9	Childhood Constipation and Cow’s Milk
+PLAIN-2560	tiered	0.860382	1	26.4	Childhood Constipation and Cow’s Milk
+PLAIN-2570	plain	0.122226	0	2.3	Diabetics Should Take Their Pulses
+PLAIN-2570	default	0.077116	0	23.0	Diabetics Should Take Their Pulses
+PLAIN-2570	tiered	0.077116	0	23.3	Diabetics Should Take Their Pulses
+PLAIN-2580	plain	0.357608	1	4.9	Academy of Nutrition and Dietetics Conflicts of Interest
+PLAIN-2580	default	0.349590	1	22.4	Academy of Nutrition and Dietetics Conflicts of Interest
+PLAIN-2580	tiered	0.349590	1	24.7	Academy of Nutrition and Dietetics Conflicts of Interest
+PLAIN-2590	plain	0.037887	0	2.6	Do Vegetarians Get Enough Protein?
+PLAIN-2590	default	0.000000	0	23.9	Do Vegetarians Get Enough Protein?
+PLAIN-2590	tiered	0.000000	0	24.2	Do Vegetarians Get Enough Protein?
+PLAIN-2600	plain	0.193629	0	3.8	Eggs and Arterial Function
+PLAIN-2600	default	0.202597	0	21.7	Eggs and Arterial Function
+PLAIN-2600	tiered	0.202597	0	21.9	Eggs and Arterial Function
+PLAIN-2610	plain	0.267486	1	3.1	Treating Asthma With Plants vs. Supplements?
+PLAIN-2610	default	0.220092	1	25.8	Treating Asthma With Plants vs. Supplements?
+PLAIN-2610	tiered	0.220092	1	29.0	Treating Asthma With Plants vs. Supplements?
+PLAIN-2620	plain	0.175544	0	4.8	Phytates for the Treatment of Cancer
+PLAIN-2620	default	0.204997	0	22.0	Phytates for the Treatment of Cancer
+PLAIN-2620	tiered	0.204997	0	22.9	Phytates for the Treatment of Cancer
+PLAIN-2630	plain	0.408536	1	3.5	Alkylphenol Endocrine Disruptors and Allergies
+PLAIN-2630	default	0.330138	1	90.2	Alkylphenol Endocrine Disruptors and Allergies
+PLAIN-2630	tiered	0.330138	1	24.0	Alkylphenol Endocrine Disruptors and Allergies
+PLAIN-2640	plain	0.599265	1	3.3	Chicken Salmonella Thanks to Meat Industry Lawsuit
+PLAIN-2640	default	0.590842	1	24.7	Chicken Salmonella Thanks to Meat Industry Lawsuit
+PLAIN-2640	tiered	0.590842	1	98.9	Chicken Salmonella Thanks to Meat Industry Lawsuit
+PLAIN-2650	plain	0.432318	1	3.3	Turmeric Curcumin and Osteoarthritis
+PLAIN-2650	default	0.399569	1	21.7	Turmeric Curcumin and Osteoarthritis
+PLAIN-2650	tiered	0.399569	1	25.2	Turmeric Curcumin and Osteoarthritis
+PLAIN-2660	plain	0.179477	0	3.2	How Long to Detox From Fish Before Pregnancy?
+PLAIN-2660	default	0.254698	0	23.6	How Long to Detox From Fish Before Pregnancy?
+PLAIN-2660	tiered	0.254698	0	29.4	How Long to Detox From Fish Before Pregnancy?
+PLAIN-2670	plain	0.299648	1	2.7	Is Caramel Color Carcinogenic?
+PLAIN-2670	default	0.000000	0	24.0	Is Caramel Color Carcinogenic?
+PLAIN-2670	tiered	0.000000	0	24.3	Is Caramel Color Carcinogenic?
+PLAIN-2680	plain	0.382252	1	4.8	Counteracting the Effects of Dioxins Through Diet
+PLAIN-2680	default	0.302714	0	27.9	Counteracting the Effects of Dioxins Through Diet
+PLAIN-2680	tiered	0.302714	0	33.5	Counteracting the Effects of Dioxins Through Diet
+PLAIN-2690	plain	0.110046	1	6.3	Chronic Headaches and Pork Tapeworms
+PLAIN-2690	default	0.121277	0	58.4	Chronic Headaches and Pork Tapeworms
+PLAIN-2690	tiered	0.121277	0	33.2	Chronic Headaches and Pork Tapeworms
+PLAIN-2700	plain	0.247017	0	4.0	Heart Disease Starts in Childhood
+PLAIN-2700	default	0.000000	0	26.2	Heart Disease Starts in Childhood
+PLAIN-2700	tiered	0.000000	0	33.1	Heart Disease Starts in Childhood
+PLAIN-2710	plain	0.607436	1	4.4	Artificial Food Colors and ADHD
+PLAIN-2710	default	0.613345	1	33.0	Artificial Food Colors and ADHD
+PLAIN-2710	tiered	0.613345	1	27.6	Artificial Food Colors and ADHD
+PLAIN-2720	plain	0.108826	0	2.8	Keeping Your Hands Warm With Citrus
+PLAIN-2720	default	0.179477	0	29.4	Keeping Your Hands Warm With Citrus
+PLAIN-2720	tiered	0.179477	0	28.8	Keeping Your Hands Warm With Citrus
+PLAIN-2730	plain	0.297692	0	2.5	Anti-Angiogenesis: Cutting Off Tumor Supply Lines
+PLAIN-2730	default	0.041921	0	28.7	Anti-Angiogenesis: Cutting Off Tumor Supply Lines
+PLAIN-2730	tiered	0.041921	0	32.1	Anti-Angiogenesis: Cutting Off Tumor Supply Lines
+PLAIN-2740	plain	0.458979	0	4.0	Cancer Risk From CT Scan Radiation
+PLAIN-2740	default	0.461364	0	42.9	Cancer Risk From CT Scan Radiation
+PLAIN-2740	tiered	0.461364	0	39.6	Cancer Risk From CT Scan Radiation
+PLAIN-2750	plain	0.514767	1	4.8	Preventing the Common Cold with Probiotics?
+PLAIN-2750	default	0.478003	1	34.9	Preventing the Common Cold with Probiotics?
+PLAIN-2750	tiered	0.478003	1	33.6	Preventing the Common Cold with Probiotics?
+PLAIN-2760	plain	0.000000	0	4.9	Eating Healthy on a Budget
+PLAIN-2760	default	0.000000	0	33.6	Eating Healthy on a Budget
+PLAIN-2760	tiered	0.000000	0	35.6	Eating Healthy on a Budget
+PLAIN-2770	plain	0.369196	1	4.0	Flaxseeds & Breast Cancer Survival: Clinical Evidence
+PLAIN-2770	default	0.255534	0	33.5	Flaxseeds & Breast Cancer Survival: Clinical Evidence
+PLAIN-2770	tiered	0.255534	0	26.3	Flaxseeds & Breast Cancer Survival: Clinical Evidence
+PLAIN-2780	plain	0.395743	1	2.3	Do Fruit & Nut Bars Cause Weight Gain?
+PLAIN-2780	default	0.355158	1	24.7	Do Fruit & Nut Bars Cause Weight Gain?
+PLAIN-2780	tiered	0.355158	1	48.8	Do Fruit & Nut Bars Cause Weight Gain?
+PLAIN-2790	plain	0.673997	1	3.0	Titanium Dioxide & Inflammatory Bowel Disease
+PLAIN-2790	default	0.533839	1	25.5	Titanium Dioxide & Inflammatory Bowel Disease
+PLAIN-2790	tiered	0.533839	1	32.4	Titanium Dioxide & Inflammatory Bowel Disease
+PLAIN-2800	plain	0.178993	0	3.3	Prolonged Liver Function Enhancement From Broccoli
+PLAIN-2800	default	0.099883	0	50.3	Prolonged Liver Function Enhancement From Broccoli
+PLAIN-2800	tiered	0.099883	0	25.5	Prolonged Liver Function Enhancement From Broccoli
+PLAIN-2810	plain	0.058544	0	2.7	Apple Juice May Be Worse Than Sugar Water
+PLAIN-2810	default	0.063581	0	25.6	Apple Juice May Be Worse Than Sugar Water
+PLAIN-2810	tiered	0.063581	0	27.2	Apple Juice May Be Worse Than Sugar Water
+PLAIN-2820	plain	0.000000	0	3.3	Preventing Strokes with Diet
+PLAIN-2820	default	0.000000	0	25.8	Preventing Strokes with Diet
+PLAIN-2820	tiered	0.000000	0	31.5	Preventing Strokes with Diet
+PLAIN-2830	plain	0.403030	0	4.4	Neurobiology of Artificial Sweeteners
+PLAIN-2830	default	0.403030	0	29.2	Neurobiology of Artificial Sweeteners
+PLAIN-2830	tiered	0.403030	0	30.4	Neurobiology of Artificial Sweeteners
+PLAIN-2840	plain	0.000000	0	5.6	Benefits of Fenugreek Seeds
+PLAIN-2840	default	0.000000	0	32.0	Benefits of Fenugreek Seeds
+PLAIN-2840	tiered	0.000000	0	26.6	Benefits of Fenugreek Seeds
+PLAIN-2850	plain	0.000000	0	4.6	More Antibiotics In White Meat or Dark Meat?
+PLAIN-2850	default	0.000000	0	37.0	More Antibiotics In White Meat or Dark Meat?
+PLAIN-2850	tiered	0.000000	0	30.2	More Antibiotics In White Meat or Dark Meat?
+PLAIN-2860	plain	1.000000	1	3.9	BPA Plastic and Male Sexual Dysfunction
+PLAIN-2860	default	1.000000	1	27.3	BPA Plastic and Male Sexual Dysfunction
+PLAIN-2860	tiered	1.000000	1	26.7	BPA Plastic and Male Sexual Dysfunction
+PLAIN-2870	plain	0.000000	0	3.9	Filled Full of Lead
+PLAIN-2870	default	0.076240	0	30.1	Filled Full of Lead
+PLAIN-2870	tiered	0.076240	0	31.8	Filled Full of Lead
+PLAIN-2880	plain	0.000000	0	5.4	The Answer to the Pritikin Puzzle
+PLAIN-2880	default	0.000000	0	38.3	The Answer to the Pritikin Puzzle
+PLAIN-2880	tiered	0.000000	0	45.3	The Answer to the Pritikin Puzzle
+PLAIN-2890	plain	0.120260	0	6.8	To Snack or Not to Snack?
+PLAIN-2890	default	0.000000	0	37.9	To Snack or Not to Snack?
+PLAIN-2890	tiered	0.000000	0	38.5	To Snack or Not to Snack?
+PLAIN-2900	plain	0.081368	0	4.9	Boosting Good Bacteria in the Colon Without Probiotics
+PLAIN-2900	default	0.000000	0	25.4	Boosting Good Bacteria in the Colon Without Probiotics
+PLAIN-2900	tiered	0.000000	0	44.2	Boosting Good Bacteria in the Colon Without Probiotics
+PLAIN-2910	plain	0.204367	0	2.4	Optimal Phytosterol Dose
+PLAIN-2910	default	0.139502	0	23.3	Optimal Phytosterol Dose
+PLAIN-2910	tiered	0.139502	0	25.9	Optimal Phytosterol Dose
+PLAIN-2920	plain	0.000000	0	3.5	Human Neurotransmitters in Plants
+PLAIN-2920	default	0.000000	0	24.5	Human Neurotransmitters in Plants
+PLAIN-2920	tiered	0.000000	0	25.6	Human Neurotransmitters in Plants
+PLAIN-2930	plain	0.360779	1	3.2	Kiwifruit for Irritable Bowel Syndrome
+PLAIN-2930	default	0.360779	1	22.1	Kiwifruit for Irritable Bowel Syndrome
+PLAIN-2930	tiered	0.360779	1	21.8	Kiwifruit for Irritable Bowel Syndrome
+PLAIN-2940	plain	0.000000	0	3.8	Dietary Treatment of Crohn's Disease
+PLAIN-2940	default	0.000000	0	25.2	Dietary Treatment of Crohn's Disease
+PLAIN-2940	tiered	0.000000	0	25.4	Dietary Treatment of Crohn's Disease
+PLAIN-2950	plain	0.000000	0	2.6	Unsafe at Any Feed
+PLAIN-2950	default	0.000000	0	28.6	Unsafe at Any Feed
+PLAIN-2950	tiered	0.000000	0	24.7	Unsafe at Any Feed
+PLAIN-2960	plain	0.327395	0	2.9	Pharmacists Versus Health Food Store Employees: Who Gives Better Advice?
+PLAIN-2960	default	0.327395	0	24.8	Pharmacists Versus Health Food Store Employees: Who Gives Better Advice?
+PLAIN-2960	tiered	0.327395	0	26.7	Pharmacists Versus Health Food Store Employees: Who Gives Better Advice?
+PLAIN-2970	plain	0.000000	0	3.3	Preventing Cataracts with Diet
+PLAIN-2970	default	0.000000	0	33.4	Preventing Cataracts with Diet
+PLAIN-2970	tiered	0.000000	0	26.6	Preventing Cataracts with Diet
+PLAIN-2981	plain	0.431220	1	3.7	Cheese Mites and Maggots
+PLAIN-2981	default	0.524079	1	23.8	Cheese Mites and Maggots
+PLAIN-2981	tiered	0.524079	1	27.2	Cheese Mites and Maggots
+PLAIN-2991	plain	0.306574	0	4.0	Cholesterol and Lower Back Pain
+PLAIN-2991	default	0.306574	0	27.4	Cholesterol and Lower Back Pain
+PLAIN-2991	tiered	0.306574	0	30.1	Cholesterol and Lower Back Pain
+PLAIN-3001	plain	0.218407	0	9.4	EPIC Findings on Lymphoma
+PLAIN-3001	default	0.193426	0	25.6	EPIC Findings on Lymphoma
+PLAIN-3001	tiered	0.193426	0	24.2	EPIC Findings on Lymphoma
+PLAIN-3014	plain	0.000000	0	3.6	Sometimes the Enzyme Myth Is True
+PLAIN-3014	default	0.000000	0	28.1	Sometimes the Enzyme Myth Is True
+PLAIN-3014	tiered	0.000000	0	27.3	Sometimes the Enzyme Myth Is True
+PLAIN-3026	plain	0.315465	0	2.4	Vitamin C-Enriched Bacon
+PLAIN-3026	default	0.356207	0	31.6	Vitamin C-Enriched Bacon
+PLAIN-3026	tiered	0.356207	0	23.9	Vitamin C-Enriched Bacon
+PLAIN-3037	plain	0.000000	0	4.6	Out of the Lab Onto the Track
+PLAIN-3037	default	0.000000	0	28.1	Out of the Lab Onto the Track
+PLAIN-3037	tiered	0.000000	0	31.9	Out of the Lab Onto the Track
+PLAIN-3053	plain	0.765361	1	2.5	Dragon's Blood
+PLAIN-3053	default	0.765361	1	21.1	Dragon's Blood
+PLAIN-3053	tiered	0.765361	1	21.5	Dragon's Blood
+PLAIN-3063	plain	0.000000	0	2.5	Better Than Goji Berries
+PLAIN-3063	default	0.000000	0	22.6	Better Than Goji Berries
+PLAIN-3063	tiered	0.000000	0	22.1	Better Than Goji Berries
+PLAIN-3074	plain	1.000000	1	2.7	How to Help Prevent Abdominal Aortic Aneurysms
+PLAIN-3074	default	1.000000	1	20.8	How to Help Prevent Abdominal Aortic Aneurysms
+PLAIN-3074	tiered	1.000000	1	23.1	How to Help Prevent Abdominal Aortic Aneurysms
+PLAIN-3085	plain	0.411834	0	4.4	The Difficulty of Arriving at a Vitamin D Recommendation
+PLAIN-3085	default	0.501266	0	29.9	The Difficulty of Arriving at a Vitamin D Recommendation
+PLAIN-3085	tiered	0.501266	0	26.4	The Difficulty of Arriving at a Vitamin D Recommendation
+PLAIN-3097	plain	0.477038	1	3.0	Amyloid and Apple Juice
+PLAIN-3097	default	0.477038	1	21.1	Amyloid and Apple Juice
+PLAIN-3097	tiered	0.477038	1	21.3	Amyloid and Apple Juice
+PLAIN-3116	plain	0.000000	0	3.4	Dietary Guidelines: From Dairies to Berries
+PLAIN-3116	default	0.000000	0	25.1	Dietary Guidelines: From Dairies to Berries
+PLAIN-3116	tiered	0.000000	0	24.9	Dietary Guidelines: From Dairies to Berries
+PLAIN-3131	plain	0.122648	0	30.2	Are Avocados Good for You?
+PLAIN-3131	default	0.000000	0	22.5	Are Avocados Good for You?
+PLAIN-3131	tiered	0.000000	0	29.7	Are Avocados Good for You?
+PLAIN-3141	plain	0.000000	0	3.7	Relieving Yourself of Excess Estrogen
+PLAIN-3141	default	0.129052	0	27.1	Relieving Yourself of Excess Estrogen
+PLAIN-3141	tiered	0.129052	0	23.5	Relieving Yourself of Excess Estrogen
+PLAIN-3151	plain	0.000000	0	3.8	Too Much Iodine Can Be as Bad as Too Little
+PLAIN-3151	default	0.297108	0	31.8	Too Much Iodine Can Be as Bad as Too Little
+PLAIN-3151	tiered	0.297108	0	31.4	Too Much Iodine Can Be as Bad as Too Little
+PLAIN-3161	plain	0.425035	1	9.5	Is Milk and Mucus a Myth?
+PLAIN-3161	default	0.552282	1	33.0	Is Milk and Mucus a Myth?
+PLAIN-3161	tiered	0.552282	1	26.1	Is Milk and Mucus a Myth?
+PLAIN-3171	plain	0.000000	0	5.0	Convergence of Evidence
+PLAIN-3171	default	0.000000	0	24.5	Convergence of Evidence
+PLAIN-3171	tiered	0.000000	0	24.2	Convergence of Evidence
+PLAIN-3181	plain	0.000000	0	3.4	Is Dragon Fruit Good For You?
+PLAIN-3181	default	0.069431	0	27.8	Is Dragon Fruit Good For You?
+PLAIN-3181	tiered	0.069431	0	29.9	Is Dragon Fruit Good For You?
+PLAIN-3191	plain	0.131167	0	3.4	Is Distilled Fish Oil Toxin-Free?
+PLAIN-3191	default	0.224613	0	31.8	Is Distilled Fish Oil Toxin-Free?
+PLAIN-3191	tiered	0.224613	0	31.5	Is Distilled Fish Oil Toxin-Free?
+PLAIN-3201	plain	0.294822	0	2.4	Acne & Cancer Connection
+PLAIN-3201	default	0.227626	0	29.7	Acne & Cancer Connection
+PLAIN-3201	tiered	0.227626	0	27.4	Acne & Cancer Connection
+PLAIN-3211	plain	0.000000	0	2.9	Overdosing on Greens
+PLAIN-3211	default	0.000000	0	29.6	Overdosing on Greens
+PLAIN-3211	tiered	0.000000	0	28.2	Overdosing on Greens
+PLAIN-3221	plain	0.000000	0	4.3	Dietary Theory of Alzheimer's
+PLAIN-3221	default	0.000000	0	29.9	Dietary Theory of Alzheimer's
+PLAIN-3221	tiered	0.000000	0	30.8	Dietary Theory of Alzheimer's
+PLAIN-3231	plain	0.000000	0	2.7	Meat & Multiple Myeloma
+PLAIN-3231	default	0.000000	0	28.4	Meat & Multiple Myeloma
+PLAIN-3231	tiered	0.000000	0	27.7	Meat & Multiple Myeloma
+PLAIN-3241	plain	0.000000	0	2.8	Apthous Ulcer Mystery Solved
+PLAIN-3241	default	0.000000	0	26.6	Apthous Ulcer Mystery Solved
+PLAIN-3241	tiered	0.000000	0	25.5	Apthous Ulcer Mystery Solved
+PLAIN-3251	plain	0.069784	0	3.0	EPIC Study
+PLAIN-3251	default	0.113813	0	26.2	EPIC Study
+PLAIN-3251	tiered	0.113813	0	33.0	EPIC Study
+PLAIN-3261	plain	0.094529	0	3.7	Update on Herbalife®
+PLAIN-3261	default	0.106737	0	25.7	Update on Herbalife®
+PLAIN-3261	tiered	0.106737	0	27.7	Update on Herbalife®
+PLAIN-3271	plain	0.000000	0	2.8	Saturated Fat & Cancer Progression
+PLAIN-3271	default	0.066254	0	69.8	Saturated Fat & Cancer Progression
+PLAIN-3271	tiered	0.066254	0	25.8	Saturated Fat & Cancer Progression
+PLAIN-3281	plain	0.323913	1	3.9	Aluminum in Vaccines vs. Food
+PLAIN-3281	default	0.323913	1	24.4	Aluminum in Vaccines vs. Food
+PLAIN-3281	tiered	0.323913	1	54.7	Aluminum in Vaccines vs. Food
+PLAIN-3292	plain	0.396365	0	3.7	Are Multivitamins Good For You?
+PLAIN-3292	default	0.000000	0	32.0	Are Multivitamins Good For You?
+PLAIN-3292	tiered	0.000000	0	42.9	Are Multivitamins Good For You?
+PLAIN-3302	plain	0.294203	1	2.9	Fish Fog
+PLAIN-3302	default	0.294203	1	24.8	Fish Fog
+PLAIN-3302	tiered	0.294203	1	23.6	Fish Fog
+PLAIN-3312	plain	0.124400	0	2.3	Sexually Transmitted Fish Toxin
+PLAIN-3312	default	0.139716	0	29.2	Sexually Transmitted Fish Toxin
+PLAIN-3312	tiered	0.139716	0	47.7	Sexually Transmitted Fish Toxin
+PLAIN-3322	plain	0.078398	0	3.1	Veggies vs. Cancer
+PLAIN-3322	default	0.314880	1	28.3	Veggies vs. Cancer
+PLAIN-3322	tiered	0.314880	1	34.0	Veggies vs. Cancer
+PLAIN-3332	plain	0.284678	1	3.4	Alcohol Risks vs. Benefits
+PLAIN-3332	default	0.248619	0	24.1	Alcohol Risks vs. Benefits
+PLAIN-3332	tiered	0.234959	0	23.1	Alcohol Risks vs. Benefits
+PLAIN-3342	plain	0.671386	1	6.1	Is Coconut Milk Good For You?
+PLAIN-3342	default	0.671386	1	42.5	Is Coconut Milk Good For You?
+PLAIN-3342	tiered	0.671386	1	48.4	Is Coconut Milk Good For You?
+PLAIN-3352	plain	0.000000	0	5.7	Boosting Heart Nerve Control
+PLAIN-3352	default	0.115380	0	23.2	Boosting Heart Nerve Control
+PLAIN-3352	tiered	0.115380	0	33.0	Boosting Heart Nerve Control
+PLAIN-3362	plain	0.528280	1	2.2	Kuna Indian Secret
+PLAIN-3362	default	0.474294	1	30.1	Kuna Indian Secret
+PLAIN-3362	tiered	0.474294	1	22.5	Kuna Indian Secret
+PLAIN-3372	plain	0.000000	0	3.3	The Healthiest Sweetener
+PLAIN-3372	default	0.000000	0	30.7	The Healthiest Sweetener
+PLAIN-3372	tiered	0.000000	0	34.6	The Healthiest Sweetener
+PLAIN-3382	plain	0.210711	1	3.6	Are Artificial Colors Bad for You?
+PLAIN-3382	default	0.294361	1	26.1	Are Artificial Colors Bad for You?
+PLAIN-3382	tiered	0.294361	1	25.7	Are Artificial Colors Bad for You?
+PLAIN-3392	plain	0.000000	0	2.6	Healthiest Airplane Beverage
+PLAIN-3392	default	0.000000	0	24.8	Healthiest Airplane Beverage
+PLAIN-3392	tiered	0.000000	0	24.1	Healthiest Airplane Beverage
+PLAIN-3402	plain	0.000000	0	4.5	Antioxidant Content of 300 Foods
+PLAIN-3402	default	0.000000	0	24.7	Antioxidant Content of 300 Foods
+PLAIN-3402	tiered	0.000000	0	25.1	Antioxidant Content of 300 Foods
+PLAIN-3412	plain	0.153275	0	2.9	Plant vs. Cow Calcium
+PLAIN-3412	default	0.048754	0	24.7	Plant vs. Cow Calcium
+PLAIN-3412	tiered	0.048754	0	29.1	Plant vs. Cow Calcium
+PLAIN-3422	plain	0.034020	0	2.1	Vitamin Supplements Worth Taking
+PLAIN-3422	default	0.164168	0	29.9	Vitamin Supplements Worth Taking
+PLAIN-3422	tiered	0.164168	0	37.4	Vitamin Supplements Worth Taking
+PLAIN-3432	plain	0.393278	1	3.4	Healthy Chocolate Milkshakes
+PLAIN-3432	default	0.358954	1	29.4	Healthy Chocolate Milkshakes
+PLAIN-3432	tiered	0.358954	1	23.2	Healthy Chocolate Milkshakes
+PLAIN-3442	plain	0.000000	0	3.5	The Healthiest Vegetables
+PLAIN-3442	default	0.000000	0	31.6	The Healthiest Vegetables
+PLAIN-3442	tiered	0.000000	0	29.9	The Healthiest Vegetables
+PLAIN-3452	plain	0.564765	1	2.7	Bowel Movement Frequency
+PLAIN-3452	default	0.528628	1	41.6	Bowel Movement Frequency
+PLAIN-3452	tiered	0.528628	1	25.7	Bowel Movement Frequency
+PLAIN-3462	plain	0.636376	1	4.5	Olive Oil and Artery Function
+PLAIN-3462	default	0.606722	0	27.0	Olive Oil and Artery Function
+PLAIN-3462	tiered	0.606722	0	30.1	Olive Oil and Artery Function
+PLAIN-3472	plain	0.000000	0	4.3	How Doctors Responded to Being Named a Leading Killer
+PLAIN-3472	default	0.000000	0	29.4	How Doctors Responded to Being Named a Leading Killer
+PLAIN-3472	tiered	0.000000	0	37.5	How Doctors Responded to Being Named a Leading Killer

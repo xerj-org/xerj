@@ -31,6 +31,9 @@ OPTIONS:
                     usage error, not a silent default
     --full <CHARS>  max characters of each passage to print (default 600)
     --json          print the raw response instead of formatted passages
+    --all-terms-first
+                    rank passages that contain every query word first, then fill
+                    the page from the usual any-word ranking (opt-in, #3007)
 
 EXAMPLE:
     xerj --insecure -d ./.xerj-data &                 # a node, running
@@ -149,39 +152,8 @@ pub fn embed_mode_from_identity(body: &Value) -> Option<String> {
     known.then(|| backend.to_string())
 }
 
-/// True when `q` reads as a sentence or question rather than a lookup.
-///
-/// Three or more words, at least two of them plain words (letters only, no
-/// `_`, `::`, `.` or inner capital, so `getUserInfo` and `parse_config` are
-/// not), or any query ending in `?`. Scripts without case (Persian, CJK)
-/// count as plain words. One or two words are a lookup.
-pub fn looks_natural_language(q: &str) -> bool {
-    let q = q.trim();
-    if q.is_empty() {
-        return false;
-    }
-    if q.ends_with('?') && q.split_whitespace().count() >= 2 {
-        return true;
-    }
-    let words: Vec<&str> = q.split_whitespace().collect();
-    if words.len() < 3 {
-        return false;
-    }
-    let plain = words
-        .iter()
-        .filter(|w| {
-            let w = w.trim_matches(|c: char| matches!(c, ',' | ';' | ':' | '"' | '\'' | '(' | ')'));
-            let mut chars = w.chars();
-            match chars.next() {
-                Some(first) if first.is_alphabetic() => {
-                    chars.all(|c| c.is_alphabetic() && !c.is_uppercase())
-                }
-                _ => false,
-            }
-        })
-        .count();
-    plain >= 2
-}
+/// Shared with the result-ranking passes in `xerj_common` (#2513).
+pub use xerj_common::code_query::looks_natural_language;
 
 /// The hint reason for `tool` when a natural-language query ran while the
 /// node embeds with lexical feature hashing.
@@ -567,17 +539,77 @@ pub(crate) fn rank_plain_search_hits(
 ) {
     if code_corpus {
         crate::def::penalize_demoted_paths(hits);
+        // README/docs/demo/icon hits behind implementation for a question
+        // (#2513), then the sparse-definition pass. The same entry point
+        // the `xerj_search` MCP tool calls.
+        xerj_common::xccode::render::demote_sparse_definition_hits(hits, query);
+    } else {
+        // A one-word symbol (`type Token`) must not stay ahead of a hit
+        // that covers more terms of a multi-term question (#2327). One-token
+        // lookups are unchanged inside that pass. A prose corpus is all
+        // documentation, so the doc-path penalty does not apply.
+        xerj_common::xccode::render::demote_sparse_definitions(hits, query);
     }
-    // A one-word symbol (`type Token`) must not stay ahead of a hit that
-    // covers more terms of a multi-term question (#2327). One-token lookups
-    // are unchanged inside that pass.
-    xerj_common::xccode::render::demote_sparse_definition_hits(hits, query);
     prefer_citable_line_on_the_same_path(hits);
     let mut ordered = demote_catalog_noise(std::mem::take(hits));
     if code_corpus {
         ordered.truncate(page);
     }
     *hits = ordered;
+}
+
+/// Fill a short all-terms page (#3007) from the plain any-term body.
+///
+/// The first tier keeps its order; fallback hits it already holds are
+/// skipped. `_xerj.all_terms_first` records how many hits came from each
+/// tier, so a `--json` reader can tell the tiers apart.
+fn fill_from_any_term_tier(
+    es: &Es,
+    pattern: &str,
+    body: &Value,
+    resp: &mut Value,
+    code_corpus: bool,
+    k: usize,
+    query: &str,
+) -> anyhow::Result<()> {
+    let first: Vec<Value> = resp
+        .pointer("/hits/hits")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let merged = if first.len() < k {
+        let mut fallback_resp = es.search_without_savings(pattern, body)?;
+        let mut fallback: Vec<Value> = fallback_resp
+            .pointer_mut("/hits/hits")
+            .and_then(Value::as_array_mut)
+            .map(std::mem::take)
+            .unwrap_or_default();
+        rank_plain_search_hits(&mut fallback, code_corpus, k, query);
+        if let (Some(slot), Some(total)) = (
+            resp.pointer_mut("/hits/total"),
+            fallback_resp.pointer("/hits/total"),
+        ) {
+            *slot = total.clone();
+        }
+        xerj_common::code_query::merge_tiered_hits(&first, &fallback, k)
+    } else {
+        first.clone()
+    };
+    let first_count = first.len().min(merged.len());
+    let any_term = merged.len() - first_count;
+    if let Some(slot) = resp.pointer_mut("/hits/hits") {
+        *slot = Value::Array(merged);
+    }
+    if let Some(obj) = resp.as_object_mut() {
+        let xerj = obj.entry("_xerj").or_insert_with(|| json!({}));
+        if let Some(xerj) = xerj.as_object_mut() {
+            xerj.insert(
+                "all_terms_first".into(),
+                json!({ "all_terms": first_count, "any_term": any_term }),
+            );
+        }
+    }
+    Ok(())
 }
 
 /// What the node held when a search or def returned no hits.
@@ -1061,6 +1093,7 @@ struct ParsedSearch {
     k: usize,
     full: usize,
     as_json: bool,
+    all_terms_first: bool,
     query: Option<String>,
 }
 
@@ -1083,6 +1116,7 @@ fn parse_search_cli(
     let mut k: usize = 5;
     let mut full: usize = DEFAULT_FULL_CHARS;
     let mut as_json = false;
+    let mut all_terms_first = false;
     let mut query: Option<String> = None;
 
     let mut it = args;
@@ -1095,6 +1129,7 @@ fn parse_search_cli(
             "-k" => k = parse_count_arg("-k", it.next())?,
             "--full" => full = parse_count_arg("--full", it.next())?,
             "--json" => as_json = true,
+            "--all-terms-first" => all_terms_first = true,
             // Read by feedback::enabled from the raw argv. Accepted so
             // `xerj search --disable-feedback` is not an unexpected argument.
             "--disable-feedback" => {}
@@ -1118,6 +1153,7 @@ fn parse_search_cli(
         k,
         full,
         as_json,
+        all_terms_first,
         query,
     }))
 }
@@ -1170,6 +1206,7 @@ pub fn run_search_cli() -> i32 {
         k,
         full,
         as_json,
+        all_terms_first,
         query,
     } = parsed;
 
@@ -1279,7 +1316,14 @@ pub fn run_search_cli() -> i32 {
         let (url, api_key, prefix) = (url.to_string(), api_key.clone(), prefix.to_string());
         std::thread::spawn(move || staleness::fetch_folder_roots(&url, api_key.as_deref(), &prefix))
     };
-    let mut resp = match es.search_without_savings(&pattern, &body) {
+    // #3007 opt-in: the all-terms tier first, ranked on its own, then the
+    // usual body fills what it left of the page.
+    let first_tier = if all_terms_first {
+        xerj_common::code_query::all_terms_first_body(&body, &query)
+    } else {
+        None
+    };
+    let mut resp = match es.search_without_savings(&pattern, first_tier.as_ref().unwrap_or(&body)) {
         Ok(v) => v,
         Err(e) => {
             eprintln!("{}", query_failure_message("search", &url, &pattern, e));
@@ -1291,6 +1335,14 @@ pub fn run_search_cli() -> i32 {
     // The penalty trims the wider fetch back to `-k`.
     if let Some(hits) = resp.pointer_mut("/hits/hits").and_then(Value::as_array_mut) {
         rank_plain_search_hits(hits, code_corpus, k, &query);
+    }
+    if first_tier.is_some() {
+        if let Err(e) =
+            fill_from_any_term_tier(&es, &pattern, &body, &mut resp, code_corpus, k, &query)
+        {
+            eprintln!("{}", query_failure_message("search", &url, &pattern, e));
+            return 1;
+        }
     }
     // Same annotation `xerj_search` adds (#2266), so `--json` and the printed
     // header cite the matched line. `xerj code --json` is the raw server
@@ -1703,6 +1755,46 @@ mod tests {
                 SearchCli::Refuse => panic!("refusal from {args:?}"),
             }
         }
+    }
+
+    /// #3007: the all-terms tier is opt-in, off by default, and in USAGE.
+    #[test]
+    fn all_terms_first_is_an_opt_in_flag() {
+        let on = parse_search_cli(
+            words(&["--all-terms-first", "heap overflow"]).into_iter(),
+            String::new(),
+            None,
+        );
+        match on {
+            Ok(SearchCli::Query(q)) => assert!(q.all_terms_first),
+            other => panic!("{other:?}"),
+        }
+        match parse_search_cli(words(&["heap overflow"]).into_iter(), String::new(), None) {
+            Ok(SearchCli::Query(q)) => assert!(!q.all_terms_first),
+            other => panic!("{other:?}"),
+        }
+        assert!(USAGE.contains("--all-terms-first"));
+    }
+
+    /// #2513 on the CLI: a code corpus demotes README/docs for a question; a
+    /// prose corpus (all documentation) keeps the engine order.
+    #[test]
+    fn readme_demotion_is_code_corpus_only() {
+        let page = || {
+            vec![
+                hit("ax_path", "README.zh-CN.md", 14.0),
+                hit("ax_path", "engine/src/wal/rotate.rs", 10.0),
+            ]
+        };
+        let mut code = page();
+        rank_plain_search_hits(&mut code, true, 5, "WAL rotation");
+        assert_eq!(code[0]["_source"]["ax_path"], "engine/src/wal/rotate.rs");
+        let mut prose = page();
+        rank_plain_search_hits(&mut prose, false, 5, "WAL rotation");
+        assert_eq!(prose[0]["_source"]["ax_path"], "README.zh-CN.md");
+        let mut lookup = page();
+        rank_plain_search_hits(&mut lookup, true, 5, "rotate");
+        assert_eq!(lookup[0]["_source"]["ax_path"], "README.zh-CN.md");
     }
 
     /// #2458: a guessed flag is refused by name, with the real flag when the
