@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Deterministic `cyber.score` calculator in `xerj_common::cyber_score`
+  (Refs #2775, #2767, #2769): native CVSS v3.1 (Base, Temporal, Environmental)
+  and CVSS v4.0 (CVSS-B, CVSS-BT, CVSS-BE, CVSS-BTE via MacroVector `EQ1..EQ6`
+  lookup and severity-distance interpolation) calculators in Rust, EPSS and
+  CISA KEV context with hub corpus provenance and fetch dates (absent data
+  stated explicitly, never guessed), asset-driven business-impact priority
+  notes, and `ScopeGuard` enforcement when an endpoint target is named.
+
 ### Changed
 
 - **Merges and flushes encode fields that are sometimes a scalar and
