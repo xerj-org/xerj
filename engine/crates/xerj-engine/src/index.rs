@@ -26775,6 +26775,9 @@ impl Index {
 
         let unindexed_dv_text_match = has_unindexed_doc_values_text_match(query, &dmq_schema);
 
+        // #3349: set when the memtable arm below scored its hits with exact
+        // BM25 through `mem_score_plan`; read by `exact_bm25_page`.
+        let mut mem_exact_bm25 = false;
         let mem_snapshot = {
             let mem = &*self.memtable;
             // #3329: the analyzer the multi_match / phrase / filtered-bool
@@ -27069,6 +27072,93 @@ impl Index {
                     MemSnapshot::Empty
                 } else {
                     MemSnapshot::FtsHits(kept, 0)
+                }
+            } else if let Some(plan) = mem_analyzer
+                .as_deref()
+                .and_then(|analyzer| {
+                    mem_score_plan(
+                        query,
+                        &MemPlanCtx {
+                            schema: &dmq_schema,
+                            text_fields: &text_fields,
+                            exact_fields: &exact_fields,
+                            analyzer,
+                            phrase_ok: self.scan_phrase_analyzer().is_none(),
+                        },
+                    )
+                })
+                .filter(|_| {
+                    pinned_probe.is_none()
+                        && query_node_to_fts_projected(
+                            query,
+                            &text_fields,
+                            &exact_fields,
+                            fts_kw_fields,
+                            self.segment_analyzer_binding(),
+                            None,
+                        )
+                        .is_some()
+                })
+            {
+                // #3349: a `bool` of scoring leaves (the `xerj search` body:
+                // `should` of `multi_match` + phrases + `constant_score`
+                // coverage clauses; `query_string` / `simple_query_string`
+                // with `fields`, which parse to `bool`s of `dis_max` /
+                // `multi_match`) fell to the stored-doc scan, whose scorer has
+                // no IDF, so the ranking changed at flush. Score every leaf
+                // through the memtable BM25 path and combine per doc the way
+                // the segment's `FtsQuery` executor combines the projection
+                // (`mem_score_plan`). Taken only when the segment side
+                // projects the same tree, so both arms score the same way.
+                // UNCAPPED inside (a gate or `minimum_should_match` runs after
+                // scoring); the combined list is capped like the arms above.
+                let mem_limit = if self.store.version_map.ghost_events() > 0 {
+                    usize::MAX
+                } else {
+                    fetch_limit
+                };
+                let gate_may_read_id = |gate: &QueryNode| -> bool {
+                    serde_json::to_string(gate)
+                        .map(|s| s.contains("_id") || s.contains("Ids") || s.contains("ids"))
+                        .unwrap_or(true)
+                };
+                let admit = |gate: &QueryNode, doc_id: &str| -> bool {
+                    let Some(source) = mem.get_doc_source_arc(doc_id) else {
+                        return false;
+                    };
+                    if source.get("_id").is_some() || !gate_may_read_id(gate) {
+                        return doc_matches_query_typed(gate, &source, &dmq_schema);
+                    }
+                    let mut with_id = (*source).clone();
+                    if let Some(obj) = with_id.as_object_mut() {
+                        obj.insert("_id".to_string(), Value::String(doc_id.to_string()));
+                    }
+                    doc_matches_query_typed(gate, &with_id, &dmq_schema)
+                };
+                let mem_stats = collection_stats();
+                let mut hits: Vec<crate::memtable::MemtableHit> =
+                    exec_mem_score_plan(&plan, mem, mem_stats.as_deref(), &admit)
+                        .into_iter()
+                        .map(|(doc_id, (score, seq_no))| crate::memtable::MemtableHit {
+                            doc_id,
+                            score,
+                            seq_no,
+                        })
+                        .collect();
+                // These hits carry exact BM25, so the page-local IDF
+                // rescore must leave them alone (see `exact_bm25_page`).
+                mem_exact_bm25 = true;
+                if hits.is_empty() {
+                    MemSnapshot::Empty
+                } else {
+                    crate::memtable::sort_hits_by_page_key(&mut hits);
+                    let total = hits.len() as u64;
+                    hits.truncate(mem_limit);
+                    let uncollected = total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::FtsHits(
+                        hits.into_iter().map(|h| (h.doc_id, h.score)).collect(),
+                        uncollected,
+                    )
                 }
             } else if is_doc_scan_query(query) {
                 // count_only + Term/Range short-circuits BEFORE
@@ -27890,7 +27980,9 @@ impl Index {
         // score unification lands (#354 / #188). Mixed pages therefore keep
         // today's behaviour; a fully-flushed index gets exact BM25.
         let mut fts_scored_applied = false;
-        let mut heuristic_scored_applied = mem_doc_count > 0;
+        // #3349: memtable hits from the `mem_score_plan` arm are exact BM25
+        // against the same statistics as the segments, so they do not arm it.
+        let mut heuristic_scored_applied = mem_doc_count > 0 && !mem_exact_bm25;
         if let Some(plan) = &scored_plan {
             if scored_fast_ready {
                 if let Some((hits, total, from_applied)) = self.scored_columnar(
@@ -30177,7 +30269,8 @@ impl Index {
         // `final_hits.len()`, so without this `_score` depends on `size` and
         // `bool{must:[A],must:[B]}` ranks differently from the same clauses
         // scoped with `post_filter`.)
-        let exact_bm25_page = fts_scored_applied && !heuristic_scored_applied;
+        // #3349: a memtable-only page scored by `mem_score_plan` is exact too.
+        let exact_bm25_page = (fts_scored_applied || mem_exact_bm25) && !heuristic_scored_applied;
         if !scored_fast_applied
             && !exact_bm25_page
             && !final_hits.is_empty()
@@ -35047,6 +35140,22 @@ impl Index {
                         }
                         phrase_mem_fts_subs(query, schema, text_fields, mem_analyzer.as_deref())
                             .and_then(|subs| subs.first().map(|((_, text, _), _)| text.to_string()))
+                    })
+                    .or_else(|| {
+                        // #3349: a planned `bool` scores every leaf's text.
+                        let plan = mem_score_plan(
+                            query,
+                            &MemPlanCtx {
+                                schema,
+                                text_fields,
+                                exact_fields,
+                                analyzer: mem_analyzer.as_deref()?,
+                                phrase_ok: self.scan_phrase_analyzer().is_none(),
+                            },
+                        )?;
+                        let mut texts = Vec::new();
+                        plan.collect_texts(&mut texts);
+                        Some(texts.join(" "))
                     }),
             };
         let mem_stats: Option<xerj_fts::CollectionStats> = if mem_doc_count > 0 {
@@ -53715,6 +53824,481 @@ fn bool_filter_mem_fts_must<'a>(
         minimum_should_match: None,
     };
     Some((plan, clause, gate))
+}
+
+/// What a memtable `match` leaf requires of the query tokens a document
+/// matched (#3349). The segment projection lowers `match` to a per-token
+/// `bool`: `should` (any token), `must` (`operator: and`), or `should` with a
+/// `minimum_should_match`, and scores every one of them as the sum of the
+/// matching tokens' BM25.
+#[derive(Clone, Copy)]
+enum MemTokenNeed {
+    /// At least one token.
+    Any,
+    /// Every token occurrence (`operator: and`).
+    All,
+    /// At least this many token occurrences (`minimum_should_match`).
+    AtLeast(u32),
+}
+
+/// A query tree the memtable can score the way the segment's `FtsQuery`
+/// executor scores its projection (#3349): every scoring leaf goes through
+/// the memtable BM25 path a standalone `match` takes, and the combinators
+/// mirror `FtsSearcher::execute_bool` / `execute_dis_max` /
+/// `ConstantScore`. Built by [`mem_score_plan`]; executed by
+/// [`exec_mem_score_plan`].
+enum MemScorePlan<'a> {
+    /// One field's `match` (also a `query_string` with a text
+    /// `default_field`): per-token BM25 sum times `boost`, kept when the
+    /// matched-token count meets `need`.
+    Text {
+        field: &'a str,
+        query: &'a str,
+        boost: f32,
+        need: MemTokenNeed,
+    },
+    /// A positional phrase on one field: scored like a `match` of the phrase
+    /// text (what `execute_phrase` sums for a matching doc), kept only when
+    /// the stored-doc phrase predicate admits the doc (#3329).
+    Phrase {
+        field: &'a str,
+        query: &'a str,
+        boost: f32,
+        gate: QueryNode,
+    },
+    /// `max + tie × (Σ − max)` over the subs, times `boost`.
+    DisMax {
+        subs: Vec<MemScorePlan<'a>>,
+        tie: f32,
+        boost: f32,
+    },
+    /// `execute_bool`: required `must` clauses intersect, `should` clauses
+    /// count towards `min_should`, the score is the sum of the matching
+    /// scoring clauses. `filter` / `must_not` are non-scoring, so they are a
+    /// stored-doc `gate` applied to the combined hits, the way the #2403 arm
+    /// and the segment's residual gate apply them.
+    Bool {
+        must: Vec<MemScorePlan<'a>>,
+        should: Vec<MemScorePlan<'a>>,
+        min_should: u32,
+        gate: Option<QueryNode>,
+    },
+    /// `constant_score`: the inner query's hit set, every hit scoring
+    /// `score`.
+    Constant {
+        inner: Box<MemScorePlan<'a>>,
+        score: f32,
+    },
+}
+
+impl MemScorePlan<'_> {
+    /// Every query text a leaf scores, for the memtable's share of the
+    /// index-wide collection statistics (#188).
+    fn collect_texts<'s>(&'s self, out: &mut Vec<&'s str>) {
+        match self {
+            MemScorePlan::Text { query, .. } | MemScorePlan::Phrase { query, .. } => {
+                if !out.contains(query) {
+                    out.push(query);
+                }
+            }
+            MemScorePlan::DisMax { subs, .. } => subs.iter().for_each(|s| s.collect_texts(out)),
+            MemScorePlan::Bool { must, should, .. } => must
+                .iter()
+                .chain(should.iter())
+                .for_each(|s| s.collect_texts(out)),
+            MemScorePlan::Constant { inner, .. } => inner.collect_texts(out),
+        }
+    }
+}
+
+/// The inputs [`mem_score_plan`] reads besides the query.
+struct MemPlanCtx<'a> {
+    schema: &'a Schema,
+    text_fields: &'a [String],
+    exact_fields: &'a HashSet<String>,
+    analyzer: &'a AnalyzerPipeline,
+    /// `false` on an index whose text analyzer is not `standard`: the phrase
+    /// leaf then declines, as the #3329 phrase arm does (#3285).
+    phrase_ok: bool,
+}
+
+/// `true` for a `match` query text the stored-doc scan answers with its
+/// date-equality short-circuit (`is_doc_scan_query`), which a token search
+/// cannot reproduce.
+fn date_shaped_match_text(query: &str) -> bool {
+    crate::aggs::parse_date_ms(&Value::String(query.to_string())).is_some()
+        && query.chars().any(|c| c == '-' || c == '/' || c == 'T')
+}
+
+/// The memtable score plan for a `bool` query tree (#3349), or `None` when
+/// any part of it would score differently from the segment projection
+/// (`query_node_to_fts_projected`) — the query then keeps its stored-doc
+/// scan route.
+///
+/// Only a top-level `bool` is planned: the bare leaf shapes already have
+/// their own memtable arms (`match`, `dis_max` #834, `multi_match` and
+/// phrases #3329, filtered `bool` #2403). Leaves: single-field text `match`
+/// (any operator or `minimum_should_match`), text `match_phrase` (slop 0),
+/// field-centric and `phrase` `multi_match`, `query_string` with a text
+/// `default_field`; combinators: `bool`, `dis_max`, `constant_score`.
+/// Declines everything else, notably a keyword `term` (its segment BM25 runs
+/// on keyword postings the memtable does not keep), `boost` wrappers (the
+/// projection declines them too), a per-query `analyzer`, wildcard or
+/// non-text fields, and a `bool` whose `filter` is its only required clause.
+fn mem_score_plan<'a>(q: &'a QueryNode, cx: &MemPlanCtx<'a>) -> Option<MemScorePlan<'a>> {
+    if !matches!(q, QueryNode::Bool { .. }) {
+        return None;
+    }
+    mem_score_plan_node(q, cx)
+}
+
+fn mem_score_plan_node<'a>(q: &'a QueryNode, cx: &MemPlanCtx<'a>) -> Option<MemScorePlan<'a>> {
+    use xerj_query::ast::{BoolOperator, MultiMatchType};
+    match q {
+        QueryNode::Match {
+            field,
+            query,
+            operator,
+            boost,
+            analyzer: None,
+            minimum_should_match,
+            ..
+        } => {
+            if !mem_fts_scorable_text_field(cx.schema, field) || date_shaped_match_text(query) {
+                return None;
+            }
+            let tokens = cx.analyzer.analyze(query).len();
+            if tokens == 0 {
+                return None;
+            }
+            // Same resolution as the projection's `match` arm.
+            let need = if tokens == 1 {
+                MemTokenNeed::Any
+            } else if matches!(operator, BoolOperator::And) {
+                MemTokenNeed::All
+            } else {
+                match minimum_should_match {
+                    None => MemTokenNeed::Any,
+                    Some(MinShouldMatch::Fixed(n)) => MemTokenNeed::AtLeast(*n),
+                    Some(MinShouldMatch::Percentage(pct)) => MemTokenNeed::AtLeast(
+                        ((tokens as f32 * (*pct as f32 / 100.0)).floor() as u32).max(1),
+                    ),
+                    Some(_) => return None,
+                }
+            };
+            Some(MemScorePlan::Text {
+                field,
+                query,
+                boost: boost.unwrap_or(1.0),
+                need,
+            })
+        }
+        QueryNode::QueryString {
+            query,
+            default_field: Some(field),
+            boost,
+            ..
+        } => {
+            if !mem_fts_scorable_text_field(cx.schema, field)
+                || cx.analyzer.analyze(query).is_empty()
+            {
+                return None;
+            }
+            Some(MemScorePlan::Text {
+                field,
+                query,
+                boost: boost.unwrap_or(1.0),
+                need: MemTokenNeed::Any,
+            })
+        }
+        QueryNode::MatchPhrase {
+            field,
+            query,
+            slop: 0,
+            analyzer: None,
+            boost,
+            ..
+        } => {
+            if !cx.phrase_ok || !mem_fts_scorable_text_field(cx.schema, field) {
+                return None;
+            }
+            let tokens = cx.analyzer.analyze(query).len();
+            if tokens == 0 {
+                return None;
+            }
+            let boost = boost.unwrap_or(1.0);
+            Some(if tokens == 1 {
+                MemScorePlan::Text {
+                    field,
+                    query,
+                    boost,
+                    need: MemTokenNeed::Any,
+                }
+            } else {
+                MemScorePlan::Phrase {
+                    field,
+                    query,
+                    boost,
+                    gate: q.clone(),
+                }
+            })
+        }
+        QueryNode::MultiMatch {
+            fields,
+            query,
+            match_type,
+            operator,
+            analyzer: None,
+            boost,
+            ..
+        } => {
+            let tokens = cx.analyzer.analyze(query).len();
+            if tokens == 0 {
+                return None;
+            }
+            let is_and = matches!(operator, Some(BoolOperator::And)) && tokens > 1;
+            let (tie, phrase) = match match_type {
+                MultiMatchType::BestFields => (0.0, false),
+                MultiMatchType::MostFields => (1.0, false),
+                // The projection declines a multi-token `operator: and`
+                // cross_fields (term-centric, no per-field lowering).
+                MultiMatchType::CrossFields if !is_and => (1.0, false),
+                MultiMatchType::Phrase if cx.phrase_ok => (0.0, true),
+                _ => return None,
+            };
+            // The projection drops unmapped fields; every kept one must be a
+            // text field the memtable scores exactly.
+            let specs: Vec<(&'a str, f32, &'a str)> = if fields.is_empty() {
+                cx.text_fields
+                    .iter()
+                    .map(|f| (f.as_str(), 1.0, f.as_str()))
+                    .collect()
+            } else {
+                fields
+                    .iter()
+                    .map(|s| {
+                        let (f, b) = parse_field_boost(s);
+                        (f, b, s.as_str())
+                    })
+                    .filter(|(f, _, _)| {
+                        multi_match_field_is_mapped(f, cx.text_fields, cx.exact_fields)
+                    })
+                    .collect()
+            };
+            if specs.is_empty()
+                || !specs
+                    .iter()
+                    .all(|(f, _, _)| mem_fts_scorable_text_field(cx.schema, f))
+            {
+                return None;
+            }
+            let subs: Vec<MemScorePlan<'a>> = specs
+                .into_iter()
+                .map(|(field, fb, spec)| {
+                    if phrase && tokens > 1 {
+                        let mut gate = q.clone();
+                        if let QueryNode::MultiMatch { fields, .. } = &mut gate {
+                            *fields = vec![spec.to_string()];
+                        }
+                        MemScorePlan::Phrase {
+                            field,
+                            query,
+                            boost: fb,
+                            gate,
+                        }
+                    } else {
+                        MemScorePlan::Text {
+                            field,
+                            query,
+                            boost: fb,
+                            need: if is_and {
+                                MemTokenNeed::All
+                            } else {
+                                MemTokenNeed::Any
+                            },
+                        }
+                    }
+                })
+                .collect();
+            Some(MemScorePlan::DisMax {
+                subs,
+                tie,
+                boost: boost.unwrap_or(1.0),
+            })
+        }
+        QueryNode::DisMax {
+            queries,
+            tie_breaker,
+        } if !queries.is_empty() => Some(MemScorePlan::DisMax {
+            subs: queries
+                .iter()
+                .map(|sub| mem_score_plan_node(sub, cx))
+                .collect::<Option<Vec<_>>>()?,
+            tie: *tie_breaker,
+            boost: 1.0,
+        }),
+        QueryNode::Constant { score, query } => Some(MemScorePlan::Constant {
+            inner: Box::new(mem_score_plan_node(query, cx)?),
+            score: *score,
+        }),
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            minimum_should_match,
+        } => {
+            // A `filter` as the only required clause makes every filtered
+            // doc a hit, which needs the whole memtable enumerated.
+            if must.is_empty() && !filter.is_empty() {
+                return None;
+            }
+            let msm = match minimum_should_match {
+                None => None,
+                Some(MinShouldMatch::Fixed(n)) => Some(*n),
+                Some(MinShouldMatch::Percentage(pct)) => {
+                    Some(((should.len() as f32 * (*pct as f32 / 100.0)).floor() as u32).max(1))
+                }
+                Some(_) => return None,
+            };
+            let must = must
+                .iter()
+                .map(|sub| mem_score_plan_node(sub, cx))
+                .collect::<Option<Vec<_>>>()?;
+            // A `should` leaf on a field no index maps matches nothing; the
+            // projection skips it (`should_leaf_targets_unmapped_field`).
+            let should = should
+                .iter()
+                .filter(|sub| {
+                    !should_leaf_targets_unmapped_field(sub, cx.text_fields, cx.exact_fields)
+                })
+                .map(|sub| mem_score_plan_node(sub, cx))
+                .collect::<Option<Vec<_>>>()?;
+            if must.is_empty() && should.is_empty() {
+                return None;
+            }
+            let min_should = msm.unwrap_or(if must.is_empty() && !should.is_empty() {
+                1
+            } else {
+                0
+            });
+            let gate = (!filter.is_empty() || !must_not.is_empty()).then(|| QueryNode::Bool {
+                must: Vec::new(),
+                should: Vec::new(),
+                must_not: must_not.clone(),
+                filter: filter.clone(),
+                minimum_should_match: None,
+            });
+            Some(MemScorePlan::Bool {
+                must,
+                should,
+                min_should,
+                gate,
+            })
+        }
+        _ => None,
+    }
+}
+
+/// Per-doc `(score, seq_no)` for one plan node's hits.
+type MemPlanHits = HashMap<String, (f32, u64)>;
+
+/// Execute a [`MemScorePlan`] against the memtable (#3349). `admit(gate,
+/// doc_id)` evaluates a stored-doc predicate (phrase gates, `filter` /
+/// `must_not`) on a buffered doc.
+fn exec_mem_score_plan(
+    plan: &MemScorePlan<'_>,
+    mem: &crate::memtable::ShardedFtsMemtable,
+    stats: Option<&xerj_fts::CollectionStats>,
+    admit: &dyn Fn(&QueryNode, &str) -> bool,
+) -> MemPlanHits {
+    match plan {
+        MemScorePlan::Text {
+            field,
+            query,
+            boost,
+            need,
+        } => {
+            let (hits, tokens) = mem.search_field_counted_using(query, field, *boost, stats);
+            let tokens = tokens as u32;
+            hits.into_iter()
+                .filter(|(_, matched)| match need {
+                    MemTokenNeed::Any => true,
+                    MemTokenNeed::All => *matched >= tokens,
+                    MemTokenNeed::AtLeast(n) => matched >= n,
+                })
+                .map(|(h, _)| (h.doc_id, (h.score, h.seq_no)))
+                .collect()
+        }
+        MemScorePlan::Phrase {
+            field,
+            query,
+            boost,
+            gate,
+        } => {
+            let (hits, _) = mem.search_field_counted_using(query, field, *boost, stats);
+            hits.into_iter()
+                .filter(|(h, _)| admit(gate, &h.doc_id))
+                .map(|(h, _)| (h.doc_id, (h.score, h.seq_no)))
+                .collect()
+        }
+        MemScorePlan::DisMax { subs, tie, boost } => {
+            let mut acc: HashMap<String, (f32, f32, u64)> = HashMap::new();
+            for sub in subs {
+                for (doc, (score, seq)) in exec_mem_score_plan(sub, mem, stats, admit) {
+                    let e = acc.entry(doc).or_insert((f32::NEG_INFINITY, 0.0, seq));
+                    if score > e.0 {
+                        e.0 = score;
+                    }
+                    e.1 += score;
+                }
+            }
+            acc.into_iter()
+                .map(|(doc, (max, sum, seq))| (doc, ((max + tie * (sum - max)) * boost, seq)))
+                .collect()
+        }
+        MemScorePlan::Constant { inner, score } => exec_mem_score_plan(inner, mem, stats, admit)
+            .into_iter()
+            .map(|(doc, (_, seq))| (doc, (*score, seq)))
+            .collect(),
+        MemScorePlan::Bool {
+            must,
+            should,
+            min_should,
+            gate,
+        } => {
+            // (score, matched should clauses, seq_no). Clause order is the
+            // segment's: `must` scores first, then `should`.
+            let mut candidates: Option<HashSet<String>> = None;
+            let mut acc: HashMap<String, (f32, u32, u64)> = HashMap::new();
+            for sub in must {
+                let hits = exec_mem_score_plan(sub, mem, stats, admit);
+                candidates = Some(match candidates {
+                    None => hits.keys().cloned().collect(),
+                    Some(prev) => prev.into_iter().filter(|d| hits.contains_key(d)).collect(),
+                });
+                for (doc, (score, seq)) in hits {
+                    acc.entry(doc).or_insert((0.0, 0, seq)).0 += score;
+                }
+            }
+            for sub in should {
+                for (doc, (score, seq)) in exec_mem_score_plan(sub, mem, stats, admit) {
+                    let e = acc.entry(doc).or_insert((0.0, 0, seq));
+                    e.0 += score;
+                    e.1 += 1;
+                }
+            }
+            acc.into_iter()
+                .filter(|(doc, (_, matched, _))| {
+                    candidates.as_ref().is_none_or(|c| c.contains(doc))
+                        && (candidates.is_some() || *matched > 0)
+                        && *matched >= *min_should
+                })
+                .filter(|(doc, _)| gate.as_ref().is_none_or(|g| admit(g, doc)))
+                .map(|(doc, (score, _, seq))| (doc, (score, seq)))
+                .collect()
+        }
+    }
 }
 
 /// Erase `bool` wrappers whose only clause is a single SCORING clause.
