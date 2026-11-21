@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "HEALTH",
- "domain": "an agent working on C++ queries this for how bo1929/gdiff implements it: Finding genomic intervals based on distance differences (selected work: test, src, the project root)",
+ "domain": "an agent working on ani, genome-analysis, horizontal-gene-transfer queries this for how bo1929/gdiff implements it: ANI estimation, calculating local sequence distances, and detecting outlier regions (e.g., horizontal gene transfer) (selected work: test, src, the project root)",
  "repos": [
   {
    "repo": "gdiff",

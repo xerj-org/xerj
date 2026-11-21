@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-evaluation, ai-agents, observability queries this for how Kwondh0321/proofstack implements it: Experimental Agent Reliability Engineering platform — foundation under active development, not production-ready (selected work: apps/api, packages/core, packages/contracts)",
+ "domain": "an agent working on agent-evaluation, ai-agents, observability queries this for how Kwondh0321/proofstack implements it: Experimental Agent Reliability Engineering platform \u2014 foundation under active development, not production-ready (selected work: apps/api, packages/core, packages/contracts)",
  "repos": [
   {
    "repo": "proofstack",
