@@ -869,6 +869,13 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
 - Multi-index composite aggregation pages now use the requested global source
   order and page size, combine duplicate bucket counts, and set the cursor from
   the retained page. Internal typed keys preserve formatted-date ordering.
+- A top-level `terms` aggregation over several indices now picks its buckets
+  after merging every index's candidates, so a term that wins only in total
+  (9 + 9 = 18 against two local 10s) is no longer lost, and `_key` order is
+  applied globally (#2935). Each index returns `shard_size` candidates
+  (default `size * 1.5 + 10`); when an index cuts terms, the cut documents
+  count in `sum_other_doc_count` and `doc_count_error_upper_bound` reports the
+  bound instead of a false 0.
 
 - A plain debug `cargo test --workspace` no longer aborts on a stack overflow,
   and the `127.0.0.2` loopback test names the missing macOS alias (#2903). Five
