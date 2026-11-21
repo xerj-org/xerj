@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agent, ai-agents, ai-coding-assistant queries this for how Omerfaruk-aydn/Atlas-Agent implements it: Blazing-fast, terminal-native AI coding agent \u2014 one static Go binary, zero runtime deps, works on any codebase in any language. Multi-provid (selected work: internal/agent)",
+ "domain": "an agent working on ai-agent, ai-coding-assistant, claude queries this for how Omerfaruk-aydn/Atlas-Agent implements it: One agent for your code, your browser and your desktop. Bring any model, or the ChatGPT, Claude and Copilot plans you already pay for. Subag (selected work: internal/agent)",
  "repos": [
   {
    "repo": "Atlas-Agent",
