@@ -1,0 +1,22 @@
+{
+  "corpus": "cppuccino",
+  "cloned_at": "2026-11-21T08:50:54Z",
+  "own": true,
+  "repos": [
+    {
+      "repo": "Cppuccino",
+      "url": "https://github.com/polarours/Cppuccino.git",
+      "licence": "MIT",
+      "sha": "67821e58c88ceec290f996d50ae8c89ecb93d163",
+      "files": 1399,
+      "bytes": 4517561,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@polarours",
+        "at": "2026-11-21",
+        "note": "Read LICENSE in full: MIT, (c) 2025 polarours. Detector agrees; verdict human-confirmed. I am the repository author and publish all docs/examples under MIT. Adapt freely with attribution."
+      }
+    }
+  ]
+}
