@@ -474,7 +474,7 @@ no local pack for 'lz4' and --no-fetch forbids downloading it; run: xerj hub pul
   <p>Two files, both generated from a real <code class="inline">tools/list</code>, never written by hand:</p>
   <ul>
     <li><a href="/docs/agents/schemas/mcp-tools-1.0.0-rc.104.json">mcp-tools-1.0.0-rc.104.json</a>: exactly what the rc.104 binary serves (24 tools). Each release adds <code class="inline">mcp-tools-&lt;version&gt;.json</code>, named by the version the binary itself reports, and attaches the same file to its GitHub release. A published one never changes.</li>
-    <li><a href="/docs/agents/schemas/mcp-tools.json">mcp-tools.json</a>: what main serves. It can list a tool your installed binary does not have yet.</li>
+    <li><a href="/docs/agents/schemas/mcp-tools.json">mcp-tools.json</a>: what main serves (25 tools; 22 with no hub key). It can list a tool your installed binary does not have yet.</li>
   </ul>
   <p>Read the file that matches <code class="inline">xerj --version</code>. To check it against the binary you hold, from a checkout of the release tag:</p>
 <pre class="code">XERJ_BIN="$(command -v xerj)" scripts/mcp-schema-check.sh --release
