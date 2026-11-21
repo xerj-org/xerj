@@ -15371,31 +15371,45 @@ impl Index {
             self.flush_sema.acquire(),
         )
         .await?;
-        // M5.2 — explicit refresh drains EVERY non-empty shard in
-        // sequence (one shard per `do_flush_shard` call) so the
-        // user-visible `refresh()` returns with zero unflushed
-        // documents.  Sharded flushes run serially here because the
-        // caller is waiting synchronously; the background scheduler
-        // still fires shard flushes in parallel.
+        // M5.2 — explicit refresh drains EVERY non-empty shard (one
+        // segment per `do_flush_shard` call) so the user-visible
+        // `refresh()` returns with zero unflushed documents.
+        //
+        // #2929 — the shards drain CONCURRENTLY, as `flush()` already does
+        // (M5.15); the process-global finalize gate still bounds how many
+        // build at once, and #2427's working-set reservation still charges
+        // each build before its freeze. Bulk routes every document to its
+        // own shard, so a 5-document catalog bulk lands on 5 shards and its
+        // refresh publishes 5 segments of ~117 files each (a set per field),
+        // every file fsynced and renamed. One shard at a time, that held
+        // autoindex's `finalize-catalog-commit` for ~35 s on Windows, where
+        // each file is a FlushFileBuffers plus a write-through MoveFileExW.
+        // With 10 ms injected per fsync on Linux the same 3-file run's
+        // commit took 1.75 s serially and 0.5 s concurrently.
         let n_shards = self.memtable.shard_count();
+        let mut shard_tasks = Vec::new();
+        let mut out_of_budget = false;
         for shard_idx in 0..n_shards {
             // #1226 — skip empty shards (same reasoning as `flush()`): a
             // no-op shard finalize still acquires the process-global
             // `flush_finalize_gate`, so an empty shard would make this
-            // serial refresh wait behind unrelated indices' ingest flushes
-            // for nothing. Bound the work to the shards actually holding
+            // refresh wait behind unrelated indices' ingest flushes for
+            // nothing. Bound the work to the shards actually holding
             // documents.
             if self.memtable.shard_load(shard_idx).0 == 0 {
                 continue;
             }
-            let left = deadline.saturating_duration_since(std::time::Instant::now());
-            if left.is_zero() {
-                return Err(flush_budget_timeout_error(&index_name, flush_timeout));
+            if deadline
+                .saturating_duration_since(std::time::Instant::now())
+                .is_zero()
+            {
+                out_of_budget = true;
+                break;
             }
             // Spawn so a timeout detaches the shard task instead of
             // cancelling a publication that has already frozen the
             // memtable (#1015). The success path still waits for it.
-            let task = tokio::spawn(do_flush_shard(
+            let flush = do_flush_shard(
                 shard_idx,
                 Arc::clone(&self.store),
                 Arc::clone(&self.memtable),
@@ -15405,15 +15419,37 @@ impl Index {
                 field_configs.clone(),
                 excluded_fts_fields.clone(),
                 dv_skip.clone(),
-                || {}, // serial refresh path — no permit to drop early
+                || {}, // refresh holds its permit — none to drop early
                 self.publish_warm_caches(),
                 index_name.clone(),
                 admit_timeout,
                 #[cfg(test)]
                 None,
-            ));
-            await_flush_task(&index_name, left, task).await?;
+            );
+            #[cfg(not(test))]
+            shard_tasks.push(tokio::spawn(flush));
+            #[cfg(test)]
+            {
+                let probe_index = index_name.clone();
+                shard_tasks.push(tokio::spawn(async move {
+                    let _in_flight = FlushShardProbe::enter(&probe_index).await;
+                    flush.await
+                }));
+            }
         }
+        let mut result: Result<()> = if out_of_budget {
+            Err(flush_budget_timeout_error(&index_name, flush_timeout))
+        } else {
+            Ok(())
+        };
+        for task in shard_tasks {
+            let left = deadline.saturating_duration_since(std::time::Instant::now());
+            let joined = await_flush_task(&index_name, left, task).await;
+            if result.is_ok() {
+                result = joined;
+            }
+        }
+        result?;
 
         // Update the doc counter so maybe_auto_flush uses a fresh baseline.
         self.last_flush_doc_count
