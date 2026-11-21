@@ -338,6 +338,7 @@ The model, its bundle and its serve rule are those of rc.102.
   per-aggregation cap from `limits.max_buckets` still applies too, so a
   setting above it does not raise that cap. `_async_search`,
   `_search/template` and `_msearch/template` do not read the setting yet.
+- The SQL dump, XML, log and plain-text extractors now cap per-unit allocations (issue [#3211](https://github.com/xerj-org/xerj/issues/3211)). One tuple with more values than the 512-field per-record cap keeps only the first 512, and one quoted SQL string value is truncated at the 1 MiB head cap; XML elements nested past 128 deep have their subtree skipped instead of growing record keys quadratically; log `key=value` lifting stops at the 512-field cap; plain-text lines stored in the chunk window are truncated to the 8 KiB chunk cap, so the window can no longer reach 640 MiB. In every case the rest of the file still extracts.
 
 ## [1.0.0-rc.102] - 2026-11-06
 
