@@ -8,15 +8,15 @@
   {
    "repo": "aspic",
    "url": "https://github.com/PhilipHazel/aspic",
-   "sha": "2c0f066c570c37ca16969747a4a0b7ff6b41f6f5",
-   "licence": "GPL-2.0 (LICENSE file at pin 2c0f066c570c, GitHub licence API 2026-11-20)",
+   "sha": "6400520302a20b21f4ebfa24f92674833fcbdbb1",
+   "licence": "GPL-2.0 (LICENSE file at pin 6400520302a2, GitHub licence API 2026-11-21; re-pinned 2026-11-21 from 2c0f066c570c at the author's request)",
    "review": {
     "spdx": "GPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-19T08:28Z",
     "consent_receipt": "9e9216ddd9a0",
-    "note": "Inclusion consented by the commit author by email at 2026-11-19T08:28Z (receipt 9e9216ddd9a0); selected commit 2c0f066c570c: \"Add support for some standard colour names\". LICENSE file at pin 2c0f066c570c detected as GPL-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T08:28Z (receipt 9e9216ddd9a0); selected commit 2c0f066c570c: \"Add support for some standard colour names\". LICENSE file at pin 2c0f066c570c detected as GPL-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution. Re-pinned to 6400520302a2 on 2026-11-21 at the author's request."
    }
   }
  ]

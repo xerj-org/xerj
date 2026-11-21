@@ -8,15 +8,15 @@
   {
    "repo": "Echo-Run",
    "url": "https://github.com/TharinduNava/Echo-Run",
-   "sha": "b467442d19e3b6559913ead30d5ac698c579a022",
-   "licence": "MIT (LICENSE file at pin b467442d19e3, GitHub licence API 2026-11-20)",
+   "sha": "2c0cf4b205cce7bf43acd9b3fe2aacba11a35fa6",
+   "licence": "MIT (LICENSE file at pin 2c0cf4b205cc, GitHub licence API 2026-11-21; re-pinned 2026-11-21 from b467442d19e3 at the author's request)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-19T05:48Z",
     "consent_receipt": "9c4c9be0bacb",
-    "note": "Inclusion consented by the commit author by email at 2026-11-19T05:48Z (receipt 9c4c9be0bacb); selected commit b467442d19e3: \"feat: v1.4.0 \u2014 overhaul gameplay, UI, performance and testing\". LICENSE file at pin b467442d19e3 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T05:48Z (receipt 9c4c9be0bacb); selected commit b467442d19e3: \"feat: v1.4.0 — overhaul gameplay, UI, performance and testing\". LICENSE file at pin b467442d19e3 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution. Re-pinned to 2c0cf4b205cc on 2026-11-21 at the author's request."
    }
   }
  ]

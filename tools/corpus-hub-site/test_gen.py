@@ -1401,6 +1401,21 @@ class BuiltSiteDiscoverabilityTest(SiteLinksTest):
         self.assertIn('<a href="/add">Sign in with GitHub and add it</a>', (self.out / "contribute.html").read_text())
         self.assertIn("Included with the author&#39;s permission (email,", (self.out / "contributors" / "JacobJoergensen.html").read_text())
 
+    def test_author_notes_are_shown_with_the_entry(self):
+        """A ledger row's author_note (owner 2026-11-21: framing, status or caveat the author asked for) is printed on the
+        contributor page and on the corpus page."""
+        rows = []
+        for p in sorted((gen.HUB / "candidates" / "authors").glob("CONTRIBUTORS*.jsonl")):
+            rows += [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        noted = [r for r in rows if (r.get("author_note") or "").strip()]
+        for r in noted:
+            note = html.escape(r["author_note"].strip(), quote=True)
+            person = self.out / "contributors" / f"{r['contributor']['login']}.html"
+            self.assertIn(note, person.read_text(encoding="utf-8"), str(person))
+            corpus = self.out / "corpus" / f"{r['corpus']}.html"
+            if corpus.exists():
+                self.assertIn(note, corpus.read_text(encoding="utf-8"), str(corpus))
+
     def test_2171_restores_are_indexed(self):
         """The #2171 rows marked restored=yes are back in the ledger, the pages, the search index, llms-contributors.txt and the sitemaps.
 

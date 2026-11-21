@@ -189,6 +189,8 @@ def load(hub_dir, registry=None):
                 "maintainer": (r.get("scope") or {}).get("maintainer") or r.get("repo", "").split("/")[0],
                 "whole_repo": (r.get("scope") or {}).get("whole_repo", True),
                 "paths": (r.get("scope") or {}).get("paths") or [],
+                # 2026-11-21 (owner): a note the author asked to have shown with the entry (framing, status, caveat)
+                "author_note": (r.get("author_note") or "").strip(),
             })
             if r["corpus"] not in w["corpora"]:
                 w["corpora"].append(r["corpus"])
@@ -394,7 +396,7 @@ def person_body(pp, esc, live_slugs, pages=(), agent="", xposts="", gh=None):
         cards.append(f"""<div class="contrib">{ghs}
 {head}{facts}{commit}
 <div class="commit">{"selected commit: " + esc(size) if size else ""}{" · " + esc(", ".join(w["areas"])[:120]) if w["areas"] else ""}</div>
-<p class="note">{scope}</p>
+<p class="note">{scope}</p>{f'<p class="note">{esc(w["author_note"])}</p>' if w.get("author_note") else ""}
 <div class="chips">{status}{corp}{f'<span class="chip">{esc(w["shelf"])}</span>' if w["shelf"] else ""}<span class="chip">{esc(w["spdx"])}</span>{chips}
 <span class="chip">agreed {esc(w["agreed"][:10])}</span></div>{pending}</div>""")
     other = sorted(c for c in pp["corpora"] if not any(c in w["corpora"] for w in work))
