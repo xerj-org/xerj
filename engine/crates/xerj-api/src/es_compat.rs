@@ -8951,6 +8951,96 @@ fn merge_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
     Some(Value::Object(out))
 }
 
+/// Merge one index's aggregation result into the cross-index accumulator.
+///
+/// This is the merge `_search` already performed inline, shared with
+/// `_msearch` (issue #3358): `_msearch` used to keep only the first
+/// index's aggregations (`if merged_aggs.is_none() { ... }`), so every
+/// later index's buckets were silently dropped while `hits.total` still
+/// summed across all indices. Both handlers now call this helper, so a
+/// multi-index `_msearch` item merges exactly like `_search`.
+///
+/// Per top-level aggregation key, in order: a metric merge
+/// (`merge_metric_agg`), a bucketed merge (`merge_bucket_agg`), a
+/// single-bucket merge (`merge_single_bucket_agg`); when none of those
+/// applies, the new value replaces the old one only when the old
+/// buckets are empty and the new ones are not, otherwise the existing
+/// value is kept.
+fn merge_cross_index_aggs(
+    merged_aggs: &mut Option<Value>,
+    new_aggs: Value,
+    leaf_terms: Option<(&[String], Option<&Value>)>,
+) {
+    match merged_aggs {
+        None => *merged_aggs = Some(new_aggs),
+        Some(existing) => {
+            if let (Some(ex_obj), Some(new_obj)) = (existing.as_object_mut(), new_aggs.as_object())
+            {
+                for (k, v) in new_obj {
+                    // Metric-agg aware merge: when both shards
+                    // returned a metric result with internal
+                    // tracking, recombine the primitives so
+                    // `avg/sum/min/max` reflect the union
+                    // across indices rather than just the
+                    // first index's value.
+                    if let Some(old) = ex_obj.get(k).cloned() {
+                        // Leaf-terms summaries (#3361) are rewritten
+                        // per-index fetches, merged by union under the
+                        // request cap. Callers that never rewrite them
+                        // (the `_msearch` path) pass `None`.
+                        if let Some((names, request)) = leaf_terms {
+                            if names.contains(k) {
+                                let merged = merge_leaf_terms_summary(
+                                    &old,
+                                    v,
+                                    leaf_terms_union_cap(
+                                        request,
+                                        k,
+                                        xerj_engine::aggs::max_buckets(),
+                                    ),
+                                );
+                                ex_obj.insert(k.clone(), merged);
+                                continue;
+                            }
+                        }
+                        if let Some(merged) = merge_metric_agg(&old, v) {
+                            ex_obj.insert(k.clone(), merged);
+                            continue;
+                        }
+                        if let Some(merged) = merge_bucket_agg(&old, v) {
+                            ex_obj.insert(k.clone(), merged);
+                            continue;
+                        }
+                        if let Some(merged) = merge_single_bucket_agg(&old, v) {
+                            ex_obj.insert(k.clone(), merged);
+                            continue;
+                        }
+                    }
+                    let should_replace = match (ex_obj.get(k), v) {
+                        (Some(old), new) => {
+                            let old_empty = old
+                                .get("buckets")
+                                .and_then(|b| b.as_array())
+                                .map(|a| a.is_empty())
+                                .unwrap_or(false);
+                            let new_has_data = new
+                                .get("buckets")
+                                .and_then(|b| b.as_array())
+                                .map(|a| !a.is_empty())
+                                .unwrap_or(false);
+                            old_empty && new_has_data
+                        }
+                        (None, _) => true,
+                    };
+                    if should_replace {
+                        ex_obj.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod merge_bucket_agg_keyed_tests {
     use super::*;
@@ -9143,6 +9233,149 @@ mod merge_bucket_agg_keyed_tests {
                            "__xy_weight_sum__": 0.0, "__xy_weighted_sum__": 0.0});
         let merged = merge_metric_agg(&empty, &empty).expect("must merge");
         assert_eq!(merged["value"], Value::Null);
+    }
+
+    // #3358: `_msearch` used to keep only the first index's aggregations,
+    // so these tests exercise the shared `merge_cross_index_aggs` helper
+    // both handlers now call. Each one fails against the old first-only
+    // behavior (second index's contribution dropped) and passes with the
+    // merge. The shapes below mirror the live repro: index `ma` holds
+    // b x5, a x1; index `mb` holds d x4, c x2.
+    #[test]
+    fn msearch_terms_buckets_merge_across_indices() {
+        let mut merged: Option<Value> = None;
+        let from_ma = json!({"by_k": {"buckets": [
+            {"key": "b", "doc_count": 5},
+            {"key": "a", "doc_count": 1},
+        ], "sum_other_doc_count": 0}});
+        let from_mb = json!({"by_k": {"buckets": [
+            {"key": "d", "doc_count": 4},
+            {"key": "c", "doc_count": 2},
+        ], "sum_other_doc_count": 0}});
+        merge_cross_index_aggs(&mut merged, from_ma, None);
+        merge_cross_index_aggs(&mut merged, from_mb, None);
+        let merged = merged.expect("accumulator must seed");
+        let buckets = merged["by_k"]["buckets"].as_array().expect("array buckets");
+        let by_key: std::collections::HashMap<&str, u64> = buckets
+            .iter()
+            .map(|b| (b["key"].as_str().unwrap(), b["doc_count"].as_u64().unwrap()))
+            .collect();
+        assert_eq!(by_key.len(), 4, "all four buckets must survive: {merged}");
+        assert_eq!(by_key["b"], 5);
+        assert_eq!(by_key["a"], 1);
+        assert_eq!(by_key["d"], 4);
+        assert_eq!(by_key["c"], 2);
+    }
+
+    #[test]
+    fn msearch_terms_shared_key_sums_doc_count() {
+        let mut merged: Option<Value> = None;
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"by_k": {"buckets": [{"key": "a", "doc_count": 1}], "sum_other_doc_count": 3}}),
+            None,
+        );
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"by_k": {"buckets": [{"key": "a", "doc_count": 2}], "sum_other_doc_count": 4}}),
+            None,
+        );
+        let merged = merged.unwrap();
+        assert_eq!(merged["by_k"]["buckets"][0]["doc_count"], 3);
+        assert_eq!(merged["by_k"]["sum_other_doc_count"], 7);
+    }
+
+    #[test]
+    fn msearch_metric_avg_merges_via_tracking() {
+        let mut merged: Option<Value> = None;
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"avg_price": {"value": 10.0, "__xy_count__": 2, "__xy_sum__": 20.0}}),
+            None,
+        );
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"avg_price": {"value": 30.0, "__xy_count__": 3, "__xy_sum__": 90.0}}),
+            None,
+        );
+        let merged = merged.unwrap();
+        assert_eq!(merged["avg_price"]["__xy_count__"], 5);
+        assert_eq!(merged["avg_price"]["__xy_sum__"], 110.0);
+        assert_eq!(merged["avg_price"]["value"], 22.0);
+    }
+
+    #[test]
+    fn msearch_single_bucket_filter_sums_doc_count_with_nested_metric() {
+        let mut merged: Option<Value> = None;
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"only_big": {"doc_count": 3,
+                "avg_price": {"value": 10.0, "__xy_count__": 3, "__xy_sum__": 30.0}}}),
+            None,
+        );
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"only_big": {"doc_count": 4,
+                "avg_price": {"value": 20.0, "__xy_count__": 4, "__xy_sum__": 80.0}}}),
+            None,
+        );
+        let merged = merged.unwrap();
+        assert_eq!(merged["only_big"]["doc_count"], 7);
+        assert_eq!(merged["only_big"]["avg_price"]["__xy_count__"], 7);
+        assert!(
+            (merged["only_big"]["avg_price"]["value"].as_f64().unwrap() - 110.0 / 7.0).abs() < 1e-9
+        );
+    }
+
+    #[test]
+    fn msearch_keyed_buckets_object_form_merges() {
+        let mut merged: Option<Value> = None;
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"by_filter": {"buckets": {"a": {"doc_count": 3}}}}),
+            None,
+        );
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"by_filter": {"buckets": {"a": {"doc_count": 4}, "b": {"doc_count": 2}}}}),
+            None,
+        );
+        let merged = merged.unwrap();
+        assert_eq!(merged["by_filter"]["buckets"]["a"]["doc_count"], 7);
+        assert_eq!(merged["by_filter"]["buckets"]["b"]["doc_count"], 2);
+    }
+
+    #[test]
+    fn msearch_unmergeable_shape_keeps_existing() {
+        let mut merged: Option<Value> = None;
+        merge_cross_index_aggs(&mut merged, json!({"odd": {"foo": 1}}), None);
+        merge_cross_index_aggs(&mut merged, json!({"odd": {"foo": 2}}), None);
+        let merged = merged.unwrap();
+        assert_eq!(
+            merged["odd"]["foo"], 1,
+            "unmergeable shapes keep the first index"
+        );
+    }
+
+    #[test]
+    fn msearch_empty_old_buckets_take_new_data() {
+        let mut merged: Option<Value> = None;
+        merge_cross_index_aggs(&mut merged, json!({"by_k": {"buckets": []}}), None);
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"by_k": {"buckets": [{"key": "a", "doc_count": 2}]}}),
+            None,
+        );
+        let merged = merged.unwrap();
+        assert_eq!(merged["by_k"]["buckets"][0]["doc_count"], 2);
+    }
+
+    #[test]
+    fn msearch_none_accumulator_seeds_from_first_result() {
+        let mut merged: Option<Value> = None;
+        let first = json!({"by_k": {"buckets": [{"key": "a", "doc_count": 1}]}});
+        merge_cross_index_aggs(&mut merged, first.clone(), None);
+        assert_eq!(merged, Some(first));
     }
 }
 
@@ -19000,71 +19233,16 @@ async fn search_impl(
                         Some(merged_population_max.map_or(ms as f64, |m: f64| m.max(ms as f64)));
                 }
                 if let Some(new_aggs) = result.aggs {
-                    match &mut merged_aggs {
-                        None => merged_aggs = Some(new_aggs),
-                        Some(existing) => {
-                            if let (Some(ex_obj), Some(new_obj)) =
-                                (existing.as_object_mut(), new_aggs.as_object())
-                            {
-                                for (k, v) in new_obj {
-                                    // Metric-agg aware merge: when both shards
-                                    // returned a metric result with internal
-                                    // tracking, recombine the primitives so
-                                    // `avg/sum/min/max` reflect the union
-                                    // across indices rather than just the
-                                    // first index's value.
-                                    if let Some(old) = ex_obj.get(k).cloned() {
-                                        if leaf_terms_names.contains(k) {
-                                            let merged = merge_leaf_terms_summary(
-                                                &old,
-                                                v,
-                                                leaf_terms_union_cap(
-                                                    body.aggs
-                                                        .as_ref()
-                                                        .or(body.aggregations.as_ref()),
-                                                    k,
-                                                    xerj_engine::aggs::max_buckets(),
-                                                ),
-                                            );
-                                            ex_obj.insert(k.clone(), merged);
-                                            continue;
-                                        }
-                                        if let Some(merged) = merge_metric_agg(&old, v) {
-                                            ex_obj.insert(k.clone(), merged);
-                                            continue;
-                                        }
-                                        if let Some(merged) = merge_bucket_agg(&old, v) {
-                                            ex_obj.insert(k.clone(), merged);
-                                            continue;
-                                        }
-                                        if let Some(merged) = merge_single_bucket_agg(&old, v) {
-                                            ex_obj.insert(k.clone(), merged);
-                                            continue;
-                                        }
-                                    }
-                                    let should_replace = match (ex_obj.get(k), v) {
-                                        (Some(old), new) => {
-                                            let old_empty = old
-                                                .get("buckets")
-                                                .and_then(|b| b.as_array())
-                                                .map(|a| a.is_empty())
-                                                .unwrap_or(false);
-                                            let new_has_data = new
-                                                .get("buckets")
-                                                .and_then(|b| b.as_array())
-                                                .map(|a| !a.is_empty())
-                                                .unwrap_or(false);
-                                            old_empty && new_has_data
-                                        }
-                                        (None, _) => true,
-                                    };
-                                    if should_replace {
-                                        ex_obj.insert(k.clone(), v.clone());
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // Cross-index merge shared with `_msearch` (#3358);
+                    // the leaf-terms context comes from #3361.
+                    merge_cross_index_aggs(
+                        &mut merged_aggs,
+                        new_aggs,
+                        Some((
+                            &leaf_terms_names,
+                            body.aggs.as_ref().or(body.aggregations.as_ref()),
+                        )),
+                    );
                 }
                 if let Some(savings) = result.savings {
                     for (id, bytes) in &savings.per_hit {
@@ -34194,8 +34372,12 @@ async fn msearch_impl(
                     if result.total.relation == xerj_query::executor::TotalHitsRelation::Gte {
                         total_relation = "gte";
                     }
-                    if merged_aggs.is_none() {
-                        merged_aggs = result.aggs;
+                    // Cross-index merge shared with `_search` (#3358):
+                    // `_msearch` used to keep only the first index's
+                    // aggregations, silently dropping every later
+                    // index's buckets.
+                    if let Some(new_aggs) = result.aggs {
+                        merge_cross_index_aggs(&mut merged_aggs, new_aggs, None);
                     }
                     for hit in result.hits {
                         merged_hits.push((idx_name.clone(), hit));
