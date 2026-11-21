@@ -16,6 +16,7 @@ pub mod def;
 pub mod detect;
 pub mod esclient;
 pub mod estimate;
+pub mod eval;
 pub mod extract;
 pub mod facts_rows;
 mod family_junk;
