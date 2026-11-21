@@ -1,9 +1,9 @@
 {
- "corpus": "alvin-reyes--better-agentic-ide",
+ "corpus": "better-ade--ade-terminal",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent, agent-skill, agent-skills queries this for how alvin-reyes/better-agentic-ide implements it: Better Agentic Development Environment (selected work: scripts, src/lib, src/stores)",
+ "domain": "an agent working on agent, agent-skill, agent-skills queries this for how better-ade/ade-terminal implements it: Better Agentic Development Environment (selected work: scripts, src/lib, src/stores)",
  "repos": [
   {
    "repo": "better-agentic-ide",

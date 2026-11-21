@@ -1,0 +1,23 @@
+{
+ "corpus": "zuoyunlai--lunheng-article-pipeline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on openclaw, citation-audit, multi-agent queries this for how zuoyunlai/lunheng-article-pipeline implements it: \u8bba\u8861 \u2014 \u4e2d\u6587\u5b66\u672f/\u6df1\u5ea6\u957f\u6587\u4e13\u7528\u6d41\u6c34\u7ebf\u3002\u591a Agent \u7f16\u6392 + \u4e09\u89d2\u9a8c\u8bc1\uff08\u6587\u732e/\u6570\u636e/\u6848\u4f8b\uff09+ M \u95e8\u5f62\u5f0f\u5408\u89c4 + \u5b9e\u6218\u53cd\u9988\u9a71\u52a8\u5347\u7ea7\u30025000+ \u5b57\u5f3a\u63a8",
+ "repos": [
+  {
+   "repo": "lunheng-article-pipeline",
+   "url": "https://github.com/zuoyunlai/lunheng-article-pipeline",
+   "sha": "90ea052fd08a553989050d4dddec22eea68f73cc",
+   "licence": "MIT (LICENSE file at pin 90ea052fd08a, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-21T04:34Z",
+    "consent_receipt": "a4f97c65a383",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-21T04:34Z (receipt a4f97c65a383); pinned to the default-branch head. LICENSE file at pin 90ea052fd08a detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

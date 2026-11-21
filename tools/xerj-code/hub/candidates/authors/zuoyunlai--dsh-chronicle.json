@@ -1,0 +1,23 @@
+{
+ "corpus": "zuoyunlai--dsh-chronicle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on chronicle, deepseek-harness, dsh-plugin queries this for how zuoyunlai/dsh-chronicle implements it: \u8d77\u5c45\u6ce8\uff1a\u628a DeepSeek Harness \u91cc\u7684\u5bf9\u8bdd\u6536\u53e3\u6210\u53ef\u5ba1\u3001\u53ef\u68c0\u7d22\u3001\u53ef\u5173\u8054\u7684 Markdown \u7f16\u5e74\u53f2 + \u4e8b\u5b9e\u5e93\u3002\u96f6\u7b2c\u4e09\u65b9\u4f9d\u8d56\u3002",
+ "repos": [
+  {
+   "repo": "dsh-chronicle",
+   "url": "https://github.com/zuoyunlai/dsh-chronicle",
+   "sha": "2a57054943faeee90e1ec30731ee13e96c9ef178",
+   "licence": "MIT (LICENSE file at pin 2a57054943fa, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-21T04:34Z",
+    "consent_receipt": "ce36af7f43d3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-21T04:34Z (receipt ce36af7f43d3); pinned to the default-branch head. LICENSE file at pin 2a57054943fa detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

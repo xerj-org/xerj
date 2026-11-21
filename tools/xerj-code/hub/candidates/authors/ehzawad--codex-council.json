@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude, claude-code, claude-code-plugin queries this for how ehzawad/codex-council implements it: Multi-perspective parallel Codex adaptive collaboration for Claude Code \u2014 N sub-agents, each framed with a role you decide per call (selected work: tests, plugins)",
+ "domain": "an agent working on claude, claude-code, claude-code-plugin queries this for how ehzawad/codex-council implements it: Multi-perspective parallel Codex adaptive harness for Claude Code \u2014 N sub-agents, each framed with a role you decide per call (selected work: tests, plugins)",
  "repos": [
   {
    "repo": "codex-council",
