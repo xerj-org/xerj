@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how iCog-Labs-Dev/hopfieldpc-memory-core implements it: Standalone modern Hopfield memory core for HopfieldPC, including beta-controlled associative retrieval, diagnostics, synthetic benchmarks, a (selected work: benchmarks, tests, src/hopfieldpc)",
+ "domain": "an agent working on Python queries this for how iCog-Labs-Dev/hopfieldpc-memory-core implements it: Standalone modern Hopfield memory core for HopfieldPC, including beta-controlled associative retrieval, diagnostics, synthetic benchmarks, a (selected work: src/hopfieldpc, tests)",
  "repos": [
   {
    "repo": "hopfieldpc-memory-core",
    "url": "https://github.com/iCog-Labs-Dev/hopfieldpc-memory-core",
-   "sha": "a859b8f239105958fed78ecd3467556510317795",
-   "licence": "MIT (LICENSE file at pin a859b8f23910, GitHub licence API 2026-11-07)",
+   "sha": "e1d6d4a62503738aefb051b37203e0da3a2378bc",
+   "licence": "MIT (LICENSE file at pin e1d6d4a62503, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-07T14:06Z",
-    "consent_receipt": "2e2353aee796",
-    "note": "Inclusion consented by the commit author by email at 2026-11-07T14:06Z (receipt 2e2353aee796); selected commit a859b8f23910: \"feat: enhance synthetic retrieval benchmark and add diagnostics module\". LICENSE file at pin a859b8f23910 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @iCog-Labs-Dev, who has not added it."
+    "at": "2026-11-07T14:41Z",
+    "consent_receipt": "c7bb94bd3889",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T14:41Z (receipt c7bb94bd3889); selected commit e1d6d4a62503: \"Add Hopfield retrieval diagnostics\". LICENSE file at pin e1d6d4a62503 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @iCog-Labs-Dev, who has not added it."
    },
    "paths": [
     "benchmarks",

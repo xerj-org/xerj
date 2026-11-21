@@ -8,15 +8,15 @@
   {
    "repo": "firstmate",
    "url": "https://github.com/kunchenguid/firstmate",
-   "sha": "20dcbf91520b1816663b81873ad67d0b93b3e4d6",
-   "licence": "MIT (LICENSE file at pin 20dcbf91520b, GitHub licence API 2026-10-24)",
+   "sha": "821409b91f8abd70f52ab4c3f9efe93357cd0bd3",
+   "licence": "MIT (LICENSE file at pin 821409b91f8a, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-13T14:31Z",
-    "consent_receipt": "5e87b47d615d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T14:31Z (receipt 5e87b47d615d); selected commit 20dcbf91520b: \"feat(bin): support Forgejo/Gitea as a forge via the tea CLI (#4395)\". LICENSE file at pin 20dcbf91520b detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kunchenguid, who has not added it."
+    "at": "2026-10-30T14:25Z",
+    "consent_receipt": "ccab2dc071e0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T14:25Z (receipt ccab2dc071e0); selected commit 821409b91f8a: \"feat(bin): opt-in spawn base from the primary checkout for local-only\u2026\". LICENSE file at pin 821409b91f8a detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kunchenguid, who has not added it."
    },
    "paths": [
     ".agents/skills/operational-home-layout",
