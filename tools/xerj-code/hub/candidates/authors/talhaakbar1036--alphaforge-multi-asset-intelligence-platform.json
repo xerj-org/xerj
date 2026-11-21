@@ -1,0 +1,23 @@
+{
+ "corpus": "talhaakbar1036--alphaforge-multi-asset-intelligence-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how talhaakbar1036/AlphaForge-Multi-Asset-Intelligence-Platform implements it: Multi-asset market intelligence and investment decision-support platform with an evidence-grounded financial AI copilot (selected work: models, src/models, src/utils)",
+ "repos": [
+  {
+   "repo": "AlphaForge-Multi-Asset-Intelligence-Platform",
+   "url": "https://github.com/talhaakbar1036/AlphaForge-Multi-Asset-Intelligence-Platform",
+   "sha": "38a5b6e80debc5e6b353ce5dd2f644e9af3bf259",
+   "licence": "MIT (LICENSE file at pin 38a5b6e80deb, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T04:35Z",
+    "consent_receipt": "75c8d6befdcd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T04:35Z (receipt 75c8d6befdcd); pinned to the default-branch head. LICENSE file at pin 38a5b6e80deb detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

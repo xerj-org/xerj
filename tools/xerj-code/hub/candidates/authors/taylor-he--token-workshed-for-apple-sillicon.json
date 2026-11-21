@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how Taylor-He/token-workshed-for-Apple-Sillicon implements it: Token Workshed: desktop UI + local model manager built on vllm, with Hugging Face community search and one-click deploy. Aimed to build a us (selected work: native-ui, scripts)",
+ "domain": "an agent working on ai-agent, apple-silicon, local-llm queries this for how Taylor-He/token-workshed-for-Apple-Sillicon implements it: Token Workshed for Apple Silicon: a local SGLang workbench and NextCore Agent, with optional remote RoboServer (selected work: native-ui, scripts)",
  "repos": [
   {
    "repo": "token-workshed-for-Apple-Sillicon",

@@ -1,0 +1,23 @@
+{
+ "corpus": "riccardobuzzoni--imdb-sentiment-analyzer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on analyzer, imdb-dataset, logistic-regression queries this for how RiccardoBuzzoni/imdb-sentiment-analyzer implements it: Binary sentiment classifier for IMDB movie reviews, built with scikit-learn (TF-IDF + Logistic Regression, 91.4% test accuracy) (selected work: src)",
+ "repos": [
+  {
+   "repo": "imdb-sentiment-analyzer",
+   "url": "https://github.com/RiccardoBuzzoni/imdb-sentiment-analyzer",
+   "sha": "8ea8c5c5db388684d764dc20a68adfa4a5846e92",
+   "licence": "MIT (LICENSE file at pin 8ea8c5c5db38, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T16:00Z",
+    "consent_receipt": "b952d1e26798",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T16:00Z (receipt b952d1e26798); selected commit 8ea8c5c5db38: \"feat: add command-line scripts for training and predictions\". LICENSE file at pin 8ea8c5c5db38 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

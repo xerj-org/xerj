@@ -8,15 +8,15 @@
   {
    "repo": "PN-lean",
    "url": "https://github.com/djabbat/PN-lean",
-   "sha": "5554246b21c25fe07b83c772aa878ce019539150",
-   "licence": "Apache-2.0 (LICENSE file at pin 5554246b21c2, GitHub licence API 2026-10-28)",
+   "sha": "f10272eebb4ec9285098f441bd68bcb9cbeee9b6",
+   "licence": "Apache-2.0 (LICENSE file at pin f10272eebb4e, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:46Z",
     "consent_receipt": "8c41eddeb532",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:46Z (receipt 8c41eddeb532); pinned to the default-branch head. LICENSE file at pin 5554246b21c2 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:46Z (receipt 8c41eddeb532); pinned to the default-branch head. LICENSE file at pin f10272eebb4e detected as Apache-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution."
    }
   }
  ]

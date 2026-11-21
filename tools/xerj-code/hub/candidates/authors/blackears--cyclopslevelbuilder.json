@@ -1,0 +1,23 @@
+{
+ "corpus": "blackears--cyclopslevelbuilder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on GDScript queries this for how blackears/cyclopsLevelBuilder implements it: A Godot plugin to let you block in levels inside the Godot editor (selected work: godot, the project root)",
+ "repos": [
+  {
+   "repo": "cyclopsLevelBuilder",
+   "url": "https://github.com/blackears/cyclopsLevelBuilder",
+   "sha": "79e6b65772825748db6551491541f01960ef57d2",
+   "licence": "MIT (LICENSE file at pin 79e6b6577282, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T17:20Z",
+    "consent_receipt": "9eea6d845224",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T17:20Z (receipt 9eea6d845224); selected commit 79e6b6577282: \"Moving initialization from _init() to _ready().\". LICENSE file at pin 79e6b6577282 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

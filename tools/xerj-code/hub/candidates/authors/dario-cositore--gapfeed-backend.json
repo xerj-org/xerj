@@ -8,15 +8,15 @@
   {
    "repo": "gapfeed-backend",
    "url": "https://github.com/dario-cositore/gapfeed-backend",
-   "sha": "2b1808315a90fe76ec6c79b2323eb079773dcf09",
-   "licence": "MIT (LICENSE file at pin 2b1808315a90, GitHub licence API 2026-11-15)",
+   "sha": "655f0c9f57ca212bbd7d135e599c6b581f007645",
+   "licence": "MIT (LICENSE file at pin 655f0c9f57ca, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T06:11Z",
     "consent_receipt": "80c667ad09ee",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T06:11Z (receipt 80c667ad09ee); pinned to the default-branch head. LICENSE file at pin 2b1808315a90 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T06:11Z (receipt 80c667ad09ee); pinned to the default-branch head. LICENSE file at pin 655f0c9f57ca detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "mouns17--myerp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Mouns17/MyERP implements it: Mouns17/MyERP (C#) (selected work: MyERP)",
+ "repos": [
+  {
+   "repo": "MyERP",
+   "url": "https://github.com/Mouns17/MyERP",
+   "sha": "4c22cb186a2db88e6d155cf4b631ef8e9ff332ea",
+   "licence": "MIT (LICENSE file at pin 4c22cb186a2d, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T08:12Z",
+    "consent_receipt": "17ac06a1dcf0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T08:12Z (receipt 17ac06a1dcf0); selected commit 4c22cb186a2d: \"\u041a\u043e\u043d\u0435\u0446?\". LICENSE file at pin 4c22cb186a2d detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

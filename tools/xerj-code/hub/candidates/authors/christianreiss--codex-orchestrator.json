@@ -2,8 +2,8 @@
  "corpus": "christianreiss--codex-orchestrator",
  "cloned_at": null,
  "status": "draft",
- "shelf": "CRYPTO",
- "domain": "an agent working on admin-dashboard, authentication, caddy queries this for how christianreiss/codex-orchestrator implements it: Codex Orchestrator: a Dockerized PHP application that orchestrates Codex authentication across hosts, provides a sleek admin dashboard, mana (selected work: mobile)",
+ "shelf": "AI",
+ "domain": "an agent working on admin-dashboard, authentication, caddy queries this for how christianreiss/codex-orchestrator implements it: Self-hosted control plane for AI coding agents: one fleet for OpenAI Codex, Claude Code, Grok Build and Kimi Code. Auth and config sync, sha (selected work: mobile)",
  "repos": [
   {
    "repo": "codex-orchestrator",

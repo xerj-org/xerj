@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how wangyq276-star/learning_programing implements it: \u5b66\u4e60Python\uff0cJava\uff0cC\u8bed\u8a00\uff0cC++\u7684\u4e00\u4e9b\u4ee3\u7801 (selected work: C++Program)",
+ "domain": "an agent working on Jupyter Notebook queries this for how wangyq276-star/learning_programing implements it: \u5b66\u4e60Python\uff0cJava\uff0cC\u8bed\u8a00\uff0cC++\u7684\u4e00\u4e9b\u4ee3\u7801 (selected work: C++Program)",
  "repos": [
   {
    "repo": "learning_programing",

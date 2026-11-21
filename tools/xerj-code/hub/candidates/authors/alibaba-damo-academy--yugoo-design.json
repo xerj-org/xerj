@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, codex, deepseek-harness queries this for how alibaba-damo-academy/yugoo-design implements it: Turn your AI agent app into an interactive ideation and design workbench. A general-purpose, open-source framework with editable panels and  (selected work: packages/studio, packages/companion, packages/studio-ui)",
+ "domain": "an agent working on ai-agents, codex, deepseek-harness queries this for how alibaba-damo-academy/yugoo-design implements it: Turn your AI agent app into a design consultant with interactive workbench. A general-purpose, open-source framework with editable panels an (selected work: packages/studio, packages/companion, packages/studio-ui)",
  "repos": [
   {
    "repo": "yugoo-design",

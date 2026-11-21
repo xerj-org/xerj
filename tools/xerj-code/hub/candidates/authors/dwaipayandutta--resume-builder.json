@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how DwaipayanDutta/resume_builder implements it: DwaipayanDutta/resume_builder (Python) (selected work: src/resume_builder, the project root, src/resume_builder.egg-info)",
+ "domain": "an agent working on TypeScript queries this for how DwaipayanDutta/resume_builder implements it: DwaipayanDutta/resume_builder (TypeScript) (selected work: src/resume_builder, the project root, src/resume_builder.egg-info)",
  "repos": [
   {
    "repo": "resume_builder",

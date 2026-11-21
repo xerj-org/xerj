@@ -8,15 +8,15 @@
   {
    "repo": "HAQ",
    "url": "https://github.com/TabiqZargar/HAQ",
-   "sha": "7e1809cb3c8177acb860417d0c696f045e2b695e",
-   "licence": "MIT (LICENSE file at pin 7e1809cb3c81, GitHub licence API 2026-11-01)",
+   "sha": "3a3d2b9245522627966a26bb7c290e79559ef5cb",
+   "licence": "MIT (LICENSE file at pin 3a3d2b924552, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T05:06Z",
     "consent_receipt": "6e97ee8b5bef",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T05:06Z (receipt 6e97ee8b5bef); selected commit 7e1809cb3c81: \"perf: optimize legal retrieval with caching\". LICENSE file at pin 7e1809cb3c81 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 7e1809cb3c81 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T05:06Z (receipt 6e97ee8b5bef); selected commit 3a3d2b924552: \"perf: optimize legal retrieval with caching\". LICENSE file at pin 3a3d2b924552 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution. Pinned to head 3a3d2b924552 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

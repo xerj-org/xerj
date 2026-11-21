@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on access-control, audit-trail, cli queries this for how why-xn/kbridge implements it: Kubernetes access through a central control plane: no kubeconfig distribution, no inbound ports. Commands are checked against policy before  (selected work: internal/cli, internal/agent, internal/controlplane)",
+ "domain": "an agent working on access-control, audit-trail, cli queries this for how why-xn/kbridge implements it: kbridge sits between people and Kubernetes clusters. Users run kubectl-style commands with no cluster credentials, and every command is chec (selected work: internal/cli, internal/agent, internal/controlplane)",
  "repos": [
   {
    "repo": "kbridge",

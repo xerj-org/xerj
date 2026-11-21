@@ -1,0 +1,23 @@
+{
+ "corpus": "itsjerryokolo--cryptopunks-substreams",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on cryptopunks, ethereum, nft queries this for how itsjerryokolo/cryptopunks_substreams implements it: A Rust and Substreams indexer that reconstructs CryptoPunks sales, bids, and ownership from Ethereum logs and writes them to PostgreSQL (selected work: scripts, src, tests)",
+ "repos": [
+  {
+   "repo": "cryptopunks_substreams",
+   "url": "https://github.com/itsjerryokolo/cryptopunks_substreams",
+   "sha": "337f8b6add8c3818609f125252fa662f25ed0a18",
+   "licence": "Apache-2.0 (LICENSE file at pin 337f8b6add8c, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T20:37Z",
+    "consent_receipt": "02a3305317fa",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T20:37Z (receipt 02a3305317fa); selected commit 337f8b6add8c: \"Expand validation to 100k blocks and verify recent CryptoPunks data\". LICENSE file at pin 337f8b6add8c detected as Apache-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

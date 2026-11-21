@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on Go queries this for how fridalif/open-defender implements it: Open Source complex tool for monitoring and security audit Linux Servers (selected work: pkg/ebpfmonitors)",
+ "domain": "an agent working on Go queries this for how fridalif/open-defender implements it: Open Defender: open-source EDR agent for Linux servers with brute-force protection, eBPF monitoring, and security auditing (selected work: pkg/ebpfmonitors)",
  "repos": [
   {
    "repo": "open-defender",

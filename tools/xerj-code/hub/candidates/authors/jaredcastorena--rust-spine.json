@@ -2,8 +2,8 @@
  "corpus": "jaredcastorena--rust-spine",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Rust queries this for how Jaredcastorena/Rust-spine implements it: Jaredcastorena/Rust-spine (Rust) (selected work: crates/spine-cli, the project root, crates/spine-runtime)",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, ai-agents, llm queries this for how Jaredcastorena/Rust-spine implements it: A self-hosted AI agent harness in Rust with encrypted persistent memory, adaptive recall, and evidence-grounded answers (selected work: crates/spine-cli, the project root, crates/spine-runtime)",
  "repos": [
   {
    "repo": "Rust-spine",

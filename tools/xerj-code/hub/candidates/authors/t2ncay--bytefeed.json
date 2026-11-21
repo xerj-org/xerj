@@ -1,0 +1,23 @@
+{
+ "corpus": "t2ncay--bytefeed",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how t2ncay/bytefeed implements it: News Feed TUI application for daily drive",
+ "repos": [
+  {
+   "repo": "bytefeed",
+   "url": "https://github.com/t2ncay/bytefeed",
+   "sha": "4f491f58aba1d361c0d16773bfdd78ffa968218a",
+   "licence": "MIT (LICENSE file at pin 4f491f58aba1, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-20T18:28Z",
+    "consent_receipt": "8b389966ce60",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-20T18:28Z (receipt 8b389966ce60); pinned to the default-branch head. LICENSE file at pin 4f491f58aba1 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

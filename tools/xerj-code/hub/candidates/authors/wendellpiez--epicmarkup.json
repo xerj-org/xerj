@@ -1,0 +1,23 @@
+{
+ "corpus": "wendellpiez--epicmarkup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how wendellpiez/EpicMarkup implements it: Epic poetry - Homer's Iliad - with LMNL markup: overlapping hierarchies on a TEI/XML/XSLT/XProc 3.0 platform (selected work: run)",
+ "repos": [
+  {
+   "repo": "EpicMarkup",
+   "url": "https://github.com/wendellpiez/EpicMarkup",
+   "sha": "4c6dae26e3da5f9e9e8414893f13842008049a14",
+   "licence": "MIT (LICENSE file at pin 4c6dae26e3da, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T06:45Z",
+    "consent_receipt": "145d0f1413fd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T06:45Z (receipt 145d0f1413fd); selected commit 4c6dae26e3da: \"Production pipelines for ILIAD ILLUMINATED, in draft - LMNL source to\u2026\". LICENSE file at pin 4c6dae26e3da detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

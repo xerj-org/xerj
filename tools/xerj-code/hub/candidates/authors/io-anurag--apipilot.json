@@ -1,0 +1,23 @@
+{
+ "corpus": "io-anurag--apipilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how io-anurag/ApiPilot implements it: ApiPilot is an AI-powered API test engineering platform that transforms OpenAPI/YAML specifications into intelligent, executable API test su (selected work: backend, frontend, packages/shared-domain)",
+ "repos": [
+  {
+   "repo": "ApiPilot",
+   "url": "https://github.com/io-anurag/ApiPilot",
+   "sha": "09eeed8ab3f265f5401afb8128ad9fd52f375a9a",
+   "licence": "MIT (LICENSE file at pin 09eeed8ab3f2, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T13:41Z",
+    "consent_receipt": "5ee597d7dc96",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T13:41Z (receipt 5ee597d7dc96); selected commit 09eeed8ab3f2: \"feat(AP-035): Implement user-defined journeys and captured values\". LICENSE file at pin 09eeed8ab3f2 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

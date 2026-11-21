@@ -8,15 +8,15 @@
   {
    "repo": "lertick",
    "url": "https://github.com/Denny-Lin/lertick",
-   "sha": "aa64927abcbbe47a23de447944e5b72ee615ed6f",
-   "licence": "GPL-2.0 (LICENSE file at pin aa64927abcbb, GitHub licence API 2026-11-19)",
+   "sha": "0b0f10ef3041cec8298ae73304a3a92d2daa86f8",
+   "licence": "GPL-2.0 (LICENSE file at pin 0b0f10ef3041, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "GPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-01T18:18Z",
     "consent_receipt": "f1d65f9cc832",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T18:18Z (receipt f1d65f9cc832); selected commit aa64927abcbb: \"fix: account pending CPU service and bound task telemetry\". LICENSE file at pin aa64927abcbb detected as GPL-2.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head aa64927abcbb (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T18:18Z (receipt f1d65f9cc832); selected commit 0b0f10ef3041: \"fix: account pending CPU service and bound task telemetry\". LICENSE file at pin 0b0f10ef3041 detected as GPL-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Pinned to head 0b0f10ef3041 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

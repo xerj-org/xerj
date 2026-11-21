@@ -2,8 +2,8 @@
  "corpus": "fcglitches--getvideoslocally",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how FCGLITCHES/GetVideosLocally implements it: FCGLITCHES/GetVideosLocally (JavaScript) (selected work: the project root, tests, public)",
+ "shelf": "WEB",
+ "domain": "an agent working on electron, ffmpeg, open-source queries this for how FCGLITCHES/GetVideosLocally implements it: Free, open-source video downloader for Windows. A yt-dlp GUI for 1,000+ sites, up to 8K, MP3 and FLAC (selected work: the project root, tests, public)",
  "repos": [
   {
    "repo": "GetVideosLocally",

@@ -8,15 +8,15 @@
   {
    "repo": "dependency-checker",
    "url": "https://github.com/steventimes/dependency-checker",
-   "sha": "cf04881ff2d1cb6e348988a778e883d2a9972374",
-   "licence": "Apache-2.0 (LICENSE file at pin cf04881ff2d1, GitHub licence API 2026-11-19)",
+   "sha": "3d7617919adb9cee5e22c91eabb7124f8e3c6237",
+   "licence": "Apache-2.0 (LICENSE file at pin 3d7617919adb, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:33Z",
     "consent_receipt": "8f2c36fbb5ac",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:33Z (receipt 8f2c36fbb5ac); pinned to the default-branch head. LICENSE file at pin cf04881ff2d1 detected as Apache-2.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:33Z (receipt 8f2c36fbb5ac); pinned to the default-branch head. LICENSE file at pin 3d7617919adb detected as Apache-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Svelte queries this for how norjms/openprinthq implements it: OpenPrintHQ - multi-brand 3D print farm management (website + control-plane). AGPL-3.0 (selected work: control-plane)",
+ "domain": "an agent working on 3d-printing, fastapi, inventory queries this for how norjms/openprinthq implements it: Self-hosted hub for small 3D print businesses and print farms: models as products, print farm, filament and parts inventory, model library a (selected work: control-plane)",
  "repos": [
   {
    "repo": "openprinthq",

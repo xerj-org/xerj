@@ -1,0 +1,23 @@
+{
+ "corpus": "abdumateen--agent-qa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-memory, claude, claude-code-plugin queries this for how abdumateen/Agent-QA implements it: Persistent test memory layer for AI coding agents. Stores fixtures, API contracts, failure patterns, and flaky test data (selected work: core/agent_qa, core/tests, the project root)",
+ "repos": [
+  {
+   "repo": "Agent-QA",
+   "url": "https://github.com/abdumateen/Agent-QA",
+   "sha": "72f082fd82124b202129df3bab1b39f5deebbfca",
+   "licence": "MIT (LICENSE file at pin 72f082fd8212, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T11:18Z",
+    "consent_receipt": "81f966ec6de3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T11:18Z (receipt 81f966ec6de3); selected commit 72f082fd8212: \"feat: add confidence scoring, flaky metrics, and HTML export\". LICENSE file at pin 72f082fd8212 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "omnivoice-rs",
    "url": "https://github.com/FerrisMind/omnivoice-rs",
-   "sha": "64450585a7f32b46a076e438088ad28063c5a6f7",
-   "licence": "author's permission (LICENSE at pin 64450585a7f3: NOASSERTION; repository: Apache-2.0)",
+   "sha": "eff87ec5f4c54bcde71823f627fe72a0d61d6d14",
+   "licence": "author's permission (LICENSE at pin eff87ec5f4c5: NOASSERTION; repository: Apache-2.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:26Z",
     "consent_receipt": "7bed0454b3df",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:26Z (receipt 7bed0454b3df); pinned to the default-branch head. LICENSE at pin 64450585a7f3: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:26Z (receipt 7bed0454b3df); pinned to the default-branch head. LICENSE at pin eff87ec5f4c5: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
    }
   }
  ]

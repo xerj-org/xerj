@@ -1,0 +1,36 @@
+{
+ "corpus": "kubeflow--spark-operator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on kubernetes, kubernetes-operator, apache-spark queries this for how kubeflow/spark-operator implements it: Kubernetes operator for managing the lifecycle of Apache Spark applications on Kubernetes (selected work: internal/webhook, internal/controller, test)",
+ "repos": [
+  {
+   "repo": "spark-operator",
+   "url": "https://github.com/kubeflow/spark-operator",
+   "sha": "270baba073b8afe78d182c6167a5c26942e17c0b",
+   "licence": "Apache-2.0 (LICENSE file at pin 270baba073b8, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T09:03Z",
+    "consent_receipt": "0630b6157dde",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T09:03Z (receipt 0630b6157dde); selected commit 270baba073b8: \"feat: support physical CPU request and limit in SparkConnect CRD (#3096)\". LICENSE file at pin 270baba073b8 detected as Apache-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kubeflow, who has not added it."
+   },
+   "paths": [
+    "api/openapi-spec",
+    "api/python_api/kubeflow_spark_api/models",
+    "api/v1alpha1",
+    "charts/spark-operator-chart/crds",
+    "config/crd/bases",
+    "docs",
+    "examples/sparkconnect",
+    "internal/controller/sparkconnect",
+    "internal/webhook",
+    "pkg/util",
+    "test/e2e"
+   ]
+  }
+ ]
+}

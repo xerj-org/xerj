@@ -1,0 +1,23 @@
+{
+ "corpus": "kellyglennit--raven-recorder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on audio, audioencryption, audiorecognition queries this for how KellyGlennIT/raven_recorder implements it: A free, open-source Flutter audio recorder with resumable recordings, project management, audio editing, AES-256-GCM encryption and privacy- (selected work: lib/screens, test, lib/services)",
+ "repos": [
+  {
+   "repo": "raven_recorder",
+   "url": "https://github.com/KellyGlennIT/raven_recorder",
+   "sha": "bb5ab3bf4819323170625fa8741d6c1af77cef92",
+   "licence": "GPL-3.0 (LICENSE file at pin bb5ab3bf4819, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T12:30Z",
+    "consent_receipt": "0070377a42c0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T12:30Z (receipt 0070377a42c0); selected commit bb5ab3bf4819: \"feat: Implement trash retention settings and audio protection features\". LICENSE file at pin bb5ab3bf4819 detected as GPL-3.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

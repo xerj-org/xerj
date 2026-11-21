@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on anticensorship, enet, kcp queries this for how radkesvat/WaterWall implements it: WaterWall is a networking-core that aims to be as flexible as possible (selected work: tests, tunnels)",
+ "domain": "an agent working on enet, kcp, mux queries this for how radkesvat/WaterWall implements it: WaterWall is a networking-core that aims to be as flexible as possible (selected work: tests, tunnels)",
  "repos": [
   {
    "repo": "WaterWall",

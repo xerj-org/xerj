@@ -8,15 +8,15 @@
   {
    "repo": "qson",
    "url": "https://github.com/nhartman000/qson",
-   "sha": "2d2680d3d43bea88e2c82c2c5eb519d21f43e5ae",
-   "licence": "MIT (LICENSE file at pin 2d2680d3d43b, GitHub licence API 2026-11-04)",
+   "sha": "2988abfef3a7812952e59db15f5074e498a61bbc",
+   "licence": "author's permission (LICENSE at pin 2988abfef3a7: NOASSERTION; repository: NOASSERTION)",
    "review": {
-    "spdx": "MIT",
+    "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T12:50Z",
     "consent_receipt": "7f66dcb002aa",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T12:50Z (receipt 7f66dcb002aa); pinned to the default-branch head. LICENSE file at pin 2d2680d3d43b detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T12:50Z (receipt 7f66dcb002aa); pinned to the default-branch head. LICENSE at pin 2988abfef3a7: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

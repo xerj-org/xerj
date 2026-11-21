@@ -1,0 +1,23 @@
+{
+ "corpus": "zuoyunlai--dsh-pet-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on desktop-pet, dsh, dsh-plugin queries this for how zuoyunlai/dsh-pet-plugin implements it: Photo-real desk pet plugin for DeepSeek Harness: four personas, expressions + actions, proactive speech, neural TTS, tiny chat box that neve",
+ "repos": [
+  {
+   "repo": "dsh-pet-plugin",
+   "url": "https://github.com/zuoyunlai/dsh-pet-plugin",
+   "sha": "13d518206742ea29189a36695c9522cb4777186a",
+   "licence": "MIT (LICENSE file at pin 13d518206742, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-21T04:34Z",
+    "consent_receipt": "201ef0706902",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-21T04:34Z (receipt 201ef0706902); pinned to the default-branch head. LICENSE file at pin 13d518206742 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

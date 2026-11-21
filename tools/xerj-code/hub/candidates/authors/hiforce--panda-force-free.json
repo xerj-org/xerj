@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how hiforce/panda-force-free implements it: MIT-licensed snapshot of PandaForce. Free to use, modify, and fork, including for commercial use (selected work: tests, src/client, the project root)",
+ "domain": "an agent working on TypeScript queries this for how hiforce/panda-force-free implements it: MIT-licensed snapshot of PandaForce. Free to use, modify, and fork, including for commercial use (selected work: tests, src/client, the project root)",
  "repos": [
   {
    "repo": "panda-force-free",

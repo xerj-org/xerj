@@ -1,0 +1,29 @@
+{
+ "corpus": "scylladb--scylla-cluster-tests",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cql, scylladb, test-automation queries this for how scylladb/scylla-cluster-tests implements it: Tests for Scylla Clusters (selected work: unit_tests, sdcm, defaults)",
+ "repos": [
+  {
+   "repo": "scylla-cluster-tests",
+   "url": "https://github.com/scylladb/scylla-cluster-tests",
+   "sha": "7b84af8ebcd2929dcd065b1ab9b9060a1145d676",
+   "licence": "AGPL-3.0 (LICENSE file at pin 7b84af8ebcd2, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-19T07:01Z",
+    "consent_receipt": "ef9c36ba5d02",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T07:01Z (receipt ef9c36ba5d02); selected commit 7b84af8ebcd2: \"feature(logcollector): add configurable Grafana panel screenshot capture\". LICENSE file at pin 7b84af8ebcd2 detected as AGPL-3.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @scylladb, who has not added it."
+   },
+   "paths": [
+    "defaults",
+    "docs",
+    "sdcm",
+    "unit_tests/unit"
+   ]
+  }
+ ]
+}

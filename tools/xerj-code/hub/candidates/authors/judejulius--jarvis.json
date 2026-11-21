@@ -1,0 +1,28 @@
+{
+ "corpus": "judejulius--jarvis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Kotlin queries this for how judejulius/jarvis implements it: Jarvis is an open-source Android AI voice assistant that controls your apps hands-free using natural language, offline speech recognition, a (selected work: app/src, the project root)",
+ "repos": [
+  {
+   "repo": "jarvis",
+   "url": "https://github.com/judejulius/jarvis",
+   "sha": "345b6633de0906753770a89350eb2af8bd86c770",
+   "licence": "MIT (LICENSE file at pin 345b6633de09, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-20T17:20Z",
+    "consent_receipt": "b04775d05446",
+    "note": "Inclusion consented by the commit author by email at 2026-11-20T17:20Z (receipt b04775d05446); selected commit 345b6633de09: \"Implement JARVIS voice, local AI and phone control improvements\". LICENSE file at pin 345b6633de09 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @judejulius, who has not added it."
+   },
+   "paths": [
+    "app/src/main",
+    "app/src/test/java/com/jarvis/assistant/agent",
+    "app/src/test/java/com/jarvis/assistant/memory"
+   ]
+  }
+ ]
+}

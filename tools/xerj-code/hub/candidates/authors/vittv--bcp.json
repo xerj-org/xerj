@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how Vittv/bcp implements it: A reader for the Daily Office of the Book of Common Prayer (1979, The Episcopal Church), composed for any date by a local liturgical calenda (selected work: src/components, src/context, src/screens)",
+ "domain": "an agent working on TypeScript queries this for how Vittv/bcp implements it: A reader for the Daily Office of the Book of Common Prayer (1979, 1962, 1662), composed for any date by a local liturgical calendar engine.  (selected work: src/components, src/context, src/screens)",
  "repos": [
   {
    "repo": "bcp",

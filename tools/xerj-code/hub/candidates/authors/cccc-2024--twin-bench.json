@@ -2,8 +2,8 @@
  "corpus": "cccc-2024--twin-bench",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how CCCC-2024/twin-bench implements it: CCCC-2024/twin-bench (Python) (selected work: tools, twins)",
+ "shelf": "AI",
+ "domain": "an agent working on cyber-physical-systems, digital-twins, python queries this for how CCCC-2024/twin-bench implements it: A shared estimate\u2013predict\u2013decide loop for building and comparing AI-enabled digital twins across domains (selected work: tools, twins)",
  "repos": [
   {
    "repo": "twin-bench",

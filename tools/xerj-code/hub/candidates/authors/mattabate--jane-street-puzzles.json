@@ -1,0 +1,23 @@
+{
+ "corpus": "mattabate--jane-street-puzzles",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on jane-street, puzzles, python queries this for how mattabate/jane_street_puzzles implements it: My solutions to Jane Street's monthly puzzles: code, write-ups and scratch-work (selected work: 2024-05-number-cross-4, 2024-06-altered-states-2)",
+ "repos": [
+  {
+   "repo": "jane_street_puzzles",
+   "url": "https://github.com/mattabate/jane_street_puzzles",
+   "sha": "a768757f320e772f152d6b738c70fd80b55aabb2",
+   "licence": "MIT (LICENSE file at pin a768757f320e, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-20T06:26Z",
+    "consent_receipt": "6bb43db44907",
+    "note": "Inclusion consented by the commit author by email at 2026-11-20T06:26Z (receipt 6bb43db44907); selected commit a768757f320e: \"One repo for all my Jane Street solutions, a folder per puzzle\". LICENSE file at pin a768757f320e detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

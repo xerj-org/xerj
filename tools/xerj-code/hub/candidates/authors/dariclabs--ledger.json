@@ -2,7 +2,7 @@
  "corpus": "dariclabs--ledger",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
+ "shelf": "CRYPTO",
  "domain": "an agent working on finance, fintech, ledger queries this for how DaricLabs/ledger implements it: Core financial ledger service implementing double-entry accounting, immutable journal entries, account balances, and transaction posting. Pr (selected work: apps/ledger-api)",
  "repos": [
   {

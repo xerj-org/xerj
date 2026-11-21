@@ -1,0 +1,23 @@
+{
+ "corpus": "dedeadend--killmyapps",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, battery-saver, java queries this for how dedeadend/KillMyApps implements it: Android app killer using Root & Shizuku to save battery, boost performance and enhance privacy (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "KillMyApps",
+   "url": "https://github.com/dedeadend/KillMyApps",
+   "sha": "08b4ad9c383fd18aec2d0a2b68875c5e2bb90ed0",
+   "licence": "GPL-3.0 (LICENSE file at pin 08b4ad9c383f, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-19T23:28Z",
+    "consent_receipt": "715572a86397",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T23:28Z (receipt 715572a86397); selected commit 08b4ad9c383f: \"feat(backup): add backup and restore for app selection and settings\". LICENSE file at pin 08b4ad9c383f detected as GPL-3.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

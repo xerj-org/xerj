@@ -1,0 +1,23 @@
+{
+ "corpus": "zuoyunlai--dsh-healthkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on audit, cli, cordis queries this for how zuoyunlai/dsh-healthkit implements it: DSH \u4f53\u68c0\uff1a\u5347\u7ea7\u6216\u6539\u914d\u7f6e\u540e\uff0c\u5148\u770b\u63d2\u4ef6\u8fd8\u5728\u4e0d\u5728\u8dd1\u3001\u4e0a\u6b21\u7684\u95ee\u9898\u4fee\u4e86\u6ca1\uff1b\u53ea\u8bfb\u8bc4\u5206 / \u53ef\u8fd8\u539f\u6e05\u7406 / \u8de8\u91cd\u542f\u9a8c\u56de\uff08DeepSeek Harness \u63d2\u4ef6\uff09",
+ "repos": [
+  {
+   "repo": "dsh-healthkit",
+   "url": "https://github.com/zuoyunlai/dsh-healthkit",
+   "sha": "a51602ac803c941b61ffd8a95a3768d1e0fc5ed5",
+   "licence": "MIT (LICENSE file at pin a51602ac803c, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-21T04:34Z",
+    "consent_receipt": "87091ac4cc6e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-21T04:34Z (receipt 87091ac4cc6e); pinned to the default-branch head. LICENSE file at pin a51602ac803c detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "draw-io-gomcp",
    "url": "https://github.com/aosfather/draw-io-gomcp",
-   "sha": "d55fa9fdd308fc271535d1210c59944968535813",
-   "licence": "Apache-2.0 (LICENSE file at pin d55fa9fdd308, GitHub licence API 2026-11-19)",
+   "sha": "00fac849181ed1123b3ae4fce8e408e18211348b",
+   "licence": "Apache-2.0 (LICENSE file at pin 00fac849181e, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-13T07:27Z",
     "consent_receipt": "1b83060cd1c4",
-    "note": "Inclusion consented by the commit author by email at 2026-11-13T07:27Z (receipt 1b83060cd1c4); selected commit d55fa9fdd308: \"add script\". LICENSE file at pin d55fa9fdd308 detected as Apache-2.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head d55fa9fdd308 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T07:27Z (receipt 1b83060cd1c4); selected commit 00fac849181e: \"add script\". LICENSE file at pin 00fac849181e detected as Apache-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Pinned to head 00fac849181e (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

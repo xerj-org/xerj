@@ -1,0 +1,23 @@
+{
+ "corpus": "lixiuxiu559--agentforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, claude-code-plugin, deepseek-harness queries this for how Lixiuxiu559/AgentForge implements it: Project Wiki & engineering workflows for coding agents. \u9879\u76ee\u77e5\u8bc6\u5e93\u3001\u529f\u80fd\u5b9e\u73b0\u3001\u8c03\u8bd5\u4e0e\u4ee3\u7801\u8bc4\u5ba1\uff0c\u652f\u6301 Codex\u3001Claude Code \u548c DeepSeek Harness\u3002 (selected work: skills, tests, tools)",
+ "repos": [
+  {
+   "repo": "AgentForge",
+   "url": "https://github.com/Lixiuxiu559/AgentForge",
+   "sha": "ed65f430c2473182b1e5737537ff76eba1bbcb6e",
+   "licence": "MIT (LICENSE file at pin ed65f430c247, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T07:00Z",
+    "consent_receipt": "b242ec62a2a4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T07:00Z (receipt b242ec62a2a4); selected commit ed65f430c247: \"feat(wiki): \u4ee5\u751f\u6210\u4e3a\u4e3b\u7ebf\u65b0\u589e scan\u3001catalog \u4e0e\u9875\u9762\u6a21\u677f\". LICENSE file at pin ed65f430c247 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, ai-agents, antigravity queries this for how antoStr/team-workflow implements it: Plugin for Claude Code, agy (Antigravity), OpenCode and Codex: shared project memory, 130 specialist agents that talk in a group conversatio (selected work: skills, tools, tests)",
+ "domain": "an agent working on agent-skills, ai-agents, antigravity queries this for how antoStr/team-workflow implements it: Your AI coding assistant, turned into a team that checks its own work. One command, /team <task>: 137 specialist agents build and challenge  (selected work: skills, tools, tests)",
  "repos": [
   {
    "repo": "team-workflow",

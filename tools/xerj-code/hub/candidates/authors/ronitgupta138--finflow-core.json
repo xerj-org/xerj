@@ -8,15 +8,15 @@
   {
    "repo": "finflow-core",
    "url": "https://github.com/ronitgupta138/finflow-core",
-   "sha": "a68a31d66ac142b5ac6b5fa77718d0194597e594",
-   "licence": "MIT (LICENSE file at pin a68a31d66ac1, GitHub licence API 2026-11-19)",
+   "sha": "698d772b3d972dac626d253c672a115be77eadf2",
+   "licence": "MIT (LICENSE file at pin 698d772b3d97, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-11T09:02Z",
     "consent_receipt": "8bf289a27817",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T09:02Z (receipt 8bf289a27817); selected commit a68a31d66ac1: \"feat(mesh): add MeshIdempotencyService, MeshSettlementService, and Me\u2026\". LICENSE file at pin a68a31d66ac1 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head a68a31d66ac1 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T09:02Z (receipt 8bf289a27817); selected commit 698d772b3d97: \"feat(mesh): add MeshIdempotencyService, MeshSettlementService, and Me\u2026\". LICENSE file at pin 698d772b3d97 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution. Pinned to head 698d772b3d97 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on wildstar, nexus-forever, scikit-learn queries this for how charles-masse/NexusExplorer implements it: Explore the digital worlds of the defunct MMORPG WildStar (selected work: src/nexus_explorer, tests)",
+ "domain": "an agent working on wildstar, scikit-learn, pyopengl queries this for how charles-masse/NexusExplorer implements it: Explore the digital worlds of the defunct MMORPG WildStar (selected work: src/nexus_explorer, tests)",
  "repos": [
   {
    "repo": "NexusExplorer",

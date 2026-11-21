@@ -2,8 +2,8 @@
  "corpus": "xrisbarney--wazuh-alert-manager",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how xrisbarney/Wazuh-alert-manager implements it: xrisbarney/Wazuh-alert-manager (TypeScript) (selected work: benchmark)",
+ "shelf": "SEC",
+ "domain": "an agent working on opensearch-dashboards, security-operations, siem queries this for how xrisbarney/Wazuh-alert-manager implements it: SOC workbench plugin for the Wazuh dashboard: alert triage, cases with evidence and attack graphs, automation rules, reporting (selected work: benchmark)",
  "repos": [
   {
    "repo": "Wazuh-alert-manager",

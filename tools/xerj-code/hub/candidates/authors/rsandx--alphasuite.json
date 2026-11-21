@@ -1,0 +1,23 @@
+{
+ "corpus": "rsandx--alphasuite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on algorithmic-trading, backtesting, data-analysis queries this for how rsandx/AlphaSuite implements it: AlphaSuite is an open-source quantitative analysis platform that gives you the power to build, test, and deploy professional-grade trading s (selected work: tools, core/data_providers, the project root)",
+ "repos": [
+  {
+   "repo": "AlphaSuite",
+   "url": "https://github.com/rsandx/AlphaSuite",
+   "sha": "1158ed2bd7c5b39d1b5a866f1d16d4523fd151a1",
+   "licence": "MIT (LICENSE file at pin 1158ed2bd7c5, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T02:46Z",
+    "consent_receipt": "93176630353f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T02:46Z (receipt 93176630353f); selected commit 1158ed2bd7c5: \"Extend financial data provider support\". LICENSE file at pin 1158ed2bd7c5 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how egor-fedorov/telegram-mcp implements it: Local, read-only Telegram MCP server with public-channel discovery and folder-aware retrieval (selected work: tests, src/telegram_mcp, scripts)",
+ "domain": "an agent working on agent-skills, mcp-server, model-context-protocol queries this for how egor-fedorov/telegram-mcp implements it: Local Telegram MCP server for folder-aware reading, monitoring, and optional outbound actions (selected work: tests, src/telegram_mcp, scripts)",
  "repos": [
   {
    "repo": "telegram-mcp",

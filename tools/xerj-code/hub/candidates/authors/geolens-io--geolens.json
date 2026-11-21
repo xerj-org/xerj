@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on cloud-optimized-geotiff, data-catalog, fastapi queries this for how geolens-io/geolens implements it: Self-hosted geospatial data catalog with semantic search (pgvector), OGC/STAC APIs, and map builder. Built on FastAPI, PostGIS, React, and M (selected work: backend)",
+ "domain": "an agent working on cloud-optimized-geotiff, data-catalog, fastapi queries this for how geolens-io/geolens implements it: An open-source, self-hosted alternative to ArcGIS Online: a spatial data catalog with maps, stories and dashboards, served over OGC API and  (selected work: backend)",
  "repos": [
   {
    "repo": "geolens",

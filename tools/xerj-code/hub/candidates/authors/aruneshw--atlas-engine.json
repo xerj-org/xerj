@@ -1,0 +1,23 @@
+{
+ "corpus": "aruneshw--atlas-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Aruneshw/atlas-engine implements it: Aruneshw/atlas-engine (Python)",
+ "repos": [
+  {
+   "repo": "atlas-engine",
+   "url": "https://github.com/Aruneshw/atlas-engine",
+   "sha": "5370be7f99970711bc581094daaeeb07f21e7b9f",
+   "licence": "MIT (LICENSE file at pin 5370be7f9997, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-20T13:24Z",
+    "consent_receipt": "fb00069175cf",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-20T13:24Z (receipt fb00069175cf); pinned to the default-branch head. LICENSE file at pin 5370be7f9997 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

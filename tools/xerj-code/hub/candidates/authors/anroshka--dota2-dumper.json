@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on dota2, memflow, offsets queries this for how Anroshka/dota2-dumper implements it: Dota 2 Offset Dumper (selected work: src/analysis, src/output, src/source2)",
+ "domain": "an agent working on dota2, memflow, offsets queries this for how Anroshka/dota2-dumper implements it: Dota 2 offset, interface, and Source 2 schema dumper for Windows x64. Exports JSON, Rust, C++, C#, and Zig (selected work: src/analysis, src/output, src/source2)",
  "repos": [
   {
    "repo": "dota2-dumper",

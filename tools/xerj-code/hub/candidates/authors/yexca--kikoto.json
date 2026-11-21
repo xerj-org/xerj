@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how yexca/kikoto implements it: Your Doujin voice works, in one library. A local personal DLsite voice works library, and player (selected work: frontend)",
+ "domain": "an agent working on Go queries this for how yexca/kikoto implements it: Your Doujin voice works, in one library. A local personal DLsite voice works library, and player (selected work: frontend)",
  "repos": [
   {
    "repo": "kikoto",

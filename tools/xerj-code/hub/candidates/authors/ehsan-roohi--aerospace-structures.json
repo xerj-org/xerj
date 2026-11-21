@@ -8,15 +8,15 @@
   {
    "repo": "Aerospace-Structures",
    "url": "https://github.com/Ehsan-Roohi/Aerospace-Structures",
-   "sha": "e5ff3b0fb190c59f693010053679e253f909da46",
-   "licence": "author's permission (LICENSE at pin e5ff3b0fb190: NONE; repository: none)",
+   "sha": "526af464eccf53803dc48cc4079b73971591ac93",
+   "licence": "author's permission (LICENSE at pin 526af464eccf: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T21:31Z",
     "consent_receipt": "a47527c597f3",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt a47527c597f3); pinned to the default-branch head. LICENSE at pin e5ff3b0fb190: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt a47527c597f3); pinned to the default-branch head. LICENSE at pin 526af464eccf: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

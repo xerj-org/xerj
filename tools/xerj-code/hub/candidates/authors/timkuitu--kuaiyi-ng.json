@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Nim queries this for how TimKuitu/kuaiyi-ng implements it: \u5feb\u8bd1NG \u2014 \u8f7b\u91cf\u4e2d\u82f1\u4e92\u8bd1\uff1aC \u6838\u5fc3 + Nim/wNim \u539f\u751f\u754c\u9762\uff0c\u5fc5\u5e94\u514d\u8d39\u7ffb\u8bd1\u63a5\u53e3\uff0c\u79c1\u6709\u5185\u5b58\u7ea6 4MB (selected work: core, ui)",
+ "domain": "an agent working on Rust queries this for how TimKuitu/kuaiyi-ng implements it: \u5feb\u8bd1NG \u2014 \u8f7b\u91cf\u4e2d\u82f1\u4e92\u8bd1\uff1aC \u6838\u5fc3 + Nim/wNim \u539f\u751f\u754c\u9762\uff0c\u5fc5\u5e94\u514d\u8d39\u7ffb\u8bd1\u63a5\u53e3\uff0c\u79c1\u6709\u5185\u5b58\u7ea6 4MB (selected work: core, ui)",
  "repos": [
   {
    "repo": "kuaiyi-ng",

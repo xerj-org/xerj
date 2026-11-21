@@ -1,0 +1,23 @@
+{
+ "corpus": "alqv10--telemando",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on no-dependencies, nodejs, powershell queries this for how alqv10/telemando implements it: Un control remoto para tu propia computadora, desde el tel\u00e9fono y por la red local. Node sin dependencias + PowerShell (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "telemando",
+   "url": "https://github.com/alqv10/telemando",
+   "sha": "282186db1e0c95492fb1902d9fdd6a14009b801f",
+   "licence": "MIT (LICENSE file at pin 282186db1e0c, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-20T13:18Z",
+    "consent_receipt": "9673a8ede8de",
+    "note": "Inclusion consented by the commit author by email at 2026-11-20T13:18Z (receipt 9673a8ede8de); selected commit 282186db1e0c: \"Elegir qu\u00e9 monitor mirar, la app acostada, y los errores quedan escritos\". LICENSE file at pin 282186db1e0c detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

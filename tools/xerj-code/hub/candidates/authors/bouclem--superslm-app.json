@@ -1,0 +1,23 @@
+{
+ "corpus": "bouclem--superslm-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how bouclem/SuperSLM-App implements it: bouclem/SuperSLM-App (TypeScript) (selected work: src/renderer, src, the project root)",
+ "repos": [
+  {
+   "repo": "SuperSLM-App",
+   "url": "https://github.com/bouclem/SuperSLM-App",
+   "sha": "ae7e6da0fee953348077e8c49e7443cae768a79b",
+   "licence": "MIT (LICENSE file at pin ae7e6da0fee9, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T13:03Z",
+    "consent_receipt": "1176731dc9fe",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T13:03Z (receipt 1176731dc9fe); selected commit ae7e6da0fee9: \"0.2.2: port + launch params settings, per-chat sampling panel, gracef\u2026\". LICENSE file at pin ae7e6da0fee9 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

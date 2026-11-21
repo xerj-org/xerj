@@ -1,0 +1,23 @@
+{
+ "corpus": "silky-x0--mendr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on api, docker, kubernetes-controller queries this for how silky-x0/Mendr implements it: Plug-and-play self-maintaining APIs (selected work: web)",
+ "repos": [
+  {
+   "repo": "Mendr",
+   "url": "https://github.com/silky-x0/Mendr",
+   "sha": "8b77b020176b4ade8b953d589c49aa79a383077e",
+   "licence": "MIT (LICENSE file at pin 8b77b020176b, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T02:07Z",
+    "consent_receipt": "5835b36d3810",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T02:07Z (receipt 5835b36d3810); selected commit 8b77b020176b: \"feat(web): contour shader hero, see-through nav, mobile and tablet la\u2026\". LICENSE file at pin 8b77b020176b detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

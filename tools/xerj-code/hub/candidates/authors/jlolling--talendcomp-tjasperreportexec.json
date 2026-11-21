@@ -1,0 +1,23 @@
+{
+ "corpus": "jlolling--talendcomp-tjasperreportexec",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on talend-components, jasperreports queries this for how jlolling/talendcomp_tJasperReportExec implements it: Talend Component tJasperReportExec - Run JasperReports within Talend (selected work: src/test, input, the project root)",
+ "repos": [
+  {
+   "repo": "talendcomp_tJasperReportExec",
+   "url": "https://github.com/jlolling/talendcomp_tJasperReportExec",
+   "sha": "d7040a2f92fdcafc44bc9ccd2c8424b2b0841899",
+   "licence": "Apache-2.0 (LICENSE file at pin d7040a2f92fd, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T06:33Z",
+    "consent_receipt": "35770bb2015f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T06:33Z (receipt 35770bb2015f); selected commit d7040a2f92fd: \"Test case created\". LICENSE file at pin d7040a2f92fd detected as Apache-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

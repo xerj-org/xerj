@@ -1,0 +1,31 @@
+{
+ "corpus": "relwave--relwave-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on database, database-management, desktop-application queries this for how Relwave/relwave-app implements it: RelWave is a native database client for 6+ Database Engines, combining visual ER diagrams, Git-powered workflows, migration management, and  (selected work: src/features, bridge, src/services)",
+ "repos": [
+  {
+   "repo": "relwave-app",
+   "url": "https://github.com/Relwave/relwave-app",
+   "sha": "680796ffea05a869bcfff50c87b581bafef6eb09",
+   "licence": "MIT (LICENSE file at pin 680796ffea05, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T06:29Z",
+    "consent_receipt": "03112231010b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T06:29Z (receipt 03112231010b); selected commit 680796ffea05: \"perf(ai): optimize AI settings loading and update Groq and Mistral mo\u2026\". LICENSE file at pin 680796ffea05 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Relwave, who has not added it."
+   },
+   "paths": [
+    "bridge/src/ai/providers",
+    "bridge/src/handlers",
+    "bridge/src/services",
+    "src/features/ai/hooks",
+    "src/features/settings/components",
+    "src/services/bridge"
+   ]
+  }
+ ]
+}

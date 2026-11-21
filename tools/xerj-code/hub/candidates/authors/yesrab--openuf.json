@@ -8,15 +8,15 @@
   {
    "repo": "openUF",
    "url": "https://github.com/yesrab/openUF",
-   "sha": "3da571983b63f1bf9e5af9c5a133fd44bc4ba02f",
-   "licence": "GPL-3.0 (LICENSE file at pin 3da571983b63, GitHub licence API 2026-11-18)",
+   "sha": "a3802eb9b1a93bde4f5182212b502c2c80a83ddd",
+   "licence": "GPL-3.0 (LICENSE file at pin a3802eb9b1a9, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-18T11:43Z",
     "consent_receipt": "df0cda0eba5c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T11:43Z (receipt df0cda0eba5c); selected commit 3da571983b63: \"Add support for TP-Link Deco M5 and implement UAP-AC-HD identity\". LICENSE file at pin 3da571983b63 detected as GPL-3.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head 3da571983b63 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T11:43Z (receipt df0cda0eba5c); selected commit a3802eb9b1a9: \"Add support for TP-Link Deco M5 and implement UAP-AC-HD identity\". LICENSE file at pin a3802eb9b1a9 detected as GPL-3.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution. Pinned to head a3802eb9b1a9 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

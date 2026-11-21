@@ -1,0 +1,23 @@
+{
+ "corpus": "wolfe-jam--faf-one-svelte-new",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai, anthropic, claude queries this for how Wolfe-Jam/faf-one-svelte-new implements it: Official website for .faf \u2014 faf.one. SvelteKit, auto-deploys on push (selected work: src/routes)",
+ "repos": [
+  {
+   "repo": "faf-one-svelte-new",
+   "url": "https://github.com/Wolfe-Jam/faf-one-svelte-new",
+   "sha": "9758eebad0ac1cc29da5c0bf5d18edb1db39495e",
+   "licence": "MIT (LICENSE file at pin 9758eebad0ac, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T14:57Z",
+    "consent_receipt": "dbc56bd95795",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T14:57Z (receipt dbc56bd95795); selected commit 9758eebad0ac: \"feat: blog post for gemini-faf-mcp v3.1.0, The New Era Edition (#56)\". LICENSE file at pin 9758eebad0ac detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

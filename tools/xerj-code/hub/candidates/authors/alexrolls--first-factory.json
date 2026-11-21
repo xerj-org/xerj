@@ -1,0 +1,23 @@
+{
+ "corpus": "alexrolls--first-factory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how alexrolls/first-factory implements it: Open-source AI harness framework that turns coding agents into coordinated delivery teams. Orchestrate product, architecture, development, Q (selected work: tests, bin, extensions)",
+ "repos": [
+  {
+   "repo": "startup-factory",
+   "url": "https://github.com/alexrolls/startup-factory",
+   "sha": "30dbff238ae484a2be537df955f78fd430b7e4ad",
+   "licence": "MIT (LICENSE file at pin 30dbff238ae4, GitHub licence API 2026-10-26)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T22:05Z",
+    "consent_receipt": "f14c67479724",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T22:05Z (receipt f14c67479724); selected commit 30dbff238ae4: \"Improve delivery evidence and isolate harness reviews\". LICENSE file at pin 30dbff238ae4 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+   }
+  }
+ ]
+}

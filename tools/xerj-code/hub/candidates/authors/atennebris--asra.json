@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on ai-agents, autonomous-agents, bug-bounty queries this for how Atennebris/ASRA implements it: Autonomous Security Recon Agent - ASRA (selected work: agent, tests, desktop)",
+ "domain": "an agent working on ai-agents, autonomous-agents, bug-bounty queries this for how Atennebris/ASRA implements it: Autonomous Security Research Agent - ASRA (selected work: agent, tests, desktop)",
  "repos": [
   {
    "repo": "ASRA",
