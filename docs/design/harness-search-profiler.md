@@ -56,7 +56,10 @@ Tier 0: `ignore` walker (gitignore semantics) + one case-insensitive literal alt
 Tier 1: loopback `_search` with the `xerj def` query; off until probe P0 passes
 ```
 
-State lives in `$XDG_STATE_HOME/xerj/hook/` (0700 dirs, 0600 files):
+State lives in `$XDG_STATE_HOME/xerj/hook/` (0700 dirs, 0600 files). Per-call files
+(rings, stream state, decisions) go to `$XDG_RUNTIME_DIR/xerj-hook/` (tmpfs) when it
+exists: in replay on a busy ext4 disk, a rename-over write per call stalled 0.38 s/call
+(113 s for 300 calls); in-place writes plus tmpfs brought it to under 0.2 ms per silent call.
 
 | File | Holds | Raw text? |
 |---|---|---|
@@ -174,6 +177,51 @@ P0 Tier-1 symbol docs + `--watch` on the hook prefix; P1 subagent fields on hook
 P2 Codex acts on `additionalContext`; P3 `PostToolBatch` `additionalContext` reaches the
 model after a parallel batch; P4 end-to-end overhead on the real binary.
 
-## 7. Replay results
+## 7. Stage 1 results (offline replay, 2026-11-21)
 
-Filled in by the replay commit.
+One replay of all 199,102 reconstructed hook calls (3,680 streams) through
+`xerj hook replay`, parameters as pre-registered (amendments A1-A4, all made before
+the first replay). Wall time 82 s. Ranking ran on today's tree; Tier 1 was not run
+(probe P0 not done), so every answer is Tier 0 (+ history). Load average 65-85 on a
+shared machine during every timing. **Test split** (2026-11-01..11-21) gates;
+dev split shown for transparency.
+
+| # | Metric | Test result | Threshold (pass / kill) | Verdict |
+|---|---|---|---|---|
+| R-1 | active-rule fire rate on code-tree searches; non-struggle streams fully silent | 3.4% of 9,357; 99.0% of 1,462 streams | <= 12% and >= 95% / > 20% or < 90% | **PASS** |
+| R-2 | trigger precision/recall vs blind human labels | not run: needs 300 blind labels (sheet prepared locally) | P >= 0.70, R >= 0.50 | **NOT RUN** |
+| R-2 proxy | agreement with the miner's strict-struggle chains (circular, not gating) | precision 0.22 (322 fires), recall 0.07 of 648 chains | — | weak |
+| R-3 | recall@5 of the eventually-read target, fired events with a scan | t0 0.09, t0+history 0.09, t1 not run; baseline (agent's own output) 0.18; n = 44 | best >= 0.40 and >= base +15pp / < base +5pp | **KILL** |
+| R-3b | median calls ahead, R-3 hits | 3.0 (n = 4) | >= 1.5 / < 1 | pass, n too small |
+| R-4 | emitted nudges whose top-1 is the target or read within 6 calls | 0 of 25 | >= 0.35 / < 0.20 | **KILL** |
+| R-5 | silent self-time; end-to-end silent call (real binary, 600 calls) | in-process p99 0.20 ms; process p50 1.6 ms, p99 3.1 ms | silent p99 <= 25 ms | **PASS** (silent) |
+| R-5 | firing call end-to-end (real binary, 40 firing cases, 2 runs) | p95 79 / 82 ms; p99 (= max of 40) 1,215 / 163 ms; replay in-process p99 1,390 ms (replay joins scans) | firing p99 <= 250 ms | **FAIL** |
+| R-6 | tokens | max 270 per nudge, 270 per stream; 0.96% of non-struggle streams got any token | <= 300 / <= 900; <= 1% | **PASS** |
+| R-7 | emitted `path:line` failing re-anchor | 0 of 57 | 0 | **PASS** |
+| R-8 | synthetic chains | 20/20 fire, 20/20 silent (17/20 before amendment A4) | >= 18/20, >= 19/20 | **PASS** |
+
+Dev split: fire 6.6% of 7,710; silent 99.3% of 1,016 streams; R-3 t0 0.24 vs baseline
+0.32 (n = 25); R-4 0 of 16.
+
+Where the 412 active-rule test fires went (all search kinds): 221 search root no
+longer exists (deleted worktrees), 77 gate refused, 74 scan over the 150 ms budget,
+25 emitted, 15 min-gap or muted. R-3's n = 44 is what is left of 322 code-tree fires
+after removing missing roots, over-budget scans and fires with no later read.
+
+**Verdict: NO-GO for Stage 2 and for active mode.** The gate to Stage 2 needs R-2,
+R-3, R-5 and R-7: R-3 hits its kill line, R-2 was not run, R-5 fails on firing calls.
+The hook is quiet and cheap (R-1, R-5 silent, R-6, R-7 pass), but when it speaks it
+does not point at the file the agent goes to next.
+
+Exploratory, **not pre-registered** (recomputed from the logged top-20 candidates,
+test split, n = 54): the eventual target is in the hook's top 20 only 15% of the time
+(top 5: 9%; code files only: 6%); it lies under the scanned root 57% of the time; 28% of
+targets are docs/data files. Ranking over the union of a chain's tokens is dominated by
+planning documents that mention everything; the history gate (c) produced 20 of 25
+nudges and none was useful, so salted term -> target pairs at this volume are noise.
+
+What this says about the idea: struggle detection and silence work; the answer source
+does not. A second iteration should change the answer, not the trigger: per-probe
+tokens instead of the chain union, code-only candidates for code searches, history only
+as a tie-breaker inside the top 5, and Tier 1 symbol definitions (gate a) once P0 passes.
+Each is a new pre-registered replay on a fresh split, not a re-read of this one.

@@ -185,8 +185,28 @@ pub fn read_state(path: &Path) -> StreamState {
         .unwrap_or_default()
 }
 
+/// Hot path (every tool call): overwrite in place, then shrink to length.
+/// No rename and no truncate-to-zero, both of which make ext4 flush data
+/// (`auto_da_alloc`) and stalled a busy disk 100+ ms per call in replay. A
+/// torn write reads back as the default state, which is safe: soft state.
 pub fn write_state(path: &Path, s: &StreamState) -> Result<()> {
-    atomic(path, &serde_json::to_vec(s)?)
+    use std::io::{Seek, SeekFrom};
+    if let Some(d) = path.parent() {
+        private_dir(d)?;
+    }
+    let bytes = serde_json::to_vec(s)?;
+    let mut o = OpenOptions::new();
+    o.create(true).write(true).truncate(false);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        o.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    }
+    let mut f = o.open(path)?;
+    f.seek(SeekFrom::Start(0))?;
+    f.write_all(&bytes)?;
+    f.set_len(bytes.len() as u64)?;
+    Ok(())
 }
 
 // ───────────────────────────── profile ─────────────────────────────

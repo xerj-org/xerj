@@ -216,6 +216,19 @@ pub fn state_root() -> PathBuf {
         .join("hook")
 }
 
+/// Where per-call files live: `$XDG_RUNTIME_DIR/xerj-hook` (tmpfs, cleared
+/// at logout/reboot) unless `XERJ_HOOK_STATE` pins everything to one dir.
+pub fn hot_root() -> PathBuf {
+    if std::env::var_os("XERJ_HOOK_STATE").is_some() {
+        return state_root();
+    }
+    std::env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute() && p.is_dir())
+        .map(|p| p.join("xerj-hook"))
+        .unwrap_or_else(state_root)
+}
+
 /// One logged decision. `cands` is filled only by `replay` (local, private).
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Decision {
@@ -243,6 +256,10 @@ pub struct Decision {
 
 pub struct Ctx {
     pub root: PathBuf,
+    /// Per-call files (rings, stream state, decisions). Live hooks use the
+    /// tmpfs runtime dir when there is one: a write to a busy ext4 disk
+    /// stalled 0.5-1.7 s in replay, and these files are soft state anyway.
+    pub hot: PathBuf,
     pub now: Option<f64>,
     pub replay: bool,
     pub cfg_override: Option<Config>,
@@ -255,6 +272,7 @@ impl Ctx {
         profile::private_dir(&root)?;
         let salt = profile::salt(&root);
         Ok(Self {
+            hot: root.clone(),
             root,
             now: None,
             replay: false,
@@ -349,8 +367,8 @@ fn observe(ctx: &Ctx, event: &str, input: &Value, speak: bool, out: &mut Outcome
     if base_cfg.mode == Mode::Off && ctx.cfg_override.is_none() {
         return;
     }
-    let ring_path = profile::ring_path(&ctx.root, &key);
-    let state_path = profile::state_path(&ctx.root, &key);
+    let ring_path = profile::ring_path(&ctx.hot, &key);
+    let state_path = profile::state_path(&ctx.hot, &key);
     let mut ring = profile::read_ring(&ring_path);
     let mut state = profile::read_state(&state_path);
     let now = ctx.now();
@@ -438,13 +456,13 @@ fn observe(ctx: &Ctx, event: &str, input: &Value, speak: bool, out: &mut Outcome
             let mut logged = d.clone();
             logged.cands = None;
             if let Ok(line) = serde_json::to_string(&logged) {
-                let _ = profile::append_line(&ctx.root.join("decisions.jsonl"), &line);
+                let _ = profile::append_line(&ctx.hot.join("decisions.jsonl"), &line);
             }
         }
         out.decisions.push(d);
     }
     if !ctx.replay {
-        rotate_decisions(&ctx.root.join("decisions.jsonl"));
+        rotate_decisions(&ctx.hot.join("decisions.jsonl"));
     }
 }
 
@@ -488,6 +506,54 @@ fn resolve_nudges(ctx: &Ctx, state: &mut StreamState, ev: &Ev, now: f64) {
             st.muted_until = now + 7.0 * 86400.0;
         }
         let _ = profile::write_profile(&path, &p);
+    }
+}
+
+/// Tier 0 with a hard wall: the walker checks its deadline between files,
+/// but one blocked read can overrun it (789 ms seen under load). Live hooks
+/// run the scan on a thread and give up at budget + 50 ms (the process exits
+/// right after, taking the thread with it); replay joins and applies the
+/// same cut, so both paths decide alike.
+fn scan_bounded(
+    root: PathBuf,
+    trig: Trigger,
+    hist: HashMap<String, (f64, u32)>,
+    salt: String,
+    budget: Duration,
+    detach: bool,
+) -> tier0::Scan {
+    let wall = budget + Duration::from_millis(50);
+    let run = move || {
+        let hasher = move |rel: &str| profile::hash(&salt, rel);
+        tier0::scan(&tier0::Query {
+            root: &root,
+            toks: &trig.toks,
+            idents: &trig.idents,
+            seen: &trig.seen,
+            hist: &hist,
+            hasher: &hasher,
+            budget,
+        })
+    };
+    let over = |mut s: tier0::Scan| {
+        if s.elapsed_ms > wall.as_secs_f64() * 1e3 {
+            s.complete = false;
+        }
+        s
+    };
+    if !detach {
+        return over(run());
+    }
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(run());
+    });
+    match rx.recv_timeout(wall) {
+        Ok(s) => over(s),
+        Err(_) => tier0::Scan {
+            elapsed_ms: wall.as_secs_f64() * 1e3,
+            ..tier0::Scan::default()
+        },
     }
 }
 
@@ -561,18 +627,15 @@ fn answer(
         .map(|t| ctx.h(t))
         .collect();
     let hist = prof.prior(&term_hashes, cfg.min_pair_streams);
-    let salt = ctx.salt.clone();
-    let hasher = move |rel: &str| profile::hash(&salt, rel);
-    let q = tier0::Query {
-        root: &scan_root,
-        toks: &trig.toks,
-        idents: &trig.idents,
-        seen: &trig.seen,
-        hist: &hist,
-        hasher: &hasher,
-        budget: Duration::from_millis(cfg.budget_ms),
-    };
-    let scan = tier0::scan(&q);
+    let budget = Duration::from_millis(cfg.budget_ms);
+    let scan = scan_bounded(
+        scan_root.clone(),
+        trig.clone(),
+        hist.clone(),
+        ctx.salt.clone(),
+        budget,
+        !ctx.replay,
+    );
     d.scan_ms = Some((scan.elapsed_ms * 10.0).round() / 10.0);
     d.files = Some(scan.files);
     d.complete = Some(scan.complete);
@@ -749,23 +812,24 @@ fn collect_pairs(ctx: &Ctx, ring: &[Ev], state: &mut StreamState) {
     }
 }
 
+/// Per-repo accumulator at fold time: root, (term, target) pairs, hot roots,
+/// zero terms.
+type RepoFold = (
+    PathBuf,
+    HashSet<(String, String)>,
+    HashMap<String, f64>,
+    HashSet<String>,
+);
+
 /// Stream end: fold intent->target pairs, hot roots and zero terms into each
 /// repo profile (salted hashes), then purge rings older than 14 days.
 fn fold(ctx: &Ctx, key: &str) -> anyhow::Result<()> {
-    let ring_path = profile::ring_path(&ctx.root, key);
+    let ring_path = profile::ring_path(&ctx.hot, key);
     let ring = profile::read_ring(&ring_path);
-    let state_path = profile::state_path(&ctx.root, key);
+    let state_path = profile::state_path(&ctx.hot, key);
     let mut state = profile::read_state(&state_path);
     let now = ctx.now();
-    let mut per_repo: HashMap<
-        String,
-        (
-            PathBuf,
-            HashSet<(String, String)>,
-            HashMap<String, f64>,
-            HashSet<String>,
-        ),
-    > = HashMap::new();
+    let mut per_repo: HashMap<String, RepoFold> = HashMap::new();
     for e in &ring {
         for p in e
             .probes
@@ -833,7 +897,7 @@ fn fold(ctx: &Ctx, key: &str) -> anyhow::Result<()> {
     state.pairs.clear();
     let _ = profile::write_state(&state_path, &state);
     if !ctx.replay {
-        purge_old(&ctx.root.join("streams"), 14.0 * 86400.0);
+        purge_old(&ctx.hot.join("streams"), 14.0 * 86400.0);
     }
     Ok(())
 }
@@ -900,9 +964,13 @@ fn run_hook(args: &[String]) -> i32 {
     let Ok(input) = serde_json::from_slice::<Value>(&buf) else {
         return 0;
     };
-    let Ok(ctx) = Ctx::new(state_root()) else {
+    let Ok(mut ctx) = Ctx::new(state_root()) else {
         return 0;
     };
+    ctx.hot = hot_root();
+    if profile::private_dir(&ctx.hot).is_err() {
+        ctx.hot = ctx.root.clone();
+    }
     let ev = match event.as_str() {
         "batch" | "post" | "end" | "start" => event.as_str(),
         _ => return 0,
@@ -988,7 +1056,7 @@ fn pct(v: &mut [u64], q: f64) -> u64 {
 fn cmd_status(args: &[String]) -> i32 {
     let root = state_root();
     let cfg = load_config(std::env::current_dir().ok().as_deref());
-    let ds = read_decisions(&root);
+    let ds = read_decisions(&hot_root());
     let mut by: HashMap<String, u64> = HashMap::new();
     let mut lat: Vec<u64> = Vec::new();
     let (mut emitted, mut searches) = (0u64, 0u64);
@@ -1027,7 +1095,7 @@ fn cmd_status(args: &[String]) -> i32 {
     println!("decisions: {}  searches seen: {searches}  nudges emitted: {emitted}  uptake: {uptake}/{nudges}", ds.len());
     println!("hook self-time µs p50/p95/p99: {}", summary["self_time_us"]);
     let mut v: Vec<_> = by.into_iter().collect();
-    v.sort_by(|a, b| b.1.cmp(&a.1));
+    v.sort_by_key(|x| std::cmp::Reverse(x.1));
     for (k, n) in v.into_iter().take(15) {
         println!("  {k:<28} {n}");
     }
@@ -1036,7 +1104,7 @@ fn cmd_status(args: &[String]) -> i32 {
 
 fn cmd_why(args: &[String]) -> i32 {
     let want = args.first().cloned();
-    for d in read_decisions(&state_root()) {
+    for d in read_decisions(&hot_root()) {
         let key = d.get("key").and_then(Value::as_str).unwrap_or("");
         if want
             .as_deref()

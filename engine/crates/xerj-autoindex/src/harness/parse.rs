@@ -115,9 +115,10 @@ pub fn tokens(text: &str) -> (Vec<String>, Vec<String>) {
         if c == '\\' {
             if let Some(&n) = chars.peek() {
                 chars.next();
-                if n.is_ascii_alphanumeric() && "bBwWsSdDAzZnt".contains(n) {
-                    cleaned.push(' ');
-                } else if n == '<' || n == '>' {
+                if (n.is_ascii_alphanumeric() && "bBwWsSdDAzZnt".contains(n))
+                    || n == '<'
+                    || n == '>'
+                {
                     cleaned.push(' ');
                 } else {
                     cleaned.push(if n.is_alphanumeric() || n == '_' {
@@ -520,8 +521,7 @@ fn strip<'a>(
 ) -> (&'a [String], bool) {
     let mut w = words;
     let mut via_xargs = false;
-    loop {
-        let Some(first) = w.first() else { break };
+    while let Some(first) = w.first() {
         let f = first.as_str();
         if WRAPPERS.contains(&f) {
             w = &w[1..];
