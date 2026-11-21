@@ -8,15 +8,15 @@
   {
    "repo": "dfm",
    "url": "https://github.com/NehharShah/dfm",
-   "sha": "3d344679e07f9f0f671746840185e5c756384ca6",
-   "licence": "MIT (LICENSE file at pin 3d344679e07f, GitHub licence API 2026-11-20)",
+   "sha": "c9efad95c9064c1f8fcb2c779c3d9d424ccee753",
+   "licence": "MIT (LICENSE file at pin c9efad95c906, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T03:37Z",
     "consent_receipt": "fbe3ecbca4cd",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T03:37Z (receipt fbe3ecbca4cd); pinned to the default-branch head. LICENSE file at pin 3d344679e07f detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T03:37Z (receipt fbe3ecbca4cd); pinned to the default-branch head. LICENSE file at pin c9efad95c906 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
    }
   }
  ]

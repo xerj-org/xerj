@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, claude-code, cli queries this for how ordewell/ordewell implements it: Multi-agent task orchestration for coding agents. Turn one goal into an ordered plan of tasks (each with its own runner, model and mode), th (selected work: packages/core)",
+ "domain": "an agent working on ai-agents, claude-code, cli queries this for how ordewell/ordewell implements it: One goal becomes a plan graph you can edit; each task runs on its own agent (Claude Code, Codex, OpenCode, GitHub Copilot CLI and more), in  (selected work: packages/core)",
  "repos": [
   {
    "repo": "ordewell",

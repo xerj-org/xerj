@@ -8,15 +8,15 @@
   {
    "repo": "reflex-tui",
    "url": "https://github.com/sumervaid/reflex-tui",
-   "sha": "fff65a260ebdfa90a2c924b19bea2dd2a4edbbf5",
-   "licence": "MIT (LICENSE file at pin fff65a260ebd, GitHub licence API 2026-11-20)",
+   "sha": "e33fa38578e571c552dadb27e85a3e24344de26f",
+   "licence": "MIT (LICENSE file at pin e33fa38578e5, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-18T04:14Z",
     "consent_receipt": "1d7652090f12",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T04:14Z (receipt 1d7652090f12); selected commit fff65a260ebd: \"feat(cursor): record agents a chat launched and count their work towa\u2026\". LICENSE file at pin fff65a260ebd detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution. Pinned to head fff65a260ebd (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sumervaid, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T04:14Z (receipt 1d7652090f12); selected commit e33fa38578e5: \"feat(cursor): record agents a chat launched and count their work towa\u2026\". LICENSE file at pin e33fa38578e5 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution. Pinned to head e33fa38578e5 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sumervaid, who has not added it."
    },
    "paths": [
     "apps/cli/src",
