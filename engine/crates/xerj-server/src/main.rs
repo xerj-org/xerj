@@ -4420,13 +4420,14 @@ mod decide_flag_tests {
     #[test]
     fn help_counts_the_mcp_tools_actually_served() {
         // The count is `tool_specs()`, the same list `tools/list` returns:
-        // twenty-one without a hub key, twenty-four with the three hub tools.
+        // twenty-two without a hub key, twenty-five with the three hub tools
+        // (`xerj_references`, #1791, is the twenty-second).
         let served = super::mcp_tool_count();
         if xerj_common::hub::hub_key_configured() {
-            assert_eq!(served, 24, "tool_specs() with a hub key: {served}");
+            assert_eq!(served, 25, "tool_specs() with a hub key: {served}");
         } else {
             assert_eq!(
-                served, 21,
+                served, 22,
                 "a no-key process must not count the hub tools it does not serve"
             );
         }
