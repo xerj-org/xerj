@@ -315,22 +315,26 @@ fn run(cfg: BrainCfg) -> Result<i32> {
             .and_then(Value::as_u64)
             .unwrap_or(0)
     };
-    // `records_total` is run-scoped: a resumed re-run over an already-indexed
-    // folder legitimately reports 0. Server truth decides what that means.
-    if needs_live_node_probe(run_u64(&run_doc, "records_total")) {
+    // `records_total` is the live server-side count of this run's datasets
+    // (autoindex counts them back from the server), so a zero means this
+    // run's datasets hold nothing live. The brain's meta doc may point at
+    // older datasets, so server truth decides what that means.
+    // The probe is tri-state (#3077): an unanswerable probe is unknown, not
+    // zero, so it is taken once and carried as `Option` to every surface
+    // below instead of being collapsed with `unwrap_or(0)`. A run that
+    // indexed records never probes at all.
+    let run_records_total = run_u64(&run_doc, "records_total");
+    let live_nodes = if needs_live_node_probe(run_records_total) {
         let live_nodes = live_node_docs(&es, &brain)?;
         if journal_server_disagrees(run_u64(&run_doc, "files_indexed"), live_nodes, cfg.fresh) {
             bail!("{}", journal_server_disagreement(&cfg, &brain));
         }
-    }
-
-    // Server truth for every surface below: run-scoped counters read 0 on a
-    // converged re-run, but the brain is live on the server all the same.
-    let records_live = match run_u64(&run_doc, "records_total") {
-        0 => live_node_docs(&es, &brain)?.unwrap_or(0),
-        n => n,
+        live_nodes
+    } else {
+        None
     };
-    if records_live == 0 {
+    let records_live = live_records_after_run(run_records_total, live_nodes);
+    if is_confirmed_empty(records_live) {
         eprintln!(
             "\nxerj brain: nothing indexable under {} — {} files seen, 0 records live.\n\
              autoindex reads text, markdown, html, pdf, docx, csv, json/ndjson, xml,\n\
@@ -340,6 +344,14 @@ fn run(cfg: BrainCfg) -> Result<i32> {
             files.len()
         );
         return Ok(1);
+    }
+    // Unknown, not empty: say so on stderr and carry on. The edges probe
+    // below is independent server truth, so a live brain still gets its
+    // success banner instead of the empty-corpus exit.
+    if records_live.is_none() {
+        eprintln!(
+            "xerj brain: could not verify how many records are live (brain meta is absent or predates nodes_index), so the corpus is not assumed empty."
+        );
     }
 
     // Live edge count straight from the edges index (same probe as
@@ -373,6 +385,8 @@ fn run(cfg: BrainCfg) -> Result<i32> {
             "\nyour second brain indexed, but no links were found — {} files, {} records, 0 links",
             files.len(),
             records_live
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| "unknown".to_string())
         );
         println!(
             "  notes connect through [[wikilinks]], relative markdown/html links, and\n\
@@ -532,6 +546,25 @@ fn zero_live_is_journal_server_disagreement(
 
 fn needs_live_node_probe(records_total: u64) -> bool {
     records_total == 0
+}
+
+/// Live-record count for the summary after a run, from the run-scoped
+/// `records_total` and the live-node probe. A run that indexed records
+/// speaks for itself; only a zero run-total consults the probe at all.
+/// The probe's tri-state survives: `None` means it could not answer
+/// (absent meta, pre-`nodes_index` meta, missing nodes index) and is
+/// never read as zero (#3077).
+fn live_records_after_run(run_records_total: u64, live_nodes: Option<u64>) -> Option<u64> {
+    match run_records_total {
+        0 => live_nodes,
+        n => Some(n),
+    }
+}
+
+/// The empty-corpus branch fires only on an authoritative zero. An
+/// unanswerable probe is absence of evidence, not an empty corpus (#3077).
+fn is_confirmed_empty(records_live: Option<u64>) -> bool {
+    records_live == Some(0)
 }
 
 /// The environment prefix for the `xerj-mcp` line in the success banner.
@@ -1093,5 +1126,173 @@ mod tests {
         std::fs::write(&log, "no banner here\n").unwrap();
         assert_eq!(find_setup_link(&log), None);
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Fake-node helpers for the `live_node_docs` tests, mirroring the
+    /// `page_server` pattern in `xerj-autoindex`'s `esclient` tests: a
+    /// loopback listener answers canned JSON per request, no mock crate
+    /// involved. `answers` are served in order; every request is recorded
+    /// so the test can assert on the paths hit.
+    fn read_request(stream: &mut std::net::TcpStream) -> Vec<u8> {
+        use std::io::Read;
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+            .unwrap();
+        let mut request = Vec::new();
+        let mut buffer = [0u8; 4096];
+        loop {
+            let count = stream.read(&mut buffer).unwrap();
+            if count == 0 {
+                break;
+            }
+            request.extend_from_slice(&buffer[..count]);
+            if let Some(header_end) = request.windows(4).position(|w| w == b"\r\n\r\n") {
+                let headers = String::from_utf8_lossy(&request[..header_end]);
+                let length = headers
+                    .lines()
+                    .find_map(|line| {
+                        line.to_ascii_lowercase()
+                            .strip_prefix("content-length:")
+                            .and_then(|v| v.trim().parse::<usize>().ok())
+                    })
+                    .unwrap_or(0);
+                if request.len() >= header_end + 4 + length {
+                    break;
+                }
+            }
+        }
+        request
+    }
+
+    fn respond_status(stream: &mut std::net::TcpStream, status: &str, body: &[u8]) {
+        use std::io::Write;
+        write!(
+            stream,
+            "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        )
+        .unwrap();
+        stream.write_all(body).unwrap();
+    }
+
+    fn fake_node(
+        answers: Vec<(&'static str, &'static [u8])>,
+    ) -> (
+        std::net::SocketAddr,
+        std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    ) {
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
+        let address = listener.local_addr().unwrap();
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let recorded = std::sync::Arc::clone(&seen);
+        std::thread::spawn(move || {
+            for (status, body) in answers {
+                let (mut stream, _) = listener.accept().unwrap();
+                let request = read_request(&mut stream);
+                recorded
+                    .lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(&request).into_owned());
+                respond_status(&mut stream, status, body);
+            }
+        });
+        (address, seen)
+    }
+
+    fn mock_es(
+        answers: Vec<(&'static str, &'static [u8])>,
+    ) -> (Es, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        let (address, seen) = fake_node(answers);
+        let es = Es::new(&format!("http://{address}"), None).unwrap();
+        (es, seen)
+    }
+
+    /// #3077, reporter's sketch corrected: the sketch asserted the
+    /// caller's conversion (`live.unwrap_or(0) == 0`), which is the bug
+    /// itself passing as a test. The probe must report unknown, not zero.
+    #[test]
+    fn live_node_docs_absent_meta_is_unknown_not_zero() {
+        let (es, seen) = mock_es(vec![(
+            "404 Not Found",
+            br#"{"error":{"type":"index_not_found_exception","reason":"no such index"}}"#,
+        )]);
+        assert_eq!(live_node_docs(&es, "brain").unwrap(), None);
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.len(), 1, "{seen:?}");
+        assert!(
+            seen[0].starts_with("GET /.xerj-memory-brain-edges/_doc/__xerj-brain-meta "),
+            "the probe reads the brain meta doc: {seen:?}"
+        );
+    }
+
+    /// A meta doc that predates `nodes_index` (or was written by
+    /// something other than autoindex) is absence of evidence, not a zero.
+    #[test]
+    fn live_node_docs_meta_without_nodes_index_is_unknown() {
+        let (es, seen) = mock_es(vec![(
+            "200 OK",
+            br#"{"found":true,"_source":{"version":1}}"#,
+        )]);
+        assert_eq!(live_node_docs(&es, "brain").unwrap(), None);
+        assert_eq!(
+            seen.lock().unwrap().len(),
+            1,
+            "no search follows an unknown probe"
+        );
+    }
+
+    #[test]
+    fn live_node_docs_counts_live_nodes_from_the_meta_nodes_index() {
+        let (es, seen) = mock_es(vec![
+            (
+                "200 OK",
+                br#"{"found":true,"_source":{"nodes_index":"ax-docs"}}"#,
+            ),
+            (
+                "200 OK",
+                br#"{"took":1,"hits":{"total":{"value":7,"relation":"eq"},"hits":[]}}"#,
+            ),
+        ]);
+        assert_eq!(live_node_docs(&es, "brain").unwrap(), Some(7));
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.len(), 2, "{seen:?}");
+        assert!(
+            seen[1].starts_with("POST /ax-docs/_search "),
+            "the count search hits the nodes index: {seen:?}"
+        );
+    }
+
+    /// The genuine empty corpus stays an authoritative zero at the probe
+    /// level, so the empty-corpus branch keeps working for it.
+    #[test]
+    fn live_node_docs_authoritative_zero_is_some_zero() {
+        let (es, _) = mock_es(vec![
+            (
+                "200 OK",
+                br#"{"found":true,"_source":{"nodes_index":"ax-docs"}}"#,
+            ),
+            (
+                "200 OK",
+                br#"{"took":1,"hits":{"total":{"value":0,"relation":"eq"},"hits":[]}}"#,
+            ),
+        ]);
+        assert_eq!(live_node_docs(&es, "brain").unwrap(), Some(0));
+    }
+
+    /// #3077: the decision the caller makes from the probe. Unknown is
+    /// not zero, and only an authoritative zero is an empty corpus.
+    #[test]
+    fn unknown_live_count_is_not_an_empty_corpus() {
+        assert_eq!(live_records_after_run(0, None), None);
+        assert!(!is_confirmed_empty(live_records_after_run(0, None)));
+        assert_eq!(live_records_after_run(0, Some(0)), Some(0));
+        assert!(is_confirmed_empty(live_records_after_run(0, Some(0))));
+        assert_eq!(live_records_after_run(0, Some(7)), Some(7));
+        assert!(!is_confirmed_empty(live_records_after_run(0, Some(7))));
+        // A run that indexed records speaks for itself; the probe is
+        // never consulted.
+        assert_eq!(live_records_after_run(5, None), Some(5));
+        assert!(!is_confirmed_empty(live_records_after_run(5, None)));
     }
 }
