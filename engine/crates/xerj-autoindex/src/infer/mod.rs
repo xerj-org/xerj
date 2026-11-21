@@ -8,8 +8,10 @@ pub mod entities;
 
 use dates::DateEnc;
 use entities::Entity;
+use regex::Regex;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
 
 pub const DISTINCT_CAP: usize = 8192;
 pub const RAW_CAP: usize = 8192;
@@ -21,6 +23,11 @@ pub const MAX_FIELDS_PER_DATASET: usize = 512;
 /// lets a document dataset elect them ALL as `semantic_text` without ever
 /// embedding one record twice.
 pub const DOC_BODY_FIELDS: &[&str] = &["body", "text"];
+
+static CJK_LETTER: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"[[\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}]&&\p{Letter}]")
+        .expect("valid CJK letter regex")
+});
 
 /// 256-slot byte histogram with a `Default` impl (`[u32; 256]` has none).
 #[derive(Debug, Clone)]
@@ -58,6 +65,7 @@ pub struct FieldAcc {
     pub examples: Vec<String>,
     pub len_samples: Vec<u32>,
     pub token_samples: Vec<u32>,
+    has_cjk_text: bool,
     /// Word-shaped tokens (`[A-Za-z]{3,}`) vs total tokens, over the sample.
     /// This ratio is what separates natural language from opaque identifiers,
     /// and it does so far more reliably than any embedding-derived signal:
@@ -194,6 +202,9 @@ impl FieldAcc {
                 }
                 let len = t.chars().count() as u32;
                 let toks = t.split_whitespace().count() as u32;
+                if !self.has_cjk_text && !t.is_ascii() {
+                    self.has_cjk_text = CJK_LETTER.find_iter(t).take(2).count() == 2;
+                }
                 self.len_sum += len as u64;
                 if self.len_samples.len() < 512 {
                     self.len_samples.push(len);
@@ -256,6 +267,7 @@ impl FieldAcc {
         self.json_bool += other.json_bool;
         self.json_num += other.json_num;
         self.str_n += other.str_n;
+        self.has_cjk_text |= other.has_cjk_text;
         for (k, v) in &other.date_hits {
             *self.date_hits.entry(*k).or_default() += v;
         }
@@ -559,7 +571,11 @@ pub fn infer_fields_with_policy(
         };
         let is_keyword =
             (p95_len <= 128 && p95_tok <= 3) || (!acc.distinct_overflow && card_ratio < 0.1);
-        let is_text = p95_tok > 8 || p95_len > 256;
+        // Short CJK document prose can have no whitespace at all. Only apply
+        // this signal to extractor-owned content when inferring document fields.
+        let is_text = p95_tok > 8
+            || p95_len > 256
+            || (semantic_all && DOC_BODY_FIELDS.contains(&name.as_str()) && acc.has_cjk_text);
         spec.es_type = if is_keyword && !is_text {
             "keyword".into()
         } else if is_text {
@@ -1210,6 +1226,68 @@ mod tests {
         assert_eq!(by_name("body").es_type, "semantic_text", "{docs:#?}");
         assert_eq!(by_name("text").es_type, "semantic_text", "{docs:#?}");
         assert_eq!(by_name("defs").es_type, "text", "{docs:#?}");
+    }
+
+    #[test]
+    fn short_cjk_document_bodies_are_text_but_data_values_remain_keywords() {
+        for prose in [
+            "这两篇文章结构雷同，结论也雷同。",
+            "これは文章の検索を確認する短い例です。",
+            "검색 결과입니다.",
+            "東京",
+            "ひらがな",
+            "カタカナ",
+            "ｶﾀｶﾅ",
+            "𠮷野",
+        ] {
+            let mut sample = FieldAcc::default();
+            sample.add(&Value::String(prose.into()));
+            let fields = HashMap::from([
+                ("body".into(), sample.clone()),
+                ("text".into(), sample.clone()),
+                ("category".into(), sample),
+            ]);
+            for no_semantic in [false, true] {
+                let specs = infer_fields_with_policy(&fields, 1, no_semantic, true);
+                for spec in specs {
+                    let expected = if DOC_BODY_FIELDS.contains(&spec.name.as_str()) {
+                        "text"
+                    } else {
+                        "keyword"
+                    };
+                    assert_eq!(spec.es_type, expected, "{}: {prose}", spec.name);
+                }
+            }
+            for no_semantic in [false, true] {
+                for spec in infer_fields(&fields, 1, no_semantic) {
+                    assert_eq!(spec.es_type, "keyword", "{}: {prose}", spec.name);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cjk_document_mapping_survives_merged_samples() {
+        let mut left = FieldAcc::default();
+        left.add(&Value::String("Status".into()));
+        let mut right = FieldAcc::default();
+        right.add(&Value::String("検索".into()));
+        left.merge(&right);
+
+        let fields = HashMap::from([("body".into(), left)]);
+        let specs = infer_fields_with_policy(&fields, 2, true, true);
+        assert_eq!(specs[0].es_type, "text");
+    }
+
+    #[test]
+    fn short_document_bodies_without_enough_cjk_letters_keep_their_mapping() {
+        for value in ["Status", "naïve", "「。」", "漢。", "한。"] {
+            let mut sample = FieldAcc::default();
+            sample.add(&Value::String(value.into()));
+            let fields = HashMap::from([("body".into(), sample)]);
+            let specs = infer_fields_with_policy(&fields, 1, true, true);
+            assert_eq!(specs[0].es_type, "keyword", "{value}");
+        }
     }
 
     /// Pins the reason the entity tie is latent rather than live: the ≥90%

@@ -46,6 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Holds and waits of 1 s or more (`XERJ_STALL_TRACE_MS` sets the threshold)
   are now logged at WARN with the holder's call site.
 
+- **Short Chinese, Japanese, and Korean document bodies are searchable
+  after autoindexing (#3330).** Autoindex now maps these bodies as text
+  even when they lack whitespace. Re-index previously affected folders
+  with a fresh prefix and state directory.
+
 - **A collapsed `_search` or `_msearch` whose `collapse.inner_hits` block has
   no `name` is refused with a 400**, as Elasticsearch 8.13 refuses it
   (`x_content_parse_exception` caused by `illegal_argument_exception`
