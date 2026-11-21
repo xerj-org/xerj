@@ -310,24 +310,36 @@ impl WalFsyncScheduler {
             let Some(shard) = entry.handle.target.upgrade() else {
                 continue; // store dropped
             };
-            let mut wal = shard.lock().unwrap_or_else(|e| e.into_inner());
-            if wal.is_dirty() {
-                match wal.sync() {
-                    Ok(()) => {
-                        self.synced.fetch_add(1, Ordering::Relaxed);
-                    }
-                    Err(e) => {
-                        // The shard still holds un-fsynced bytes.  Re-arm so
-                        // a transient failure (ENOSPC that later frees, EIO
-                        // on a retryable device) is retried one period later
-                        // instead of waiting for the next write — the old
-                        // per-index loop retried on every tick, and dropping
-                        // that would have been a silent durability
-                        // regression.
-                        warn!("wal_batch_ms fsync failed: {e}");
-                        drop(wal);
-                        entry.handle.arm();
-                    }
+            // #3324 — only the buffer drain runs under the shard mutex; the
+            // fsync itself runs after it is released, on a second
+            // descriptor, so appends to this shard do not wait on the disk.
+            let prepared = shard
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .begin_unlocked_sync();
+            let result = match prepared {
+                Ok(None) => continue,
+                Ok(Some(file)) => file.sync_all().map_err(crate::StorageError::from),
+                Err(e) => Err(e),
+            };
+            match result {
+                Ok(()) => {
+                    self.synced.fetch_add(1, Ordering::Relaxed);
+                }
+                Err(e) => {
+                    // The shard still holds un-fsynced bytes.  Mark it dirty
+                    // and re-arm so a transient failure (ENOSPC that later
+                    // frees, EIO on a retryable device) is retried one
+                    // period later instead of waiting for the next write —
+                    // the old per-index loop retried on every tick, and
+                    // dropping that would have been a silent durability
+                    // regression.
+                    warn!("wal_batch_ms fsync failed: {e}");
+                    shard
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .mark_unsynced();
+                    entry.handle.arm();
                 }
             }
         }

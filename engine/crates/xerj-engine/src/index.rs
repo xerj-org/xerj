@@ -1764,6 +1764,198 @@ mod collection_publication_fail_closed_tests {
         assert!(idx.get_document("late").await.unwrap().is_none());
     }
 
+    /// #3324: a bulk batch appends to the WAL before it opens the collection
+    /// publication bracket. WAL maintenance and the batched fsync hold a WAL
+    /// shard lock across disk waits (25 s measured under ext4 journal
+    /// pressure); a batch queued on that lock used to be inside the bracket
+    /// already, so every search on the index waited the same 25 s and came
+    /// back `timed_out` with no hits.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn search_is_not_held_behind_a_bulk_waiting_on_the_wal_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("wal-lock-readers", text_schema())
+            .unwrap();
+        let idx = engine.get_index("wal-lock-readers").unwrap();
+        idx.index_batch_turbo_raw(vec![(
+            "seed".into(),
+            Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+        )])
+        .await
+        .unwrap();
+        idx.refresh().await.unwrap();
+
+        let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
+        let entered_tx = parking_lot::Mutex::new(Some(entered_tx));
+        idx.set_publication_test_hook(Some(Arc::new(move |_, point| {
+            if point == PublicationTestPoint::RawBeforeCollectionBegin {
+                if let Some(tx) = entered_tx.lock().take() {
+                    let _ = tx.send(());
+                }
+            }
+        })));
+        // Stands in for a maintenance pass or fsync that holds the lock.
+        let wal_locks = idx.store.hold_wal_shards_for_test();
+        let writer_idx = Arc::clone(&idx);
+        let writer = tokio::spawn(async move {
+            writer_idx
+                .index_batch_turbo_raw(vec![(
+                    "late".into(),
+                    Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+                )])
+                .await
+        });
+        tokio::task::spawn_blocking(move || {
+            entered_rx
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .expect("bulk never reached the WAL append")
+        })
+        .await
+        .unwrap();
+        // Let the batch reach the lock and park on it.
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert!(
+            !writer.is_finished(),
+            "the bulk must be parked on the WAL lock"
+        );
+
+        let mut request = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "alpha"}}, "size": 10
+        }))
+        .unwrap();
+        request.timeout_ms = Some(2_000);
+        let result = tokio::time::timeout(std::time::Duration::from_secs(5), idx.search(&request))
+            .await
+            .expect("search hung")
+            .unwrap();
+        assert!(
+            !result.timed_out,
+            "search waited out its deadline behind a bulk parked on the WAL lock"
+        );
+        assert_eq!(result.hits.len(), 1);
+        assert_eq!(result.hits[0].id, "seed");
+
+        drop(wal_locks);
+        tokio::time::timeout(std::time::Duration::from_secs(10), writer)
+            .await
+            .expect("bulk did not finish after the WAL lock was released")
+            .unwrap()
+            .unwrap();
+        idx.set_publication_test_hook(None);
+        assert!(!idx.collection_publication.state().2);
+        assert!(idx.get_document("late").await.unwrap().is_some());
+    }
+
+    /// #3324: the flush publication bracket closes as soon as the segment is
+    /// published. Its guard used to live to the end of the finalizer, across
+    /// `after_flush_publish` (snapshot fsync, WAL rotate and prune), so
+    /// every search on the index waited out that disk work. Here the WAL
+    /// maintenance is parked on held WAL locks after the publish.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn search_is_not_held_behind_post_flush_wal_maintenance() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("post-flush-readers", text_schema())
+            .unwrap();
+        let idx = engine.get_index("post-flush-readers").unwrap();
+        idx.index_batch_turbo_raw(vec![(
+            "doc".into(),
+            Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+        )])
+        .await
+        .unwrap();
+        assert!(idx.store.snapshot().segments.is_empty());
+
+        // The first flush of a store always runs WAL maintenance (its 1 s
+        // gate starts open); with the WAL locks held it parks there.
+        let wal_locks = idx.store.hold_wal_shards_for_test();
+        let flush_idx = Arc::clone(&idx);
+        let flush = tokio::spawn(async move { flush_idx.flush().await });
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while idx.store.snapshot().segments.is_empty() {
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("flush never published its segment");
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        assert!(
+            !flush.is_finished(),
+            "the flush must be parked in post-publish WAL maintenance"
+        );
+
+        let mut request = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "alpha"}}, "size": 10
+        }))
+        .unwrap();
+        request.timeout_ms = Some(2_000);
+        let result = tokio::time::timeout(std::time::Duration::from_secs(5), idx.search(&request))
+            .await
+            .expect("search hung")
+            .unwrap();
+        assert!(
+            !result.timed_out,
+            "search waited out its deadline behind post-flush WAL maintenance"
+        );
+        assert_eq!(result.hits.len(), 1);
+
+        drop(wal_locks);
+        tokio::time::timeout(std::time::Duration::from_secs(10), flush)
+            .await
+            .expect("flush did not finish after the WAL locks were released")
+            .unwrap()
+            .unwrap();
+        assert!(!idx.collection_publication.state().2);
+    }
+
+    /// #3324: a WAL write failure happens before the publication bracket
+    /// opens, so it fails the batch without poisoning the index (inside the
+    /// bracket, the early return dropped an uncommitted guard).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn raw_wal_write_failure_does_not_poison_the_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("wal-write-fails", text_schema())
+            .unwrap();
+        let idx = engine.get_index("wal-write-fails").unwrap();
+        // No write has materialized a WAL file yet (#873), so with the WAL
+        // directory gone the first append cannot create its generation.
+        let wal_dir = idx.store.wal_dir();
+        let moved = wal_dir.with_extension("away");
+        std::fs::rename(&wal_dir, &moved).unwrap();
+        let error = idx
+            .index_batch_turbo_raw(vec![(
+                "lost".into(),
+                Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+            )])
+            .await;
+        std::fs::rename(&moved, &wal_dir).unwrap();
+        error.unwrap_err();
+        assert!(
+            !idx.collection_publication.state().2,
+            "a WAL write error must not poison the index"
+        );
+        assert!(idx.store.version_map.get("lost").is_none());
+        idx.index_batch_turbo_raw(vec![(
+            "kept".into(),
+            Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+        )])
+        .await
+        .unwrap();
+        idx.refresh().await.unwrap();
+        assert!(idx.get_document("kept").await.unwrap().is_some());
+        assert!(idx.get_document("lost").await.unwrap().is_none());
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn raw_cancellation_before_publication_does_not_poison_or_write() {
         let dir = tempfile::tempdir().unwrap();
@@ -13931,19 +14123,27 @@ impl Index {
             None
         };
 
+        // #3324 — WAL write before the publication bracket, version map
+        // inside it; see `index_batch_turbo_raw`.
+        if self.collection_publication.state().2 {
+            return Err(collection_publication_interrupted());
+        }
+        let wal_t = std::time::Instant::now();
+        let seq_nos = self.store.wal_write_batch(&wal_refs)?;
+        let wal_elapsed = wal_t.elapsed();
         let mut collection_publication = self
             .collection_publication
             .begin()
             .map_err(|_| collection_publication_interrupted())?;
-        let wal_t = std::time::Instant::now();
-        let seq_nos = self.store.wal_append_batch(&wal_refs)?;
+        self.store
+            .publish_batch_versions(wal_refs.iter().map(|(id, _)| id.as_str()), &seq_nos);
         #[cfg(test)]
         if let Some(first) = processed.first() {
             self.publication_test_point(&first.id, PublicationTestPoint::TurboAfterWalVersionMap);
         }
         // RC4 W4 item 2: WAL durability-write latency.
         if let Some(m) = crate::engine_metrics() {
-            m.observe_wal_write(wal_t.elapsed().as_secs_f64());
+            m.observe_wal_write(wal_elapsed.as_secs_f64());
         }
         let t3_dur = t3.elapsed();
 
@@ -14437,10 +14637,16 @@ impl Index {
             tokio::task::yield_now().await;
         }
 
-        let mut collection_publication = self
-            .collection_publication
-            .begin()
-            .map_err(|_| collection_publication_interrupted())?;
+        // #3324 — the WAL write runs BEFORE the publication bracket opens.
+        // It has no reader-visible effect, but it takes the WAL shard lock,
+        // which WAL maintenance and a strict-mode fsync hold across disk
+        // waits; inside the bracket every search on this index waited on
+        // that disk too. The version map and the memtable, which readers
+        // do see, are still published together inside the bracket.
+        // A poisoned index refuses the batch before it reaches the WAL.
+        if self.collection_publication.state().2 {
+            return Err(collection_publication_interrupted());
+        }
         let wal_t = std::time::Instant::now();
         let (docs, sources, seq_nos) = if has_copy_to {
             let (docs, _) = validated.into_parts();
@@ -14451,10 +14657,10 @@ impl Index {
                 .zip(&sources)
                 .map(|((id, _), source)| (id.clone(), Arc::clone(source)))
                 .collect();
-            let seq_nos = self.store.wal_append_batch(&wal_docs)?;
+            let seq_nos = self.store.wal_write_batch(&wal_docs)?;
             (docs, sources, seq_nos)
         } else {
-            let seq_nos = self.store.wal_append_batch_raw(&validated)?;
+            let seq_nos = self.store.wal_write_batch_raw(&validated)?;
             let (docs, parsed) = validated.into_parts();
             (
                 docs,
@@ -14462,6 +14668,13 @@ impl Index {
                 seq_nos,
             )
         };
+        let wal_elapsed = wal_t.elapsed();
+        let mut collection_publication = self
+            .collection_publication
+            .begin()
+            .map_err(|_| collection_publication_interrupted())?;
+        self.store
+            .publish_batch_versions(docs.iter().map(|(id, _)| id.as_str()), &seq_nos);
         #[cfg(test)]
         if let Some((doc, _)) = docs.first() {
             self.publication_test_point(doc, PublicationTestPoint::RawAfterWalVersionMap);
@@ -14469,7 +14682,7 @@ impl Index {
         }
         // RC4 W4 item 2: WAL durability-write latency.
         if let Some(m) = crate::engine_metrics() {
-            m.observe_wal_write(wal_t.elapsed().as_secs_f64());
+            m.observe_wal_write(wal_elapsed.as_secs_f64());
         }
         if prof {
             p_wal_us = p_t.elapsed().as_micros();
@@ -14784,11 +14997,17 @@ impl Index {
             if let Some((id, _)) = raw_docs.first() {
                 self.sync_prepublication_test_point(id)?;
             }
+            // #3324 — WAL write before the bracket; see `index_batch_turbo_raw`.
+            if self.collection_publication.state().2 {
+                return Err(collection_publication_interrupted());
+            }
+            let seq_nos = self.store.wal_write_batch(&wal_docs)?;
             let collection_publication = self
                 .collection_publication
                 .begin()
                 .map_err(|_| collection_publication_interrupted())?;
-            let seq_nos = self.store.wal_append_batch(&wal_docs)?;
+            self.store
+                .publish_batch_versions(wal_docs.iter().map(|(id, _)| id.as_str()), &seq_nos);
             let docs = raw_docs
                 .into_iter()
                 .zip(transformed)
@@ -14814,11 +15033,18 @@ impl Index {
             if let Some((id, _)) = validated.docs().first() {
                 self.sync_prepublication_test_point(id)?;
             }
+            if self.collection_publication.state().2 {
+                return Err(collection_publication_interrupted());
+            }
+            let seq_nos = self.store.wal_write_batch_raw(&validated)?;
             let collection_publication = self
                 .collection_publication
                 .begin()
                 .map_err(|_| collection_publication_interrupted())?;
-            let seq_nos = self.store.wal_append_batch_raw(&validated)?;
+            self.store.publish_batch_versions(
+                validated.docs().iter().map(|(id, _)| id.as_str()),
+                &seq_nos,
+            );
             let (raw_docs, parsed) = validated.into_parts();
             let parsed = parsed.expect("parse_validated_raw_batch retains parsed values");
             let docs = raw_docs
@@ -14832,11 +15058,18 @@ impl Index {
             if let Some((id, _)) = validated.docs().first() {
                 self.sync_prepublication_test_point(id)?;
             }
+            if self.collection_publication.state().2 {
+                return Err(collection_publication_interrupted());
+            }
+            let seq_nos = self.store.wal_write_batch_raw(&validated)?;
             let collection_publication = self
                 .collection_publication
                 .begin()
                 .map_err(|_| collection_publication_interrupted())?;
-            let seq_nos = self.store.wal_append_batch_raw(&validated)?;
+            self.store.publish_batch_versions(
+                validated.docs().iter().map(|(id, _)| id.as_str()),
+                &seq_nos,
+            );
             let (docs, parsed) = validated.into_parts();
             let docs = match parsed {
                 Some(parsed) => docs
@@ -24616,13 +24849,26 @@ impl Index {
         let started = std::time::Instant::now();
         let deadline =
             started + std::time::Duration::from_millis(request.timeout_ms.unwrap_or(30_000));
+        let mut admission_wait: Option<std::time::Instant> = None;
         loop {
             let token = loop {
                 let notified = self.collection_publication.notified();
                 tokio::pin!(notified);
                 notified.as_mut().enable();
                 match self.collection_publication.try_admit_reader() {
-                    ReadAdmission::Admitted(token) => break token,
+                    ReadAdmission::Admitted(token) => {
+                        if let Some(since) = admission_wait.take() {
+                            let waited = since.elapsed();
+                            if xerj_storage::stall_trace::is_slow(waited) {
+                                tracing::warn!(
+                                    index = %self.name,
+                                    waited_ms = waited.as_millis() as u64,
+                                    "search waited for a collection publication bracket"
+                                );
+                            }
+                        }
+                        break token;
+                    }
                     ReadAdmission::Poisoned => {
                         return Err(collection_publication_interrupted());
                     }
@@ -24642,6 +24888,7 @@ impl Index {
                         // on the wake.
                         self.collection_publication.arm_reader();
                         let _waiting = ReaderWaitGuard(&self.collection_publication);
+                        admission_wait.get_or_insert_with(std::time::Instant::now);
                         if tokio::time::timeout_at(
                             tokio::time::Instant::from_std(deadline),
                             notified,
@@ -24649,6 +24896,11 @@ impl Index {
                         .await
                         .is_err()
                         {
+                            tracing::warn!(
+                                index = %self.name,
+                                waited_ms = started.elapsed().as_millis() as u64,
+                                "search deadline spent waiting for a collection publication bracket"
+                            );
                             return Ok(self.deadline_exhausted_result(started));
                         }
                     }
@@ -40019,8 +40271,16 @@ async fn do_flush_shard(
                         return Err(collection_publication_interrupted());
                     }
                 };
+                let bracket_opened = std::time::Instant::now();
                 let published = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     crate::background_pool().install(|| {
+                        let queued = bracket_opened.elapsed();
+                        if xerj_storage::stall_trace::is_slow(queued) {
+                            tracing::warn!(
+                                queued_ms = queued.as_millis() as u64,
+                                "flush publish queued on the background pool inside the publication bracket"
+                            );
+                        }
                         store_for_finalize
                             .publish_flush_segment(&storage_drained_for_finalize, &meta)
                     })
@@ -40067,6 +40327,14 @@ async fn do_flush_shard(
                         std::panic::resume_unwind(payload);
                     }
                 };
+                // #3324 — close the bracket HERE. `commit()` only records the
+                // outcome; the bracket stays open until the guard drops, and
+                // this guard used to live to the end of the closure, across
+                // `after_flush_publish` below (snapshot fsync, WAL rotate and
+                // prune). Every search on the index waited out that disk
+                // work: measured 0.5-1.7 s per flush under I/O pressure, the
+                // all-op stalls that ended at the "segment flushed" log line.
+                drop(collection_publication_guard);
                 // #3324 — the finalize permit bounds CPU-heavy segment builds.
                 // What follows is disk and network wait (snapshot fsync, WAL
                 // checkpoint, bucket catalog PUT), so the next queued
