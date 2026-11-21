@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on adaptive-learning, ai-tutor, chatgpt queries this for how wysking/postgrad-study-engine implements it: \u8003\u7814 AI \u79c1\u6559\u5b66\u4e60\u5f15\u64ce\uff1a\u957f\u671f\u5b66\u4e60\u6863\u6848\u3001\u4e2a\u4eba\u9057\u5fd8\u66f2\u7ebf\u62df\u5408\uff08\u534a\u8870\u671f / \u53ef\u9009 FSRS\uff09\u3001\u9519\u56e0\u8bca\u65ad\u4e0e\u5148\u4fee\u63a2\u9488 | Evidence-based AI study engine for Kaoyan (China's postgraduate entrance exam) \u2014 lea (selected work: tests, scripts, schemas)",
+ "domain": "an agent working on adaptive-learning, ai-tutor, chatgpt queries this for how wysking/postgrad-study-engine implements it: Long-term memory engine for AI tutors | \u8003\u7814 AI \u79c1\u6559\u957f\u671f\u8bb0\u5fc6\u5f15\u64ce\uff1aFSRS / \u534a\u8870\u671f\u9057\u5fd8\u66f2\u7ebf\u3001\u95f4\u9694\u91cd\u590d\uff08Spaced Repetition\uff09\u4e0e\u9519\u56e0\u8bca\u65ad\uff0c\u9762\u5411\u6570\u5b66\u63a8\u5bfc\u4e0e\u6df1\u5ea6\u81ea\u5b66\u7684\u5f00\u6e90 Anki Alternative\uff08Kaoyan, L (selected work: tests, scripts, schemas)",
  "repos": [
   {
    "repo": "postgrad-study-engine",

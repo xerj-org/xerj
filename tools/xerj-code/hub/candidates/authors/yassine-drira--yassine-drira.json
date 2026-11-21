@@ -1,0 +1,23 @@
+{
+ "corpus": "yassine-drira--yassine-drira",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how Yassine-Drira/Yassine-Drira implements it: Yassine-Drira/Yassine-Drira (code)",
+ "repos": [
+  {
+   "repo": "Yassine-Drira",
+   "url": "https://github.com/Yassine-Drira/Yassine-Drira",
+   "sha": "be2b3813ac8a9b282d174143fc50ad2c241892ec",
+   "licence": "author's permission (LICENSE at pin be2b3813ac8a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-21T15:06Z",
+    "consent_receipt": "648187c766b9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-21T15:06Z (receipt 648187c766b9); pinned to the default-branch head. LICENSE at pin be2b3813ac8a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

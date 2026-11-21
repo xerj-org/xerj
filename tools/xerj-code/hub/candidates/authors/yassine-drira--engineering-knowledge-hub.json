@@ -1,0 +1,23 @@
+{
+ "corpus": "yassine-drira--engineering-knowledge-hub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on code queries this for how Yassine-Drira/engineering-knowledge-hub implements it: A curated collection of practical engineering guides, Microsoft certification resources, cloud architecture references, AI/ML knowledge, and",
+ "repos": [
+  {
+   "repo": "engineering-knowledge-hub",
+   "url": "https://github.com/Yassine-Drira/engineering-knowledge-hub",
+   "sha": "28105b0d8b3906a2b5179436bf8b2e58e273aafb",
+   "licence": "MIT (LICENSE file at pin 28105b0d8b39, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-21T15:06Z",
+    "consent_receipt": "831b67c11c59",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-21T15:06Z (receipt 831b67c11c59); pinned to the default-branch head. LICENSE file at pin 28105b0d8b39 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

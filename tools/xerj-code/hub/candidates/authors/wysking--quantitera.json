@@ -2,21 +2,21 @@
  "corpus": "wysking--quantitera",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on economic-research, open-source, python queries this for how wysking/quantitera implements it: \u5f00\u653e\u5f0f\u81ea\u4e3b\u8fed\u4ee3\u91cf\u5316\u7814\u7a76\u5f15\u64ce \u00b7 Discover. Reason. Validate. Evolve",
+ "shelf": "AI",
+ "domain": "an agent working on economic-research, python, quantitative-research queries this for how wysking/quantitera implements it: AI agent that validates its own predictions \u00b7 \u5f00\u653e\u5f0f\u81ea\u4e3b\u8fed\u4ee3\u91cf\u5316\u7814\u7a76\u5f15\u64ce (Discover. Reason. Validate. Evolve.)",
  "repos": [
   {
    "repo": "quantitera",
    "url": "https://github.com/wysking/quantitera",
-   "sha": "63c627ad1ccebb0801d3527862c1ed593db36088",
-   "licence": "MIT (LICENSE file at pin 63c627ad1cce, GitHub licence API 2026-11-21)",
+   "sha": "68c301c2535e90d2e2c9349c7d84a876ac085efe",
+   "licence": "MIT (LICENSE file at pin 68c301c2535e, GitHub licence API 2026-11-21)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T23:42Z",
     "consent_receipt": "4ca0a8a7c8e8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:42Z (receipt 4ca0a8a7c8e8); pinned to the default-branch head. LICENSE file at pin 63c627ad1cce detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:42Z (receipt 4ca0a8a7c8e8); pinned to the default-branch head. LICENSE file at pin 68c301c2535e detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
    }
   }
  ]

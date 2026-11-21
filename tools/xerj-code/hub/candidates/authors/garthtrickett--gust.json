@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Gosu queries this for how garthtrickett/gust implements it: garthtrickett/gust (Gosu) (selected work: compiler, tests, scripts)",
+ "domain": "an agent working on Python queries this for how garthtrickett/gust implements it: garthtrickett/gust (Python) (selected work: compiler, tests, scripts)",
  "repos": [
   {
    "repo": "gust",
