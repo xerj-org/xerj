@@ -1,9 +1,9 @@
 {
- "corpus": "noahdeangelis--agex",
+ "corpus": "noahdeangelis--agex-workbench",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agents, ai-agent, ai-agent-tools queries this for how noahdeangelis/AGEX implements it: A simple tool using agent built in python with easy to add custom tools. Works with local models and cloud models via the OpenAI style API (selected work: the project root)",
+ "domain": "an agent working on agents, ai-agent, ai-agent-tools queries this for how noahdeangelis/AGEX-Workbench implements it: A simple tool using agent built in python with easy to add custom tools. Works with local models and cloud models via the OpenAI style API (selected work: the project root)",
  "repos": [
   {
    "repo": "AGEX",

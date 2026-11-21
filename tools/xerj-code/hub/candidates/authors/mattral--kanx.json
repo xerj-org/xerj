@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on deep-learning, gpu-acceleration, interpretability queries this for how Mattral/KANX implements it: One library, four surfaces. Production-grade Kolmogorov-Arnold Networks || TensorFlow + PyTorch + ONNX. || A small KAN beats a 10\u00d7 larger ML (selected work: charts, tests, k8s)",
+ "domain": "an agent working on deep-learning, gpu-acceleration, interpretability queries this for how Mattral/KANX implements it: Kolmogorov-Arnold Networks for TensorFlow and PyTorch, with ONNX export, a FastAPI service, a CLI, and Docker and Kubernetes configs (selected work: charts, tests, k8s)",
  "repos": [
   {
    "repo": "KANX",
