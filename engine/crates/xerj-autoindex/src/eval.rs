@@ -78,8 +78,11 @@ pub struct QueryMetrics {
     pub mrr: f64,
 }
 
+/// Reads one metric out of [`QueryMetrics`].
+pub type MetricFn = fn(&QueryMetrics) -> f64;
+
 /// Metric names, in report order, with their accessor.
-pub const METRICS: [(&str, fn(&QueryMetrics) -> f64); 3] = [
+pub const METRICS: [(&str, MetricFn); 3] = [
     ("ndcg", |m| m.ndcg),
     ("recall", |m| m.recall),
     ("mrr", |m| m.mrr),
