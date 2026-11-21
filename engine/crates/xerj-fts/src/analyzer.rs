@@ -9,6 +9,7 @@
 //! - `keyword`    — No tokenization; entire input is one token
 //! - `lowercase`  — whitespace tokenizer + lowercase filter
 //! - `stemmer`    — standard + Snowball Snowball only (no stop words)
+//! - `stop`: standard + lowercase + English stop words (no stemming)
 
 use regex::Regex;
 use rust_stemmers::{Algorithm, Stemmer};
@@ -1156,6 +1157,23 @@ impl AnalyzerRegistry {
                 vec![
                     Arc::new(LowercaseFilter) as Arc<dyn TokenFilter>,
                     Arc::new(StemmerFilter::english()),
+                ],
+            ),
+        );
+
+        // "stop", an ES builtin: standard tokenizer + lowercase + English
+        // stop-words, no stemming. #3308: the ES-YAML conformance suite
+        // already declares `analyzer: stop` on a text sub-field
+        // (significant_text), which mapping-time validation would otherwise
+        // refuse as unknown; the name is real, so the registry must know it.
+        self.register(
+            "stop",
+            AnalyzerPipeline::new(
+                vec![],
+                Arc::new(StandardTokenizer),
+                vec![
+                    Arc::new(LowercaseFilter) as Arc<dyn TokenFilter>,
+                    Arc::new(StopwordsFilter::english()),
                 ],
             ),
         );
