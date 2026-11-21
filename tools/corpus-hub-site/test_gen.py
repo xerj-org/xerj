@@ -308,8 +308,12 @@ class GeneratedSiteTest(unittest.TestCase):
             r'|<section class="detail" id="privacy">.*?</section>'
             r"|<script\b.*?</script>", re.S)
         texts = [(name, panels.sub("", text)) for name, text in texts]
+        # "self-hosted hub" is a repository describing itself (norjms/openprinthq, 2026-11-21: "Self-hosted hub for small
+        # 3D print businesses"), not the hub claiming a hosted answer, so it does not count
+        hosted = re.compile(r"(?<!self-)hosted hub", re.I)
         for name, text in texts:
-            for banned in ("hosted hub", "api/v1/search", "api/v1/code", "api/v1/def"):
+            self.assertIsNone(hosted.search(text), f"{name}: hosted hub")
+            for banned in ("api/v1/search", "api/v1/code", "api/v1/def"):
                 self.assertNotIn(banned, text, f"{name}: {banned}")
 
     def test_hub_llms_txt_names_every_exit_code_and_the_mcp_limits(self):
