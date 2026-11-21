@@ -338,6 +338,7 @@ The model, its bundle and its serve rule are those of rc.102.
   per-aggregation cap from `limits.max_buckets` still applies too, so a
   setting above it does not raise that cap. `_async_search`,
   `_search/template` and `_msearch/template` do not read the setting yet.
+- A YAML alias bomb no longer OOMs autoindex: YAML parsed from untrusted files is now counted against a node budget that scales with the input (at least 100,000 expanded nodes, or one node per two input bytes) before any `Value` is materialised, and an over-budget stream is junk-filed instead of expanding. A 7,351 byte input that expanded to 17.85 GiB RSS is now rejected, while a large ordinary record file (20k items, about 1 MB) still extracts. (issue [#3157](https://github.com/xerj-org/xerj/issues/3157))
 
 ## [1.0.0-rc.102] - 2026-11-06
 

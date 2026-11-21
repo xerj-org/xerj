@@ -75,6 +75,7 @@ pub mod walk;
 pub mod watch;
 pub mod worktree;
 pub mod xc;
+pub mod yaml_budget;
 pub mod zero_hits;
 
 use anyhow::{Context, Result};
