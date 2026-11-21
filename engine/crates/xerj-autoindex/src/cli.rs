@@ -85,6 +85,11 @@ pub struct IndexCfg {
     /// `--stub <glob>` patterns: matching files are indexed as one
     /// existence-only name card, contents never opened.
     pub stub_globs: Vec<String>,
+    /// Stub the lockfiles in [`crate::order::GENERATED_FILES`] as if each had
+    /// been passed to `--stub` (#2439). On by default; `--no-default-stubs`
+    /// clears it so a lockfile is extracted in full. Kept apart from
+    /// `stub_globs` so the rebuild argv states only what the operator typed.
+    pub default_stubs: bool,
     /// `.gitignore` / `.xerjignore` / built-in build-output rules (#276).
     /// `deep_count` is set from `--dry-run` (and from `--walk-only`, which
     /// implies it).
@@ -271,6 +276,9 @@ pub enum Cmd {
     Remove(RemoveCfg),
     /// Boxed for the same reason as `Index`.
     Watch(Box<WatchCfg>),
+    /// `autoindex <path> --facts <namespace>`: table rows written as XERJ
+    /// Query-1 facts (`crate::facts_rows`). Boxed like `Index`.
+    Facts(Box<crate::facts_rows::FactsCfg>),
     Help,
 }
 
@@ -348,6 +356,11 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20xerj autoindex status [OPTIONS]       resume-journal + index progress view\n\
          \x20\x20\x20\x20xerj autoindex s3://bucket/prefix --watch [OPTIONS]\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20poll object storage and emit a change feed\n\
+         \x20\x20\x20\x20xerj autoindex <PATH> --facts <NAMESPACE> [--key <COL>] [--subject <COL>] [--table <T>]\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20write table rows (SQLite, SQL dump, CSV/TSV, XLSX) as XERJ Query-1 facts:\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20one subject per row (subject_id = the key column), one fact per column.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20Re-runs write only changed rows and withdraw removed ones. Needs a node\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20started with --facts-model-dir. Also: --dry-run --json --state-dir --batch-actions\n\
          \n\
          MAP REPORTS (catalog map only):\n\
          \x20\x20\x20\x20--html <FILE>       write an offline HTML report (new file only)\n\
@@ -355,7 +368,7 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20--redact-paths      omit file paths and skip reasons from the report\n\
          \n\
          OPTIONS:\n\
-         \x20\x20\x20\x20--url <U>            ES-compat endpoint (default http://localhost:9200)\n\
+         \x20\x20\x20\x20--url <U>            XERJ endpoint (default http://localhost:9200). XERJ_URL is ignored.\n\
          \x20\x20\x20\x20--api-key <K>        Authorization header (or env XERJ_API_KEY)\n\
          \x20\x20\x20\x20--workers <N>        workers for BOTH phases — content hashing/sniffing and\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20indexing (default: every core, reduced if the memory\n\
@@ -419,11 +432,13 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20refuse anything, because your folder is\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20already inside it\n\
          \x20\x20\x20\x20--stub <GLOB>        index matching files as ONE existence-only name\n\
-         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20card (title + provenance); contents are never\n\
-         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20opened. Repeatable. A pattern without '/'\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20card (title, size + provenance); contents are\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20never parsed. Repeatable. A pattern without '/'\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20matches file names anywhere ('*.bvh'); with '/'\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20it matches the root-relative path\n\
-         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20('unity/**/*.csv'). '**' crosses directories\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20('unity/**/*.csv'). '**' crosses directories.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Lockfiles are stubbed by default: {lockfiles}\n\
+         \x20\x20\x20\x20--no-default-stubs   extract those lockfiles in full instead of stubbing\n\
          \x20\x20\x20\x20--exclude <GLOB>     leave matching paths out of the index entirely (not\n\\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20walked, not counted). Repeatable, same glob syntax\n\\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20as --stub ('gen/**', '*.log'). Use it for a tree you do\n\\
@@ -499,6 +514,11 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20--drop-indexed       delete already-indexed files a reduced plan leaves\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20out. Without this flag that re-run exits 4 and lists\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20them. --plan and --yes do not agree to the deletion.\n\
+         \x20\x20\x20\x20--worktree <MODE>    Git worktree mode for parallel agents (#2967): `shared`\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20resolves a linked Git worktree to its main checkout and\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20shares `ax-<repo>` + one locked state dir; `isolated`\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20indexes the worktree in place under `ax-<repo>-<wt>`\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20with its own state dir and no prefix collision\n\
          \x20\x20\x20\x20--dry-run            walk+sniff+infer, print the plan, index nothing.\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20`autoindex map <folder>` is this same preview\n\
          \x20\x20\x20\x20--walk-only          stop after the walk. Prints each top-level folder's\n\
@@ -674,6 +694,11 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20enforced: paths and other outside text are stripped of control\n\
          \x20\x20\x20\x20characters and bounded before they reach any line, so a crafted\n\
          \x20\x20\x20\x20filename cannot forge a record or repaint your terminal.\n\
+         \x20\x20\x20\x20Every line is UTF-8. A Windows console window shows it as written;\n\
+         \x20\x20\x20\x20a pipe is decoded by its reader, so a PowerShell capture on a\n\
+         \x20\x20\x20\x20non-UTF-8 code page (936, 932, ...) turns non-ASCII paths into\n\
+         \x20\x20\x20\x20mojibake. Run `[Console]::OutputEncoding = [Text.Encoding]::UTF8`\n\
+         \x20\x20\x20\x20(or `chcp 65001`) first.\n\
          \x20\x20\x20\x20`pct`/`eta_s` are the literal word `unknown` (JSON null) whenever they\n\
          \x20\x20\x20\x20cannot be computed honestly, never a filler number — and the drawn\n\
          \x20\x20\x20\x20bar obeys the same rule: `[????…]` when there is no denominator,\n\
@@ -686,7 +711,10 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20finalize-correlate, finalize-histogram, finalize-catalog\n\
          \x20\x20\x20\x20\x20\x20--no-graph path:      walk, hash, scan, prepare (install mappings),\n\
          \x20\x20\x20\x20\x20\x20\x20\x20snapshot (seal + extract, bytes), index (sealed bulk bytes, the\n\
-         \x20\x20\x20\x20\x20\x20\x20\x20in-flight file named), finalize-catalog, finalize-refresh (one\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20in-flight file named), finalize-catalog,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20finalize-catalog-readback (catalog ids read back),\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20finalize-catalog-commit (one item per catalog request, the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20request named), finalize-refresh (one\n\
          \x20\x20\x20\x20\x20\x20\x20\x20refresh per dataset), finalize-verify (read-backs batched\n\
          \x20\x20\x20\x20\x20\x20\x20\x20into per-index digest windows, one search per window). A\n\
          \x20\x20\x20\x20\x20\x20\x20\x20resumed run starts at `replay` and its `index` phase\n\
@@ -862,7 +890,8 @@ pub fn help_text_with(feedback: bool) -> String {
         code_cap_bytes = crate::extract::code::CODE_CAP,
         fresh_help = FRESH_HELP,
         resume_policy_help = RESUME_POLICY_HELP,
-        defaults = crate::ignore_rules::DEFAULT_IGNORE_PATTERNS.join(" ")
+        defaults = crate::ignore_rules::DEFAULT_IGNORE_PATTERNS.join(" "),
+        lockfiles = crate::order::GENERATED_FILES.join(" ")
     )
 }
 
@@ -872,7 +901,11 @@ pub fn help_text_with(feedback: bool) -> String {
 /// here, on purpose, so a stale variable can't silently redirect a write. Silent
 /// is the trap though, so name the mismatch and how to act on it. `None` when
 /// `--url` was passed, or `XERJ_URL` is unset or empty.
-pub(crate) fn xerj_url_ignored_note(xerj_url: Option<&str>, url_explicit: bool) -> Option<String> {
+pub(crate) fn xerj_url_ignored_note(
+    command: &str,
+    xerj_url: Option<&str>,
+    url_explicit: bool,
+) -> Option<String> {
     if url_explicit {
         return None;
     }
@@ -880,9 +913,12 @@ pub(crate) fn xerj_url_ignored_note(xerj_url: Option<&str>, url_explicit: bool) 
     if value.is_empty() {
         return None;
     }
+    let value = value.split(['?', '#']).next().unwrap_or(value);
+    let value = xerj_common::config::redact_url_userinfo(value);
     Some(format!(
-        "XERJ_URL={value} is set but ignored here: autoindex takes its endpoint from --url only \
-         (default http://localhost:9200). Pass --url {value} to target it."
+        "XERJ_URL={} is set but ignored here: {command} takes its node endpoint from \
+         --url only (default http://localhost:9200). Pass --url explicitly to target it.",
+        value.escape_debug()
     ))
 }
 
@@ -941,12 +977,21 @@ pub(crate) fn prefix_rewrite_note(given: &str, used: &str) -> Option<String> {
     ))
 }
 
+/// The node `--url` targets when it is not given.
+pub const DEFAULT_URL: &str = "http://localhost:9200";
+
 pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
+    // `--facts <namespace>` is its own mode with its own small flag set: it
+    // writes table rows as facts and indexes nothing for search, so none of
+    // the indexing flags below apply to it.
+    if args.iter().any(|a| a == "--facts") {
+        return crate::facts_rows::parse_args(&args).map(|c| Cmd::Facts(Box::new(c)));
+    }
     let mut it = args.into_iter().peekable();
     let mut folder: Option<PathBuf> = None;
     let mut sub: Option<String> = None;
 
-    let mut url = "http://localhost:9200".to_string();
+    let mut url = DEFAULT_URL.to_string();
     // `xerj autoindex` takes its endpoint from `--url` ONLY, unlike `xerj
     // search` which honors `XERJ_URL`. Ignoring the env var here is deliberate:
     // a write must not be redirected by a stale variable. But silent is a trap
@@ -982,6 +1027,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut exclude_globs: Vec<String> = Vec::new();
     let mut no_ignore = false;
     let mut no_default_ignores = false;
+    let mut no_default_stubs = false;
     // One of --max-file-gb / --max-file-mb / --max-file-bytes sets this, all
     // normalised to bytes; `None` until one is seen so a second size flag is a
     // hard error and the default (2 GB) applies only when none is given (#1233).
@@ -1012,6 +1058,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut max_index_explicit = false;
     let mut budget_plan: Option<String> = None;
     let mut drop_indexed = false;
+    let mut worktree_mode: Option<crate::worktree::WorktreeMode> = None;
     let mut json = false;
     let mut quiet = false;
     let mut progress: Option<ProgressMode> = None;
@@ -1156,6 +1203,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             "--exclude" => exclude_globs.push(it.next().ok_or("--exclude needs a glob pattern")?),
             "--no-ignore" => no_ignore = true,
             "--no-default-ignores" => no_default_ignores = true,
+            "--no-default-stubs" => no_default_stubs = true,
             "--max-file-gb" => {
                 set_max_file_bytes(&mut max_file_bytes, "--max-file-gb", it.next(), 1u64 << 30)?
             }
@@ -1262,6 +1310,16 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                     return Err("--drop-indexed was given twice".into());
                 }
                 drop_indexed = true;
+            }
+            "--worktree" => {
+                let raw = it
+                    .next()
+                    .ok_or("--worktree needs one of: shared, isolated")?;
+                let parsed = crate::worktree::WorktreeMode::parse(&raw)?;
+                if worktree_mode.is_some() {
+                    return Err("--worktree was given twice".into());
+                }
+                worktree_mode = Some(parsed);
             }
             "--yes" | "-y" => {
                 if let Some(previous) = approve {
@@ -1816,8 +1874,11 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     // `--url` is the only endpoint source for every subcommand; XERJ_URL is
     // ignored on purpose (a stale var must not redirect a write). Computed once
     // so index, map, and status all surface the same mismatch note.
-    let xerj_url_note =
-        xerj_url_ignored_note(std::env::var("XERJ_URL").ok().as_deref(), url_explicit);
+    let xerj_url_note = xerj_url_ignored_note(
+        "autoindex",
+        std::env::var("XERJ_URL").ok().as_deref(),
+        url_explicit,
+    );
 
     // --- object-storage watch routing ------------------------------------
     //
@@ -2033,6 +2094,20 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         );
     }
 
+    if worktree_mode.is_some()
+        && (sub.as_deref() == Some("remove")
+            || sub.as_deref() == Some("status")
+            || (sub.as_deref() == Some("map") && folder.is_none())
+            || (watch && root_is_object_url))
+    {
+        return Err(
+            "--worktree applies only to indexing or previewing a local folder (`xerj autoindex \
+             <folder> --worktree shared|isolated`), not to `map`, `status`, `remove`, or an \
+             object-storage watch"
+                .into(),
+        );
+    }
+
     match (sub.as_deref(), folder) {
         (Some("remove"), _) => remove_cmd(RemoveParse {
             cfg: RemoveCfg {
@@ -2063,6 +2138,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 follow_symlinks,
                 follow_symlinks_outside_root,
                 stubs: !stub_globs.is_empty(),
+                no_default_stubs,
                 excludes: !exclude_globs.is_empty(),
                 ignore: !ignore_flags_used.is_empty(),
                 max_file: max_file_bytes.is_some(),
@@ -2197,7 +2273,23 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                         .into(),
                 );
             }
-            let plan = crate::resources::plan(workers, pdf_workers, bulk_mb);
+            if worktree_mode.is_some() && (skills || root_is_object_url) {
+                return Err(
+                    "--worktree applies only to a local Git checkout or worktree folder, not \
+                     --skills or object storage"
+                        .into(),
+                );
+            }
+            let mut root = root;
+            let mut prefix = prefix;
+            let mut plan = crate::resources::plan(workers, pdf_workers, bulk_mb);
+            if let Some(wt_mode) = worktree_mode {
+                let resolved =
+                    crate::worktree::resolve_worktree(&root, wt_mode, prefix_explicit, &prefix);
+                root = resolved.root;
+                prefix = resolved.prefix;
+                plan.notes.push(resolved.note);
+            }
             let cfg = Box::new(IndexCfg {
                 root,
                 endpoint_url,
@@ -2227,6 +2319,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 follow_symlinks,
                 follow_symlinks_outside_root,
                 stub_globs,
+                default_stubs: !no_default_stubs,
                 ignore: IgnoreOptions {
                     enabled: !no_ignore,
                     defaults: !no_ignore && !no_default_ignores,
@@ -2293,6 +2386,7 @@ struct RemoveReject {
     follow_symlinks: bool,
     follow_symlinks_outside_root: bool,
     stubs: bool,
+    no_default_stubs: bool,
     excludes: bool,
     ignore: bool,
     max_file: bool,
@@ -2361,6 +2455,7 @@ fn remove_cmd(input: RemoveParse) -> Result<Cmd, String> {
             reject.follow_symlinks_outside_root,
         ),
         ("--stub", reject.stubs),
+        ("--no-default-stubs", reject.no_default_stubs),
         ("--exclude", reject.excludes),
         ("--no-ignore", reject.ignore),
         ("--max-file-bytes", reject.max_file),
@@ -2917,7 +3012,7 @@ mod tests {
     /// on that mismatch and nowhere else.
     #[test]
     fn xerj_url_ignored_note_fires_only_on_the_mismatch() {
-        use super::xerj_url_ignored_note as note;
+        let note = |url, explicit| super::xerj_url_ignored_note("autoindex", url, explicit);
 
         // XERJ_URL set, --url absent: warn, and say what and how.
         let n = note(Some("http://es.internal:9200"), false)
@@ -2937,6 +3032,12 @@ mod tests {
         assert!(
             note(Some("   "), false).is_none(),
             "blank XERJ_URL: no note"
+        );
+        let redacted = note(Some("http://user:password@host:9200?key=secret"), false).unwrap();
+        assert!(redacted.contains("http://***@host:9200"), "{redacted}");
+        assert!(
+            !redacted.contains("password") && !redacted.contains("secret"),
+            "{redacted}"
         );
     }
 
@@ -3313,6 +3414,14 @@ mod tests {
         let walk = err(&["remove", "--prefix", "proj", "--walk-only"]);
         assert!(walk.contains("--walk-only"), "{walk}");
         assert!(walk.contains("not `autoindex remove`"), "{walk}");
+        let stubs = err(&["remove", "--prefix", "proj", "--no-default-stubs"]);
+        assert!(stubs.contains("--no-default-stubs"), "{stubs}");
+        assert!(
+            index(&["data"]).default_stubs,
+            "#2439: lockfiles stub by default"
+        );
+        assert!(!index(&["data", "--no-default-stubs"]).default_stubs);
+        assert!(super::help_text_with(false).contains("--no-default-stubs"));
         let cfg = match parse(
             [
                 "remove",
@@ -4329,5 +4438,39 @@ mod tests {
     fn exclude_without_a_pattern_is_refused() {
         let text = err(&["data", "--exclude"]);
         assert!(text.contains("--exclude needs a glob pattern"), "{text}");
+    }
+
+    #[test]
+    fn worktree_flag_resolves_shared_and_isolated_modes_and_refuses_non_folder_routes() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|poison| poison.into_inner());
+        let tmp = tempfile::tempdir().unwrap();
+        let main_repo = tmp.path().join("my-repo");
+        let wt_gitdir = main_repo.join(".git").join("worktrees").join("wt-one");
+        std::fs::create_dir_all(&wt_gitdir).unwrap();
+        std::fs::write(wt_gitdir.join("commondir"), "../..\n").unwrap();
+
+        let wt_one = tmp.path().join("wt-one");
+        std::fs::create_dir_all(&wt_one).unwrap();
+        std::fs::write(
+            wt_one.join(".git"),
+            format!("gitdir: {}\n", wt_gitdir.display()),
+        )
+        .unwrap();
+
+        let wt_str = wt_one.to_string_lossy().to_string();
+        let shared = index(&[&wt_str, "--worktree", "shared"]);
+        assert_eq!(shared.root, main_repo.canonicalize().unwrap());
+        assert_eq!(shared.prefix, "ax-my-repo");
+
+        let isolated = index(&[&wt_str, "--worktree", "isolated"]);
+        assert_eq!(isolated.root, wt_one);
+        assert_eq!(isolated.prefix, "ax-my-repo-wt-one");
+
+        assert!(
+            err(&[&wt_str, "--worktree", "invalid"]).contains("expected `shared` or `isolated`")
+        );
+        assert!(err(&["status", "--worktree", "shared"]).contains("--worktree applies only"));
+        assert!(err(&["remove", "--prefix", "ax", "--worktree", "isolated"])
+            .contains("--worktree applies only"));
     }
 }

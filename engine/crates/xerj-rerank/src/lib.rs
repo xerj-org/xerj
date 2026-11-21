@@ -76,6 +76,20 @@ pub mod judge;
 /// answer is an absolute probability rather than a rank within its batch.
 pub const JEV_MAX_DOCS_PER_CALL: usize = 30;
 
+/// Documents per Cohere `/v2/rerank` call. Cohere accepts far more per call;
+/// 100 keeps one call's payload (100 × `MAX_DOC_CHARS`) and its search-unit
+/// bill bounded, and matches the largest `rerank.window` a single batch should
+/// cover before concurrency takes over.
+pub const COHERE_MAX_DOCS_PER_CALL: usize = 100;
+
+/// The Cohere rerank models a search may name. An allow-list rather than a
+/// pass-through: the model id is a caller string that goes to a third party on
+/// the operator's key, and a typo should be a 400 here, not a 4xx there.
+pub const COHERE_MODELS: &[&str] = &["rerank-v5.0-fast", "rerank-v5.0-pro", "rerank-v3.5"];
+
+/// The Cohere model used when a search names none.
+pub const COHERE_DEFAULT_MODEL: &str = "rerank-v5.0-fast";
+
 /// Default concurrent in-flight provider calls.
 ///
 /// Conservative on purpose. The provider's rate limits are undocumented; the
@@ -315,12 +329,16 @@ pub enum RerankOutcome {
 pub struct Usage {
     pub input_tokens: u64,
     pub output_tokens: u64,
+    /// Cohere bills rerank in search units (`meta.billed_units.search_units`),
+    /// not tokens. Zero for providers that do not report it.
+    pub search_units: u64,
 }
 
 impl Usage {
     fn add(&mut self, other: Usage) {
         self.input_tokens = self.input_tokens.saturating_add(other.input_tokens);
         self.output_tokens = self.output_tokens.saturating_add(other.output_tokens);
+        self.search_units = self.search_units.saturating_add(other.search_units);
     }
 }
 
@@ -436,6 +454,7 @@ impl RerankConfig {
         }
 
         let mut cfg = Self::default();
+        let mut batch_raw: Option<usize> = None;
 
         if let Some(p) = obj.get("provider") {
             cfg.provider = bounded_string("provider", p, MAX_MODEL_CHARS)?;
@@ -466,8 +485,9 @@ impl RerankConfig {
                 return Err(RerankError::Config("`rerank.batch` must be > 0".into()));
             }
             // Clamp rather than reject: the ceiling is a property of the
-            // provider, not a mistake by the caller.
-            cfg.batch = (b as usize).min(JEV_MAX_DOCS_PER_CALL);
+            // provider, not a mistake by the caller. The provider is not known
+            // until the whole object is read, so the clamp happens below.
+            batch_raw = Some(b as usize);
         }
         if let Some(t) = obj.get("min_score") {
             let t = t
@@ -561,7 +581,50 @@ impl RerankConfig {
             cfg.fields = Some(fields);
         }
 
+        let cap = max_docs_per_call(&cfg.provider);
+        cfg.batch = batch_raw.unwrap_or(cap).min(cap);
+
+        if cfg.provider == "cohere" {
+            if obj.get("model").is_none() {
+                cfg.model = COHERE_DEFAULT_MODEL.to_string();
+            } else if !COHERE_MODELS.contains(&cfg.model.as_str()) {
+                return Err(RerankError::Config(format!(
+                    "`rerank.model` `{}` is not a Cohere rerank model this server sends; \
+                     supported: {}",
+                    clip(&cfg.model, MAX_ECHOED_NAME_CHARS),
+                    COHERE_MODELS.join(", ")
+                )));
+            }
+            // Cohere's rerank takes no instruction; dropping the caller's
+            // silently would rank against a question they did not ask.
+            if cfg.instructions.is_some() {
+                return Err(RerankError::Config(
+                    "`rerank.instructions` is not supported with provider `cohere`: Cohere \
+                     Rerank judges documents against `query` only"
+                        .into(),
+                ));
+            }
+            // Cohere's relevance score is not a calibrated probability on this
+            // engine's data (unmeasured), and pruning by it changes
+            // `hits.total`. Refused until it is measured, not silently applied.
+            if cfg.min_score.is_some() {
+                return Err(RerankError::Config(
+                    "`rerank.min_score` is not supported with provider `cohere` yet: its \
+                     relevance scores are not calibrated on this engine's data"
+                        .into(),
+                ));
+            }
+        }
+
         Ok(cfg)
+    }
+}
+
+/// Documents one provider call may carry: the provider's own ceiling.
+pub fn max_docs_per_call(provider: &str) -> usize {
+    match provider {
+        "cohere" => COHERE_MAX_DOCS_PER_CALL,
+        _ => JEV_MAX_DOCS_PER_CALL,
     }
 }
 
@@ -808,6 +871,7 @@ pub fn parse_jev_response_with_usage(body: &str) -> Result<(Vec<Scored>, Usage),
     let usage = Usage {
         input_tokens: token_count(&parsed.usage, "input_tokens"),
         output_tokens: token_count(&parsed.usage, "output_tokens"),
+        search_units: 0,
     };
 
     let mut out = Vec::with_capacity(parsed.answers.len());
@@ -822,6 +886,108 @@ pub fn parse_jev_response_with_usage(body: &str) -> Result<(Vec<Scored>, Usage),
         out.push(Scored {
             ordinal,
             score: noul.clamp(0.0, 1.0),
+        });
+    }
+    Ok((out, usage))
+}
+
+/// Build one Cohere `/v2/rerank` request body for a batch of candidates.
+///
+/// Documents are sent as plain strings (title, then text), cut to the same
+/// per-document ceilings as the TypeSafe request. `top_n` is the batch size,
+/// so every document sent comes back with a score. `max_tokens_per_doc` is set
+/// to the character ceiling: a token is at least one character, so Cohere's
+/// own truncation never cuts what this engine already cut.
+pub fn build_cohere_request(query: &str, batch: &[Candidate], cfg: &RerankConfig) -> Value {
+    let max_doc_chars = cfg.max_doc_chars.min(MAX_DOC_CHARS);
+    let documents: Vec<Value> = batch
+        .iter()
+        .map(|cand| {
+            let mut doc = String::new();
+            if let Some(t) = &cand.title {
+                doc.push_str(clip(t, max_doc_chars));
+                doc.push_str(". ");
+            }
+            doc.push_str(clip(&cand.text, max_doc_chars));
+            Value::String(doc)
+        })
+        .collect();
+    json!({
+        "model": clip(&cfg.model, MAX_MODEL_CHARS),
+        "query": clip(query, MAX_QUERY_CHARS),
+        "documents": documents,
+        "top_n": batch.len(),
+        "max_tokens_per_doc": max_doc_chars.max(1),
+    })
+}
+
+#[derive(Deserialize)]
+struct CohereResult {
+    index: Value,
+    relevance_score: Value,
+}
+
+#[derive(Deserialize)]
+struct CohereResponse {
+    results: Vec<CohereResult>,
+    #[serde(default)]
+    meta: Value,
+}
+
+/// Parse a Cohere `/v2/rerank` response into scores keyed by the caller's
+/// ordinals. `results[i].index` is a position in the batch that was sent.
+///
+/// Stricter than the TypeSafe parser on purpose: an index outside the batch,
+/// an index answered twice, or a score that is not a finite number in
+/// `0..=1` means the response is not about what was asked, and the whole
+/// batch is refused as malformed rather than half-trusted.
+pub fn parse_cohere_response(
+    body: &str,
+    batch: &[Candidate],
+) -> Result<(Vec<Scored>, Usage), RerankError> {
+    let parsed: CohereResponse =
+        serde_json::from_str(body).map_err(|e| RerankError::Malformed(e.to_string()))?;
+    let billed = parsed
+        .meta
+        .get("billed_units")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let usage = Usage {
+        input_tokens: 0,
+        output_tokens: 0,
+        search_units: token_count(&billed, "search_units"),
+    };
+    let mut seen = vec![false; batch.len()];
+    let mut out = Vec::with_capacity(parsed.results.len());
+    for r in parsed.results {
+        let index = r
+            .index
+            .as_u64()
+            .map(|i| i as usize)
+            .ok_or_else(|| RerankError::Malformed("result `index` is not an integer".into()))?;
+        if index >= batch.len() {
+            return Err(RerankError::Malformed(format!(
+                "result index {index} is outside the batch of {}",
+                batch.len()
+            )));
+        }
+        if std::mem::replace(&mut seen[index], true) {
+            return Err(RerankError::Malformed(format!(
+                "result index {index} answered twice"
+            )));
+        }
+        let score = r
+            .relevance_score
+            .as_f64()
+            .filter(|f| f.is_finite() && (0.0..=1.0).contains(f))
+            .ok_or_else(|| {
+                RerankError::Malformed(format!(
+                    "relevance_score for index {index} is not a number in 0..=1"
+                ))
+            })?;
+        out.push(Scored {
+            ordinal: batch[index].ordinal,
+            score,
         });
     }
     Ok((out, usage))
@@ -946,7 +1112,91 @@ pub struct ProviderSettings {
     key_source: SettingSource,
     endpoint: String,
     endpoint_source: SettingSource,
+    /// Cohere's key and endpoint, resolved by the same precedence rule.
+    cohere: KeyedEndpoint,
     client: reqwest::Client,
+}
+
+/// One provider's resolved key and endpoint, with where each came from.
+#[derive(Clone)]
+pub struct KeyedEndpoint {
+    api_key: Option<String>,
+    key_source: SettingSource,
+    endpoint: String,
+    endpoint_source: SettingSource,
+}
+
+impl KeyedEndpoint {
+    /// Config beats environment beats default, for the key and the endpoint
+    /// alike. Pure: the caller reads the environment.
+    pub fn resolve(
+        config_key: &str,
+        config_endpoint: &str,
+        env_key: Option<String>,
+        env_endpoint: Option<String>,
+        default_endpoint: &str,
+    ) -> Self {
+        let non_empty =
+            |v: Option<String>| v.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+        let (api_key, key_source) =
+            match (non_empty(Some(config_key.to_string())), non_empty(env_key)) {
+                (Some(k), _) => (Some(k), SettingSource::Config),
+                (None, Some(k)) => (Some(k), SettingSource::Env),
+                (None, None) => (None, SettingSource::Default),
+            };
+        let (endpoint, endpoint_source) = match (
+            non_empty(Some(config_endpoint.to_string())),
+            non_empty(env_endpoint),
+        ) {
+            (Some(e), _) => (e, SettingSource::Config),
+            (None, Some(e)) => (e, SettingSource::Env),
+            (None, None) => (default_endpoint.to_string(), SettingSource::Default),
+        };
+        Self {
+            api_key,
+            key_source,
+            endpoint,
+            endpoint_source,
+        }
+    }
+
+    pub fn has_key(&self) -> bool {
+        self.api_key.is_some()
+    }
+    pub fn key_source(&self) -> Option<SettingSource> {
+        self.api_key.as_ref().map(|_| self.key_source)
+    }
+    pub fn endpoint_source(&self) -> SettingSource {
+        self.endpoint_source
+    }
+    /// The endpoint with userinfo, query and fragment stripped.
+    pub fn endpoint_for_display(&self) -> String {
+        display_endpoint(&self.endpoint)
+    }
+}
+
+impl std::fmt::Debug for KeyedEndpoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeyedEndpoint")
+            .field("api_key", &self.api_key.as_ref().map(|_| "<redacted>"))
+            .field("key_source", &self.key_source)
+            .field("endpoint", &self.endpoint_for_display())
+            .field("endpoint_source", &self.endpoint_source)
+            .finish()
+    }
+}
+
+fn display_endpoint(endpoint: &str) -> String {
+    match reqwest::Url::parse(endpoint) {
+        Ok(mut u) => {
+            let _ = u.set_username("");
+            let _ = u.set_password(None);
+            u.set_query(None);
+            u.set_fragment(None);
+            u.to_string()
+        }
+        Err(_) => "<unparseable endpoint>".to_string(),
+    }
 }
 
 impl std::fmt::Debug for ProviderSettings {
@@ -957,6 +1207,7 @@ impl std::fmt::Debug for ProviderSettings {
             .field("key_source", &self.key_source)
             .field("endpoint", &self.endpoint_for_display())
             .field("endpoint_source", &self.endpoint_source)
+            .field("cohere", &self.cohere)
             .finish()
     }
 }
@@ -1009,8 +1260,43 @@ impl ProviderSettings {
             key_source,
             endpoint,
             endpoint_source,
+            cohere: KeyedEndpoint::resolve("", "", None, None, CohereProvider::DEFAULT_ENDPOINT),
             client: reqwest::Client::new(),
         }
+    }
+
+    /// The same settings with Cohere's key and endpoint resolved from a
+    /// config block and environment values (config wins). Pure.
+    pub fn with_cohere(
+        mut self,
+        config_key: &str,
+        config_endpoint: &str,
+        env_key: Option<String>,
+        env_endpoint: Option<String>,
+    ) -> Self {
+        self.cohere = KeyedEndpoint::resolve(
+            config_key,
+            config_endpoint,
+            env_key,
+            env_endpoint,
+            CohereProvider::DEFAULT_ENDPOINT,
+        );
+        self
+    }
+
+    /// [`Self::with_cohere`] reading `COHERE_API_KEY` / `COHERE_ENDPOINT`.
+    pub fn with_cohere_from_config_and_env(self, config_key: &str, config_endpoint: &str) -> Self {
+        self.with_cohere(
+            config_key,
+            config_endpoint,
+            std::env::var(CohereProvider::ENV_KEY).ok(),
+            std::env::var(CohereProvider::ENV_ENDPOINT).ok(),
+        )
+    }
+
+    /// Cohere's resolved key and endpoint (never the key itself).
+    pub fn cohere(&self) -> &KeyedEndpoint {
+        &self.cohere
     }
 
     /// Config fields first, then `TYPESAFE_API_KEY` / `TYPESAFE_ENDPOINT`.
@@ -1044,22 +1330,14 @@ impl ProviderSettings {
     /// string and fragment. An operator who put a token in the URL should not
     /// find it echoed by a status endpoint.
     pub fn endpoint_for_display(&self) -> String {
-        match reqwest::Url::parse(&self.endpoint) {
-            Ok(mut u) => {
-                let _ = u.set_username("");
-                let _ = u.set_password(None);
-                u.set_query(None);
-                u.set_fragment(None);
-                u.to_string()
-            }
-            Err(_) => "<unparseable endpoint>".to_string(),
-        }
+        display_endpoint(&self.endpoint)
     }
 }
 
 /// A configured reranking backend.
 pub enum Provider {
     Jev(JevProvider),
+    Cohere(CohereProvider),
     /// Configured but inert. An empty API key lands here rather than erroring,
     /// so a deployment that has not set one yet still serves searches.
     Disabled,
@@ -1087,6 +1365,12 @@ impl Provider {
                     return Err(RerankError::DisabledByOperator);
                 }
                 JevProvider::from_settings(settings).map(Self::Jev)
+            }
+            "cohere" => {
+                if !settings.enabled {
+                    return Err(RerankError::DisabledByOperator);
+                }
+                CohereProvider::from_settings(settings).map(Self::Cohere)
             }
             other => Err(RerankError::UnknownProvider(other.to_string())),
         }
@@ -1120,22 +1404,51 @@ impl Provider {
             Self::Disabled => Ok(RerankOutcome::Degraded {
                 reason: "rerank provider disabled (`rerank.provider` is `none`)".into(),
             }),
-            Self::Jev(p) => match p.rerank(query, candidates, cfg, deadline).await {
-                Ok(outcome) => Ok(outcome),
-                Err(e) if e.policy() == Policy::Degrade => Ok(RerankOutcome::Degraded {
-                    reason: e.to_string(),
-                }),
-                Err(e) => Err(e),
-            },
+            Self::Jev(JevProvider(p)) | Self::Cohere(CohereProvider(p)) => {
+                match p.rerank(query, candidates, cfg, deadline).await {
+                    Ok(outcome) => Ok(outcome),
+                    Err(e) if e.policy() == Policy::Degrade => Ok(RerankOutcome::Degraded {
+                        reason: e.to_string(),
+                    }),
+                    Err(e) => Err(e),
+                }
+            }
+        }
+    }
+}
+
+/// Which wire format an [`HttpProvider`] speaks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Wire {
+    /// TypeSafe AI System One (`questions`/`answers`, probabilities).
+    Jev,
+    /// Cohere `/v2/rerank` (`documents`/`results[index, relevance_score]`).
+    Cohere,
+}
+
+impl Wire {
+    fn max_docs_per_call(self) -> usize {
+        match self {
+            Self::Jev => JEV_MAX_DOCS_PER_CALL,
+            Self::Cohere => COHERE_MAX_DOCS_PER_CALL,
         }
     }
 }
 
 /// TypeSafe AI System One client.
-pub struct JevProvider {
+pub struct JevProvider(HttpProvider);
+
+/// Cohere Rerank (`/v2/rerank`) client. Shares retry, back-off, deadline,
+/// response cap, key redaction and the degrade policy with [`JevProvider`];
+/// only the request body and the response parse differ.
+pub struct CohereProvider(HttpProvider);
+
+/// The HTTP machinery both providers share.
+struct HttpProvider {
     client: reqwest::Client,
     endpoint: String,
     api_key: String,
+    wire: Wire,
 }
 
 impl JevProvider {
@@ -1149,14 +1462,66 @@ impl JevProvider {
             .api_key
             .clone()
             .ok_or(RerankError::MissingKey(Self::ENV_KEY))?;
-        Ok(Self {
+        Ok(Self(HttpProvider {
             client: settings.client.clone(),
             endpoint: settings.endpoint.clone(),
             api_key,
-        })
+            wire: Wire::Jev,
+        }))
     }
 
     pub fn new(api_key: String, endpoint: String, timeout: Duration) -> Self {
+        Self(HttpProvider::new(api_key, endpoint, timeout, Wire::Jev))
+    }
+
+    pub async fn rerank(
+        &self,
+        query: &str,
+        candidates: &[Candidate],
+        cfg: &RerankConfig,
+        deadline: &Deadline,
+    ) -> Result<RerankOutcome, RerankError> {
+        self.0.rerank(query, candidates, cfg, deadline).await
+    }
+}
+
+impl CohereProvider {
+    pub const ENV_KEY: &'static str = "COHERE_API_KEY";
+    pub const ENV_ENDPOINT: &'static str = "COHERE_ENDPOINT";
+    pub const DEFAULT_ENDPOINT: &'static str = "https://api.cohere.com/v2/rerank";
+
+    /// Shares the settings' HTTP client, so the pool outlives this request.
+    pub fn from_settings(settings: &ProviderSettings) -> Result<Self, RerankError> {
+        let api_key = settings
+            .cohere
+            .api_key
+            .clone()
+            .ok_or(RerankError::MissingKey(Self::ENV_KEY))?;
+        Ok(Self(HttpProvider {
+            client: settings.client.clone(),
+            endpoint: settings.cohere.endpoint.clone(),
+            api_key,
+            wire: Wire::Cohere,
+        }))
+    }
+
+    pub fn new(api_key: String, endpoint: String, timeout: Duration) -> Self {
+        Self(HttpProvider::new(api_key, endpoint, timeout, Wire::Cohere))
+    }
+
+    pub async fn rerank(
+        &self,
+        query: &str,
+        candidates: &[Candidate],
+        cfg: &RerankConfig,
+        deadline: &Deadline,
+    ) -> Result<RerankOutcome, RerankError> {
+        self.0.rerank(query, candidates, cfg, deadline).await
+    }
+}
+
+impl HttpProvider {
+    fn new(api_key: String, endpoint: String, timeout: Duration, wire: Wire) -> Self {
         let client = reqwest::Client::builder()
             .timeout(timeout)
             .build()
@@ -1165,6 +1530,7 @@ impl JevProvider {
             client,
             endpoint,
             api_key,
+            wire,
         }
     }
 
@@ -1225,7 +1591,10 @@ impl JevProvider {
         cfg: &RerankConfig,
         deadline: &Deadline,
     ) -> Result<(Vec<Scored>, Usage), RerankError> {
-        let body = build_jev_request(query, batch, cfg);
+        let body = match self.wire {
+            Wire::Jev => build_jev_request(query, batch, cfg),
+            Wire::Cohere => build_cohere_request(query, batch, cfg),
+        };
         // Per request, not per client: the client is shared across searches
         // (see `ProviderSettings`), and each search brings its own budget. The
         // HTTP timeout is whatever is left of the stage deadline, so a call
@@ -1263,7 +1632,8 @@ impl JevProvider {
         if status.is_success() && oversized {
             return Err(RerankError::Malformed(format!(
                 "response body larger than {MAX_RESPONSE_BYTES} bytes; a verdict for \
-                 {JEV_MAX_DOCS_PER_CALL} documents is a few kilobytes"
+                 {} documents is a few kilobytes",
+                self.wire.max_docs_per_call()
             )));
         }
         if !status.is_success() {
@@ -1275,11 +1645,14 @@ impl JevProvider {
                 body: error_body(&text, &self.api_key),
             });
         }
-        let (scores, usage) = parse_jev_response_with_usage(&text)?;
+        let (scores, usage) = match self.wire {
+            Wire::Jev => parse_jev_response_with_usage(&text)?,
+            Wire::Cohere => parse_cohere_response(&text, batch)?,
+        };
         Ok((keep_verdicts_for(batch, scores), usage))
     }
 
-    pub async fn rerank(
+    async fn rerank(
         &self,
         query: &str,
         candidates: &[Candidate],
@@ -1293,7 +1666,7 @@ impl JevProvider {
                 usage: Usage::default(),
             });
         }
-        let batch_size = cfg.batch.clamp(1, JEV_MAX_DOCS_PER_CALL);
+        let batch_size = cfg.batch.clamp(1, self.wire.max_docs_per_call());
         let batches: Vec<Vec<Candidate>> =
             candidates.chunks(batch_size).map(|c| c.to_vec()).collect();
 
@@ -1378,6 +1751,7 @@ impl JevProvider {
             client: self.client.clone(),
             endpoint: self.endpoint.clone(),
             api_key: self.api_key.clone(),
+            wire: self.wire,
         }
     }
 }
@@ -1482,7 +1856,7 @@ mod tests {
             );
             let d = Deadline::new(Duration::from_secs(10));
             let err = rt
-                .block_on(p.call_batch("q", &cands(1), &cfg, &d))
+                .block_on(p.0.call_batch("q", &cands(1), &cfg, &d))
                 .expect_err("an oversized body must not parse");
             assert!(
                 matches!(&err, RerankError::Malformed(m) if m.contains("larger than")),
@@ -1496,7 +1870,7 @@ mod tests {
                 Duration::from_secs(10),
             );
             let (scores, _) = rt
-                .block_on(p.call_batch("q", &cands(1), &cfg, &d))
+                .block_on(p.0.call_batch("q", &cands(1), &cfg, &d))
                 .expect("a body inside the ceiling parses");
             assert_eq!(scores.len(), 1, "chunked={chunked}");
         }
@@ -2173,5 +2547,249 @@ mod tests {
         assert!(body["questions"]["d30"].is_object());
         assert!(body["questions"]["d39"].is_object());
         assert!(body["questions"]["d0"].is_null());
+    }
+
+    // ── Cohere ──────────────────────────────────────────────────────────
+
+    /// A scripted HTTP stub: answers each incoming request with the next
+    /// `(status, body)` in `script`, records every request body, and counts
+    /// how many requests arrived. Loopback only.
+    fn cohere_stub(
+        script: Vec<(u16, String)>,
+    ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        use std::io::{BufRead, BufReader, Read, Write};
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
+        let addr = listener.local_addr().unwrap();
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen2 = seen.clone();
+        std::thread::spawn(move || {
+            for (status, body) in script {
+                let Ok((s, _)) = listener.accept() else {
+                    return;
+                };
+                let mut r = BufReader::new(s.try_clone().unwrap());
+                let mut len = 0usize;
+                loop {
+                    let mut line = String::new();
+                    if r.read_line(&mut line).unwrap_or(0) == 0 {
+                        break;
+                    }
+                    let l = line.to_ascii_lowercase();
+                    if let Some(v) = l.strip_prefix("content-length:") {
+                        len = v.trim().parse().unwrap_or(0);
+                    }
+                    if line == "\r\n" {
+                        break;
+                    }
+                }
+                let mut buf = vec![0u8; len];
+                let _ = r.read_exact(&mut buf);
+                seen2
+                    .lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(&buf).into_owned());
+                let mut s = s;
+                let reason = if status == 200 { "OK" } else { "ERR" };
+                let _ = s.write_all(
+                    format!(
+                        "HTTP/1.1 {status} {reason}\r\ncontent-type: application/json\r\n\
+                         content-length: {}\r\nconnection: close\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .as_bytes(),
+                );
+            }
+        });
+        (format!("http://{addr}/v2/rerank"), seen)
+    }
+
+    fn cohere_cfg() -> RerankConfig {
+        RerankConfig::from_json(&json!({"provider": "cohere", "query": "q"})).unwrap()
+    }
+
+    #[test]
+    fn cohere_request_matches_v2_rerank_wire_format() {
+        let mut c = cands(2);
+        c[0].title = Some("T".into());
+        let cfg = cohere_cfg();
+        let body = build_cohere_request("vitamin d", &c, &cfg);
+        assert_eq!(body["model"], COHERE_DEFAULT_MODEL);
+        assert_eq!(body["query"], "vitamin d");
+        assert_eq!(body["top_n"], 2);
+        assert_eq!(body["documents"].as_array().unwrap().len(), 2);
+        assert!(body["documents"][0].as_str().unwrap().starts_with("T. "));
+        assert_eq!(body["max_tokens_per_doc"], cfg.max_doc_chars);
+        // Nothing beyond the documented fields leaves the node.
+        let keys: Vec<&str> = body
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|k| k.as_str())
+            .collect();
+        assert_eq!(keys.len(), 5, "{keys:?}");
+    }
+
+    #[test]
+    fn cohere_response_maps_batch_positions_to_caller_ordinals() {
+        let mut batch = cands(3);
+        for (i, c) in batch.iter_mut().enumerate() {
+            c.ordinal = 10 + i;
+        }
+        let body = r#"{"id":"x","results":[{"index":2,"relevance_score":0.9},
+            {"index":0,"relevance_score":0.1}],"meta":{"billed_units":{"search_units":1}}}"#;
+        let (scores, usage) = parse_cohere_response(body, &batch).unwrap();
+        assert_eq!(scores.len(), 2);
+        assert_eq!(
+            scores[0],
+            Scored {
+                ordinal: 12,
+                score: 0.9
+            }
+        );
+        assert_eq!(
+            scores[1],
+            Scored {
+                ordinal: 10,
+                score: 0.1
+            }
+        );
+        assert_eq!(usage.search_units, 1);
+        assert_eq!(usage.input_tokens, 0);
+    }
+
+    #[test]
+    fn a_cohere_response_about_something_else_is_malformed() {
+        let batch = cands(2);
+        for body in [
+            r#"{"results":[{"index":2,"relevance_score":0.5}]}"#,
+            r#"{"results":[{"index":0,"relevance_score":0.5},{"index":0,"relevance_score":0.4}]}"#,
+            r#"{"results":[{"index":0,"relevance_score":1.5}]}"#,
+            r#"{"results":[{"index":0,"relevance_score":-0.1}]}"#,
+            r#"{"results":[{"index":0,"relevance_score":"high"}]}"#,
+            r#"{"results":[{"index":-1,"relevance_score":0.5}]}"#,
+            r#"{"results":[{"index":0.5,"relevance_score":0.5}]}"#,
+            r#"{"nothing":true}"#,
+        ] {
+            assert!(
+                matches!(
+                    parse_cohere_response(body, &batch),
+                    Err(RerankError::Malformed(_))
+                ),
+                "{body}"
+            );
+        }
+    }
+
+    #[test]
+    fn cohere_config_defaults_validates_and_refuses_what_it_cannot_do() {
+        let cfg = cohere_cfg();
+        assert_eq!(cfg.model, COHERE_DEFAULT_MODEL);
+        assert_eq!(cfg.batch, COHERE_MAX_DOCS_PER_CALL);
+        let cfg = RerankConfig::from_json(
+            &json!({"provider": "cohere", "model": "rerank-v5.0-pro", "batch": 500}),
+        )
+        .unwrap();
+        assert_eq!(cfg.model, "rerank-v5.0-pro");
+        assert_eq!(
+            cfg.batch, COHERE_MAX_DOCS_PER_CALL,
+            "clamped to the provider ceiling"
+        );
+        // Jev's ceiling is unchanged.
+        let jev = RerankConfig::from_json(&json!({"batch": 500})).unwrap();
+        assert_eq!(jev.batch, JEV_MAX_DOCS_PER_CALL);
+        for bad in [
+            json!({"provider": "cohere", "model": "rerank-english-v9"}),
+            json!({"provider": "cohere", "instructions": "be strict"}),
+            json!({"provider": "cohere", "min_score": 0.5}),
+        ] {
+            assert!(
+                matches!(RerankConfig::from_json(&bad), Err(RerankError::Config(_))),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn cohere_settings_follow_config_then_env_then_default() {
+        let base = ProviderSettings::resolve(true, "", "", None, None);
+        assert!(!base.cohere().has_key());
+        assert_eq!(base.cohere().endpoint_source(), SettingSource::Default);
+        assert!(base
+            .cohere()
+            .endpoint_for_display()
+            .starts_with("https://api.cohere.com/v2/rerank"));
+        let s = base.clone().with_cohere(
+            "cfg-key",
+            "https://private.example/v2/rerank",
+            Some("env-key".into()),
+            Some("https://env.example/v2/rerank".into()),
+        );
+        assert_eq!(s.cohere().key_source(), Some(SettingSource::Config));
+        assert_eq!(s.cohere().endpoint_source(), SettingSource::Config);
+        let s = base
+            .clone()
+            .with_cohere("", "", Some("env-key".into()), None);
+        assert_eq!(s.cohere().key_source(), Some(SettingSource::Env));
+        // Cohere's key does not satisfy the TypeSafe provider, nor the reverse.
+        assert!(!s.has_key());
+        assert!(matches!(
+            Provider::from_settings(&cohere_cfg(), &base),
+            Err(RerankError::MissingKey("COHERE_API_KEY"))
+        ));
+        let off =
+            ProviderSettings::resolve(false, "", "", None, None).with_cohere("k", "", None, None);
+        assert!(matches!(
+            Provider::from_settings(&cohere_cfg(), &off),
+            Err(RerankError::DisabledByOperator)
+        ));
+        let shown = format!("{:?}", s);
+        assert!(!shown.contains("env-key"), "{shown}");
+    }
+
+    #[test]
+    fn cohere_reorders_retries_429_and_bills_search_units() {
+        let ok = r#"{"results":[{"index":1,"relevance_score":0.8},{"index":0,"relevance_score":0.2}],
+            "meta":{"billed_units":{"search_units":1}}}"#;
+        let (url, seen) = cohere_stub(vec![
+            (429, r#"{"message":"slow down"}"#.into()),
+            (200, ok.into()),
+        ]);
+        let p = CohereProvider::new("co-key".into(), url, Duration::from_secs(5));
+        let d = Deadline::new(Duration::from_secs(5));
+        let out = rt()
+            .block_on(p.rerank("q", &cands(2), &cohere_cfg(), &d))
+            .unwrap();
+        let RerankOutcome::Reordered { scores, usage, .. } = out else {
+            panic!("expected a reorder")
+        };
+        let ordered = apply_scores(&cands(2), &scores, None);
+        assert_eq!(ordered[0].ordinal, 1);
+        assert_eq!(usage.search_units, 1);
+        assert_eq!(seen.lock().unwrap().len(), 2, "one retry after the 429");
+        let sent: Value = serde_json::from_str(&seen.lock().unwrap()[1]).unwrap();
+        assert_eq!(sent["top_n"], 2);
+    }
+
+    #[test]
+    fn cohere_401_is_surfaced_once_and_the_key_is_redacted() {
+        let (url, seen) = cohere_stub(vec![
+            (
+                401,
+                r#"{"message":"invalid api token co-secret-key"}"#.into(),
+            ),
+            (200, r#"{"results":[]}"#.into()),
+        ]);
+        let p = CohereProvider::new("co-secret-key".into(), url, Duration::from_secs(5));
+        let d = Deadline::new(Duration::from_secs(5));
+        let err = rt()
+            .block_on(p.rerank("q", &cands(1), &cohere_cfg(), &d))
+            .expect_err("401 must surface");
+        assert!(
+            matches!(&err, RerankError::Status { status: 401, .. }),
+            "{err}"
+        );
+        assert!(!err.to_string().contains("co-secret-key"), "{err}");
+        assert_eq!(seen.lock().unwrap().len(), 1, "a 401 is not retried");
     }
 }

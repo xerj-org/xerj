@@ -1,0 +1,22 @@
+== base [cq] 雷同
+  1.     2.899  b-noise.md  kind= name= line=1
+  2.     2.832  c-noise.md  kind= name= line=1
+  3.     2.519  a-target.md  kind= name= line=1
+== new [cq] 雷同
+  1.    14.493  b-noise.md  kind= name= line=1
+  2.    12.595  a-target.md  kind= name= line=1
+  3.     2.832  c-noise.md  kind= name= line=1
+== base [cq] 无名小炒
+  1.     5.672  e-noise.md  kind= name= line=1
+  2.     4.900  d-target-dish.md  kind= name= line=1
+  3.     4.012  f-noise.md  kind= name= line=1
+== new [cq] 无名小炒
+  1.    28.358  e-noise.md  kind= name= line=1
+  2.    24.500  d-target-dish.md  kind= name= line=1
+  3.     4.012  f-noise.md  kind= name= line=1
+== base [cq] 青椒猪杂
+  1.     9.503  f-noise.md  kind= name= line=1
+  2.     2.948  d-target-dish.md  kind= name= line=1
+== new [cq] 青椒猪杂
+  1.     9.503  f-noise.md  kind= name= line=1
+  2.     2.948  d-target-dish.md  kind= name= line=1

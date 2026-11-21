@@ -85,6 +85,7 @@ use std::collections::HashMap;
 use std::io::{Cursor, Read, Write};
 
 pub mod derived_vectors;
+mod lazy_columns;
 mod row_hydration;
 pub use row_hydration::{
     decode_stored_v2_ids, decode_stored_v2_rows, decode_stored_v2_rows_controlled,
@@ -299,6 +300,67 @@ impl ColCodec {
 const RAW_LONG_LEVEL: i32 = 19;
 const RAW_LONG_WINDOW_LOG_MAX: u32 = 24;
 
+/// Largest column the long-effort candidate encodes at the requested level
+/// (#2917). Level 19 runs at about 0.5-1 MB/s on one merge-pool thread, and
+/// the merge holds its whole working set until the encode returns, so a
+/// 730 MB vector index force-merged for many minutes with RSS at its peak.
+/// Measured with the zstd 1.5.7 CLI, `--long=24`, on this box (2026-11-18):
+///
+/// | 28-29 MB column            | level 19        | level 12       | level 9        |
+/// |----------------------------|-----------------|----------------|----------------|
+/// | 1024-d float vectors, JSON | 10.07 MB, 54.9 s | 10.47 MB, 5.0 s | 10.73 MB, 0.6 s |
+/// | Rust source text           | 4.93 MB, 32.5 s | 5.64 MB, 2.4 s | 5.87 MB, 0.6 s |
+///
+/// Up to this size the requested level runs (at most ~30 s per column).
+const RAW_LONG_FULL_LEVEL_MAX_BYTES: usize = 16 * 1024 * 1024;
+/// Columns up to this size use [`RAW_LONG_MID_LEVEL`]; larger ones
+/// [`RAW_LONG_LARGE_LEVEL`]. Both keep long-distance matching and the
+/// 16 MiB window, which is where most of the long-effort gain comes from.
+const RAW_LONG_MID_LEVEL_MAX_BYTES: usize = 128 * 1024 * 1024;
+const RAW_LONG_MID_LEVEL: i32 = 12;
+const RAW_LONG_LARGE_LEVEL: i32 = 9;
+
+/// The long-effort zstd level for a `len`-byte column (#2917): the
+/// requested level up to [`RAW_LONG_FULL_LEVEL_MAX_BYTES`], then lower
+/// levels so the encode time stays roughly linear in the column size.
+fn long_effort_level_for_len(len: usize, requested: i32) -> i32 {
+    if len <= RAW_LONG_FULL_LEVEL_MAX_BYTES {
+        requested
+    } else if len <= RAW_LONG_MID_LEVEL_MAX_BYTES {
+        requested.min(RAW_LONG_MID_LEVEL)
+    } else {
+        requested.min(RAW_LONG_LARGE_LEVEL)
+    }
+}
+
+/// The JSON fallback for a column given as its `[row,row,…]` text: zstd at
+/// `level` (plus the long-effort candidate when requested) against LZ4,
+/// smaller wins. Returns `(codec, payload, used_long_form)`. Matches the
+/// tail of the parsed-column loop in [`encode_v2_columns_with_json`] for a
+/// column that cannot take TYPED_INT.
+fn encode_json_fallback(
+    col_json: &[u8],
+    level: i32,
+    long_effort_level: Option<i32>,
+) -> (ColCodec, Vec<u8>, bool) {
+    let zstd_payload =
+        zstd::encode_all(Cursor::new(col_json), level).unwrap_or_else(|_| col_json.to_vec());
+    let (zstd_payload, zstd_form) = match long_effort_level {
+        Some(long_level) => try_long_effort_zstd_at(
+            col_json,
+            zstd_payload,
+            long_effort_level_for_len(col_json.len(), long_level),
+        ),
+        None => (zstd_payload, 0u8),
+    };
+    let lz4_payload = lz4_flex::compress_prepend_size(col_json);
+    if lz4_payload.len() + 1 < zstd_payload.len() {
+        (ColCodec::Lz4Json, lz4_payload, false)
+    } else {
+        (ColCodec::RawJson, zstd_payload, zstd_form != 0)
+    }
+}
+
 /// Encode a stored section written as a JSON array of
 /// `{"_id", "_seq_no", "_source"}` objects using the v2 columnar format.
 ///
@@ -344,6 +406,23 @@ pub fn encode_stored_v2_forcemerge_at_level(stored_docs_json: &[u8], level: i32)
 }
 
 fn encode_stored_v2_at_level_inner(
+    stored_docs_json: &[u8],
+    level: i32,
+    long_effort_level: Option<i32>,
+) -> Vec<u8> {
+    // #2917: build array/object columns from the rows' JSON text instead of
+    // a parsed `Value` tree. `None` = a shape the lazy reader does not
+    // handle; the tree build below then encodes exactly as before.
+    if let Some(encoded) = lazy_columns::encode(stored_docs_json, level, long_effort_level) {
+        return encoded;
+    }
+    encode_stored_v2_tree(stored_docs_json, level, long_effort_level)
+}
+
+/// The tree build: every document parsed into a `serde_json::Value`. Used
+/// for every shape [`lazy_columns::encode`] declines, and by its tests as
+/// the reference output.
+fn encode_stored_v2_tree(
     stored_docs_json: &[u8],
     level: i32,
     long_effort_level: Option<i32>,
@@ -632,6 +711,38 @@ fn encode_v2_columns(
     level: i32,
     long_effort_level: Option<i32>,
 ) -> Vec<u8> {
+    encode_v2_columns_with_json(
+        num_docs,
+        col_order,
+        columns,
+        &[],
+        stored_docs_json,
+        level,
+        long_effort_level,
+    )
+}
+
+/// [`encode_v2_columns`] where some columns arrive as canonical JSON text
+/// per row instead of parsed values (#2917, see [`lazy_columns`]).
+///
+/// `json_columns[cix]` is `Some` for such a column, and `columns[cix]` is
+/// then an empty placeholder. A JSON column has at least one array or
+/// object row (its other rows may be scalars, #2427), so it would take
+/// neither the dictionary, cross-dep nor typed-int codec; it goes straight
+/// to CONSTANT, COPY_OF or the JSON
+/// fallback, whose input is the same `[row,row,…]` bytes `serde_json`
+/// writes for the parsed column. `json_columns` may be shorter than
+/// `columns` (missing = parsed column).
+fn encode_v2_columns_with_json(
+    num_docs: usize,
+    col_order: &[String],
+    columns: &[Vec<&serde_json::Value>],
+    json_columns: &[Option<lazy_columns::JsonColumn<'_>>],
+    stored_docs_json: Option<&[u8]>,
+    level: i32,
+    long_effort_level: Option<i32>,
+) -> Vec<u8> {
+    let json_column = |cix: usize| json_columns.get(cix).and_then(Option::as_ref);
     // THROWAWAY prof (XERJ_PROF): encode-phase breakdown.
     let prof = std::env::var_os("XERJ_PROF").is_some();
     let t_dict = std::time::Instant::now();
@@ -640,8 +751,17 @@ fn encode_v2_columns(
     // `dict_encode(col)` returns Some((dict_entries, ids)) where ids[i] is the
     // 1-based id (0 reserved for null, we add 1 here).  Returns None when
     // the column has non-scalar values or unique-count exceeds DICT_MAX_CARDINALITY.
-    let dict_encoded: Vec<Option<(Vec<serde_json::Value>, Vec<u32>)>> =
-        columns.iter().map(|c| dict_encode_column(c)).collect();
+    let dict_encoded: Vec<Option<(Vec<serde_json::Value>, Vec<u32>)>> = columns
+        .iter()
+        .enumerate()
+        .map(|(cix, c)| {
+            if json_column(cix).is_some() {
+                None
+            } else {
+                dict_encode_column(c)
+            }
+        })
+        .collect();
     let dict_us = t_dict.elapsed().as_micros();
     let t_cross = std::time::Instant::now();
 
@@ -651,6 +771,9 @@ fn encode_v2_columns(
         .iter()
         .enumerate()
         .map(|(cix, col)| {
+            if json_column(cix).is_some() {
+                return None;
+            }
             // Only integer columns may use the lossy i64 cross-dep path;
             // float columns fall through to the lossless dict / raw path so
             // fractional values (e.g. `0.010127`) survive intact.
@@ -717,7 +840,14 @@ fn encode_v2_columns(
     // claimed as cross-dep sources may become the copy target — a COPY_OF
     // column materialises by reference and must not be anyone's dependency
     // root.
-    let column_digests: Vec<u64> = columns.iter().map(|c| column_digest(c)).collect();
+    let column_digests: Vec<u64> = columns
+        .iter()
+        .enumerate()
+        .map(|(cix, c)| match json_column(cix) {
+            Some(json) => json.digest(),
+            None => column_digest(c),
+        })
+        .collect();
     let cross_dep_sources: rustc_hash::FxHashSet<usize> =
         cross_dep_src.iter().flatten().copied().collect();
     let mut copy_of_src: Vec<Option<usize>> = vec![None; columns.len()];
@@ -732,7 +862,12 @@ fn encode_v2_columns(
             {
                 continue;
             }
-            if columns[src] == columns[dst] {
+            let same = match (json_column(src), json_column(dst)) {
+                (Some(a), Some(b)) => a == b,
+                (None, None) => columns[src] == columns[dst],
+                _ => false,
+            };
+            if same {
                 copy_of_src[dst] = Some(src);
                 continue 'outer;
             }
@@ -748,6 +883,26 @@ fn encode_v2_columns(
         // CONSTANT → COPY_OF → CROSS_DEP → DICT_BITPACK (raced against
         // TYPED_INT by measured size) → TYPED_INT vs the JSON fallbacks →
         // LZ4_JSON/RAW_JSON (with the merge-path effort chooser).
+        if let Some(json) = json_column(cix) {
+            // #2917: an array/object column held as row text. Same codec
+            // order as below, minus the codecs no such column can take.
+            if let Some(payload) = json.constant() {
+                col_payloads.push((cname.clone(), ColCodec::Constant as u8, payload));
+                continue;
+            }
+            if let Some(src_ix) = copy_of_src[cix] {
+                let mut payload = Vec::with_capacity(4);
+                payload.write_u32::<LittleEndian>(src_ix as u32).unwrap();
+                col_payloads.push((cname.clone(), ColCodec::CopyOf as u8, payload));
+                used_v4_feature = true;
+                continue;
+            }
+            let (codec, payload, long_form) =
+                encode_json_fallback(&json.to_json_array(), level, long_effort_level);
+            used_v4_feature |= long_form;
+            col_payloads.push((cname.clone(), codec as u8, payload));
+            continue;
+        }
         if let Some(payload) = try_encode_constant(col) {
             col_payloads.push((cname.clone(), ColCodec::Constant as u8, payload));
             continue;
@@ -795,7 +950,11 @@ fn encode_v2_columns(
         let zstd_payload =
             zstd::encode_all(Cursor::new(&col_json), level).unwrap_or_else(|_| col_json.clone());
         let (zstd_payload, zstd_form) = if let Some(long_level) = long_effort_level {
-            try_long_effort_zstd_at(&col_json, zstd_payload, long_level)
+            try_long_effort_zstd_at(
+                &col_json,
+                zstd_payload,
+                long_effort_level_for_len(col_json.len(), long_level),
+            )
         } else {
             (zstd_payload, 0u8)
         };
@@ -843,12 +1002,14 @@ fn encode_v2_columns(
     out.write_u32::<LittleEndian>(num_docs as u32).unwrap();
     out.write_u32::<LittleEndian>(col_payloads.len() as u32)
         .unwrap();
-    for (name, codec_id, payload) in &col_payloads {
+    // #2917: consume the payloads so each is freed once copied, instead of
+    // holding every column's payload beside the assembled blob.
+    for (name, codec_id, payload) in col_payloads {
         out.write_u16::<LittleEndian>(name.len() as u16).unwrap();
         out.extend_from_slice(name.as_bytes());
-        out.push(*codec_id);
+        out.push(codec_id);
         out.write_u32::<LittleEndian>(payload.len() as u32).unwrap();
-        out.extend_from_slice(payload);
+        out.extend_from_slice(&payload);
     }
 
     if prof {
@@ -2404,17 +2565,32 @@ fn decode_stored_v2_filtered(
             }
         }
     }
-    let decoded: Vec<Result<Vec<serde_json::Value>>> = {
+    // #2917: without derived-vector rehydration, a JSON column is written
+    // back out row by row exactly as it was stored, so it is split into row
+    // slices of its decompressed text instead of being parsed into one
+    // `Value` per row (a 1024-d vector row is 1024 `Value`s).
+    let rows_as_text = !wants_derived && !force_value_decode();
+    let decoded: Vec<Result<DecodedColumn>> = {
         use rayon::prelude::*;
         entries
             .par_iter()
             .zip(needed.par_iter())
             .map(|((_, codec, payload), needed)| {
                 if !*needed {
-                    return Ok(Vec::new());
+                    return Ok(DecodedColumn::Values(Vec::new()));
                 }
                 let payload = *payload;
-                Ok(match codec {
+                Ok(DecodedColumn::Values(match codec {
+                    ColCodec::RawJson if rows_as_text => {
+                        return Ok(DecodedColumn::Text(std::sync::Arc::new(
+                            JsonRows::from_text(decode_raw_json_text(payload)?)?,
+                        )))
+                    }
+                    ColCodec::Lz4Json if rows_as_text => {
+                        return Ok(DecodedColumn::Text(std::sync::Arc::new(
+                            JsonRows::from_text(decode_lz4_json_text(payload)?)?,
+                        )))
+                    }
                     ColCodec::RawJson => decode_raw_json(payload)?,
                     ColCodec::Lz4Json => decode_lz4_json(payload)?,
                     ColCodec::Constant => decode_constant(payload, num_docs)?,
@@ -2448,15 +2624,39 @@ fn decode_stored_v2_filtered(
                         m.insert(key.into(), value);
                         vec![serde_json::Value::Object(m)]
                     }
-                })
+                }))
             })
             .collect()
     };
     let mut col_names: Vec<String> = Vec::with_capacity(entries.len());
     let mut col_data: Vec<Vec<serde_json::Value>> = Vec::with_capacity(entries.len());
-    for ((name, _, _), values) in entries.into_iter().zip(decoded) {
+    // `Some` for a column kept as row text; its `col_data` slot is empty.
+    let mut col_text: Vec<Option<std::sync::Arc<JsonRows>>> = Vec::with_capacity(entries.len());
+    let mut cross_dep_sources: Vec<usize> = Vec::new();
+    for (((name, codec, payload), values), needed) in
+        entries.into_iter().zip(decoded).zip(needed.iter().copied())
+    {
         col_names.push(name);
-        col_data.push(values?);
+        match values? {
+            DecodedColumn::Values(values) => {
+                col_data.push(values);
+                col_text.push(None);
+            }
+            DecodedColumn::Text(rows) => {
+                col_data.push(Vec::new());
+                col_text.push(Some(rows));
+            }
+        }
+        if needed && codec == ColCodec::CrossDep {
+            cross_dep_sources.push(cross_dep_source_index(payload, num_docs)?);
+        }
+    }
+    // A CROSS_DEP source is a dictionary column by construction; a crafted
+    // segment naming a text column gets that column parsed, as before.
+    for source in cross_dep_sources {
+        if let Some(rows) = col_text.get_mut(source).and_then(Option::take) {
+            col_data[source] = rows.to_values()?;
+        }
     }
 
     // Second pass: resolve deferred CROSS_DEP columns now that the pass-1
@@ -2531,6 +2731,7 @@ fn decode_stored_v2_filtered(
                         still_deferred += 1;
                         continue;
                     }
+                    col_text[cix] = col_text[src_ix].clone();
                     col_data[src_ix].clone()
                 }
             };
@@ -2611,15 +2812,73 @@ fn decode_stored_v2_filtered(
                     let mut buf = Vec::new();
                     for d in start..end {
                         let local = d - start;
+                        if d > 0 {
+                            buf.push(b',');
+                        }
+                        if rows_as_text {
+                            // #2917: write the row directly — the same bytes
+                            // `to_writer` gives for the map built below
+                            // (compact, `_id`/`_seq_no`/`_source`, source
+                            // keys in column order), without the per-row
+                            // `Value` tree. `allowed` is only set with
+                            // `wants_derived`, which takes the map path.
+                            let mut write_cell = |buf: &mut Vec<u8>, cix: usize, force: bool| {
+                                if let Some(rows) = col_text[cix].as_ref() {
+                                    let text = rows.row(d).filter(|t| *t != b"null");
+                                    if text.is_none() && !force {
+                                        return Ok(false);
+                                    }
+                                    buf.extend_from_slice(text.unwrap_or(b"null"));
+                                    return Ok(true);
+                                }
+                                let v = cols[cix]
+                                    .get_mut(local)
+                                    .map(std::mem::take)
+                                    .unwrap_or(serde_json::Value::Null);
+                                if v.is_null() && !force {
+                                    return Ok(false);
+                                }
+                                serde_json::to_writer(&mut *buf, &v).map_err(|e| {
+                                    StorageError::Other(anyhow::anyhow!("v2 reassemble: {e}"))
+                                })?;
+                                Ok::<bool, StorageError>(true)
+                            };
+                            buf.extend_from_slice(b"{\"_id\":");
+                            write_cell(&mut buf, id_col_ix, true)?;
+                            buf.extend_from_slice(b",\"_seq_no\":");
+                            write_cell(&mut buf, seq_col_ix, true)?;
+                            buf.extend_from_slice(b",\"_source\":{");
+                            let mut first = true;
+                            for (cix, name) in col_names.iter().enumerate() {
+                                if cix == id_col_ix || cix == seq_col_ix || !emit[cix] {
+                                    continue;
+                                }
+                                let mark = buf.len();
+                                if !first {
+                                    buf.push(b',');
+                                }
+                                serde_json::to_writer(&mut buf, name).map_err(|e| {
+                                    StorageError::Other(anyhow::anyhow!("v2 reassemble: {e}"))
+                                })?;
+                                buf.push(b':');
+                                // Present explicit null (#415) is written;
+                                // an absent field is dropped.
+                                let force = present_null_set.contains(&(d as u32, cix as u32));
+                                if write_cell(&mut buf, cix, force)? {
+                                    first = false;
+                                } else {
+                                    buf.truncate(mark);
+                                }
+                            }
+                            buf.extend_from_slice(b"}}");
+                            continue;
+                        }
                         let mut cell = |cix: usize| {
                             cols[cix]
                                 .get_mut(local)
                                 .map(std::mem::take)
                                 .unwrap_or(serde_json::Value::Null)
                         };
-                        if d > 0 {
-                            buf.push(b',');
-                        }
                         let mut source_map = serde_json::Map::new();
                         for (cix, name) in col_names.iter().enumerate() {
                             if cix == id_col_ix || cix == seq_col_ix || !emit[cix] {
@@ -3558,6 +3817,93 @@ fn decode_raw_payload(payload: &[u8]) -> Result<&[u8]> {
             .ok_or_else(|| StorageError::Other(anyhow::anyhow!("raw long-form header truncated")))
     } else {
         Ok(payload)
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Tests: decode every column into `Value`s, the pre-#2917 path, to
+    /// compare its bytes with the row-text path.
+    static FORCE_VALUE_DECODE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(test)]
+fn force_value_decode() -> bool {
+    FORCE_VALUE_DECODE.with(std::cell::Cell::get)
+}
+
+#[cfg(not(test))]
+fn force_value_decode() -> bool {
+    false
+}
+
+/// [`decode_stored`] through the pre-#2917 `Value` path, for tests.
+#[cfg(test)]
+fn decode_stored_via_values(bytes: &[u8]) -> Result<Vec<u8>> {
+    FORCE_VALUE_DECODE.with(|f| f.set(true));
+    let out = decode_stored(bytes);
+    FORCE_VALUE_DECODE.with(|f| f.set(false));
+    out
+}
+
+/// `RAW_JSON` column text (`[row,row,…]`) without parsing it (#2917).
+fn decode_raw_json_text(payload: &[u8]) -> Result<Vec<u8>> {
+    let frame = decode_raw_payload(payload)?;
+    zstd_decode_presized(frame)
+        .map_err(|e| StorageError::Other(anyhow::anyhow!("raw zstd decode: {e}")))
+}
+
+/// `LZ4_JSON` column text without parsing it (#2917).
+fn decode_lz4_json_text(payload: &[u8]) -> Result<Vec<u8>> {
+    lz4_flex::decompress_size_prepended(payload)
+        .map_err(|e| StorageError::Other(anyhow::anyhow!("lz4 decode: {e}")))
+}
+
+/// One decoded stored column: parsed values, or a JSON column kept as the
+/// text of its rows (#2917).
+enum DecodedColumn {
+    Values(Vec<serde_json::Value>),
+    Text(std::sync::Arc<JsonRows>),
+}
+
+/// A JSON column's decompressed `[row,row,…]` text and each row's byte
+/// range in it (#2917). The encoder writes every row as `serde_json`'s
+/// compact serialisation of its value, so copying a row's bytes into the
+/// reassembled document gives the same bytes as parsing it and writing the
+/// `Value` back — without the `Value`, which for a 1024-d vector row is
+/// 1024 numbers on the heap.
+struct JsonRows {
+    text: Vec<u8>,
+    rows: Vec<(usize, usize)>,
+}
+
+impl JsonRows {
+    fn from_text(text: Vec<u8>) -> Result<Self> {
+        let rows = {
+            let raws: Vec<&serde_json::value::RawValue> = serde_json::from_slice(&text)
+                .map_err(|e| StorageError::Other(anyhow::anyhow!("raw json decode: {e}")))?;
+            let base = text.as_ptr() as usize;
+            raws.iter()
+                .map(|raw| {
+                    let start = raw.get().as_ptr() as usize - base;
+                    (start, start + raw.get().len())
+                })
+                .collect()
+        };
+        Ok(Self { text, rows })
+    }
+
+    /// Row `doc`'s JSON text; `None` past the end (read as null, like a
+    /// short parsed column).
+    fn row(&self, doc: usize) -> Option<&[u8]> {
+        self.rows
+            .get(doc)
+            .map(|&(start, end)| &self.text[start..end])
+    }
+
+    fn to_values(&self) -> Result<Vec<serde_json::Value>> {
+        serde_json::from_slice(&self.text)
+            .map_err(|e| StorageError::Other(anyhow::anyhow!("raw json decode: {e}")))
     }
 }
 

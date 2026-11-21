@@ -2,30 +2,57 @@
 //! No answer generation or confidence threshold is inferred from a BM25 score.
 use serde_json::{json, Value};
 
-use crate::{build_search_with_mapping, fetch_mapping, search_index, token_budget, tool_text, Ctx};
+use crate::{
+    build_search_with_mapping, fetch_mapping, search_index, token_budget, tool_text, vectors, Ctx,
+};
+
+/// Keys one `queries` item may carry (#2497). Named in the refusal, so an
+/// agent that sent `index` or `prefix` on an item learns where they go.
+const ITEM_KEYS: &[&str] = &["key", "query", "identifier", "field", "_source"];
+/// Keys of the call itself.
+const ENVELOPE_KEYS: &[&str] = &[
+    "queries",
+    "index",
+    "prefix",
+    "size",
+    "max_tokens",
+    "include_vectors",
+];
 
 pub const MAX_INPUT_BYTES: usize = 1024 * 1024;
 const MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
+/// #2497: the node-side deadline for one whole `_msearch`, sent as
+/// `batch_timeout`. The node runs items one after another, and the HTTP
+/// client gives the call 30 s (the MCP `REQUEST_TIMEOUT`, and `xerj
+/// batch-search`'s client), the time it gives one search. Without a budget a
+/// few slow items added up past 30 s and the client dropped the whole batch,
+/// though each item alone finished. 25 s leaves the transfer 5 s; an item
+/// the budget does not reach fails alone as `search_incomplete`.
+pub(crate) const BATCH_TIME_BUDGET_MS: u64 = 25_000;
 
 pub(crate) fn spec() -> Value {
     json!({
         "name":"xerj_batch_search",
-        "description": "Search 1..50 IDs or questions in one call, in input order. Shares the CLI xerj batch-search adapter. Each result has its zero-based position, optional caller key, and status hits, abstain (only a complete empty search), or error. Hits carry citations: index/id plus file/line or record locator when available. This retrieves evidence, not generated answers or calibrated confidence. Use identifier plus an explicitly keyword-mapped field for exact IDs; query takes plain text or an ES query clause. One bad item never discards its siblings; identical inputs remain separate. Uses one _msearch request, plus at most one mapping read; a response over 32 MiB is retried in halves, and an item still over it alone fails alone. Omitted or null max_tokens defaults to 8000 UAX #29 words and caps the entire successful JSON response using StandardTokenizer UAX #29 words, not BPE. Budgeting removes raw hit bodies, then extra hits, retaining each item's status and at least one citation per matched item. If that minimum cannot fit, returns an actionable tool error, never truncated JSON or a false abstention. Errors are not truncated.",
+        "description": "Search 1..50 IDs or questions in one call, in input order. Shares the CLI xerj batch-search adapter. Each result has its zero-based position, optional caller key, and status hits, abstain (only a complete empty search), or error. Hits carry citations: index/id plus file/line or record locator when available. This retrieves evidence, not generated answers or calibrated confidence. Use identifier plus an explicitly keyword-mapped field for exact IDs; query takes plain text or an ES query clause. One bad item never discards its siblings; identical inputs remain separate. The batch shares one 25 s time budget; an item it does not reach fails alone as search_incomplete. Uses one _msearch request, plus at most one mapping read; a response over 32 MiB is retried in halves, and an item still over it alone fails alone. Omitted or null max_tokens defaults to 8000 UAX #29 words and caps the entire successful JSON response using StandardTokenizer UAX #29 words, not BPE. Budgeting removes raw hit bodies, then extra hits, retaining each item's status and at least one citation per matched item. If that minimum cannot fit, returns an actionable tool error, never truncated JSON or a false abstention. Errors are not truncated.",
         "inputSchema":{
             "type":"object", "additionalProperties":false,
             "properties":{
                 "queries":{"type":"array","minItems":1,"maxItems":50,
                     "description":"Ordered queries. A plain string item is shorthand for {\"query\": <string>}. Duplicate keys are allowed; position is authoritative. Entire input is limited to 1 MiB.",
-                    "items":{"anyOf":[{"type":"string","minLength":1},{"type":"object","additionalProperties":false,"properties":{
+                    "items":{"anyOf":[{"type":"string","minLength":1},{"type":"object",
+                        "description":"Pass query, or identifier plus field. Items are checked one by one: an item with an unknown key, or with both query and identifier, fails alone and its error lists the allowed keys (key, query, identifier, field, _source); the other items still run.",
+                        "properties":{
                         "key":{"type":"string","description":"Optional correlation key, at most 256 UTF-8 bytes."},
                         "query":{"oneOf":[{"type":"string","minLength":1},{"type":"object"}],
-                            "description":"Plain text or ES query clause. Cannot be combined with identifier/field."},
+                            "description":"Plain text or ES query clause; a string that is a JSON object is read as the clause. Cannot be combined with identifier/field."},
                         "identifier":{"type":"string","minLength":1,"description":"Exact value, used verbatim in a term query; requires field."},
-                        "field":{"type":"string","minLength":1,"description":"Flat keyword field for identifier. Must be mapped as keyword wherever present; unreadable, absent or conflicting mappings fail this item."}
-                    }, "oneOf":[{"required":["query"]},{"required":["identifier","field"]}]}]}},
+                        "field":{"type":"string","minLength":1,"description":"Flat keyword field for identifier. Must be mapped as keyword wherever present; unreadable, absent or conflicting mappings fail this item."},
+                        "_source":{"description":"Source filtering for this item's hits (bool, field list, or {includes,excludes}). Default: the whole _source, minus embedding vectors."}
+                    }}]}},
                 "index":{"type":"string","description":"Index or pattern; alternative to prefix. Defaults to ax-*."},
                 "prefix":{"type":"string","description":"Autoindex prefix, e.g. project searches project-*. Cannot combine with index."},
                 "size":{"type":"integer","minimum":1,"maximum":50,"default":3,"description":"Maximum hits per item."},
+                "include_vectors":vectors::arg_schema(),
                 "max_tokens":{"type":"integer","minimum":32,"default":token_budget::DEFAULT_MAX_TOKENS,"description":format!("Whole-response budget counted with {} (not BPE or a byte cap); minimum 32. Omitted or null defaults to 8000 words; pass a larger integer for more. A successful response NEVER exceeds it. Preserves ordered item outcomes and at least one citation per matched item, removing raw bodies first. Refuses if that minimum cannot fit; split the batch or increase the budget. Errors are outside this budget.", token_budget::TOKENIZER_NAME)}
             },"required":["queries"]
         }
@@ -35,9 +62,54 @@ pub(crate) fn spec() -> Value {
 fn known_keys(value: &Value, allowed: &[&str]) -> Result<(), String> {
     let obj = value.as_object().ok_or("arguments must be a JSON object")?;
     if let Some(key) = obj.keys().find(|k| !allowed.contains(&k.as_str())) {
-        return Err(format!("unsupported argument `{key}`"));
+        return Err(format!(
+            "unsupported argument `{key}`; allowed: {}",
+            allowed.join(", ")
+        ));
     }
     Ok(())
+}
+
+/// [`known_keys`] for one item. The refusal fails that item only, and names
+/// the call-level keys too when the item carried one of them.
+fn known_item_keys(item: &Value) -> Result<(), String> {
+    let obj = item
+        .as_object()
+        .ok_or("each item must be a query string or an object")?;
+    let unknown: Vec<&str> = obj
+        .keys()
+        .map(String::as_str)
+        .filter(|k| !ITEM_KEYS.contains(k))
+        .collect();
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    let mut msg = format!(
+        "unsupported item key{} {}; an item takes: {}",
+        if unknown.len() == 1 { "" } else { "s" },
+        unknown
+            .iter()
+            .map(|k| format!("`{k}`"))
+            .collect::<Vec<_>>()
+            .join(", "),
+        ITEM_KEYS.join(", ")
+    );
+    let call_level: Vec<&str> = unknown
+        .iter()
+        .copied()
+        .filter(|k| ENVELOPE_KEYS.contains(k))
+        .collect();
+    if !call_level.is_empty() {
+        msg.push_str(&format!(
+            ". {} applies to the whole batch: pass it next to `queries`, or send items for another index in a separate call",
+            call_level
+                .iter()
+                .map(|k| format!("`{k}`"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    Err(msg)
 }
 
 fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str, String> {
@@ -53,10 +125,11 @@ pub(super) struct Batch<'a> {
     size: usize,
     limit: Option<usize>,
     items: &'a [Value],
+    include_vectors: bool,
 }
 
 pub(super) fn envelope(args: &Value) -> Result<Batch<'_>, String> {
-    known_keys(args, &["queries", "index", "prefix", "size", "max_tokens"])?;
+    known_keys(args, ENVELOPE_KEYS)?;
     if args.to_string().len() > MAX_INPUT_BYTES {
         return Err("batch input exceeds 1 MiB; split it into smaller batches".into());
     }
@@ -80,16 +153,18 @@ pub(super) fn envelope(args: &Value) -> Result<Batch<'_>, String> {
             .ok_or("`size` must be an integer from 1 to 50")? as usize,
     };
     let budget = token_budget::opt_max_tokens(args)?;
+    let include_vectors = vectors::opt_include_vectors(args)?;
     Ok(Batch {
         index,
         size,
         limit: budget,
         items: queries,
+        include_vectors,
     })
 }
 
 fn validate_item(item: &Value) -> Result<(), String> {
-    known_keys(item, &["key", "query", "identifier", "field"])?;
+    known_item_keys(item)?;
     if item
         .get("key")
         .is_some_and(|v| v.as_str().is_none_or(|s| s.len() > 256))
@@ -142,7 +217,14 @@ fn item_body(
         }
         return Ok(json!({"query":{"term":{(field):item["identifier"]}},"size":size}));
     }
-    let args = json!({"index":index,"query":item["query"],"size":size,"_source":true});
+    // #3272: the item's own `_source`, else the whole source (vectors are
+    // dropped from the response unless `include_vectors`).
+    let source = item
+        .get("_source")
+        .filter(|v| !v.is_null())
+        .cloned()
+        .unwrap_or(json!(true));
+    let args = json!({"index":index,"query":item["query"],"size":size,"_source":source});
     let (_, _, body) = build_search_with_mapping(&args, mapping)?;
     let mut body = body.expect("search builder always supplies a body");
     if crate::plain_search_demotes_test_paths(&args, mapping) {
@@ -204,7 +286,13 @@ fn item_result(
     item: &Value,
     size: usize,
     mapping: Option<&Value>,
+    include_vectors: bool,
 ) -> Value {
+    let dropped = if include_vectors {
+        Vec::new()
+    } else {
+        vectors::strip(&mut response)
+    };
     if response.get("error").is_some_and(|v| !v.is_null())
         || response["status"].as_u64().is_some_and(|s| s >= 400)
     {
@@ -219,7 +307,11 @@ fn item_result(
     {
         return failed(
             base,
-            json!({"reason":"search_incomplete","response":response}),
+            json!({
+                "reason":"search_incomplete",
+                "message":"this item hit its time limit (the batch shares one 25 s budget), so its hits are partial or missing; run it alone with xerj_search, or narrow it",
+                "response":response
+            }),
         );
     }
     let query = item.get("query").map(|v| {
@@ -278,6 +370,9 @@ fn item_result(
     base["abstain"] = json!(false);
     base["hits"] = json!(cited);
     base["hits_omitted"] = json!(hits.len().saturating_sub(cited.len()));
+    if !dropped.is_empty() {
+        base["vectors_omitted"] = json!(dropped);
+    }
     base
 }
 
@@ -328,7 +423,10 @@ async fn msearch_split(
 }
 
 async fn msearch(ctx: &Ctx, ndjson: String) -> Result<Vec<Value>, MsearchError> {
-    let url = format!("{}/_msearch", ctx.base_url);
+    let url = format!(
+        "{}/_msearch?batch_timeout={BATCH_TIME_BUDGET_MS}ms",
+        ctx.base_url
+    );
     let mut req = ctx
         .client
         .post(&url)
@@ -443,13 +541,24 @@ pub(crate) async fn execute(ctx: &Ctx, args: &Value) -> Result<String, String> {
         size,
         limit,
         items,
+        include_vectors,
     } = envelope(args)?;
     // #2497: a bare string item is shorthand for {"query": <string>}.
+    // #3272: an item `query` string that is a JSON object is the clause.
     let items: Vec<Value> = items
         .iter()
-        .map(|item| match item {
-            Value::String(s) => json!({ "query": s }),
-            other => other.clone(),
+        .map(|item| {
+            let mut item = match item {
+                Value::String(s) => json!({ "query": s }),
+                other => other.clone(),
+            };
+            if let Some(Value::String(q)) = item.get("query").cloned() {
+                let mut probe = json!({ "query": q });
+                if crate::read_dsl_string(&mut probe) {
+                    item["query"] = probe["query"].take();
+                }
+            }
+            item
         })
         .collect();
     // Validate locally before any I/O; invalid items do not sink siblings.
@@ -498,6 +607,7 @@ pub(crate) async fn execute(ctx: &Ctx, args: &Value) -> Result<String, String> {
                             &items[i],
                             size,
                             mapping.as_ref(),
+                            include_vectors,
                         ),
                         Err(message) => failed(
                             results[i].clone(),

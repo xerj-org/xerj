@@ -878,6 +878,10 @@ pub struct EsSyncBackend<'a> {
     /// flight at once. `1` — the default — is the historical serial loop,
     /// and what every run without `--workers` beyond it configures.
     replay_workers: usize,
+    /// #2669: how to rebuild this folder's corpus, appended to a record-count
+    /// abort. A resume re-checks the same live indices, so the
+    /// abort alone leaves the operator rerunning into it.
+    record_repair: Option<String>,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -897,7 +901,14 @@ impl<'a> EsSyncBackend<'a> {
             installed_index_identity: None,
             in_flight: None,
             replay_workers: 1,
+            record_repair: None,
         }
+    }
+
+    /// See `record_repair`.
+    pub fn with_record_repair(mut self, advice: String) -> Self {
+        self.record_repair = Some(advice);
+        self
     }
 
     /// See `installed_index_identity`.
@@ -1318,6 +1329,34 @@ impl<'a> EsSyncBackend<'a> {
     /// difference.
     const CATALOG_READBACK_PHASE: &'static str = "finalize-catalog-readback";
 
+    /// The requests that publish the catalog once its read-back is done:
+    /// bulk, refresh, read back what was written, and the `run_id` counts
+    /// (#2929). One item per request.
+    const CATALOG_COMMIT_PHASE: &'static str = "finalize-catalog-commit";
+
+    /// A catalog request that takes this long is named in a note, so a run
+    /// that sat on one says which request it was.
+    const SLOW_COMMIT_STEP: std::time::Duration = std::time::Duration::from_secs(5);
+
+    /// One item of [`Self::CATALOG_COMMIT_PHASE`]: `request` is on the
+    /// progress line while `f` runs, and the item is credited on every exit.
+    fn commit_step<T>(&self, request: &str, f: impl FnOnce() -> Result<T>) -> Result<T> {
+        let started = std::time::Instant::now();
+        let out = {
+            let _in_flight = self.pr.file(request, 0);
+            f()
+        };
+        let took = started.elapsed();
+        if took >= Self::SLOW_COMMIT_STEP {
+            self.pr.note(&format!(
+                "autoindex: {} {request} took {:.1}s",
+                Self::CATALOG_COMMIT_PHASE,
+                took.as_secs_f64()
+            ));
+        }
+        out
+    }
+
     fn catalog_generation(&self, run_id: &str) -> Result<BTreeMap<String, Value>> {
         Self::walk_run_id_pages(
             self.pr,
@@ -1583,7 +1622,10 @@ impl<'a> EsSyncBackend<'a> {
         match read_catalog_run_ids(self.state_dir, prior_run_id)? {
             Some(prior_written) => {
                 let expected = prior_run_expected_remainder(&prior_written, &kept);
-                let live = self.catalog_run_count(prior_run_id)?;
+                let live = self
+                    .commit_step("autoindex-catalog/_search prior run_id count", || {
+                        self.catalog_run_count(prior_run_id)
+                    })?;
                 if live == expected {
                     return Ok(());
                 }
@@ -1775,7 +1817,11 @@ impl<'a> EsSyncBackend<'a> {
                 })?;
             let time_bound = |order: &'static str| -> Result<Option<String>> {
                 match &dataset.time_field {
-                    Some(field) => self.extreme_time(&dataset.index, &filter, field, order),
+                    Some(field) => match self.extreme_time(&dataset.index, &filter, field, order) {
+                        Ok(bound) => Ok(bound),
+                        Err(err) if err.to_string().contains("in order to sort on") => Ok(None),
+                        Err(err) => Err(err),
+                    },
                     None => Ok(None),
                 }
             };
@@ -1829,7 +1875,7 @@ impl<'a> EsSyncBackend<'a> {
         let body = serde_json::json!({
             "size": 1,
             "query": {"bool": {"filter": filter}},
-            "sort": [{field: {"order": order}}],
+            "sort": [{field: {"order": order, "unmapped_type": "date"}}],
             "_source": [field]
         });
         let response = self.es.search(index, &body)?;
@@ -2044,15 +2090,40 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         // that file's document (plus datasets and the run document), not one
         // document per file in the corpus. #1267: a document whose live
         // source already equals that projection is not in `to_write`.
+        //
+        // #2929: everything from here to `finalize-refresh` used to run under
+        // the read-back phase after its last id was ticked, so a slow request
+        // showed as `finalize-catalog-readback 5/5 100% (stalled)` for ~35 s
+        // on a three-file Windows run. It is its own phase now, one item per
+        // request, with the request in flight named on the line, and a step
+        // that takes long enough to look like a hang says how long it took.
+        let mut steps = 1; // the run_id count
         if !body.is_empty() {
-            checked_bulk_windowed(self.es, body, self.bulk_bytes)?;
+            steps += 2; // bulk + refresh
+        }
+        if !to_write.is_empty() {
+            steps += 1; // read back what was written
+        }
+        if prior_run_id.is_some() {
+            steps += 1; // prior-generation stray count
+        }
+        self.pr.phase(Self::CATALOG_COMMIT_PHASE, steps, 0);
+        if !body.is_empty() {
+            self.commit_step("autoindex-catalog/_bulk", || {
+                checked_bulk_windowed(self.es, body, self.bulk_bytes)
+            })?;
             // #2234: one attempt. `Es::refresh` would retry a timed-out
             // catalog refresh five more times (300s each).
-            self.es.refresh_once(crate::catalog::CATALOG_INDEX)?;
+            self.commit_step("autoindex-catalog/_refresh", || {
+                self.es.refresh_once(crate::catalog::CATALOG_INDEX)
+            })?;
         }
         if !to_write.is_empty() {
             let written_ids: Vec<String> = to_write.keys().cloned().collect();
-            for (id, source) in self.mget_catalog(&written_ids, false)? {
+            let read = self.commit_step("autoindex-catalog/_mget", || {
+                self.mget_catalog(&written_ids, false)
+            })?;
+            for (id, source) in read {
                 observed.insert(id, source);
             }
         }
@@ -2065,7 +2136,9 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         // A walk that then matches the projection is the publish: the count
         // was the optimization, and a capped total must not fail a complete
         // read-back.
-        let live = self.catalog_run_count(&snapshot.tx_id)?;
+        let live = self.commit_step("autoindex-catalog/_search run_id count", || {
+            self.catalog_run_count(&snapshot.tx_id)
+        })?;
         if live != projection.documents.len() as u64 {
             self.pr.note(&format!(
                 "autoindex: catalog run_id {} counts {live} live documents against {} in the \
@@ -2349,10 +2422,14 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
                 records == group.expected_records,
                 "live record count disagrees with desired group {}: live_records={records} \
                  expected_records={} indices=[{}]; a resume checks the same live indices, \
-                 so it stops here again until they are rebuilt",
+                 so it stops here again until they are rebuilt{}",
                 group.group_id,
                 group.expected_records,
-                indices.join(", ")
+                indices.join(", "),
+                self.record_repair
+                    .as_deref()
+                    .map(|advice| format!(". {advice}"))
+                    .unwrap_or_default()
             );
             let mut semantic = 0u64;
             for slug in &group.dataset_slugs {
@@ -3769,8 +3846,17 @@ fn prepare_artifact(
         .iter()
         .map(|(group, slug)| (group.clone(), slug.as_str()))
         .collect();
-    let sniffed = crate::sniff::sniff_with_name(snapshot_blob, &source.path)
-        .with_context(|| format!("sniff {} for durable preparation", source.rel))?;
+    // A file the plan stubbed (`--stub`, or a default lockfile stub, #2439)
+    // stays a name card here. Re-sniffing the blob put it back on its
+    // content family, so the generated route flattened every field of a
+    // stubbed 422 KB `package-lock.json` into its record while the plan
+    // said `stub`.
+    let sniffed = if assignment.family == crate::sniff::Family::Stub.as_str() {
+        crate::stub_sniffed(&source.path)
+    } else {
+        crate::sniff::sniff_with_name(snapshot_blob, &source.path)
+            .with_context(|| format!("sniff {} for durable preparation", source.rel))?
+    };
     let relative_ndjson = format!("prepared/{ordinal:08}.ndjson");
     let path = staging.join(&relative_ndjson);
     let file = OpenOptions::new()

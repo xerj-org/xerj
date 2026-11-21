@@ -298,7 +298,9 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
         thread::sleep(std::time::Duration::from_millis(response_delay_ms));
     }
 
-    let (status, response) = if method == "GET" && path == "/v1/embedding/identity" {
+    let (status, response) = if method == "GET" && path == "/" {
+        (200, crate::test_loopback::xerj_root())
+    } else if method == "GET" && path == "/v1/embedding/identity" {
         let identity = state.lock().unwrap().embedding_identity_sha256.clone();
         (
             200,
@@ -999,6 +1001,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         follow_symlinks: false,
         follow_symlinks_outside_root: false,
         stub_globs: Vec::new(),
+        default_stubs: true,
         ignore: crate::ignore_rules::IgnoreOptions::default(),
         max_file_bytes: 1 << 30,
         sample: 50,
@@ -4231,7 +4234,7 @@ fn a_run_reports_progress_through_every_phase_and_closes_the_stream() {
 
     let buffer = Arc::new(Mutex::new(Vec::new()));
     let (code, _report) = {
-        let _sink = crate::progress::install_test_sink(&buffer);
+        let _sink = crate::progress::install_test_sink_with_frozen_bar_clock(&buffer);
         run_index_report(config).unwrap()
     };
     let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
@@ -4267,11 +4270,14 @@ fn a_run_reports_progress_through_every_phase_and_closes_the_stream() {
     // ...and the same run hands the agent something it can show a person.
     // Asserted on the REAL pipeline rather than on a hand-built snapshot.
     //
-    // This corpus indexes in ~0.3 s, so it is also the end-to-end proof of the
-    // burst floor: every one of its phase changes falls inside `BAR_MIN_GAP`,
-    // and a run that short must therefore relay ONE display line, not one per
-    // phase. The machine lines above already proved every phase is on the
-    // stream — the relay is deliberately quieter than the record.
+    // This is also the end-to-end proof of the burst floor: the bar clock is
+    // frozen (`install_test_sink_with_frozen_bar_clock`), so every one of the
+    // run's phase changes falls inside `BAR_MIN_GAP` however long the run
+    // took, and it must therefore relay ONE display line, not one per phase.
+    // The machine lines above already proved every phase is on the stream —
+    // the relay is deliberately quieter than the record. With the real clock
+    // this assertion depended on the run finishing inside 2 s, which a loaded
+    // box does not promise (the floor then correctly drew a second bar).
     let bars: Vec<&str> = stream
         .lines()
         .filter(|line| line.starts_with("xerj-bar "))
@@ -4279,7 +4285,8 @@ fn a_run_reports_progress_through_every_phase_and_closes_the_stream() {
     assert_eq!(
         bars.len(),
         1,
-        "a sub-2s run relays exactly one bar, whatever its phase count:\n{stream}"
+        "a run whose phase changes all fall inside the floor relays exactly one bar, \
+         whatever its phase count:\n{stream}"
     );
     assert!(
         bars[0].starts_with("xerj-bar [") && bars[0].contains(']'),

@@ -195,6 +195,14 @@ pub struct PhraseQuery {
     pub slop: u32,
     #[serde(default = "default_boost")]
     pub boost: f32,
+    /// Relative phrase position of each term, Lucene `PhraseQuery.Builder.
+    /// add(term, position)` style. Empty means `0, 1, 2, …` (one term per
+    /// position). Two terms with the same position must both occur at the
+    /// same document position — how an analyzer that stacks sub-words on
+    /// their identifier (`word_delimiter`, the `code` analyzer) is matched
+    /// without demanding they sit one after another (#3285).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub positions: Vec<u32>,
 }
 
 impl PhraseQuery {
@@ -204,6 +212,7 @@ impl PhraseQuery {
             terms,
             slop: 0,
             boost: 1.0,
+            positions: Vec::new(),
         }
     }
 }
@@ -1072,6 +1081,13 @@ impl FtsSearcher {
             .collect();
         let mut hits = Vec::new();
 
+        let explicit_positions = pq.positions.len() == pq.terms.len()
+            && pq
+                .positions
+                .iter()
+                .enumerate()
+                .any(|(i, &p)| p as usize != i);
+        let mut shifted: Vec<Vec<u32>> = Vec::new();
         'doc: for &doc_id in term_maps[min_idx].0.keys() {
             // Gather each term's positions for this doc, in TERM ORDER (raw —
             // no offset games; the matcher below handles adjacency + slop).
@@ -1083,7 +1099,20 @@ impl FtsSearcher {
                 }
             }
 
-            if !phrase_positions_match(&all_positions, pq.slop) {
+            let matched = if explicit_positions {
+                shifted.clear();
+                shifted.extend(
+                    all_positions
+                        .iter()
+                        .enumerate()
+                        .map(|(i, list)| shift_to_slot(list, pq.positions[i], i as u32)),
+                );
+                let lists: Vec<&[u32]> = shifted.iter().map(Vec::as_slice).collect();
+                phrase_positions_match(&lists, pq.slop)
+            } else {
+                phrase_positions_match(&all_positions, pq.slop)
+            };
+            if !matched {
                 continue;
             }
 
@@ -1171,6 +1200,7 @@ impl FtsSearcher {
                 // per-expansion sloppy phrase queries is the same hit set.
                 slop: ppq.slop,
                 boost: ppq.boost,
+                positions: Vec::new(),
             };
             for hit in self.execute_phrase(&pq, explain)? {
                 let entry = score_map
@@ -1796,6 +1826,23 @@ pub fn search_segments(
 }
 
 // ── Phrase matching helper ────────────────────────────────────────────────────
+
+/// Re-express a term's document positions as if the term were phrase slot
+/// `slot` instead of sitting at relative phrase position `declared`, so the
+/// slot-ordered matcher ([`phrase_positions_match`]) evaluates an explicit-position phrase
+/// (`PhraseQuery::positions`). A document position `p` of a term declared at
+/// `declared` lines up with phrase start `p - declared`; the matcher expects
+/// slot `slot` at `start + slot`, so `p` becomes `p - declared + slot`.
+/// Positions that would fall below zero cannot start a match and are dropped.
+pub fn shift_to_slot(positions: &[u32], declared: u32, slot: u32) -> Vec<u32> {
+    positions
+        .iter()
+        .filter_map(|&p| {
+            let v = i64::from(p) - i64::from(declared) + i64::from(slot);
+            u32::try_from(v).ok()
+        })
+        .collect()
+}
 
 /// Returns `true` if the per-term **raw** position lists (in TERM ORDER)
 /// contain an occurrence of the phrase within `slop` — Lucene sloppy-phrase

@@ -230,6 +230,11 @@ jobs:
       - name: Landing page constants agree with the newest release
         run: bash .github/scripts/landing-constants-guard.sh
 
+      # cohere-tools.json is generated from openai-tools.json; a hand edit or a
+      # forgotten regeneration would publish a tool list that disagrees with it.
+      - name: Cohere tool schema is generated from openai-tools.json
+        run: python3 tools/agents/gen_cohere_tools.py --check
+
   # #770. A job with no `timeout-minutes` runs against GitHub's 360-minute
   # default, and 22 of this repo's 23 jobs had none. Three of its workflows
   # serialise on a concurrency group that never auto-cancels
@@ -298,6 +303,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+
+      - name: Gate's own fixture tests (offline)
+        run: bash .github/scripts/test_release_notes_gate.sh
 
       - name: Notes vs tree (#474)
         env:
@@ -837,6 +845,9 @@ jobs:
 
       - name: Installer script lint (landing/get, landing/get.ps1)
         run: bash .github/scripts/installer-lint.sh
+
+      - name: Installer refused-download behaviour (landing/get)
+        run: bash .github/scripts/installer-download-failure-test.sh
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:

@@ -757,6 +757,9 @@ fn classify_new(
 /// orders `None < Some(0) < Some(len)`, which is exactly that precedence.
 fn scope_affinity(scope: Option<&str>, rel: &str) -> Option<usize> {
     let scope = scope?;
+    if crate::sdd::parse_specs_scope(scope).is_some() {
+        return crate::sdd::sdd_scope_affinity(scope, rel);
+    }
     if scope.is_empty() {
         Some(0)
     } else if rel == scope

@@ -58,6 +58,9 @@ xerj-hub = { path = "../xerj-hub" }
 # the flood-stage allocation parse, and the plan list live in xerj-autoindex;
 # this crate only exposes them. No cycle: autoindex does not depend on mcp.
 xerj-autoindex = { path = "../xerj-autoindex" }
+# `xerj mcp --http` (#3066): the Streamable HTTP listener. The same axum the
+# node's own listener uses (xerj-api), so the `xerj` binary adds no crate.
+axum.workspace = true
 
 [dev-dependencies]
 # The loopback admin-key fallback tests sandbox cwd + HOME so discovery sees
@@ -68,4 +71,3 @@ tempfile = { workspace = true }
 # restored fixture corpus (the keystone's mini-c), as `xerj-hub`'s own tests do.
 xerj-api = { path = "../xerj-api" }
 xerj-engine = { path = "../xerj-engine" }
-axum.workspace = true

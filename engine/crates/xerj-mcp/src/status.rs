@@ -14,7 +14,7 @@ const MAX_RESPONSE_BYTES: usize = 256 * 1024;
 
 /// Bound each response before parsing, including chunked bodies. A readable
 /// HTTP error is evidence of reachability, not a successful status probe.
-async fn get(ctx: &Ctx, path: &str) -> Result<(u16, String), String> {
+pub(crate) async fn get(ctx: &Ctx, path: &str) -> Result<(u16, String), String> {
     let url = format!("{}{}", ctx.base_url, path);
     let mut req = ctx.client.get(&url);
     if let Some(auth) = &ctx.auth {
@@ -53,6 +53,21 @@ async fn get(ctx: &Ctx, path: &str) -> Result<(u16, String), String> {
     Ok((status, text))
 }
 
+/// The tool names this process answers `tools/list` with, and its version.
+pub(crate) fn served_tools_line() -> String {
+    let specs = crate::tool_specs();
+    let names: Vec<&str> = specs
+        .as_array()
+        .map(|a| a.iter().filter_map(|t| t["name"].as_str()).collect())
+        .unwrap_or_default();
+    format!(
+        "  MCP tools served by this binary (xerj {}, {} tools): {}",
+        env!("CARGO_PKG_VERSION"),
+        names.len(),
+        names.join(", ")
+    )
+}
+
 fn parse(text: &str) -> Option<Value> {
     serde_json::from_str(text).ok()
 }
@@ -71,7 +86,7 @@ fn display(value: &str) -> String {
     out
 }
 
-fn index_rows(text: &str) -> Result<Vec<(String, Option<u64>)>, String> {
+pub(crate) fn index_rows(text: &str) -> Result<Vec<(String, Option<u64>)>, String> {
     let value = parse(text).ok_or("index list is not valid JSON")?;
     let rows = value.as_array().ok_or("index list is not a JSON array")?;
     rows.iter()
@@ -147,6 +162,9 @@ pub(crate) async fn run(ctx: &Ctx, _args: &Value) -> Value {
     ), format!(
         "  version: {} (the Elasticsearch-compatible number this node reports, not XERJ's own version)", display(version)
     )];
+    // #3286: the published schema can lag the installed binary; this line is
+    // what the running server actually serves.
+    lines.push(served_tools_line());
     if let Some(name) = banner
         .as_ref()
         .and_then(|b| b.get("cluster_name"))

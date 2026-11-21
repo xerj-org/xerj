@@ -1,6 +1,6 @@
 //! xerj configuration system.
 //!
-//! Configuration is intentionally minimal: **137 settings** versus
+//! Configuration is intentionally minimal: **139 settings** versus
 //! Elasticsearch's 3000+. Every option is named, documented, and has a sensible
 //! production-ready default. The format is TOML, loaded from a single file.
 //!
@@ -96,7 +96,7 @@ pub struct Config {
     /// Single-node WAL tap: push a filtered index subset to an external
     /// ES-compatible target — 10 settings. Off by default.
     pub wal_tap: WalTapConfig,
-    /// Second-stage reranking provider — 3 settings. Inert until a key is set.
+    /// Second-stage reranking providers — 5 settings. Inert until a key is set.
     pub rerank: RerankProviderConfig,
     /// Typed decisions answered from a labelled-history index by
     /// nearest-neighbour vote — 9 settings. Inert until `decisions.index`
@@ -108,7 +108,7 @@ pub struct Config {
     pub hub: HubConfig,
 }
 
-// 24 sub-configs, 137 leaf settings in total. Do not maintain that sum by hand
+// 24 sub-configs, 139 leaf settings in total. Do not maintain that sum by hand
 // — `journey_zero_config` in xerj-engine/tests/product_experience.rs counts a
 // serialised `Config::default()` and fails if this comment and the module
 // header stop matching. `Default` is derived: every field is a sub-config that
@@ -236,6 +236,11 @@ impl Config {
         // Rerank: the endpoint is where document text gets POSTed, and it is
         // echoed by `GET /_xerj/rerank`. Same two rules as the WAL tap target.
         if let Err(reason) = RerankProviderConfig::check_endpoint(&self.rerank.endpoint) {
+            return Err(XerjError::config(reason));
+        }
+        if let Err(reason) =
+            CohereRerankConfig::check_resolved_endpoint(&self.rerank.cohere.endpoint, None)
+        {
             return Err(XerjError::config(reason));
         }
 
@@ -563,7 +568,7 @@ impl Config {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Sub-configs  (137 user-facing settings total; counted by
+// Sub-configs  (139 user-facing settings total; counted by
 // `journey_zero_config`, not by hand)
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -699,7 +704,7 @@ pub struct CompatConfig {
 /// Authentication settings.
 ///
 /// **3 settings.**
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AuthConfig {
     /// Enable API-key authentication (default: `true`).
@@ -712,6 +717,7 @@ pub struct AuthConfig {
     ///
     /// Leave empty in production; the engine writes the generated key to
     /// `<data_dir>/admin.key` on startup.
+    #[serde(serialize_with = "serialize_redacted_secret")]
     pub admin_api_key: String,
     /// Optional read-only metrics scrape token (default: `""` — disabled).
     ///
@@ -722,7 +728,40 @@ pub struct AuthConfig {
     /// that can read metrics but cannot touch index data. The admin key still
     /// works for `/v1/metrics`; when this is empty, metrics require the admin
     /// key like any other endpoint (unchanged behavior).
+    #[serde(serialize_with = "serialize_redacted_secret")]
     pub metrics_token: String,
+}
+
+/// A credential field is safe to display only when it is unset; otherwise the
+/// value is replaced, never shortened or partially shown.
+fn redacted_secret(value: &str) -> &'static str {
+    if value.is_empty() {
+        "<unset>"
+    } else {
+        "<redacted>"
+    }
+}
+
+/// Serialized configurations are used for diagnostics, not as a secret store.
+/// Keep the field present so the config shape stays stable, but never emit the
+/// credential itself.
+fn serialize_redacted_secret<S>(value: &str, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(if value.is_empty() { "" } else { "<redacted>" })
+}
+
+/// Hand-written so `{:?}` on `AuthConfig` or the parent `Config` cannot print a
+/// usable admin key or metrics token.
+impl std::fmt::Debug for AuthConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuthConfig")
+            .field("enabled", &self.enabled)
+            .field("admin_api_key", &redacted_secret(&self.admin_api_key))
+            .field("metrics_token", &redacted_secret(&self.metrics_token))
+            .finish()
+    }
 }
 
 impl Default for AuthConfig {
@@ -2735,6 +2774,10 @@ pub struct RerankProviderConfig {
     /// `https://api.typesafe.ai/v1/systemone`). Must be an absolute
     /// `http(s)://` URL without credentials in it.
     pub endpoint: String,
+    /// The Cohere Rerank provider (`rerank.provider = "cohere"` in a search).
+    /// Off until a key is set here or in `COHERE_API_KEY`. `enabled` above
+    /// governs it too: `false` forbids every provider.
+    pub cohere: CohereRerankConfig,
 }
 
 impl Default for RerankProviderConfig {
@@ -2743,6 +2786,65 @@ impl Default for RerankProviderConfig {
             enabled: true,
             api_key: String::new(),
             endpoint: String::new(),
+            cohere: CohereRerankConfig::default(),
+        }
+    }
+}
+
+/// `[rerank.cohere]`: key and endpoint for Cohere's `/v2/rerank`.
+///
+/// Same rules as the TypeSafe pair above: an explicit value here beats the
+/// environment (`COHERE_API_KEY`, `COHERE_ENDPOINT`), the key is never echoed,
+/// and the endpoint must be an absolute `http(s)://` URL with no credentials
+/// in it. Point `endpoint` at a private Cohere deployment to keep document
+/// text inside your perimeter; the default is Cohere's public API.
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CohereRerankConfig {
+    /// Cohere API key (default: empty → `COHERE_API_KEY`).
+    pub api_key: String,
+    /// Rerank endpoint (default: empty → `COHERE_ENDPOINT`, then
+    /// `https://api.cohere.com/v2/rerank`).
+    pub endpoint: String,
+}
+
+/// Hand-written so `{:?}` never prints the key.
+impl std::fmt::Debug for CohereRerankConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CohereRerankConfig")
+            .field(
+                "api_key",
+                &if self.api_key.trim().is_empty() {
+                    "<unset>"
+                } else {
+                    "<redacted>"
+                },
+            )
+            .field("endpoint", &redact_url_userinfo(&self.endpoint))
+            .finish()
+    }
+}
+
+impl CohereRerankConfig {
+    /// Environment fallback for the endpoint. Mirrors
+    /// `xerj_rerank::CohereProvider::ENV_ENDPOINT` (pinned by a test in
+    /// `xerj-api`, which links both crates).
+    pub const ENV_ENDPOINT: &'static str = "COHERE_ENDPOINT";
+
+    /// The endpoint the node will use (config field, else environment),
+    /// checked by [`RerankProviderConfig::check_endpoint`]. Pure.
+    pub fn check_resolved_endpoint(
+        config_endpoint: &str,
+        env_endpoint: Option<&str>,
+    ) -> Result<(), String> {
+        if !config_endpoint.trim().is_empty() {
+            return RerankProviderConfig::check_endpoint(config_endpoint)
+                .map_err(|r| format!("rerank.cohere.endpoint: {r}"));
+        }
+        match env_endpoint {
+            Some(v) if !v.trim().is_empty() => RerankProviderConfig::check_endpoint(v)
+                .map_err(|reason| format!("{}: {reason}", Self::ENV_ENDPOINT)),
+            _ => Ok(()),
         }
     }
 }
@@ -2761,6 +2863,7 @@ impl std::fmt::Debug for RerankProviderConfig {
                 },
             )
             .field("endpoint", &redact_url_userinfo(&self.endpoint))
+            .field("cohere", &self.cohere)
             .finish()
     }
 }
@@ -2796,7 +2899,9 @@ impl RerankProviderConfig {
     /// config tests do not depend on the developer's shell.
     pub fn check_environment(&self) -> Result<(), String> {
         let env = std::env::var(Self::ENV_ENDPOINT).ok();
-        Self::check_resolved_endpoint(&self.endpoint, env.as_deref())
+        Self::check_resolved_endpoint(&self.endpoint, env.as_deref())?;
+        let cohere_env = std::env::var(CohereRerankConfig::ENV_ENDPOINT).ok();
+        CohereRerankConfig::check_resolved_endpoint(&self.cohere.endpoint, cohere_env.as_deref())
     }
 
     /// An absolute `http(s)://` URL with no userinfo, or empty.
@@ -2949,6 +3054,106 @@ mod tests {
         // and not judged.
         assert!(RerankProviderConfig::check_resolved_endpoint(good, Some(bad)).is_ok());
         assert!(RerankProviderConfig::check_resolved_endpoint(bad, Some(good)).is_err());
+    }
+
+    /// `[rerank.cohere]` follows the same endpoint rules, names its own
+    /// variable in the refusal, and is rejected at load from the file too.
+    #[test]
+    fn cohere_rerank_endpoint_is_checked_from_file_and_environment() {
+        let bad = "https://user:pw@api.cohere.com/v2/rerank";
+        let good = "https://api.cohere.com/v2/rerank";
+        let err = CohereRerankConfig::check_resolved_endpoint("", Some(bad)).unwrap_err();
+        assert!(err.starts_with("COHERE_ENDPOINT: "), "{err}");
+        assert!(CohereRerankConfig::check_resolved_endpoint("", Some(good)).is_ok());
+        assert!(CohereRerankConfig::check_resolved_endpoint("", None).is_ok());
+        let err = CohereRerankConfig::check_resolved_endpoint(bad, None).unwrap_err();
+        assert!(err.starts_with("rerank.cohere.endpoint: "), "{err}");
+        assert!(CohereRerankConfig::check_resolved_endpoint(good, Some(bad)).is_ok());
+        let mut cfg = Config::default();
+        cfg.rerank.cohere.endpoint = "ftp://cohere".into();
+        assert!(cfg.validate().is_err());
+    }
+
+    /// `AuthConfig` holds the admin key and the metrics scrape token. Neither
+    /// may appear in `Debug` or in a serialized config: both are routinely
+    /// logged or emitted by diagnostics, and a leaked admin key bypasses every
+    /// other access check.
+    #[test]
+    fn auth_secrets_never_reach_debug_or_json_output() {
+        let auth = AuthConfig {
+            admin_api_key: "admin-secret-3057".into(),
+            metrics_token: "metrics-secret-3057".into(),
+            ..Default::default()
+        };
+
+        let debug = format!("{auth:?}");
+        assert!(!debug.contains("admin-secret-3057"), "{debug}");
+        assert!(!debug.contains("metrics-secret-3057"), "{debug}");
+        assert!(debug.contains("<redacted>"), "{debug}");
+
+        let auth_json = serde_json::to_string(&auth).expect("AuthConfig serialises");
+        assert!(!auth_json.contains("admin-secret-3057"), "{auth_json}");
+        assert!(!auth_json.contains("metrics-secret-3057"), "{auth_json}");
+
+        let config = Config {
+            auth: auth.clone(),
+            ..Default::default()
+        };
+        let config_debug = format!("{config:?}");
+        assert!(
+            !config_debug.contains("admin-secret-3057"),
+            "{config_debug}"
+        );
+        assert!(
+            !config_debug.contains("metrics-secret-3057"),
+            "{config_debug}"
+        );
+
+        let config_json = serde_json::to_string(&config).expect("Config serialises");
+        assert!(!config_json.contains("admin-secret-3057"), "{config_json}");
+        assert!(
+            !config_json.contains("metrics-secret-3057"),
+            "{config_json}"
+        );
+
+        // Redaction must not stop a real config from being loaded.
+        let loaded: AuthConfig = toml::from_str(
+            "admin_api_key = \"admin-secret-3057\"\nmetrics_token = \"metrics-secret-3057\"\n",
+        )
+        .expect("real secrets still deserialize");
+        assert_eq!(loaded.admin_api_key, "admin-secret-3057");
+        assert_eq!(loaded.metrics_token, "metrics-secret-3057");
+    }
+
+    /// `{:?}` on the whole rerank block never prints either provider's key.
+    #[test]
+    fn cohere_rerank_key_never_reaches_debug_output() {
+        let r = RerankProviderConfig {
+            api_key: "ts-secret-1".into(),
+            cohere: CohereRerankConfig {
+                api_key: "co-secret-2".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let shown = format!("{r:?}");
+        assert!(!shown.contains("ts-secret-1"), "{shown}");
+        assert!(!shown.contains("co-secret-2"), "{shown}");
+        assert!(shown.contains("<redacted>"), "{shown}");
+    }
+
+    /// `[rerank.cohere]` parses from TOML, and an unknown key under it is a
+    /// load error rather than a silently ignored typo.
+    #[test]
+    fn cohere_rerank_block_parses_and_refuses_unknown_keys() {
+        let ok: RerankProviderConfig =
+            toml::from_str("[cohere]\napi_key = \"k\"\nendpoint = \"https://h/v2/rerank\"\n")
+                .unwrap();
+        assert_eq!(ok.cohere.api_key, "k");
+        assert_eq!(ok.cohere.endpoint, "https://h/v2/rerank");
+        assert!(ok.enabled);
+        let bad: Result<RerankProviderConfig, _> = toml::from_str("[cohere]\napi_kye = \"k\"\n");
+        assert!(bad.is_err());
     }
 
     /// `[hub]` is closed and fail-closed: a typo is a boot error, the
@@ -3890,7 +4095,7 @@ mod tests {
         ("compat", 2),
         ("lifecycle", 1),
         ("wal_tap", 10),
-        ("rerank", 3),
+        ("rerank", 5),
         ("decisions", 9),
         ("hub", 2),
     ];
@@ -3935,7 +4140,7 @@ mod tests {
             "the section table must sum to the whole config"
         );
         assert_eq!(
-            total, 137,
+            total, 139,
             "the total settings count changed. It is quoted in this module's \
              header, in xerj-common/src/lib.rs, in engine/README.md, in \
              xerj.default.toml and in EXPECTED_SETTINGS in \

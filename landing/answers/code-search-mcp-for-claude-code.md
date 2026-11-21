@@ -138,7 +138,7 @@ Two caps bound the extractor: a 2 MB file cap and 5,000 symbols per file. A pars
 
 Install the latest XERJ before you write any host configuration, so that the `xerj mcp` subcommand is present.
 
-The published `openai-tools.json` and `anthropic-tools.json` still list 6 tools, while on main the binary serves 23 (checked 2026-10-28). The 17 missing names include the 4 `xerj_brain_*` tools, `xerj_code_search` and the 3 `xerj_hub_*` tools. Read `tools/list` from a live server, or the generated `mcp-tools.json`, instead of copying either file.
+The published `openai-tools.json` and `anthropic-tools.json` still list 6 tools, while on main the binary serves 25 (checked 2026-11-21). The 19 missing names include the 4 `xerj_brain_*` tools, `xerj_code_search` and the 3 `xerj_hub_*` tools. Read `tools/list` from a live server, or the generated `mcp-tools.json`, instead of copying either file.
 
 ## What the capture was
 
@@ -174,7 +174,7 @@ No. Extraction is definitions only, with no call graph, no import graph and no c
 
 ### Are the OpenAI and Anthropic tool schema files up to date?
 
-No. Both list 6 tools, while on main the binary serves 23 (checked 2026-10-28). Read `tools/list` from a live server, or the generated `mcp-tools.json`, rather than copying either file.
+No. Both list 6 tools, while on main the binary serves 25 (checked 2026-11-21). Read `tools/list` from a live server, or the generated `mcp-tools.json`, rather than copying either file.
 
 ## Related
 

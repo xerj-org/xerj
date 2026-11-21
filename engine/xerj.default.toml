@@ -1,6 +1,6 @@
 # xerj Default Configuration
 # ============================================================
-# This file sets 59 of XERJ's 137 user-facing settings to their
+# This file sets 59 of XERJ's 139 user-facing settings to their
 # production-ready defaults, and describes the rest in comments.
 # Every value here IS the default, so copying this file changes
 # nothing until you edit it (a test enforces that). The complete
@@ -710,6 +710,16 @@ access_log = false
 # enabled  = true
 # api_key  = "ts-..."                                  # not a default ("")
 # endpoint = "https://api.typesafe.ai/v1/systemone"    # not a default ("")
+#
+# Cohere Rerank, used by a search whose rerank block says "provider": "cohere".
+# Same rules: the key from here or COHERE_API_KEY (this file wins), the
+# endpoint from here or COHERE_ENDPOINT, default Cohere's public API. Point
+# `endpoint` at a private Cohere deployment to keep document text inside your
+# network. `enabled = false` above forbids this provider too.
+#
+# [rerank.cohere]
+# api_key  = "co-..."                                  # not a default ("")
+# endpoint = "https://api.cohere.com/v2/rerank"        # not a default ("")
 
 # ─────────────────────────────────────────────────────────────────────────
 # Decisions — typed answers from your own labelled history, no model call.

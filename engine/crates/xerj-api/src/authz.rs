@@ -2410,6 +2410,8 @@ mod tests {
         let cases: &[(&str, &str, BodyShape)] = &[
             ("POST", "/_bulk", BodyShape::Bulk),
             ("POST", "/logs/_bulk", BodyShape::Bulk),
+            ("PUT", "/_bulk", BodyShape::Bulk),
+            ("PUT", "/logs/_bulk", BodyShape::Bulk),
             ("POST", "/_msearch", BodyShape::MsearchHeaders),
             ("POST", "/logs/_msearch", BodyShape::MsearchHeaders),
             ("POST", "/_msearch/template", BodyShape::MsearchHeaders),
@@ -2644,6 +2646,16 @@ mod tests {
         // is the default write path for every ES client and must work.
         let ok = "{\"index\":{\"_index\":\".xerj-memory-alice-edges\",\"_id\":\"a\"}}\n{\"src\":\"x\"}\n";
         assert!(check(&alice, Method::POST, "/_bulk", ok));
+        // PUT is the same door (#3036): the Python client sends it.
+        assert!(!check(&alice, Method::PUT, "/_bulk", forge));
+        assert!(!check(
+            &alice,
+            Method::PUT,
+            "/.xerj-memory-alice-edges/_bulk",
+            forge
+        ));
+        assert!(!check(&alice, Method::PUT, "/_bulk", destroy));
+        assert!(check(&alice, Method::PUT, "/_bulk", ok));
 
         // _mget: docs[]._index overrides the path index.
         let mget = "{\"docs\":[{\"_index\":\".xerj-memory-bob-edges\",\"_id\":\"1\"}]}";

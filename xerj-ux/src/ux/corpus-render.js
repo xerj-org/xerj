@@ -21,14 +21,22 @@ import { rankedFields, sampleQueryToSearch, fmtBytes, fmtCount, timeSpan } from 
 
 export const EMPTY_COMMAND = 'xerj brain <folder>';
 
-/** The empty-engine state: exactly one command. Never sample data. */
-export function renderCorpusEmpty({ guest } = {}) {
+/** The empty-engine state: exactly one command. Never sample data.
+ *  #2409: a fresh data directory looks exactly like lost data, so the
+ *  operator also sees which directory this node serves and the
+ *  --data-dir/--config hint (both from the knowledge payload; the hint is
+ *  the wording `xerj autoindex map` prints on an empty catalog). */
+export function renderCorpusEmpty({ guest, dataDir, dataDirHint } = {}) {
   if (guest) return h('div', { class: 'cp-empty' }, 'Nothing is indexed under this share yet.');
   return h('div', { class: 'cp-empty' },
     h('div', { class: 'key' }, 'NOTHING INDEXED YET'),
     h('p', null, 'Point XERJ at a folder — email, PDFs, notes, code — and it becomes typed, searchable datasets with a graph of the links between files. One command:'),
     h('pre', { class: 'cp-cmd mono accent' }, EMPTY_COMMAND),
-    h('p', { class: 'faint' }, 'Then reload this page: every dataset it wrote appears here as a card.'));
+    h('p', { class: 'faint' }, 'Then reload this page: every dataset it wrote appears here as a card.'),
+    dataDir ? h('div', { class: 'cp-datadir' },
+      h('div', { class: 'key' }, 'DATA DIRECTORY'),
+      h('pre', { class: 'cp-cmd mono' }, dataDir)) : null,
+    dataDirHint ? h('p', { class: 'faint cp-datadir-hint' }, dataDirHint) : null);
 }
 
 const fact = (k, v) => h('span', { class: 'cp-fact' }, h('span', { class: 'faint' }, k), ' ', v);
@@ -163,7 +171,7 @@ export function renderCorpus(state = {}, { guest = false, brain } = {}) {
     ...(state.datasets || []).map((c) => renderCorpusCard(c, { brain, discover: !guest })),
     ...(state.summaries || []).map((s) => renderSummaryCard(s, { brain })),
   ];
-  if (!cards.length) return renderCorpusEmpty({ guest });
+  if (!cards.length) return renderCorpusEmpty({ guest, dataDir: state.dataDir, dataDirHint: state.dataDirHint });
   return h('div', { class: 'cp-grid' }, cards);
 }
 

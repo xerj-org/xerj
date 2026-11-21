@@ -29,12 +29,17 @@ pub fn candidates(home: Option<&Path>, cwd: Option<&Path>) -> Vec<SkillFolder> {
             ("claude", ".claude"),
             ("codex", ".codex"),
             ("agents", ".agents"),
+            ("gemini", ".gemini"),
         ] {
             out.push(SkillFolder {
                 label,
                 dir: home.join(dot).join("skills"),
             });
         }
+        out.push(SkillFolder {
+            label: "antigravity",
+            dir: home.join(".gemini").join("config").join("skills"),
+        });
     }
     if let Some(cwd) = cwd {
         out.push(SkillFolder {
@@ -255,6 +260,11 @@ mod tests {
                 ("claude", home.join(".claude").join("skills")),
                 ("codex", home.join(".codex").join("skills")),
                 ("agents", home.join(".agents").join("skills")),
+                ("gemini", home.join(".gemini").join("skills")),
+                (
+                    "antigravity",
+                    home.join(".gemini").join("config").join("skills")
+                ),
                 ("project", cwd.join(".claude").join("skills")),
             ]
         );

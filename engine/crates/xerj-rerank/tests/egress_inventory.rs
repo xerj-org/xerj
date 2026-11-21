@@ -86,6 +86,16 @@ const KNOWN: &[(&str, Role)] = &[
         Role::Node("**Cluster transport**"),
     ),
     ("xerj-mcp/src/lib.rs", Role::Client("`xerj mcp`")),
+    // Live database sources (#2984): the node opens a Postgres connection to
+    // the database the operator registered, reads a snapshot and then a
+    // logical-replication stream. Rows travel IN; outbound are the
+    // credentials, the SQL/replication commands and the applied LSN.
+    (
+        "xerj-sources/src/pg/wire.rs",
+        Role::Node("**Live database sources**"),
+    ),
+    // `xerj connect` / `xerj sources` only talk to the node URL given to them.
+    ("xerj-sources/src/cli.rs", Role::Client("`xerj connect`")),
     // Opt-in host hooks send redacted exports/excerpts only to the configured
     // loopback node, with redirects and proxies disabled. No node egress added.
     (
@@ -115,6 +125,13 @@ const KNOWN: &[(&str, Role)] = &[
     // the operator's own node, so DATA_EGRESS and the air-gapped rows do
     // not change.
     ("xerj-autoindex/src/xc.rs", Role::Client("`xerj code`")),
+    // `xerj autoindex <table> --facts <ns>` (#2988) writes facts through the
+    // node URL given to it (`/_facts/{ns}/_bulk`); the peer is the operator's
+    // own node, like every other client in the binary.
+    (
+        "xerj-autoindex/src/facts_rows.rs",
+        Role::Client("`xerj autoindex --facts`"),
+    ),
     // #2345: after a successful `xerj search` or MCP `xerj_search`,
     // staleness.rs POSTs one catalog search to the node URL that search
     // already used (`--url`, `XERJ_URL`, else localhost:9200). The body is a

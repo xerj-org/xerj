@@ -1726,11 +1726,28 @@ impl ShardedFtsMemtable {
         limit: usize,
         stats: Option<&xerj_fts::CollectionStats>,
     ) -> (Vec<MemtableHit>, u64) {
+        self.search_dis_max_gated_with_total_using(subs, tie_breaker, limit, stats, &|_, _| true)
+    }
+
+    /// `search_dis_max_boosted_with_total_using` with a per-sub membership
+    /// gate (#3329): sub `i`'s hit on `doc_id` contributes only when
+    /// `admit(i, doc_id)` holds. A positional phrase clause scores like the
+    /// OR of its terms on that field (the segment's `execute_phrase` sums the
+    /// per-term BM25 of the docs whose positions line up), so the phrase
+    /// sub is the term sub gated by the phrase predicate.
+    pub fn search_dis_max_gated_with_total_using(
+        &self,
+        subs: &[(&str, &str, f32)],
+        tie_breaker: f32,
+        limit: usize,
+        stats: Option<&xerj_fts::CollectionStats>,
+        admit: &dyn Fn(usize, &str) -> bool,
+    ) -> (Vec<MemtableHit>, u64) {
         // Per-doc (max, sum, seq_no) accumulator over sub scores — the same
         // f32 (max, sum) pair `execute_dis_max` keeps.
-        let acc: std::collections::HashMap<String, (f32, f32, u64)> = subs.iter().fold(
+        let acc: std::collections::HashMap<String, (f32, f32, u64)> = subs.iter().enumerate().fold(
             std::collections::HashMap::new(),
-            |acc, &(field, query, boost)| {
+            |acc, (i, &(field, query, boost))| {
                 let boosts: std::collections::HashMap<String, f32> =
                     std::iter::once((field.to_string(), boost)).collect();
                 let (hits, _) = self.search_text_boosted_inner(
@@ -1741,16 +1758,18 @@ impl ShardedFtsMemtable {
                     &boosts,
                     stats,
                 );
-                hits.into_iter().fold(acc, |mut acc, h| {
-                    let e = acc
-                        .entry(h.doc_id)
-                        .or_insert((f32::NEG_INFINITY, 0.0, h.seq_no));
-                    if h.score > e.0 {
-                        e.0 = h.score;
-                    }
-                    e.1 += h.score;
-                    acc
-                })
+                hits.into_iter()
+                    .filter(|h| admit(i, &h.doc_id))
+                    .fold(acc, |mut acc, h| {
+                        let e = acc
+                            .entry(h.doc_id)
+                            .or_insert((f32::NEG_INFINITY, 0.0, h.seq_no));
+                        if h.score > e.0 {
+                            e.0 = h.score;
+                        }
+                        e.1 += h.score;
+                        acc
+                    })
             },
         );
         let mut all: Vec<MemtableHit> = acc

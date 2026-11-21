@@ -1,0 +1,106 @@
+---
+# Issue #2580: short CJK terms under the default (standard) analyzer.
+# The standard tokenizer splits a CJK run into one token per ideograph, so
+# `match_phrase` must require the characters adjacent and in order, and a
+# `match` must rank the document that holds the term (three times) above one
+# that only shares single characters. `_analyze` reports offsets in UTF-16
+# units (ES/Java char indices), not UTF-8 bytes.
+setup:
+  - do:
+      indices.create:
+        index: cjk_2580
+        body:
+          mappings:
+            properties:
+              body:
+                type: text
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "cjk_2580", "_id": "hit"}}'
+          - '{"body": "代码雷同检查：两段代码雷同，提交前请确认是否雷同。"}'
+          - '{"index": {"_index": "cjk_2580", "_id": "chars"}}'
+          - '{"body": "雷雨天气，同学们留在教室。打雷时请关窗，同时注意安全。"}'
+          - '{"index": {"_index": "cjk_2580", "_id": "phrase"}}'
+          - '{"body": "PEG 估值与可投资性分析"}'
+          - '{"index": {"_index": "cjk_2580", "_id": "other"}}'
+          - '{"body": "投资组合的风险评估"}'
+
+---
+"match_phrase on a two-character CJK term returns only the containing doc":
+  - do:
+      search:
+        index: cjk_2580
+        body: { query: { match_phrase: { body: "雷同" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "hit" }
+
+---
+"match on a CJK term ranks the doc that contains it first":
+  - do:
+      search:
+        index: cjk_2580
+        body: { query: { match: { body: "雷同" } } }
+  - match: { hits.hits.0._id: "hit" }
+
+---
+"match_phrase on a four-character CJK term":
+  - do:
+      search:
+        index: cjk_2580
+        body: { query: { match_phrase: { body: "可投资性" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "phrase" }
+
+---
+"CJK match and match_phrase are unchanged after flush":
+  - do:
+      indices.flush:
+        index: cjk_2580
+  - do:
+      search:
+        index: cjk_2580
+        body: { query: { match_phrase: { body: "雷同" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "hit" }
+  - do:
+      search:
+        index: cjk_2580
+        body: { query: { match: { body: "雷同" } } }
+  - match: { hits.hits.0._id: "hit" }
+  - do:
+      search:
+        index: cjk_2580
+        body: { query: { match_phrase: { body: "可投资性" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "phrase" }
+
+---
+"_analyze reports CJK offsets in UTF-16 units":
+  - do:
+      indices.analyze:
+        index: cjk_2580
+        body:
+          field: body
+          text: "雷同"
+  - length: { tokens: 2 }
+  - match: { tokens.0.token: "雷" }
+  - match: { tokens.0.start_offset: 0 }
+  - match: { tokens.0.end_offset: 1 }
+  - match: { tokens.1.token: "同" }
+  - match: { tokens.1.start_offset: 1 }
+  - match: { tokens.1.end_offset: 2 }
+
+---
+"_analyze offsets count a supplementary character as two UTF-16 units":
+  - do:
+      indices.analyze:
+        body:
+          analyzer: whitespace
+          text: "𠀀x 雷"
+  - length: { tokens: 2 }
+  - match: { tokens.0.start_offset: 0 }
+  - match: { tokens.0.end_offset: 3 }
+  - match: { tokens.1.start_offset: 4 }
+  - match: { tokens.1.end_offset: 5 }

@@ -1068,6 +1068,9 @@ pub(crate) fn spawn_detached(
     let err = out.try_clone()?;
     let mut cmd = launcher.command();
     cmd.args(args)
+        // The node records this role, so a user's client looking for "the
+        // local node" never picks the hub's private pack node (#3267).
+        .env(xerj_common::localnode::NODE_ROLE_ENV, "hub")
         .stdin(Stdio::null())
         .stdout(Stdio::from(out))
         .stderr(Stdio::from(err));

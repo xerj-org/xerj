@@ -16,7 +16,8 @@
 # engine/crates/xerj-rerank/tests/egress_inventory.rs,
 # engine/crates/xerj-api/tests/scroll_snapshot_cap_is_documented.rs,
 # engine/crates/xerj-common/src/config.rs's include_str! of landing/docs/config.html,
-# engine/crates/xerj-mcp/tests/published_schema_drift.rs, ...), and the
+# engine/crates/xerj-mcp/tests/published_schema_drift.rs,
+# engine/crates/xerj-mcp/tests/doc_tool_counts.rs, ...), and the
 # use-case smoke job lints landing/get{,.ps1}. Every file those read BY NAME is
 # listed in is_test_input below and always counts as code. Add to that list
 # whenever a test starts reading a new docs file.
@@ -38,6 +39,11 @@ is_test_input() {
     landing/docs/recipes/air-gapped-deployment.html) return 0 ;;
     landing/answers/rerank-search-results-calibrated-judge.*) return 0 ;;
     landing/pricing/index.html|landing/demo/index.html) return 0 ;;
+    # MCP tool counts stated for main (xerj-mcp/tests/doc_tool_counts.rs):
+    # AGENTS.md, landing/docs/**/*.html and the top-level landing pages.
+    AGENTS.md|landing/docs/*.html) return 0 ;;
+    landing/*/*) ;;
+    landing/*.html) return 0 ;;
     # Installer scripts: linted + exercised by the use-case smoke job.
     landing/get|landing/get.ps1) return 0 ;;
   esac

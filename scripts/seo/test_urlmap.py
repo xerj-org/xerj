@@ -7,14 +7,22 @@ import pathlib
 import subprocess
 import tempfile
 import unittest
+import unittest.mock
 import xml.etree.ElementTree as ET
 
+import fix_heads
 import gen_sitemap
 import urlmap
 
 
 class DateSourceTests(unittest.TestCase):
     def setUp(self):
+        git_config = unittest.mock.patch.dict(os.environ, {
+            "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_COUNT": "0", "GIT_CONFIG_PARAMETERS": "",
+        })
+        git_config.start()
+        self.addCleanup(git_config.stop)
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = pathlib.Path(self.tmp.name)
@@ -136,6 +144,216 @@ class DateSourceTests(unittest.TestCase):
         self.assertEqual(dates.fallbacks, [])
         built = ET.fromstring(gen_sitemap.build(shallow, dates))
         self.assertEqual(built.findtext(".//{*}lastmod"), "2017-11-11")
+
+    def count_git(self):
+        calls = []
+        real = subprocess.run
+
+        def run(cmd, *args, **kwargs):
+            if cmd and cmd[0] == "git":
+                calls.append(cmd)
+            return real(cmd, *args, **kwargs)
+
+        patcher = unittest.mock.patch.object(urlmap.subprocess, "run", run)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return calls
+
+    def test_many_pages_cost_one_git_walk(self):
+        """#3226: dates for N pages are one `git log`, not N."""
+        pages = []
+        for i in range(30):
+            page = self.repo / "docs" / f"p{i}.html"
+            page.parent.mkdir(exist_ok=True)
+            page.write_text(f"page {i}", encoding="utf-8")
+            pages.append(page)
+            self.commit(f"p{i}", f"2022-01-{i % 28 + 1:02d}T12:00:00+00:00")
+        pages[3].write_text("page 3, edited", encoding="utf-8")
+        self.commit("edit p3", "2023-06-07T12:00:00+00:00")
+        expected = {}
+        reference = urlmap.DateSource(self.repo)
+        for page in pages + [self.page]:
+            expected[page] = (reference._git_log_path(page),
+                              reference._git_log_path(page, first=True))
+        dates = urlmap.DateSource(self.repo)
+        calls = self.count_git()
+        for page in pages + [self.page]:
+            self.assertEqual((dates.last_modified(page), dates.first_published(page)),
+                             expected[page], page)
+        self.assertEqual(len([cmd for cmd in calls if "log" in cmd]), 1, calls)
+        self.assertEqual(len([cmd for cmd in calls if "config" in cmd]), 1, calls)
+        self.assertEqual(len(calls), 2, calls)
+        self.assertEqual(dates.last_modified(pages[3]), "2023-06-07")
+        self.assertEqual(dates.first_published(pages[3]), "2022-01-04")
+        self.assertEqual(dates.fallbacks, [])
+
+    def test_relative_path_reads_from_the_repository_root(self):
+        dates = urlmap.DateSource(self.repo)
+        self.assertEqual(dates.last_modified(pathlib.Path("page.html")), "2020-01-02")
+
+    def test_conflict_merge_keeps_its_own_date(self):
+        """A merge that changed the page against both parents is its last change."""
+        repo = str(self.repo)
+        base = self.git("-C", repo, "rev-parse", "--abbrev-ref", "HEAD")
+        self.git("-C", repo, "checkout", "-b", "side")
+        self.page.write_text("side version", encoding="utf-8")
+        self.commit("side", "2020-02-01T12:00:00+00:00")
+        self.git("-C", repo, "checkout", base)
+        self.page.write_text("main version", encoding="utf-8")
+        self.commit("main", "2020-03-01T12:00:00+00:00")
+        env = {**os.environ, "GIT_AUTHOR_DATE": "2020-04-01T12:00:00+00:00",
+               "GIT_COMMITTER_DATE": "2020-04-01T12:00:00+00:00"}
+        subprocess.run(["git", "-C", repo, "merge", "side"], capture_output=True, env=env)
+        self.page.write_text("resolved version", encoding="utf-8")
+        self.git("-C", repo, "add", ".")
+        self.git("-C", repo, "commit", "--no-edit", env=env)
+        dates = urlmap.DateSource(self.repo)
+        self.assertEqual(dates._git_log_path(self.page), "2020-04-01")
+        self.assertEqual(dates.last_modified(self.page), "2020-04-01")
+        self.assertEqual(dates.first_published(self.page),
+                         dates._git_log_path(self.page, first=True))
+
+    def rename_page(self):
+        self.git("-C", str(self.repo), "mv", "page.html", "renamed.html")
+        self.commit("rename page", "2024-02-03T12:00:00+00:00")
+        return self.repo / "renamed.html"
+
+    def test_log_follow_preserves_publication_date_across_rename(self):
+        """The shared walk must preserve inherited per-path rename following."""
+        repo = str(self.repo)
+        renamed = self.rename_page()
+        self.git("-C", repo, "config", "log.follow", "true")
+        dates = urlmap.DateSource(self.repo)
+        expected = (dates._git_log_path(renamed),
+                    dates._git_log_path(renamed, first=True))
+        self.assertEqual(expected, ("2024-02-03", "2020-01-02"))
+        self.assertEqual((dates.last_modified(renamed), dates.first_published(renamed)),
+                         expected)
+
+    def test_log_follow_false_keeps_the_batched_rename_date(self):
+        renamed = self.rename_page()
+        self.git("-C", str(self.repo), "config", "log.follow", "false")
+        dates = urlmap.DateSource(self.repo)
+        self.assertEqual(dates.first_published(renamed), "2024-02-03")
+        self.assertEqual(dates.first_published(renamed),
+                         dates._git_log_path(renamed, first=True))
+
+    def test_log_follow_included_config_is_respected(self):
+        renamed = self.rename_page()
+        config = self.root / "included config"
+        self.git("-C", str(self.repo), "config", "--file", str(config), "log.follow", "true")
+        self.git("-C", str(self.repo), "config", "include.path", str(config))
+        dates = urlmap.DateSource(self.repo)
+        self.assertEqual(dates.first_published(renamed), "2020-01-02")
+
+    def test_log_follow_global_config_is_respected(self):
+        renamed = self.rename_page()
+        config = self.root / "global config"
+        self.git("-C", str(self.repo), "config", "--file", str(config), "log.follow", "true")
+        with unittest.mock.patch.dict(os.environ, {"GIT_CONFIG_GLOBAL": str(config)}):
+            dates = urlmap.DateSource(self.repo)
+            self.assertEqual(dates.first_published(renamed), "2020-01-02")
+
+    def test_log_follow_environment_override_is_respected(self):
+        renamed = self.rename_page()
+        self.git("-C", str(self.repo), "config", "log.follow", "false")
+        with unittest.mock.patch.dict(os.environ, {
+            "GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "log.follow",
+            "GIT_CONFIG_VALUE_0": "true",
+        }):
+            dates = urlmap.DateSource(self.repo)
+            self.assertEqual(dates.first_published(renamed), "2020-01-02")
+
+    def test_generated_head_keeps_publication_date_after_rename(self):
+        html = ('<html><head><title>Rename fixture</title>'
+                '<meta name="description" content="A stable page."></head>'
+                '<body><p>Stable content.</p></body></html>')
+        self.page.write_text(html, encoding="utf-8")
+        self.commit("html content", "2020-01-03T12:00:00+00:00")
+        renamed = self.rename_page()
+        self.git("-C", str(self.repo), "config", "log.follow", "true")
+        dates = urlmap.DateSource(self.repo)
+        with unittest.mock.patch.dict(fix_heads.pagedata.PAGES,
+                                      {"renamed.html": {"kind": "techarticle",
+                                                        "label": "Rename fixture"}}):
+            rendered = fix_heads.transform("renamed.html", html, dates, renamed)
+        self.assertIn('"datePublished": "2020-01-02"', rendered)
+        self.assertIn('"dateModified": "2024-02-03"', rendered)
+        self.assertEqual(dates.fallbacks, [])
+
+    def test_unreadable_follow_config_keeps_per_path_semantics(self):
+        renamed = self.rename_page()
+        self.git("-C", str(self.repo), "config", "log.follow", "true")
+        real = subprocess.run
+        failures = [subprocess.TimeoutExpired("git", 15), OSError("config unavailable"),
+                    subprocess.CompletedProcess([], 128, stdout="", stderr="invalid config")]
+        for failure in failures:
+            with self.subTest(failure=type(failure).__name__):
+                config_calls = []
+
+                def run(cmd, *args, **kwargs):
+                    if "config" in cmd:
+                        config_calls.append(cmd)
+                        if isinstance(failure, Exception):
+                            raise failure
+                        return failure
+                    return real(cmd, *args, **kwargs)
+
+                with unittest.mock.patch.object(urlmap.subprocess, "run", run):
+                    dates = urlmap.DateSource(self.repo)
+                    self.assertEqual(dates.first_published(renamed), "2020-01-02")
+                    self.assertEqual(dates.last_modified(renamed), "2024-02-03")
+                    self.assertEqual(len(config_calls), 1)
+
+    def test_follow_history_failure_records_mtime_fallback(self):
+        renamed = self.rename_page()
+        self.git("-C", str(self.repo), "config", "log.follow", "true")
+        real = subprocess.run
+        failures = [subprocess.TimeoutExpired("git", 30), OSError("git unavailable"),
+                    subprocess.CompletedProcess([], 1, stdout="", stderr="history failed"),
+                    subprocess.CompletedProcess([], 0, stdout="", stderr="")]
+        for failure in failures:
+            with self.subTest(failure=repr(failure)):
+                def run(cmd, *args, **kwargs):
+                    if "log" in cmd:
+                        if isinstance(failure, Exception):
+                            raise failure
+                        return failure
+                    return real(cmd, *args, **kwargs)
+
+                with unittest.mock.patch.object(urlmap.subprocess, "run", run):
+                    dates = urlmap.DateSource(self.repo)
+                    expected = dates._mtime_date(renamed)
+                    self.assertEqual(dates.first_published(renamed), expected)
+                    self.assertEqual(dates.last_modified(renamed), expected)
+                    self.assertEqual(dates.fallbacks, [str(renamed), str(renamed)])
+
+    def test_content_first_lookup_also_respects_log_follow(self):
+        renamed = self.rename_page()
+        self.git("-C", str(self.repo), "config", "log.follow", "true")
+        dates = urlmap.DateSource(self.repo)
+        calls = self.count_git()
+        self.assertEqual(dates._content_git_date(renamed), "2024-02-03")
+        self.assertEqual(dates.first_published(renamed), "2020-01-02")
+        self.assertEqual(len([cmd for cmd in calls if "config" in cmd]), 1, calls)
+        self.assertTrue(all("--" in cmd for cmd in calls if "log" in cmd), calls)
+
+    def test_shallow_follow_does_not_read_config_or_history(self):
+        shallow = self.root / "shallow-follow"
+        self.git("clone", "--depth", "1", self.repo.as_uri(), str(shallow))
+        self.git("-C", str(shallow), "config", "log.follow", "true")
+        page = shallow / "page.html"
+        dates = urlmap.DateSource(shallow)
+        calls = self.count_git()
+        self.assertEqual(dates.first_published(page), dates._mtime_date(page))
+        self.assertEqual(dates.last_modified(page), dates._mtime_date(page))
+        self.assertEqual(calls, [])
+        self.assertEqual(dates.fallbacks, [str(page), str(page)])
+
+    def test_directory_falls_back_to_a_per_path_log(self):
+        dates = urlmap.DateSource(self.repo)
+        self.assertEqual(dates.last_modified(self.repo), "2021-03-04")
+        self.assertEqual(dates.fallbacks, [])
 
 
 if __name__ == "__main__":

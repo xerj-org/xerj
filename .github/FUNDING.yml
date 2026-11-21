@@ -1,7 +1,6 @@
 # Funding links shown on the repository's "Sponsor" button.
-# Populate a platform below to enable it (e.g. github: [xerj-org]).
-# Left commented until an official sponsorship account exists so the
-# Sponsor button is not shown pointing at a non-existent destination.
+# The project takes donations at https://xerj.org/donate (USDT, TRC20):
+# they buy rented GPU hours for training the XERJ Query-1 model.
+# Add a platform (e.g. github: [xerj-org]) only when that account exists.
 
-# github: [xerj-org]
-custom: ["https://xerj.org"]
+custom: ["https://xerj.org/donate"]

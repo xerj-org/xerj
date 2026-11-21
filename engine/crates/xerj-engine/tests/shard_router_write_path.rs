@@ -33,7 +33,7 @@ async fn single_node_router_always_local() {
     for id in &["1", "abc", "zebra-99", "🦓"] {
         assert_eq!(
             engine.route_write("my-index", id),
-            None,
+            Ok(None),
             "single-node router must resolve doc {id:?} to local"
         );
     }
@@ -66,7 +66,9 @@ async fn router_forwards_remote_shards() {
     let mut counts = std::collections::HashMap::<Option<String>, usize>::new();
     for i in 0..1000 {
         let id = format!("doc-{i}");
-        let target = engine.route_write("my-index", &id);
+        let target = engine
+            .route_write("my-index", &id)
+            .expect("every planned shard has a primary");
         *counts.entry(target).or_insert(0) += 1;
     }
     // Exactly three classifications: None (local), Some("peer-b"),
@@ -101,4 +103,41 @@ async fn router_forwards_remote_shards() {
     // Every doc must be accounted for.
     let total: usize = counts.values().sum();
     assert_eq!(total, 1000);
+}
+
+/// A planned index whose plan omits shard 2: an id that hashes to shard 2
+/// is refused (`Err`), not written locally, and `primary_of` agrees. An
+/// index with no plan still writes locally.
+#[tokio::test]
+async fn unowned_planned_shard_is_not_written_locally() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = Config::default();
+    config.server.data_dir = tmp.path().to_string_lossy().to_string();
+    let engine = Engine::new(config).unwrap();
+    {
+        let mut router = engine.shard_router.write();
+        router.assign("gap", 0, "local");
+        router.assign("gap", 1, "peer-b");
+        router.assign("gap", 3, "peer-c");
+    }
+    let mut unowned = 0;
+    for i in 0..1000 {
+        let id = format!("doc-{i}");
+        let shard = xerj_cluster::router::jump_hash(xxhash_rust::xxh3::xxh3_64(id.as_bytes()), 4);
+        let routed = engine.route_write("gap", &id);
+        if shard == 2 {
+            unowned += 1;
+            assert_eq!(
+                routed,
+                Err(xerj_cluster::router::ShardUnassigned { shard: 2 }),
+                "{id} hashes to unassigned shard 2"
+            );
+            assert!(engine.primary_of("gap", &id).is_err());
+            assert!(!engine.owns_shard("gap", &id));
+        } else {
+            assert!(routed.is_ok(), "{id} on shard {shard}: {routed:?}");
+        }
+        assert_eq!(engine.route_write("unplanned", &id), Ok(None));
+    }
+    assert!(unowned > 150, "about a quarter hash to shard 2: {unowned}");
 }

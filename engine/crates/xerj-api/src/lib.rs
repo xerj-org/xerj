@@ -85,6 +85,7 @@ pub mod rerank_stage;
 pub mod responses;
 pub mod router;
 pub mod share;
+pub mod sources_api;
 pub mod state;
 pub mod stub;
 pub mod systemone_api;

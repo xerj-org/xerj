@@ -35,6 +35,11 @@ walkdir = "2"
 # Licence: Unlicense OR MIT — compatible with XERJ's Apache-2.0.
 ignore = "0.4"
 encoding_rs = "0.8"
+# Terminal cell width for the progress bar (#3102): a CJK character is two
+# cells, so counting `char`s overflowed the line. Already in the lock file at
+# 0.2.2 (via the `console` and `indicatif` crates), so this adds no new package.
+# Licence: MIT OR Apache-2.0.
+unicode-width = "0.2"
 # `--watch`: cross-platform filesystem notifications (inotify on Linux,
 # FSEvents on macOS, ReadDirectoryChangesW on Windows), so live reindexing is
 # one code path rather than three.
@@ -137,6 +142,7 @@ streaming-iterator = "0.1"
 
 
 # Format-family extractors (new deps, isolated to this crate):
+tar = { version = "0.4", default-features = false }   # .tar/.tgz/.tar.zst archives (archive.rs)
 flate2 = "1"                                     # gzip streaming (rust backend)
 pdf_oxide = { version = "=0.3.75", default-features = false, features = ["legacy-crypto"] }
 csv = "1"                                        # streaming CSV with sniffed dialect

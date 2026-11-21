@@ -43,6 +43,7 @@
 //! | `xerj_field_report`    | `POST /api/field-report` (xerj.org)   | file an agent field report: GitHub PR first, this endpoint when GitHub is unavailable; sends by default |
 //! | `xerj_corpus_feedback` | `POST /api/corpus-feedback` (hub.xerj.org) | rate a hub corpus after using it (its Agent score); sends by default; `xerj_hub_ask` / `xerj_hub_def` also send an automatic review |
 //! | `xerj_map`             | `POST /autoindex-catalog/_search`     | per-index field map from the autoindex catalog (#1055) |
+//! | `xerj_sources`         | `GET/PUT/DELETE /_xerj/sources/{name}` | live database sources: list, status, connect (snapshot then real-time stream), delete |
 //! | `xerj_hub_find` / `xerj_hub_def` / `xerj_hub_ask` | the `xerj ask` flow (`src/hub.rs`) | which hub corpus answers; one definition; one question — from local packs, never downloading |
 //!
 //! ## Honesty notes (must match the engine, never oversell)
@@ -108,12 +109,16 @@
 mod batch;
 mod batch_cli;
 mod def;
+mod http;
 mod hub;
 mod map;
+mod references;
 mod status;
 mod token_budget;
+mod vectors;
 
 pub use batch_cli::run_batch_cli;
+pub use http::{HttpOptions, READ_ONLY_TOOLS as HTTP_READ_ONLY_TOOLS};
 
 use std::time::Duration;
 
@@ -129,13 +134,14 @@ const DEFAULT_PROTOCOL_VERSION: &str = "2025-06-18";
 /// `POST /_search` page size when the caller omits `size` (`EsSearchBody`).
 const DEFAULT_SEARCH_SIZE: usize = 10;
 /// Default XERJ ES-compatible endpoint.
+#[cfg(test)]
 const DEFAULT_XERJ_URL: &str = "http://localhost:9200";
 /// Deadline for one proxied request to the node, connect to last body byte.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// How to start the node `xerj mcp` proxies to. The flags are the local-dev
 /// start in llms.txt ("Start here", step 1), the README, and the `xerj mcp`
-/// CLI reference. `xerj mcp` does not start a node itself.
+/// CLI reference. Printed when a loopback node cannot be auto-started (#3267).
 const START_LOCAL_NODE: &str = "xerj --insecure --data-dir ~/xerj-data";
 
 /// Shared per-process state: the HTTP client + where to proxy to.
@@ -166,23 +172,52 @@ xerj mcp — Model Context Protocol (MCP) stdio server for XERJ
 USAGE:
     xerj mcp [OPTIONS]              (or the standalone binary: xerj-mcp [OPTIONS])
 
-Speaks MCP over stdio (newline-delimited JSON-RPC 2.0 on stdin/stdout) and
+Speaks MCP over stdio (newline-delimited JSON-RPC 2.0 on stdin/stdout), or over
+Streamable HTTP with --http (see REMOTE AGENTS below), and
 @@TOOLS@@
 OPTIONS:
     --url <URL>     Base URL of the XERJ ES-compatible listener.
-                    Overrides XERJ_URL. Default: http://localhost:9200
+                    Overrides XERJ_URL. Default: the local node: http://localhost:9200,
+                    or the port a local node recorded when :9200 is closed.
+    --no-autostart  Do not start the local node when nothing answers at a
+                    loopback URL. Env: XERJ_NO_AUTOSTART=1
     --auth <VALUE>  Authorization header sent verbatim on every proxied
                     request (e.g. 'ApiKey <token>'). Overrides XERJ_AUTH.
+    --http          Serve MCP over Streamable HTTP (spec 2025-06-18) instead
+                    of stdio: one endpoint, http://<bind>/mcp, JSON-RPC over
+                    POST. For agents that only take a server URL. Serves the
+                    read-only tools unless --allow-writes.
+    --bind <ADDR:PORT>
+                    Listen address for --http. Default: 127.0.0.1:9330. A
+                    non-loopback address refuses to start without a token.
+    --token-file <PATH>
+                    Bearer token for --http, read from PATH (at least 16
+                    characters; `openssl rand -hex 32`). Clients send
+                    `Authorization: Bearer <token>`. Never the node's admin
+                    key, never printed. Env: XERJ_MCP_TOKEN
+    --allow-writes  With --http, also serve the tools that store, link,
+                    delete or send (memory_store, brain_link/unlink, sources,
+                    autoindex_remove, index_budget, field_report,
+                    corpus_feedback, hub_ask, hub_def).
+    --allow-origin <ORIGIN>
+                    With --http, admit browser requests from ORIGIN
+                    (scheme://host[:port]); repeatable. Requests with no
+                    Origin and loopback origins are always admitted.
     -h, --help      Show this help
     -V, --version   Print version and exit
     --disable-feedback
-                    Do not print the feedback invitation above. Honoured in any
-                    position, including after --help.
+                    Turn feedback off: hide the invitation above, make
+                    xerj_field_report and xerj_corpus_feedback send nothing
+                    (they answer that feedback is off), and stop the automatic
+                    hub corpus reviews after xerj_hub_ask / xerj_hub_def.
+                    Honoured in any position, including after --help.
                     Env: XERJ_DISABLE_FEEDBACK=true
 
 ENVIRONMENT:
     XERJ_URL        Same as --url
     XERJ_AUTH       Same as --auth
+    XERJ_NO_AUTOSTART=1  Same as --no-autostart
+    XERJ_MCP_TOKEN  Bearer token for --http (--token-file wins)
 
 MCP CLIENT CONFIG (Claude Desktop, IDE agents, any mcpServers-shaped config):
 
@@ -208,6 +243,18 @@ fails there with no useful error. When the node is not running --insecure, add
 For a loopback node (localhost / 127.0.0.1 / [::1]) that step is optional:
 with no XERJ_AUTH given, the server reads <data-dir>/admin.key itself (the
 same locations `xerj autoindex` checks) and says which file on stderr.
+
+REMOTE AGENTS (URL-only MCP clients, cloud agents):
+
+    export XERJ_MCP_TOKEN=\"$(openssl rand -hex 32)\"
+    xerj mcp --http                       # http://127.0.0.1:9330/mcp
+    tailscale serve --bg 9330             # or: cloudflared tunnel --url
+                                          # http://127.0.0.1:9330, ngrok http 9330
+
+Give the agent https://<tunnel-host>/mcp and the header
+`Authorization: Bearer <token>`. Set the token BEFORE starting a tunnel:
+behind one, a loopback bind is reachable from the internet.
+Guide: https://xerj.org/docs/agents/endpoints#remote-mcp
 
 Diagnostics go to stderr; stdout carries only the JSON-RPC stream.
 ";
@@ -255,8 +302,10 @@ fn tools_paragraph(include_hub: bool) -> String {
     let mut para = format!(
         "proxies {n} tools — {list} — to a\n\
          XERJ node that\n\
-         is ALREADY RUNNING. This command does not start a node; start one first with\n\
-         `xerj --insecure --data-dir ~/xerj-data`.\n",
+         is running. When the URL is on this machine and nothing answers, it starts\n\
+         the node that last served that port, detached (off: XERJ_NO_AUTOSTART=1).\n\
+         To start one yourself:\n\
+         `xerj --detach --insecure --data-dir ~/xerj-data`.\n",
         n = names.len(),
     );
     let hub: Vec<&str> = names
@@ -332,6 +381,12 @@ fn resolve_auth(
 pub async fn run(args: &[String]) -> anyhow::Result<()> {
     let mut url_override: Option<String> = None;
     let mut auth_override: Option<String> = None;
+    let mut no_autostart = false;
+    let mut http_mode = false;
+    let mut bind: Option<String> = None;
+    let mut token_file: Option<String> = None;
+    let mut allow_writes = false;
+    let mut allowed_origins: Vec<String> = Vec::new();
 
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -363,6 +418,28 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
                         .clone(),
                 );
             }
+            "--no-autostart" => no_autostart = true,
+            "--http" => http_mode = true,
+            "--bind" => {
+                bind = Some(
+                    it.next()
+                        .ok_or_else(|| anyhow::anyhow!("--bind requires ADDR:PORT"))?
+                        .clone(),
+                );
+            }
+            "--token-file" => {
+                token_file = Some(
+                    it.next()
+                        .ok_or_else(|| anyhow::anyhow!("--token-file requires a path"))?
+                        .clone(),
+                );
+            }
+            "--allow-writes" => allow_writes = true,
+            "--allow-origin" => allowed_origins.push(
+                it.next()
+                    .ok_or_else(|| anyhow::anyhow!("--allow-origin requires an origin"))?
+                    .clone(),
+            ),
             other => {
                 // Fail loudly: a typo'd flag that is silently ignored leaves the
                 // agent talking to the wrong node with no way to notice.
@@ -371,12 +448,75 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
         }
     }
 
+    // The HTTP-only flags mean nothing on stdio; accepting them silently would
+    // leave an operator believing a write filter or a token was in force.
+    if !http_mode {
+        for (set, flag) in [
+            (bind.is_some(), "--bind"),
+            (token_file.is_some(), "--token-file"),
+            (allow_writes, "--allow-writes"),
+            (!allowed_origins.is_empty(), "--allow-origin"),
+        ] {
+            if set {
+                anyhow::bail!("{flag} applies to the HTTP transport only: add --http");
+            }
+        }
+    }
+    let http_setup = if http_mode {
+        let addr: std::net::SocketAddr = bind
+            .as_deref()
+            .unwrap_or(http::DEFAULT_BIND)
+            .parse()
+            .map_err(|e| anyhow::anyhow!("--bind wants ADDR:PORT such as 127.0.0.1:9330: {e}"))?;
+        let (token, token_source) = match token_file {
+            Some(path) => {
+                let text = std::fs::read_to_string(&path)
+                    .map_err(|e| anyhow::anyhow!("--token-file {path}: {e}"))?;
+                // An empty file must not silently mean "no auth".
+                if text.trim().is_empty() {
+                    anyhow::bail!("--token-file {path} is empty: write the token into it");
+                }
+                (
+                    Some(text.trim().to_string()),
+                    format!("--token-file {path}"),
+                )
+            }
+            None => (
+                std::env::var(http::TOKEN_ENV)
+                    .ok()
+                    .map(|t| t.trim().to_string())
+                    .filter(|t| !t.is_empty()),
+                http::TOKEN_ENV.to_string(),
+            ),
+        };
+        let token = token.filter(|t| !t.is_empty());
+        // Before the socket is opened: a refused bind never listens at all.
+        http::check_bind(&addr, token.as_deref())?;
+        Some((
+            addr,
+            token_source,
+            http::HttpOptions {
+                token,
+                allow_writes,
+                allowed_origins,
+            },
+        ))
+    } else {
+        None
+    };
+
     let base_url = url_override
         .or_else(|| std::env::var("XERJ_URL").ok())
         .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| DEFAULT_XERJ_URL.to_string())
+        // #3267: no URL given means the local node, on the port it recorded
+        // (a node on :9280 is found), not a fixed :9200.
+        .unwrap_or_else(xerj_common::localnode::default_url)
         .trim_end_matches('/')
         .to_string();
+    let autostart = !no_autostart
+        && !xerj_common::localnode::autostart_disabled()
+        && xerj_common::localauth::url_is_loopback(&base_url);
+    let _ = AUTOSTART.set(autostart);
     let (auth, auth_key_file) =
         resolve_auth(auth_override, std::env::var("XERJ_AUTH").ok(), &base_url);
 
@@ -390,10 +530,54 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
         auth,
     };
 
+    if let Some((addr, token_source, opts)) = http_setup {
+        announce_key_file(auth_key_file.as_ref());
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
+            .map_err(|e| anyhow::anyhow!("cannot listen on {addr}: {e}"))?;
+        let local = listener.local_addr()?;
+        let served = tool_specs()
+            .as_array()
+            .map(|t| {
+                t.iter()
+                    .filter_map(|t| t.get("name").and_then(Value::as_str))
+                    .filter(|n| opts.allow_writes || http::READ_ONLY_TOOLS.contains(n))
+                    .count()
+            })
+            .unwrap_or(0);
+        eprintln!(
+            "xerj-mcp v{} — MCP Streamable HTTP server at http://{local}/mcp, proxying to {}",
+            env!("CARGO_PKG_VERSION"),
+            ctx.base_url,
+        );
+        eprintln!(
+            "xerj-mcp: {served} tools served ({}); auth: {}",
+            if opts.allow_writes {
+                "every tool, --allow-writes"
+            } else {
+                "read-only; --allow-writes serves the rest"
+            },
+            if opts.token.is_some() {
+                format!("bearer token required (from {token_source})")
+            } else {
+                format!(
+                    "none, loopback only. Set {} before putting a tunnel in front of it",
+                    http::TOKEN_ENV
+                )
+            }
+        );
+        return http::serve(ctx, listener, opts).await;
+    }
+
     eprintln!(
-        "xerj-mcp v{} — MCP stdio server, proxying to {}",
+        "xerj-mcp v{} — MCP stdio server, proxying to {}{}",
         env!("CARGO_PKG_VERSION"),
-        ctx.base_url
+        ctx.base_url,
+        if autostart {
+            " (starts the local node if it is down; off: XERJ_NO_AUTOSTART=1)"
+        } else {
+            ""
+        }
     );
 
     // Announced, never silent (same rule as `xerj autoindex`): MCP hosts
@@ -402,7 +586,15 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
     // user needs to see when it works here and not there. The provenance and
     // the outside-the-working-tree warning are what make the "another
     // project's node answered" case visible instead of invisible (#2578).
-    if let Some(found) = &auth_key_file {
+    announce_key_file(auth_key_file.as_ref());
+
+    // stdout is the JSON-RPC channel; stderr is for logs only.
+    serve(ctx, BufReader::new(tokio::io::stdin()), tokio::io::stdout()).await
+}
+
+/// Say on stderr which `admin.key` the loopback fallback used, never silent.
+fn announce_key_file(found: Option<&xerj_common::localauth::DiscoveredKey>) {
+    if let Some(found) = found {
         eprintln!(
             "xerj-mcp: no --auth/XERJ_AUTH given; using the admin key at {} ({})",
             found.path.display(),
@@ -412,9 +604,27 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
             eprintln!("xerj-mcp: warning: {warning}");
         }
     }
+}
 
-    // stdout is the JSON-RPC channel; stderr is for logs only.
-    serve(ctx, BufReader::new(tokio::io::stdin()), tokio::io::stdout()).await
+/// Serve `/mcp` over HTTP on an already bound listener, against the node at
+/// `base_url` — for the end-to-end tests in `tests/`. Not a supported API.
+#[doc(hidden)]
+pub async fn serve_http_for_test(
+    listener: tokio::net::TcpListener,
+    base_url: &str,
+    auth: Option<String>,
+    opts: http::HttpOptions,
+) -> anyhow::Result<()> {
+    let base_url = base_url.trim_end_matches('/').to_string();
+    let client = node_http_builder(&base_url)
+        .timeout(REQUEST_TIMEOUT)
+        .build()?;
+    let ctx = Ctx {
+        client,
+        base_url,
+        auth,
+    };
+    http::serve(ctx, listener, opts).await
 }
 
 /// The JSON-RPC loop over newline-delimited messages, apart from the process'
@@ -825,6 +1035,9 @@ fn rerank_arg_schema(query_required: bool) -> Value {
          `fields` (string[]): which returned fields to send; default is every returned \
          string field. `instructions` (string): override what \"relevant\" means for \
          this corpus. `timeout_ms` (int, default {default_timeout_ms}). `model` (string). \
+         `provider` (string, default \"jev\"): \"cohere\" uses Cohere Rerank when the \
+         operator set `[rerank.cohere] api_key` or COHERE_API_KEY (models rerank-v5.0-fast, \
+         rerank-v5.0-pro, rerank-v3.5; `instructions` and `min_score` are refused with it). \
          Cannot be combined with `sort`. \
          READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the \
          judge's and every `_score` is a probability or null (a hit with no verdict, \
@@ -901,7 +1114,8 @@ fn max_tokens_arg_schema() -> Value {
         "default": token_budget::DEFAULT_MAX_TOKENS,
         "description": format!(
             "Word budget for the successful search payload. Errors and mandatory \
-             xerj_search staleness hints are outside this budget. Tokens are \
+             xerj_search staleness hints are outside this budget, as is the \
+             `_xerj.embed_mode` note. Tokens are \
              counted with {} — the same word split the engine's own analyzer uses for BM25. \
              Honest scope: that under-counts model-context subwords (snake_case is ONE token \
              here), so treat it as a deterministic proxy, not a BPE count. The budget covers \
@@ -941,6 +1155,7 @@ pub fn tool_specs() -> Value {
 pub fn tool_specs_with(include_hub: bool) -> Value {
     let mut specs = json!([
         def::spec(),
+        references::spec(),
         batch::spec(),
         {
             "name": "xerj_search",
@@ -973,7 +1188,11 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                  the response adds `_xerj.hints` code `index_stale` with the last index \
                  time and a reindex command. Hits are returned with that hint. The check \
                  stats at most 4096 entries, stops after 100ms, and skips hidden and \
-                 ignored paths.",
+                 ignored paths. \
+                 The response's `_xerj.embed_mode` names the embedder the node runs \
+                 (`lexical` feature hashing unless it was started with --embed-mode); a \
+                 natural-language query on a lexical node adds `_xerj.hints` code \
+                 `lexical_embedder` (words match, not meaning).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1002,7 +1221,9 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                         "type": "string",
                         "description": "What to search for, in plain words — the definition-first code search \
                          `xerj search` runs. Use `query_dsl` for a structured clause. Omit both for \
-                         legacy match_all browsing; explicit query_dsl: {match_all: {}} is clearer."
+                         legacy match_all browsing; explicit query_dsl: {match_all: {}} is clearer. \
+                         A string that is a JSON object (\"{\\\"match_all\\\":{}}\") is read as \
+                         query DSL, and `_xerj.hints` says so."
                     },
                     "query_dsl": {
                         "type": "object",
@@ -1015,6 +1236,7 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                     "from": { "type": "integer", "description": "Offset for pagination." },
                     "sort": { "description": "ES sort clause (array or object)." },
                     "_source": { "description": "Source filtering (bool, field, or {includes,excludes})." },
+                    "include_vectors": vectors::arg_schema(),
                     "rerank": rerank_arg_schema(false),
                     "judge": judge_arg_schema(false),
                     "max_tokens": max_tokens_arg_schema()
@@ -1028,6 +1250,10 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                  embedded SERVER-SIDE by XERJ's built-in lexical embedder (no external \
                  API key), then matched by vector similarity. Proxies POST /{index}/_search \
                  with {\"query\":{\"semantic\":{...}}}. \
+                 The response's `_xerj.embed_mode` names the embedder the node runs \
+                 (`lexical` feature hashing unless it was started with --embed-mode); a \
+                 natural-language query on a lexical node adds `_xerj.hints` code \
+                 `lexical_embedder` (words match, not meaning). \
                  Pass `max_tokens` to override the default word budget (see that argument \
                  for the tokenizer, exceptions and locator-only rule).",
             "inputSchema": {
@@ -1038,6 +1264,8 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                     "query": { "type": "string", "description": "Natural-language query text to embed and match." },
                     "k": { "type": "integer", "description": "Number of nearest results (default 10)." },
                     "filter": { "type": "object", "description": "Optional ES query clause applied as a pre-filter." },
+                    "_source": { "description": "Source filtering (bool, field, or {includes,excludes})." },
+                    "include_vectors": vectors::arg_schema(),
                     "max_tokens": max_tokens_arg_schema()
                 },
                 "required": ["index", "field", "query"]
@@ -1068,6 +1296,8 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                     "k": { "type": "integer", "description": "Number of nearest neighbours (default 10)." },
                     "num_candidates": { "type": "integer", "description": "Optional candidate pool size." },
                     "filter": { "type": "object", "description": "Optional ES query clause applied as a pre-filter." },
+                    "_source": { "description": "Source filtering (bool, field, or {includes,excludes})." },
+                    "include_vectors": vectors::arg_schema(),
                     "max_tokens": max_tokens_arg_schema()
                 },
                 "required": ["index", "field", "query_vector"]
@@ -1086,6 +1316,10 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                  Optional `judge` re-judges the fused hits LOCALLY (zero tokens, \
                  nothing leaves the node); `judge.query` is REQUIRED for the same \
                  reason. \
+                 The response's `_xerj.embed_mode` names the embedder the node runs \
+                 (`lexical` feature hashing unless it was started with --embed-mode); a \
+                 natural-language query on a lexical node adds `_xerj.hints` code \
+                 `lexical_embedder` (words match, not meaning). \
                  Pass `max_tokens` to override the default word budget (see that argument \
                  for the tokenizer, exceptions and locator-only rule).",
             "inputSchema": {
@@ -1112,6 +1346,8 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                         "description": "Fusion strategy (default rrf)."
                     },
                     "size": { "type": "integer", "description": "Max fused hits to return." },
+                    "_source": { "description": "Source filtering (bool, field, or {includes,excludes})." },
+                    "include_vectors": vectors::arg_schema(),
                     "rerank": rerank_arg_schema(true),
                     "judge": judge_arg_schema(true),
                     "max_tokens": max_tokens_arg_schema()
@@ -1151,7 +1387,9 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                  recall; set `semantic:true` to embed the query server-side and recall by \
                  meaning; set `hybrid:true` to run both over the same `query` and fuse them \
                  by reciprocal rank; supply `vector` for pure vector recall. Proxies \
-                 POST /_memory/{namespace}/_recall.",
+                 POST /_memory/{namespace}/_recall. \
+                 Pass `max_tokens` to cap the response at a token budget (never exceeded; \
+                 see that argument for the tokenizer and the locator-only rule).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1206,7 +1444,8 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                             "as_of": { "description": "Bi-temporal cut: epoch-ms number or RFC3339 string (default now)." }
                         },
                         "required": ["mode"]
-                    }
+                    },
+                    "max_tokens": max_tokens_arg_schema()
                 },
                 "required": ["namespace"]
             }
@@ -1330,7 +1569,10 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                 "the whole index. Up to 100 indexes per call (`indexes_omitted` ",
                 "reports more). When more than 8 indexes match and you did not pass ",
                 "`index`, the answer is a SUMMARY page (index, records, field names) ",
-                "— pass `index` or `detail: true` with `offset`/`limit` for full fields."
+                "— pass `index` or `detail: true` with `offset`/`limit` for full fields. ",
+                "`index_runs` lists, per autoindex prefix, `indexed_at`, `root` and, for a ",
+                "local git checkout, `indexed_commit` (HEAD at index time, from the reflog) ",
+                "and `head_commit` (HEAD now): compare them before trusting line numbers."
             ), xerj_autoindex::catalog::MAP_NAMESPACE_HINT),
             "inputSchema": {
                 "type": "object",
@@ -1472,6 +1714,42 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {}
+            }
+        },
+        {
+            "name": "xerj_sources",
+            "description": concat!(
+                "Live database sources on this node: connect once and the index stays current. ",
+                "action=list shows every source with its state; action=status shows one ",
+                "(snapshotting with percent and ETA, streaming, lagging, polling, or error with ",
+                "a message and a fix hint; replication lag in seconds, rows/s, last confirmed ",
+                "LSN); action=connect registers a Postgres database (postgres://user@host:port/db, ",
+                "no password in the URL: password_env names a variable in the NODE's environment, ",
+                "or password_file a file the node can read). The node snapshots the selected ",
+                "tables (one index per table, named <index_prefix>-<schema>-<table>, document id = ",
+                "primary key), then applies every insert, update, delete and truncate within ",
+                "seconds through logical replication; without replication rights it polls ",
+                "watermark_column and cannot see deletes. action=delete stops the source and drops ",
+                "its replication slot. Needs a superuser key on a secured node. ",
+                "Proxies GET/PUT/DELETE /_xerj/sources/{name}."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": { "type": "string", "enum": ["list", "status", "connect", "delete"], "description": "What to do (default list)." },
+                    "name": { "type": "string", "description": "Source name (a-z, 0-9, '-', '_'). Required for status, connect, delete." },
+                    "url": { "type": "string", "description": "connect: postgres://user@host:port/db?sslmode=require. Never include a password." },
+                    "password_env": { "type": "string", "description": "connect: env var in the node's environment holding the password." },
+                    "password_file": { "type": "string", "description": "connect: file the node can read holding the password." },
+                    "tables": { "type": "array", "items": { "type": "string" }, "description": "connect: schema.table or table; `sales.*` allowed. Default: every table with a primary key." },
+                    "exclude_tables": { "type": "array", "items": { "type": "string" } },
+                    "mode": { "type": "string", "enum": ["auto", "logical", "poll"], "description": "connect: auto (default) streams when replication is allowed, else polls watermark_column." },
+                    "watermark_column": { "type": "string", "description": "connect: column that grows on every write, for polling (e.g. updated_at)." },
+                    "publication": { "type": "string", "description": "connect: an existing publication to stream from (least-privilege setups)." },
+                    "index_prefix": { "type": "string" },
+                    "facts_namespace": { "type": "string", "description": "connect: also offer row changes to XERJ Query-1 facts in this namespace." },
+                    "delete_indices": { "type": "boolean", "description": "delete: also delete the source's indices (default false)." }
+                }
             }
         },
         {
@@ -2053,7 +2331,84 @@ fn field_report_draft(payload: &xerj_common::field_report::Payload) -> String {
 /// Dispatch a `tools/call` to the matching proxy. Any bad-argument or transport
 /// problem is returned as an `isError:true` tool result (not a protocol error),
 /// which is the MCP convention for tool-execution failures.
+/// Set once by [`run`]: whether this server may start the loopback node it
+/// proxies to (#3267). Off unless `run` turned it on, so a `Ctx` built in a
+/// test never spawns anything.
+static AUTOSTART: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+/// One start at a time: concurrent tool calls against a dead node wait for
+/// the first call's start instead of each spawning a node.
+static START_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// Tools that talk to the node. The field report and corpus feedback post
+/// elsewhere, and the hub tools manage their own node.
+fn tool_needs_node(name: &str) -> bool {
+    name.starts_with("xerj_")
+        && !matches!(name, "xerj_field_report" | "xerj_corpus_feedback")
+        && !name.starts_with("xerj_hub_")
+}
+
+/// Start the loopback node when nothing accepts at `base_url` (#3267).
+///
+/// `Ok(None)`: nothing to do (auto-start off, not loopback, or the node is
+/// up). `Ok(Some)`: this call started it, or waited for a start in flight.
+async fn ensure_node(base_url: &str) -> Result<Option<xerj_common::localnode::Started>, String> {
+    if !AUTOSTART.get().copied().unwrap_or(false)
+        || !xerj_common::localauth::url_is_loopback(base_url)
+    {
+        return Ok(None);
+    }
+    let url = base_url.to_string();
+    let probe = url.clone();
+    let up = tokio::task::spawn_blocking(move || xerj_common::localnode::url_accepts(&probe))
+        .await
+        .unwrap_or(true);
+    if up {
+        return Ok(None);
+    }
+    let _one_start = START_LOCK.lock().await;
+    // `ensure_for_url` probes again: a call that waited on the lock finds
+    // the node the first call started and returns `None`.
+    tokio::task::spawn_blocking(move || xerj_common::localnode::ensure_for_url(&url))
+        .await
+        .map_err(|e| format!("the start task failed: {e}"))?
+}
+
+/// The tool text when a start was tried and failed.
+fn node_start_failed(base_url: &str, reason: &str) -> String {
+    format!(
+        "no XERJ node is listening at {}, and xerj mcp could not start one: {reason}\n\
+         Start one yourself with:\n  {START_LOCAL_NODE}\n\
+         then retry this tool.",
+        base_url.trim_end_matches('/')
+    )
+}
+
+/// Add the "started the node" sentence as its own content item, so a JSON
+/// result in the first item stays parseable.
+fn with_start_note(mut result: Value, started: &xerj_common::localnode::Started) -> Value {
+    if let Some(content) = result.get_mut("content").and_then(Value::as_array_mut) {
+        content.push(json!({ "type": "text", "text": started.sentence() }));
+    }
+    result
+}
+
 async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
+    let name = msg
+        .pointer("/params/name")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if !tool_needs_node(name) {
+        return call_tool_inner(ctx, msg).await;
+    }
+    match ensure_node(&ctx.base_url).await {
+        Ok(None) => call_tool_inner(ctx, msg).await,
+        Ok(Some(started)) => with_start_note(call_tool_inner(ctx, msg).await, &started),
+        Err(reason) => tool_text(node_start_failed(&ctx.base_url, &reason), true),
+    }
+}
+
+async fn call_tool_inner(ctx: &Ctx, msg: &Value) -> Value {
     let params = match msg.get("params") {
         Some(p) => p,
         None => return tool_text("missing `params`", true),
@@ -2062,19 +2417,38 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
         Some(n) => n,
         None => return tool_text("missing tool `name`", true),
     };
-    let args = params
+    let mut args = params
         .get("arguments")
         .cloned()
         .unwrap_or_else(|| json!({}));
+    // #3272: a JSON-encoded DSL string is DSL, on the single search tool.
+    let dsl_from_string = name == "xerj_search" && read_dsl_string(&mut args);
+    let args = args;
+    // #3272: vectors leave `_source` unless the caller asks for them.
+    let strip_vectors = if matches!(
+        name,
+        "xerj_search" | "xerj_hybrid_search" | "xerj_semantic_search" | "xerj_vector_search"
+    ) {
+        match vectors::opt_include_vectors(&args) {
+            Ok(include) => !include,
+            Err(msg) => return tool_text(msg, true),
+        }
+    } else {
+        true
+    };
 
     // #1058: `max_tokens` is enforced PROXY-SIDE on the response — the engine
     // never sees it (the builders copy only their own known keys), so the
-    // request bodies are bit-identical with and without a budget. Only the
-    // four `_search`-proxying tools take it here; `xerj_code_search` reads it
-    // itself and budgets its rendered text.
+    // request bodies are bit-identical with and without a budget. The
+    // four `_search`-proxying tools and `xerj_memory_recall` take it here;
+    // `xerj_code_search` reads it itself and budgets its rendered text.
     let budget = if matches!(
         name,
-        "xerj_search" | "xerj_hybrid_search" | "xerj_semantic_search" | "xerj_vector_search"
+        "xerj_search"
+            | "xerj_hybrid_search"
+            | "xerj_semantic_search"
+            | "xerj_vector_search"
+            | "xerj_memory_recall"
     ) {
         match token_budget::opt_max_tokens(&args) {
             Ok(b) => b,
@@ -2091,13 +2465,12 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
         "xerj_def" => {
             // Same staleness hint as xerj_search (#2426): an index older than
             // the folder can return a definition that moved or was removed.
-            let result = def::run(ctx, &args).await;
-            if result.get("isError") == Some(&Value::Bool(true)) {
-                return result;
-            }
-            let hint = search_staleness(ctx, name, &args).await;
-            return apply_staleness(result, hint);
+            // #3268: def::run also corrects stale hits against the folder
+            // before the token budget, then attaches the hint after it.
+            return def::run(ctx, &args).await;
         }
+        // #1791: exact-identifier occurrences minus definitions.
+        "xerj_references" => return references::run(ctx, &args).await,
         // Keep the batch state machine off the shared dispatcher future's
         // stack: single-item tools must not inherit its larger frame.
         "xerj_batch_search" => return Box::pin(batch::run(ctx, &args)).await,
@@ -2160,6 +2533,7 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
         "xerj_brain_link" => build_brain_link(&args),
         "xerj_brain_unlink" => build_brain_unlink(&args),
         "xerj_brain_overview" => build_brain_overview(&args),
+        "xerj_sources" => build_sources(&args),
         // #1056: prompt in, validated DSL out — a plain engine proxy.
         "xerj_plan" => build_plan(&args),
         // Posts to the web endpoint, not the node. `ctx` is unused on purpose:
@@ -2204,8 +2578,23 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
                 budget,
                 demote_page,
                 match_query.as_deref(),
+                strip_vectors,
             )
             .await;
+            let result = if name == "xerj_search" {
+                let result = if dsl_from_string {
+                    with_hint(
+                        result,
+                        DSL_STRING_HINT,
+                        "`query` was a string holding a JSON object; it was read as query DSL",
+                    )
+                } else {
+                    result
+                };
+                explain_zero_hits(ctx, &args, result).await
+            } else {
+                result
+            };
             // After the search, so a failed call does not pay for the catalog
             // read and the check cannot take a connection the search needs.
             let hint = if result.get("isError") == Some(&Value::Bool(true)) {
@@ -2213,10 +2602,86 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
             } else {
                 search_staleness(ctx, name, &args).await
             };
-            apply_staleness(result, hint)
+            let result = apply_staleness(result, hint);
+            // #2513: name the node's embedder on the search tools, and say
+            // when a question ran on lexical feature hashing.
+            if embed_mode_reported(name) && result.get("isError") != Some(&Value::Bool(true)) {
+                let mode = node_embed_mode(ctx).await;
+                apply_embed_mode(result, mode.as_deref(), name, &args)
+            } else {
+                result
+            }
         }
         Err(msg) => tool_text(msg, true),
     }
+}
+
+/// The search tools whose results carry `_xerj.embed_mode` (#2513).
+fn embed_mode_reported(name: &str) -> bool {
+    matches!(
+        name,
+        "xerj_search" | "xerj_semantic_search" | "xerj_hybrid_search"
+    )
+}
+
+/// The node's embedder backend from `GET /v1/embedding/identity`. A refused
+/// key, an old node or a malformed body is `None`, and the response then
+/// says nothing about the embedder instead of guessing.
+async fn node_embed_mode(ctx: &Ctx) -> Option<String> {
+    use xerj_autoindex::search::{embed_mode_from_identity, EMBED_IDENTITY_PATH};
+    let (code, text) = status::get(ctx, EMBED_IDENTITY_PATH).await.ok()?;
+    if !(200..300).contains(&code) {
+        return None;
+    }
+    embed_mode_from_identity(&serde_json::from_str::<Value>(&text).ok()?)
+}
+
+/// The text a search tool's query asks in words: `query` for `xerj_search`
+/// (a plain string only) and `xerj_semantic_search`, and the first string
+/// `query` inside a hybrid sub-query.
+fn query_words(name: &str, args: &Value) -> Option<String> {
+    fn first_query(v: &Value) -> Option<&str> {
+        match v {
+            Value::Object(map) => {
+                if let Some(Value::String(q)) = map.get("query") {
+                    return Some(q.as_str());
+                }
+                // `{"match": {"body": "words"}}`: the field's value is the text.
+                for key in ["match", "match_phrase"] {
+                    if let Some(Value::Object(fields)) = map.get(key) {
+                        if let Some(q) = fields.values().find_map(Value::as_str) {
+                            return Some(q);
+                        }
+                    }
+                }
+                map.values().find_map(first_query)
+            }
+            Value::Array(items) => items.iter().find_map(first_query),
+            _ => None,
+        }
+    }
+    let text = match name {
+        "xerj_hybrid_search" => first_query(args.get("queries")?)?,
+        _ => args.get("query")?.as_str()?,
+    };
+    Some(text.to_string()).filter(|t| !t.trim().is_empty())
+}
+
+/// Add `_xerj.embed_mode` (and the `lexical_embedder` hint) to a successful
+/// JSON search result. Outside the word budget, like the staleness hint.
+fn apply_embed_mode(result: Value, mode: Option<&str>, name: &str, args: &Value) -> Value {
+    if mode.is_none() || result.get("isError") == Some(&Value::Bool(true)) {
+        return result;
+    }
+    let Some(text) = result.pointer("/content/0/text").and_then(Value::as_str) else {
+        return result;
+    };
+    let Ok(mut resp) = serde_json::from_str::<Value>(text) else {
+        return result;
+    };
+    let query = query_words(name, args);
+    xerj_autoindex::search::attach_embed_mode(&mut resp, mode, query.as_deref(), name);
+    tool_text(resp.to_string(), false)
 }
 
 /// Plain-word `xerj_search` on a code corpus (#2122).
@@ -2268,6 +2733,7 @@ fn apply_search_path_demotion(text: &str, page: usize, query: &str) -> String {
 enum Method {
     Get,
     Post,
+    Put,
     Delete,
 }
 
@@ -2331,6 +2797,81 @@ fn code_search_missing(which: &str) -> String {
         "xerj_code_search: missing required string field `{which}`. {}",
         string_field_hint(which)
     )
+}
+
+/// `_source` from `args` onto a JSON-object `body`, when the caller set one.
+fn copy_source_filter(args: &Value, body: &mut Value) {
+    if let (Some(src), Some(obj)) = (
+        args.get("_source").filter(|v| !v.is_null()),
+        body.as_object_mut(),
+    ) {
+        obj.insert("_source".into(), src.clone());
+    }
+}
+
+/// Append `{code, reason}` to the response's `_xerj.hints`, once per code.
+/// A response that is not a JSON object is left alone.
+pub(crate) fn push_hint(resp: &mut Value, code: &str, reason: &str) {
+    let Some(obj) = resp.as_object_mut() else {
+        return;
+    };
+    let xerj = obj.entry("_xerj").or_insert_with(|| json!({}));
+    let Some(xerj) = xerj.as_object_mut() else {
+        return;
+    };
+    let hints = xerj.entry("hints").or_insert_with(|| json!([]));
+    let Some(hints) = hints.as_array_mut() else {
+        return;
+    };
+    if hints
+        .iter()
+        .any(|h| h.get("code").and_then(Value::as_str) == Some(code))
+    {
+        return;
+    }
+    hints.push(json!({ "code": code, "reason": reason }));
+}
+
+/// `_xerj.hints` code when a JSON string `query` was read as DSL (#3272).
+const DSL_STRING_HINT: &str = "query_string_parsed_as_dsl";
+
+/// #3272: some MCP clients send a DSL object as a JSON-encoded string
+/// (`"{\"match_all\":{}}"`). Read on the plain-word path, that string matched
+/// nothing (0 hits where `curl` found 4,735). A string whose trimmed text is
+/// a JSON object is DSL. A whole search body (`{"query": {...}, "size": 5}`)
+/// gives its clause, and its `size` / `from` / `sort` / `_source` when the
+/// call did not set them. Anything else stays plain text. Returns whether
+/// the string was read as DSL.
+pub(crate) fn read_dsl_string(args: &mut Value) -> bool {
+    let mut changed = false;
+    for key in ["query", "query_dsl"] {
+        let Some(Value::String(text)) = args.get(key) else {
+            continue;
+        };
+        let trimmed = text.trim();
+        if !trimmed.starts_with('{') {
+            continue;
+        }
+        let Ok(Value::Object(mut clause)) = serde_json::from_str::<Value>(trimmed) else {
+            continue;
+        };
+        if let Some(Value::Object(inner)) = clause.get("query").cloned() {
+            for extra in ["size", "from", "sort", "_source"] {
+                if let Some(v) = clause.get(extra) {
+                    if args.get(extra).is_none_or(Value::is_null) {
+                        args[extra] = v.clone();
+                    }
+                }
+            }
+            clause = inner;
+        }
+        if clause.is_empty() {
+            continue;
+        }
+        args[key] = Value::Object(clause);
+        changed = true;
+    }
+    changed
 }
 
 /// Copy an optional field from `args` into `body` under the same key, if present.
@@ -2703,7 +3244,8 @@ fn build_semantic(args: &Value) -> Result<BuiltRequest, String> {
         }
     }
     // Also cap `size` at k so the response isn't padded past the requested set.
-    let body = json!({ "query": { "semantic": semantic }, "size": k });
+    let mut body = json!({ "query": { "semantic": semantic }, "size": k });
+    copy_source_filter(args, &mut body);
     Ok((Method::Post, format!("/{index}/_search"), Some(body)))
 }
 
@@ -2728,7 +3270,8 @@ fn build_vector(args: &Value) -> Result<BuiltRequest, String> {
             knn.insert("filter".into(), f.clone());
         }
     }
-    let body = json!({ "knn": Value::Object(knn), "size": k });
+    let mut body = json!({ "knn": Value::Object(knn), "size": k });
+    copy_source_filter(args, &mut body);
     Ok((Method::Post, format!("/{index}/_search"), Some(body)))
 }
 
@@ -2752,6 +3295,9 @@ fn build_hybrid(args: &Value) -> Result<BuiltRequest, String> {
     if let Some(n) = opt_u64(args, "size")? {
         body.insert("size".into(), json!(n));
     }
+    // #3272: `_source` was dropped here, so a hybrid search that named only
+    // prose fields still returned every stored field, vectors included.
+    copy_opt(args, &mut body, "_source");
     apply_rerank(args, &mut body, None, true)?;
     apply_judge(args, &mut body, None, true)?;
     Ok((
@@ -2929,6 +3475,61 @@ fn build_brain_unlink(args: &Value) -> Result<BuiltRequest, String> {
         format!("/_graph/{}/link/{}{}", enc(brain), enc(edge_id), qs(&q)),
         None,
     ))
+}
+
+/// `xerj_sources`: list / status / connect / delete a live database source.
+fn build_sources(args: &Value) -> Result<BuiltRequest, String> {
+    let action = args.get("action").and_then(Value::as_str).unwrap_or("list");
+    let name = || req_str(args, "name");
+    match action {
+        "list" => Ok((Method::Get, "/_xerj/sources".into(), None)),
+        "status" => Ok((
+            Method::Get,
+            format!("/_xerj/sources/{}", enc(name()?)),
+            None,
+        )),
+        "delete" => {
+            let q = if args.get("delete_indices").and_then(Value::as_bool) == Some(true) {
+                "?delete_indices=true"
+            } else {
+                ""
+            };
+            Ok((
+                Method::Delete,
+                format!("/_xerj/sources/{}{q}", enc(name()?)),
+                None,
+            ))
+        }
+        "connect" => {
+            let n = name()?;
+            req_str(args, "url")?;
+            let mut body = serde_json::Map::new();
+            for k in [
+                "url",
+                "password_env",
+                "password_file",
+                "tables",
+                "exclude_tables",
+                "mode",
+                "watermark_column",
+                "publication",
+                "index_prefix",
+                "facts_namespace",
+            ] {
+                if let Some(v) = args.get(k) {
+                    body.insert(k.into(), v.clone());
+                }
+            }
+            Ok((
+                Method::Put,
+                format!("/_xerj/sources/{}", enc(n)),
+                Some(Value::Object(body)),
+            ))
+        }
+        other => Err(format!(
+            "`action` must be list, status, connect or delete (got {other:?})"
+        )),
+    }
 }
 
 fn build_brain_overview(args: &Value) -> Result<BuiltRequest, String> {
@@ -3353,13 +3954,13 @@ fn env_proxy_label(base_url: &str) -> Option<String> {
     if xerj_common::localauth::url_is_loopback(base_url) {
         return None;
     }
-    let uri = base_url.parse::<http::Uri>().ok()?;
+    let uri = base_url.parse::<::http::Uri>().ok()?;
     let intercept = hyper_util::client::proxy::matcher::Matcher::from_env().intercept(&uri)?;
     Some(redact_proxy(intercept.uri()))
 }
 
 /// `http://proxy:8080`, never `http://user:secret@proxy:8080`.
-fn redact_proxy(uri: &http::Uri) -> String {
+fn redact_proxy(uri: &::http::Uri) -> String {
     let scheme = uri.scheme_str().unwrap_or("http");
     let Some(authority) = uri.authority() else {
         return uri.to_string();
@@ -3581,7 +4182,7 @@ fn search_match_query(name: &str, args: &Value) -> Option<String> {
 /// `index_stale` hint: passages (`xerj_search`, #2345) and definitions
 /// (`xerj_def`, #2426).
 fn staleness_checked(name: &str) -> bool {
-    matches!(name, "xerj_search" | "xerj_def")
+    matches!(name, "xerj_search" | "xerj_def" | "xerj_references")
 }
 
 /// Catalog + mtime check for `xerj_search` and `xerj_def`, after the lookup
@@ -3592,7 +4193,7 @@ fn staleness_checked(name: &str) -> bool {
 /// during the search would be a different request, and a failed search has
 /// nothing to annotate. Other tools do not share this path: `xerj code`'s
 /// 30-day refusal stays on `xerj_code_search`.
-async fn search_staleness(
+pub(crate) async fn search_staleness(
     ctx: &Ctx,
     name: &str,
     args: &Value,
@@ -3616,7 +4217,10 @@ async fn search_staleness(
 
 /// Attach a staleness hint after the token budget so a tight budget cannot
 /// drop the warning. An error result is returned unchanged.
-fn apply_staleness(result: Value, hint: Option<xerj_autoindex::staleness::StalenessHint>) -> Value {
+pub(crate) fn apply_staleness(
+    result: Value,
+    hint: Option<xerj_autoindex::staleness::StalenessHint>,
+) -> Value {
     let Some(hint) = hint else {
         return result;
     };
@@ -3632,6 +4236,140 @@ fn apply_staleness(result: Value, hint: Option<xerj_autoindex::staleness::Stalen
     )
 }
 
+/// Add one `_xerj.hints` entry to a successful JSON tool result.
+fn with_hint(result: Value, code: &str, reason: &str) -> Value {
+    if result.get("isError") == Some(&Value::Bool(true)) {
+        return result;
+    }
+    let Some(text) = result.pointer("/content/0/text").and_then(Value::as_str) else {
+        return result;
+    };
+    let Ok(mut resp) = serde_json::from_str::<Value>(text) else {
+        return result;
+    };
+    push_hint(&mut resp, code, reason);
+    tool_text(resp.to_string(), false)
+}
+
+/// The prefix a `xerj_search` call meant: `prefix` as autoindex stores it,
+/// the stem of an `index` written `<p>-*`, or the default `ax`.
+fn wanted_prefix(args: &Value) -> Option<String> {
+    use xerj_autoindex::search::{resolve_prefix, DEFAULT_SEARCH_PREFIX};
+    if let Some(p) = args.get("prefix").and_then(Value::as_str) {
+        return resolve_prefix(p).ok().map(|r| r.prefix);
+    }
+    match args.get("index").and_then(Value::as_str).map(str::trim) {
+        Some(index) if !index.is_empty() => index
+            .strip_suffix("-*")
+            .filter(|stem| !stem.is_empty() && !stem.contains(['*', '?', ',']))
+            .map(str::to_string),
+        _ => Some(DEFAULT_SEARCH_PREFIX.to_string()),
+    }
+}
+
+/// Whether index `name` is one `pattern` (a name, a glob, or a comma list
+/// of them; `-name` exclusions are ignored) would search.
+fn pattern_covers(pattern: &str, name: &str) -> bool {
+    pattern
+        .split(',')
+        .map(str::trim)
+        .filter(|p| !p.is_empty() && !p.starts_with('-'))
+        .any(|p| map::glob_match(p, name))
+}
+
+/// #3269: a search that returned no hits says why.
+///
+/// `POST /typo-*/_search` answers 200 with `hits: []`, the same page a real
+/// miss returns, so agents could not tell a wrong prefix from an empty
+/// node from a query that matched nothing. On an empty page this reads the
+/// index list once and adds `zero_hits_reason`:
+///
+/// * `no_index` — no index the pattern covers holds a document. The hint
+///   names the prefixes on this node (or `none`) and the closest one.
+/// * `no_match` — indices hold documents, the query matched none of them.
+///   The hint is one retry suggestion.
+///
+/// A page with hits, an error, or an unreadable index list is unchanged.
+async fn explain_zero_hits(ctx: &Ctx, args: &Value, result: Value) -> Value {
+    if result.get("isError") == Some(&Value::Bool(true)) {
+        return result;
+    }
+    let Some(text) = result.pointer("/content/0/text").and_then(Value::as_str) else {
+        return result;
+    };
+    let Ok(mut resp) = serde_json::from_str::<Value>(text) else {
+        return result;
+    };
+    let empty_page = resp
+        .pointer("/hits/hits")
+        .and_then(Value::as_array)
+        .is_some_and(Vec::is_empty);
+    let total = resp
+        .pointer("/hits/total/value")
+        .or_else(|| resp.pointer("/hits/total"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    if !empty_page || total > 0 {
+        return result;
+    }
+    let Ok(pattern) = search_index(args) else {
+        return result;
+    };
+    let rows = match status::get(ctx, "/_cat/indices?format=json&h=index,docs.count").await {
+        Ok((code, body)) if (200..300).contains(&code) => match status::index_rows(&body) {
+            Ok(rows) => rows,
+            Err(_) => return result,
+        },
+        _ => return result,
+    };
+    let covered: Vec<&(String, Option<u64>)> = rows
+        .iter()
+        .filter(|(name, _)| name != map::CATALOG_INDEX && pattern_covers(&pattern, name))
+        .collect();
+    let holding = covered.iter().any(|(_, docs)| docs.is_none_or(|n| n > 0));
+    let (reason, hint) = if holding {
+        let suggestion = match args.get("query") {
+            Some(Value::String(q)) => xerj_autoindex::zero_hits::no_match_suggestion(q),
+            _ => "check the field names in the clause with xerj_map".to_string(),
+        };
+        (
+            xerj_autoindex::zero_hits::REASON_NO_MATCH,
+            format!("indices under {pattern} hold documents, but none matched; {suggestion}"),
+        )
+    } else {
+        let empty: Vec<String> = covered.iter().map(|(name, _)| name.clone()).collect();
+        let catalog: Vec<String> = map::fetch_run_sources(ctx)
+            .await
+            .iter()
+            .filter_map(|run| run.get("prefix").and_then(Value::as_str))
+            .map(str::to_string)
+            .collect();
+        let names: Vec<String> = rows
+            .iter()
+            .filter(|(_, docs)| docs.is_none_or(|n| n > 0))
+            .map(|(name, _)| name.clone())
+            .collect();
+        let prefixes = xerj_autoindex::zero_hits::node_prefixes(&catalog, &names);
+        let wanted = wanted_prefix(args);
+        (
+            xerj_autoindex::zero_hits::REASON_NO_INDEX,
+            xerj_autoindex::zero_hits::no_index_message(
+                &pattern,
+                wanted.as_deref(),
+                &empty,
+                &prefixes,
+            ),
+        )
+    };
+    if let Some(obj) = resp.as_object_mut() {
+        obj.insert("zero_hits_reason".into(), json!(reason));
+        obj.insert("zero_hits_hint".into(), json!(hint));
+    }
+    push_hint(&mut resp, "zero_hits", &hint);
+    tool_text(resp.to_string(), false)
+}
+
+#[allow(clippy::too_many_arguments)]
 async fn engine_request(
     ctx: &Ctx,
     method: Method,
@@ -3640,11 +4378,13 @@ async fn engine_request(
     budget: Option<usize>,
     demote_page: Option<usize>,
     match_query: Option<&str>,
+    strip_vectors: bool,
 ) -> Value {
     let url = format!("{}{}", ctx.base_url, path);
     let mut req = match method {
         Method::Get => ctx.client.get(&url),
         Method::Post => ctx.client.post(&url),
+        Method::Put => ctx.client.put(&url),
         Method::Delete => ctx.client.delete(&url),
     };
     if let Some(body) = &body {
@@ -3684,6 +4424,12 @@ async fn engine_request(
                         xerj_common::xccode::passage::annotate_search_response(&text, query)
                     }
                     _ => text,
+                };
+                // Before the budget, so dropped vectors are not counted.
+                let text = if strip_vectors {
+                    vectors::strip_text(&text)
+                } else {
+                    text
                 };
                 match budget {
                     Some(max_tokens) => {
@@ -3746,12 +4492,12 @@ mod tests {
 
     #[test]
     fn proxy_label_drops_userinfo() {
-        let uri: http::Uri = "http://user:secret@proxy.internal:8888".parse().unwrap();
+        let uri: ::http::Uri = "http://user:secret@proxy.internal:8888".parse().unwrap();
         let label = redact_proxy(&uri);
         assert_eq!(label, "http://proxy.internal:8888");
         assert!(!label.contains("secret"), "{label}");
         assert!(!label.contains("user"), "{label}");
-        let socks: http::Uri = "socks5://127.0.0.1:1080".parse().unwrap();
+        let socks: ::http::Uri = "socks5://127.0.0.1:1080".parse().unwrap();
         assert_eq!(redact_proxy(&socks), "socks5://127.0.0.1:1080");
     }
 
@@ -4222,7 +4968,17 @@ mod tests {
             base_url: format!("http://{addr}"),
             auth: None,
         };
-        let res = engine_request(&ctx, Method::Get, "/docs/_search", None, None, None, None).await;
+        let res = engine_request(
+            &ctx,
+            Method::Get,
+            "/docs/_search",
+            None,
+            None,
+            None,
+            None,
+            true,
+        )
+        .await;
         assert_eq!(res["isError"], true, "{res}");
         let text = res["content"][0]["text"].as_str().unwrap();
         assert!(text.contains("could not be read"), "{text}");
@@ -5307,6 +6063,8 @@ mod tests {
             "xerj_semantic_search",
             "xerj_vector_search",
             "xerj_code_search",
+            // #2958: recall hits are budgeted by the same proxy-side adapter.
+            "xerj_memory_recall",
         ];
         for tool in specs.as_array().unwrap() {
             let name = tool["name"].as_str().unwrap();
@@ -5352,6 +6110,14 @@ mod tests {
                 assert!(d.contains("ordered item outcomes"), "{d}");
                 assert!(d.contains("Refuses"), "{d}");
                 assert_eq!(prop["minimum"], token_budget::MIN_MAX_TOKENS);
+            } else if name == "xerj_references" {
+                // #1791: trims its own page from the end, not locator-only.
+                let d = prop["description"].as_str().expect("described");
+                assert!(d.contains(token_budget::TOKENIZER_NAME), "{d}");
+                assert!(d.contains("dropped from the end of the page"), "{d}");
+                assert!(!d.contains("LOCATORS ONLY"), "{d}");
+                assert_eq!(prop["minimum"], token_budget::MIN_MAX_TOKENS);
+                assert_eq!(prop["default"], token_budget::DEFAULT_MAX_TOKENS);
             } else if name == "xerj_hub_ask" {
                 // The hub's own budget (docs/hub-v2-grpc-mcp-notes.md): the
                 // `xerj ask --max-tokens` cap, a SOFT ~4-chars-a-token trim of
@@ -6357,9 +7123,12 @@ mod tests {
             .iter()
             .map(|t| t["name"].as_str().unwrap())
             .collect();
-        assert_eq!(names.len(), 23);
+        assert_eq!(names.len(), 25);
         for n in [
+            "xerj_sources",
             "xerj_def",
+            // #1791: exact-identifier references.
+            "xerj_references",
             "xerj_search",
             "xerj_semantic_search",
             "xerj_vector_search",
@@ -6535,6 +7304,36 @@ mod tests {
         );
     }
 
+    /// `xerj_sources` maps each action onto `/_xerj/sources`, and `connect`
+    /// forwards only spec fields (never anything named like a password value).
+    #[test]
+    fn sources_tool_builds_the_four_requests() {
+        let (m, p, b) = build_sources(&json!({})).unwrap();
+        assert_eq!((m, p.as_str(), b), (Method::Get, "/_xerj/sources", None));
+        let (m, p, _) = build_sources(&json!({"action": "status", "name": "shop"})).unwrap();
+        assert_eq!((m, p.as_str()), (Method::Get, "/_xerj/sources/shop"));
+        let (m, p, _) =
+            build_sources(&json!({"action": "delete", "name": "shop", "delete_indices": true}))
+                .unwrap();
+        assert_eq!(
+            (m, p.as_str()),
+            (Method::Delete, "/_xerj/sources/shop?delete_indices=true")
+        );
+        let (m, p, b) = build_sources(&json!({
+            "action": "connect", "name": "shop",
+            "url": "postgres://app@db/shop", "password_env": "PG_PW",
+            "tables": ["public.orders"], "password": "must-not-pass"
+        }))
+        .unwrap();
+        assert_eq!((m, p.as_str()), (Method::Put, "/_xerj/sources/shop"));
+        let b = b.unwrap();
+        assert_eq!(b["password_env"], "PG_PW");
+        assert!(b.get("password").is_none(), "{b}");
+        assert!(build_sources(&json!({"action": "connect", "name": "x"})).is_err());
+        assert!(build_sources(&json!({"action": "status"})).is_err());
+        assert!(build_sources(&json!({"action": "drop"})).is_err());
+    }
+
     /// A process with no hub signing key must not advertise tools that can
     /// only answer with the no-key message. The count `--help` prints is that
     /// same list, so the two cannot disagree.
@@ -6549,23 +7348,23 @@ mod tests {
                 .collect()
         };
         let without = names(false);
-        assert_eq!(without.len(), 20, "{without:?}");
+        assert_eq!(without.len(), 22, "{without:?}");
         assert!(
             without.iter().all(|n| !n.starts_with("xerj_hub_")),
             "{without:?}"
         );
         let with = names(true);
-        assert_eq!(with.len(), 23, "{with:?}");
+        assert_eq!(with.len(), 25, "{with:?}");
         for n in ["xerj_hub_find", "xerj_hub_def", "xerj_hub_ask"] {
             assert!(with.iter().any(|name| name == n), "missing {n}");
         }
 
         let help = tools_paragraph(false);
-        assert!(help.contains("proxies 20 tools"), "{help}");
+        assert!(help.contains("proxies 22 tools"), "{help}");
         assert!(!help.contains("xerj_hub_"), "{help}");
         assert!(help.contains("~/xerj-data"), "{help}");
         let help = tools_paragraph(true);
-        assert!(help.contains("proxies 23 tools"), "{help}");
+        assert!(help.contains("proxies 25 tools"), "{help}");
         assert!(help.contains("xerj_hub_ask"), "{help}");
         assert!(help.contains("serves 3 Corpus Hub tools"), "{help}");
     }
@@ -6989,5 +7788,474 @@ mod tests {
             "{other_text}"
         );
         assert!(other_text.contains(", UNKNOWN)"), "{other_text}");
+    }
+
+    // ── rc.101 field reports: #3269 / #3272 / #2497 ─────────────────────────
+
+    /// A loopback node that answers by `METHOD /path` prefix (query string
+    /// ignored) and records every request line plus body. Unrouted paths are
+    /// 404. Runs detached: the staleness check may make later requests.
+    fn serve_routes(
+        routes: Vec<(&'static str, String)>,
+    ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        use std::io::{Read, Write};
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
+        let address = listener.local_addr().unwrap();
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = seen.clone();
+        std::thread::spawn(move || {
+            for sock in listener.incoming() {
+                let Ok(mut sock) = sock else { return };
+                sock.set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap();
+                let mut buf = Vec::new();
+                let mut tmp = [0u8; 8192];
+                loop {
+                    match sock.read(&mut tmp) {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => {
+                            buf.extend_from_slice(&tmp[..n]);
+                            let Some(end) = buf.windows(4).position(|w| w == b"\r\n\r\n") else {
+                                continue;
+                            };
+                            let headers = String::from_utf8_lossy(&buf[..end]).to_ascii_lowercase();
+                            let length = headers
+                                .lines()
+                                .find_map(|l| l.strip_prefix("content-length:"))
+                                .and_then(|v| v.trim().parse::<usize>().ok())
+                                .unwrap_or(0);
+                            if buf.len() >= end + 4 + length {
+                                break;
+                            }
+                        }
+                    }
+                }
+                let request = String::from_utf8_lossy(&buf).into_owned();
+                let line = request.lines().next().unwrap_or("").to_string();
+                let mut parts = line.split_whitespace();
+                let method = parts.next().unwrap_or("");
+                let target = parts.next().unwrap_or("");
+                let path = target.split('?').next().unwrap_or("");
+                let key = format!("{method} {path}");
+                log.lock().unwrap().push(request.clone());
+                let (status, body) = routes
+                    .iter()
+                    .find(|(route, _)| key == *route)
+                    .map(|(_, body)| ("200 OK", body.clone()))
+                    .unwrap_or(("404 Not Found", r#"{"error":"not found"}"#.to_string()));
+                let reply = format!(
+                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = sock.write_all(reply.as_bytes());
+            }
+        });
+        (format!("http://{address}"), seen)
+    }
+
+    fn ctx_for(base_url: String) -> Ctx {
+        Ctx {
+            client: reqwest::Client::new(),
+            base_url,
+            auth: None,
+        }
+    }
+
+    fn call(ctx: &Ctx, name: &str, arguments: Value) -> Value {
+        block_on(call_tool(
+            ctx,
+            &json!({"params": {"name": name, "arguments": arguments}}),
+        ))
+    }
+
+    const EMPTY_PAGE: &str = r#"{"took":1,"hits":{"total":{"value":0,"relation":"eq"},"hits":[]}}"#;
+
+    #[test]
+    fn a_json_string_query_is_read_as_dsl() {
+        let mut args = json!({"query": "{\"match_all\":{}}"});
+        assert!(read_dsl_string(&mut args));
+        assert_eq!(args["query"], json!({"match_all": {}}));
+
+        let mut whole = json!({"query": " {\"query\":{\"term\":{\"a\":1}},\"size\":3} "});
+        assert!(read_dsl_string(&mut whole));
+        assert_eq!(whole["query"], json!({"term": {"a": 1}}));
+        assert_eq!(whole["size"], 3);
+
+        for plain in ["parse_config", "{not json", "{}", "[1,2]"] {
+            let mut args = json!({ "query": plain });
+            assert!(!read_dsl_string(&mut args), "{plain}");
+            assert_eq!(args["query"], plain);
+        }
+    }
+
+    /// #3272 acceptance: the string `{"match_all":{}}` returns the index's
+    /// documents (the node's total), not the plain-word path's 0 hits. It is
+    /// forwarded as the clause, with no mapping read, and the hint says so.
+    #[test]
+    fn xerj_search_forwards_a_json_string_query_as_the_clause() {
+        let page = r#"{"took":1,"hits":{"total":{"value":4735,"relation":"eq"},"hits":[{"_index":"docs","_id":"1","_source":{"body":"x"}}]}}"#;
+        let (url, seen) = serve_routes(vec![("POST /docs/_search", page.to_string())]);
+        let ctx = ctx_for(url);
+        let result = call(
+            &ctx,
+            "xerj_search",
+            json!({"index": "docs", "query": "{\"match_all\":{}}"}),
+        );
+        assert_eq!(result["isError"], false, "{result}");
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["hits"]["total"]["value"], 4735);
+        assert_eq!(body["_xerj"]["hints"][0]["code"], DSL_STRING_HINT, "{body}");
+        let requests = seen.lock().unwrap().clone();
+        assert!(
+            requests[0].starts_with("POST /docs/_search"),
+            "{requests:?}"
+        );
+        assert!(
+            requests[0].contains(r#""query":{"match_all":{}}"#),
+            "{}",
+            requests[0]
+        );
+        assert!(
+            !requests.iter().any(|r| r.contains("_mapping")),
+            "{requests:?}"
+        );
+    }
+
+    /// #3269 acceptance: `prefix: "foo"` on a node that only holds
+    /// `grp-foo-*` names `grp-foo` as the closest prefix.
+    #[test]
+    fn a_prefix_with_no_index_names_the_closest_prefix() {
+        let (url, _) = serve_routes(vec![
+            ("POST /foo-*/_search", EMPTY_PAGE.to_string()),
+            ("GET /_cat/indices", r#"[{"index":"grp-foo-docs","docs.count":"12"},{"index":"autoindex-catalog","docs.count":"3"}]"#.to_string()),
+            ("POST /autoindex-catalog/_search", r#"{"hits":{"hits":[{"_source":{"prefix":"grp-foo"}}]}}"#.to_string()),
+        ]);
+        let ctx = ctx_for(url);
+        let result = call(
+            &ctx,
+            "xerj_search",
+            json!({"prefix": "foo", "query": "retry"}),
+        );
+        assert_eq!(result["isError"], false, "{result}");
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["zero_hits_reason"], "no_index", "{body}");
+        let hint = body["zero_hits_hint"].as_str().unwrap();
+        assert!(hint.contains("no index matches foo-*"), "{hint}");
+        assert!(hint.contains("prefixes on this node: grp-foo"), "{hint}");
+        assert!(hint.contains("closest: grp-foo"), "{hint}");
+        assert!(body["hits"]["hits"].as_array().unwrap().is_empty());
+    }
+
+    /// #3269 acceptance: a node with no catalog and no index says `none`.
+    #[test]
+    fn a_node_with_no_catalog_says_none() {
+        let (url, _) = serve_routes(vec![
+            ("POST /nope-*/_search", EMPTY_PAGE.to_string()),
+            ("GET /_cat/indices", "[]".to_string()),
+        ]);
+        let ctx = ctx_for(url);
+        let result = call(&ctx, "xerj_search", json!({"prefix": "nope", "query": "x"}));
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["zero_hits_reason"], "no_index", "{body}");
+        let hint = body["zero_hits_hint"].as_str().unwrap();
+        assert!(hint.contains("prefixes on this node: none"), "{hint}");
+    }
+
+    /// Indices that hold documents but matched nothing are `no_match`, with
+    /// one retry suggestion. A page with hits gets no diagnosis at all.
+    #[test]
+    fn a_real_miss_is_no_match_and_a_hit_is_unchanged() {
+        let (url, _) = serve_routes(vec![
+            ("POST /sled-*/_search", EMPTY_PAGE.to_string()),
+            (
+                "GET /_cat/indices",
+                r#"[{"index":"sled-docs","docs.count":"40"}]"#.to_string(),
+            ),
+        ]);
+        let ctx = ctx_for(url);
+        let result = call(
+            &ctx,
+            "xerj_search",
+            json!({"prefix": "sled", "query": "how does the tree flush work"}),
+        );
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["zero_hits_reason"], "no_match", "{body}");
+        assert!(
+            body["zero_hits_hint"]
+                .as_str()
+                .unwrap()
+                .contains("two or three"),
+            "{body}"
+        );
+
+        let page = r#"{"hits":{"total":{"value":1},"hits":[{"_index":"sled-docs","_id":"1","_source":{"body":"x"}}]}}"#;
+        let (url, seen) = serve_routes(vec![("POST /sled-docs/_search", page.to_string())]);
+        let ctx = ctx_for(url);
+        let result = call(
+            &ctx,
+            "xerj_search",
+            json!({"index": "sled-docs", "query_dsl": {"match_all": {}}}),
+        );
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert!(body.get("zero_hits_reason").is_none(), "{body}");
+        assert!(body.get("_xerj").is_none(), "{body}");
+        assert!(
+            !seen
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|r| r.contains("_cat/indices")),
+            "a page with hits reads no index list"
+        );
+    }
+
+    fn identity(backend: &str) -> String {
+        json!({"data": {"version": 1, "backend": backend,
+            "identity_sha256": "a".repeat(64), "dimensions": 384,
+            "semantic_contract": "x", "resumable": true}})
+        .to_string()
+    }
+
+    /// #2513: a question on a lexical node says so, with the node's mode.
+    #[test]
+    fn a_question_on_a_lexical_node_names_the_embedder_and_hints_once() {
+        let page = r#"{"hits":{"total":{"value":1},"hits":[{"_index":"docs","_id":"1","_source":{"body":"x"}}]}}"#;
+        let (url, seen) = serve_routes(vec![
+            ("POST /docs/_search", page.to_string()),
+            ("GET /v1/embedding/identity", identity("lexical")),
+        ]);
+        let ctx = ctx_for(url);
+        let result = call(
+            &ctx,
+            "xerj_search",
+            json!({"index": "docs", "query": "when is a worktree path allowed"}),
+        );
+        assert_eq!(result["isError"], false, "{result}");
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["_xerj"]["embed_mode"], "lexical", "{body}");
+        let hints = body["_xerj"]["hints"].as_array().unwrap();
+        let lexical: Vec<_> = hints
+            .iter()
+            .filter(|h| h["code"] == "lexical_embedder")
+            .collect();
+        assert_eq!(lexical.len(), 1, "{body}");
+        let reason = lexical[0]["reason"].as_str().unwrap();
+        assert!(reason.contains("keyword search"), "{reason}");
+        assert!(reason.contains("--embed-mode neural"), "{reason}");
+        assert_eq!(body["hits"]["total"]["value"], 1);
+        // The identity read follows the search; it never replaces it.
+        let requests = seen.lock().unwrap().clone();
+        assert!(requests.iter().any(|r| r.starts_with("POST /docs/_search")));
+        assert!(requests
+            .iter()
+            .any(|r| r.starts_with("GET /v1/embedding/identity")));
+    }
+
+    /// An identifier is a lookup: the mode is reported, the hint is not.
+    #[test]
+    fn an_identifier_lookup_reports_the_mode_without_the_hint() {
+        let page = r#"{"hits":{"total":{"value":1},"hits":[{"_index":"docs","_id":"1","_source":{"body":"x"}}]}}"#;
+        let (url, _) = serve_routes(vec![
+            ("POST /docs/_search", page.to_string()),
+            ("GET /v1/embedding/identity", identity("lexical")),
+        ]);
+        let result = call(
+            &ctx_for(url),
+            "xerj_search",
+            json!({"index": "docs", "query": "parse_config"}),
+        );
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["_xerj"]["embed_mode"], "lexical", "{body}");
+        let lexical_hint = body
+            .pointer("/_xerj/hints")
+            .and_then(Value::as_array)
+            .is_some_and(|h| h.iter().any(|h| h["code"] == "lexical_embedder"));
+        assert!(!lexical_hint, "{body}");
+    }
+
+    /// A neural node gets its mode and no lexical hint; a node that does not
+    /// answer the identity read gets nothing, not a guessed "lexical".
+    #[test]
+    fn semantic_search_reports_a_neural_node_and_an_unknown_node_says_nothing() {
+        let page = r#"{"hits":{"total":{"value":0},"hits":[]}}"#;
+        let (url, _) = serve_routes(vec![
+            ("POST /docs/_search", page.to_string()),
+            ("GET /v1/embedding/identity", identity("neural")),
+        ]);
+        let args = json!({"index": "docs", "field": "body",
+            "query": "how do I roll back a bad deployment"});
+        let result = call(&ctx_for(url), "xerj_semantic_search", args.clone());
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["_xerj"]["embed_mode"], "neural", "{body}");
+        assert!(body["_xerj"].get("hints").is_none(), "{body}");
+
+        let (url, _) = serve_routes(vec![("POST /docs/_search", page.to_string())]);
+        let result = call(&ctx_for(url), "xerj_semantic_search", args);
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert!(body.get("_xerj").is_none(), "{body}");
+    }
+
+    /// Hybrid reads the question out of its sub-queries, and the reason
+    /// names the vector leg.
+    #[test]
+    fn hybrid_on_a_lexical_node_reads_the_question_from_its_sub_queries() {
+        let page = r#"{"hits":{"total":{"value":0},"hits":[]}}"#;
+        let (url, _) = serve_routes(vec![
+            ("POST /notes/_search", page.to_string()),
+            ("GET /v1/embedding/identity", identity("lexical")),
+        ]);
+        let args = json!({"index": "notes", "queries": [
+            {"match": {"body": "uniqueness and clone naming rules"}},
+            {"semantic": {"field": "body", "query": "uniqueness and clone naming rules"}}
+        ]});
+        let result = call(&ctx_for(url), "xerj_hybrid_search", args);
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["_xerj"]["embed_mode"], "lexical", "{body}");
+        let reason = body["_xerj"]["hints"][0]["reason"].as_str().unwrap();
+        assert!(reason.contains("vector leg"), "{reason}");
+        assert_eq!(
+            query_words(
+                "xerj_hybrid_search",
+                &json!({"queries": [{"query": {"match": {"body": "a b c"}}}]})
+            )
+            .as_deref(),
+            Some("a b c")
+        );
+    }
+
+    fn vector(n: usize) -> Value {
+        json!((0..n)
+            .map(|i| 0.125 + i as f64 / 1000.0)
+            .collect::<Vec<_>>())
+    }
+
+    /// #3272 acceptance: a hybrid search with `_source: ["body"]` forwards
+    /// that filter and its response carries no float arrays, even when the
+    /// node returns them; `include_vectors: true` keeps them.
+    #[test]
+    fn hybrid_forwards_source_and_drops_vectors() {
+        let page = json!({"hits":{"total":{"value":1},"hits":[{"_index":"ax-docs","_id":"1",
+            "_source":{"body":"text","body_vector": vector(16),
+                       "body_vector_chunks":[{"text":"text","vector": vector(16)}]}}]}})
+        .to_string();
+        let (url, seen) = serve_routes(vec![("POST /ax-docs/_search", page)]);
+        let ctx = ctx_for(url);
+        let args = json!({"index": "ax-docs", "_source": ["body"],
+            "queries": [{"query": {"match": {"body": "text"}}}]});
+        let result = call(&ctx, "xerj_hybrid_search", args.clone());
+        assert_eq!(result["isError"], false, "{result}");
+        let text = tool_body(&result);
+        assert!(!text.contains("0.125"), "{text}");
+        let body: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(body["hits"]["hits"][0]["_source"]["body"], "text");
+        assert_eq!(
+            body["_xerj"]["hints"][0]["code"], "vectors_omitted",
+            "{body}"
+        );
+        let requests = seen.lock().unwrap().clone();
+        assert!(
+            requests[0].contains(r#""_source":["body"]"#),
+            "{}",
+            requests[0]
+        );
+
+        let mut keep = args;
+        keep["include_vectors"] = json!(true);
+        let result = call(&ctx, "xerj_hybrid_search", keep);
+        assert!(tool_body(&result).contains("0.125"), "{result}");
+    }
+
+    #[test]
+    fn semantic_and_vector_search_forward_source() {
+        let (_, _, body) =
+            build_semantic(&json!({"index":"i","field":"f","query":"q","_source":["body"]}))
+                .unwrap();
+        assert_eq!(body.unwrap()["_source"], json!(["body"]));
+        let (_, _, body) =
+            build_vector(&json!({"index":"i","field":"f","query_vector":[0.1],"_source":false}))
+                .unwrap();
+        assert_eq!(body.unwrap()["_source"], json!(false));
+        let (_, _, body) =
+            build_hybrid(&json!({"index":"i","queries":[{"query":{"match_all":{}}}]})).unwrap();
+        assert!(body.unwrap().get("_source").is_none());
+    }
+
+    /// #2497: a bad item fails alone and names the allowed item keys; its
+    /// siblings run. #3272: items take `_source`, a JSON-string query is the
+    /// clause, and vectors leave the hits unless `include_vectors`.
+    #[test]
+    fn a_batch_fails_per_item_and_items_take_source() {
+        let item_page = json!({"took":1,"timed_out":false,"_shards":{"failed":0},
+            "hits":{"total":{"value":1},"hits":[{"_index":"ax-docs","_id":"1",
+            "_source":{"ax_path":"a.rs","line":3,"body_vector": vector(16)}}]}});
+        let msearch = json!({"responses":[item_page.clone(), item_page]}).to_string();
+        let (url, seen) = serve_routes(vec![
+            ("POST /_msearch", msearch),
+            (
+                "GET /ax-*/_mapping",
+                r#"{"ax-docs":{"mappings":{"properties":{"body":{"type":"text"}}}}}"#.to_string(),
+            ),
+        ]);
+        let ctx = ctx_for(url);
+        let result = call(
+            &ctx,
+            "xerj_batch_search",
+            json!({"queries": [
+                {"query": "{\"match_all\":{}}", "_source": ["ax_path", "line"]},
+                {"query": "retry", "index": "other", "prefix": "p"},
+                {"query": {"match_all": {}}}
+            ]}),
+        );
+        assert_eq!(result["isError"], false, "{result}");
+        let text = tool_body(&result);
+        assert!(!text.contains("0.125"), "{text}");
+        let body: Value = serde_json::from_str(&text).unwrap();
+        let results = body["results"].as_array().unwrap();
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0]["status"], "hits", "{body}");
+        assert_eq!(
+            results[0]["vectors_omitted"],
+            json!(["body_vector"]),
+            "{body}"
+        );
+        assert_eq!(results[1]["status"], "error", "{body}");
+        let message = results[1]["error"]["message"].as_str().unwrap();
+        assert!(message.contains("`index`, `prefix`"), "{message}");
+        assert!(
+            message.contains("key, query, identifier, field, _source"),
+            "{message}"
+        );
+        assert!(message.contains("whole batch"), "{message}");
+        assert_eq!(results[2]["status"], "hits", "{body}");
+        let msearch_body = seen
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|r| r.starts_with("POST /_msearch"))
+            .cloned()
+            .unwrap();
+        assert!(
+            msearch_body.contains(r#""_source":["ax_path","line"]"#),
+            "{msearch_body}"
+        );
+        assert!(msearch_body.contains(r#""match_all":{}"#), "{msearch_body}");
+    }
+
+    #[test]
+    fn status_lists_the_tools_this_binary_serves() {
+        let line = status::served_tools_line();
+        assert!(line.contains(env!("CARGO_PKG_VERSION")), "{line}");
+        assert!(line.contains("xerj_search"), "{line}");
+        assert!(line.contains("xerj_batch_search"), "{line}");
+    }
+
+    /// #3286: the help says what the flag turns off, matching the module
+    /// docs and the refusals in xerj_field_report / xerj_corpus_feedback.
+    #[test]
+    fn disable_feedback_help_says_sending_is_off() {
+        assert!(HELP_BODY.contains("xerj_field_report and xerj_corpus_feedback send nothing"));
+        assert!(HELP_BODY.contains("automatic"));
+        assert!(!HELP_BODY.contains("Do not print the feedback invitation above."));
     }
 }

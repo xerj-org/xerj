@@ -57,12 +57,19 @@ def saved_count():
     return json.loads(SAVED.read_text(encoding="utf-8"))["stargazers_count"]
 
 
+def saved_date():
+    """The day the saved count was read, for the badge title."""
+    return json.loads(SAVED.read_text(encoding="utf-8")).get("fetched_at", "")[:10]
+
+
 def badge(n=None):
     n = saved_count() if n is None else n
-    return (f'<a class="nav-stars" href="{REPO_URL}" rel="external" title="XERJ on GitHub" '
+    when = saved_date()
+    title = f"XERJ on GitHub ({n:,} stars on {when} by the GitHub API)" if when else "XERJ on GitHub"
+    return (f'<a class="nav-stars" href="{REPO_URL}" rel="external" title="{title}" '
             f'aria-label="XERJ on GitHub, {n:,} stars">'
             f'<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="{GH_MARK}"/></svg>'
-            f'<span class="nav-stars-n" data-gh-stars="{n}">\u2605 {compact(n)}</span></a>')
+            f'GitHub <span class="nav-stars-n" data-gh-stars="{n}">\u2605 {compact(n)}</span></a>')
 
 
 def live_count():

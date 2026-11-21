@@ -111,6 +111,13 @@ pub enum ClusterCommand {
         request_id: u64,
         inner: Box<ClusterCommand>,
     },
+    /// Entry a new leader appends at the start of its term.
+    ///
+    /// A leader only counts replicas for entries of its own term (§5.4.2).
+    /// Without one, entries left over from an earlier term stay uncommitted
+    /// until a client proposes something. Appliers ignore it. It is the last
+    /// variant so the serde encoding of every older variant is unchanged.
+    Noop,
 }
 
 impl ClusterCommand {
@@ -636,6 +643,13 @@ impl RaftNode {
                 self.leader_id
             );
         }
+        self.append_own(cmd)
+    }
+
+    /// Append `cmd` at the current term, durably, to this leader's log.
+    ///
+    /// Shared by [`RaftNode::propose`] and the no-op a new leader appends.
+    fn append_own(&mut self, cmd: ClusterCommand) -> Result<u64> {
         let index = self.last_log_index() + 1;
         let entry = LogEntry {
             term: self.current_term,
@@ -1090,7 +1104,12 @@ impl RaftNode {
         self.last_heartbeat = Instant::now();
     }
 
-    fn become_leader(&mut self) {
+    /// Take leadership and append this term's no-op entry.
+    ///
+    /// Returns false when the no-op could not be made durable. The node is a
+    /// follower again in that case, as after a failed vote write in
+    /// [`RaftNode::start_election`], and sends nothing.
+    fn become_leader(&mut self) -> bool {
         info!(
             node = %self.id,
             term = self.current_term,
@@ -1106,6 +1125,15 @@ impl RaftNode {
             self.next_index.insert(peer.clone(), next);
             self.match_index.insert(peer.clone(), 0);
         }
+
+        // §5.4.2 / §8: commit an entry of this term so that entries from
+        // earlier terms commit with it, without waiting for a client write.
+        if let Err(e) = self.append_own(ClusterCommand::Noop) {
+            warn!(node = %self.id, error = %e, term = self.current_term, "persist leader no-op; stepping down");
+            self.become_follower(None);
+            return false;
+        }
+        true
     }
 
     fn start_election(&mut self) -> Vec<OutboundMessage> {
@@ -1133,7 +1161,9 @@ impl RaftNode {
 
         // Single-node cluster wins immediately.
         if self.peers.is_empty() {
-            self.become_leader();
+            if !self.become_leader() {
+                return vec![];
+            }
             return self.send_heartbeats();
         }
 
@@ -1622,7 +1652,9 @@ impl RaftNode {
                 "Received vote"
             );
             if self.votes_received >= self.majority() {
-                self.become_leader();
+                if !self.become_leader() {
+                    return vec![];
+                }
                 return self.send_heartbeats();
             }
         }
@@ -1789,7 +1821,7 @@ mod tests {
                 schema_json: "{}".to_string(),
             })
             .expect("propose should succeed on leader");
-        assert_eq!(idx, 1);
+        assert_eq!(idx, 2, "index 1 is the leader's no-op");
 
         // Replicate: a few rounds of simulation
         simulate_rounds(&mut nodes, 20);
@@ -1899,8 +1931,56 @@ mod tests {
             })
             .expect("propose on single-node leader should succeed");
 
-        assert_eq!(idx, 1);
-        assert_eq!(node.commit_index(), 1); // single node commits immediately
+        assert_eq!(idx, 2, "index 1 is the leader's no-op");
+        assert_eq!(node.commit_index(), 2); // single node commits immediately
+    }
+
+    #[test]
+    fn a_new_leader_log_ends_with_a_noop_of_its_term() {
+        let peers = |exclude: &str| -> Vec<String> {
+            vec!["n1", "n2", "n3"]
+                .into_iter()
+                .filter(|&id| id != exclude)
+                .map(String::from)
+                .collect()
+        };
+        let mut nodes = vec![
+            RaftNode::new("n1".to_string(), peers("n1")),
+            RaftNode::new("n2".to_string(), peers("n2")),
+            RaftNode::new("n3".to_string(), peers("n3")),
+        ];
+        nodes[0].last_heartbeat = Instant::now() - Duration::from_millis(500);
+        drive_until_leader(&mut nodes, 100);
+        let leader = nodes.iter().find(|n| n.is_leader()).expect("leader");
+        let last = leader.log.last().expect("the leader appended an entry");
+        assert_eq!(last.command, ClusterCommand::Noop);
+        assert_eq!(last.term, leader.current_term());
+        assert_eq!(last.index, leader.last_log_index());
+    }
+
+    #[test]
+    fn a_leader_that_cannot_persist_its_noop_steps_down() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut n1 = RaftNode::with_storage("n1".to_string(), vec!["n2".to_string()], dir.path())
+            .expect("open log");
+        let mut n2 = RaftNode::new("n2".to_string(), vec!["n1".to_string()]);
+        n1.force_election_timeout();
+        let votes = n1.tick();
+        assert_eq!(n1.state(), &RaftState::Candidate);
+        // The vote is on disk. Block the next hard.meta replace, which is the
+        // log-end write the no-op append needs.
+        std::fs::create_dir(dir.path().join("hard.meta.tmp")).expect("block hard.meta");
+        let mut replies = Vec::new();
+        for m in votes {
+            replies.extend(n2.handle_message(m.msg));
+        }
+        let mut out = Vec::new();
+        for m in replies {
+            out.extend(n1.handle_message(m.msg));
+        }
+        assert_eq!(n1.state(), &RaftState::Follower);
+        assert!(out.is_empty(), "a node that stepped down sends nothing");
+        assert_eq!(n1.log_len(), 0);
     }
 
     #[test]

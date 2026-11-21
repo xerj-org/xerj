@@ -554,6 +554,91 @@ fn action_line_kind(line: &str) -> &'static str {
     }
 }
 
+/// One embedding field of an index: its text field, the field its vectors
+/// go to, and their width.
+struct SemanticEmbedSpec {
+    field: String,
+    target: String,
+    dims: u64,
+}
+
+async fn semantic_embed_specs(idx: &crate::index::Index) -> Vec<SemanticEmbedSpec> {
+    idx.schema()
+        .await
+        .fields
+        .iter()
+        .filter_map(|field| {
+            let embedding = field.embedding.as_ref()?;
+            Some(SemanticEmbedSpec {
+                field: field.name.clone(),
+                target: embedding
+                    .target_field
+                    .clone()
+                    .unwrap_or_else(|| format!("{}_vector", field.name)),
+                dims: field
+                    .options
+                    .dimensions
+                    .unwrap_or(xerj_ai::local::DEFAULT_DIMS) as u64,
+            })
+        })
+        .collect()
+}
+
+/// Bytes the embedding step will allocate for `sources` (#2427): every
+/// embedding field whose text is present and whose vector the caller did
+/// not supply is charged [`crate::governor::semantic_embed_reserve_bytes`]
+/// on that text's length, the same jobs `apply_semantic_embeddings_batch`
+/// builds.
+fn semantic_group_reserve_bytes(specs: &[SemanticEmbedSpec], sources: &[Value]) -> u64 {
+    sources
+        .iter()
+        .filter_map(Value::as_object)
+        .flat_map(|object| {
+            specs.iter().filter_map(move |spec| {
+                if object.get(&spec.target).is_some_and(|v| !v.is_null()) {
+                    return None;
+                }
+                let text = object.get(&spec.field)?.as_str()?;
+                Some(crate::governor::semantic_embed_reserve_bytes(
+                    text.len() as u64,
+                    spec.dims,
+                ))
+            })
+        })
+        .fold(0u64, u64::saturating_add)
+}
+
+/// Reserve the embedding expansion of one target-index group after its
+/// documents are parsed and before they are embedded (#2427), waiting up to
+/// [`crate::governor::SEMANTIC_EMBED_ADMISSION_WAIT`] for room. `Ok(None)`
+/// when there is no governor or nothing to embed. The reservation is held
+/// until the group's documents are published to the memtable, which then
+/// charges them itself. The bulk path drops its parse reservation before
+/// this step, so without it the packed vectors of every in-flight bulk were
+/// allocated with nothing charged.
+async fn reserve_semantic_group(
+    idx: &crate::index::Index,
+    sources: &[Value],
+) -> std::result::Result<Option<crate::governor::AnalyzeReservation>, EngineError> {
+    let Some(governor) = crate::governor::global() else {
+        return Ok(None);
+    };
+    let specs = semantic_embed_specs(idx).await;
+    let bytes = semantic_group_reserve_bytes(&specs, sources);
+    if bytes == 0 {
+        return Ok(None);
+    }
+    governor
+        .reserve_semantic_embed(bytes, crate::governor::SEMANTIC_EMBED_ADMISSION_WAIT)
+        .await
+        .map(Some)
+        .map_err(|error| {
+            // Same drain request as the other ingest 429s (#2321).
+            crate::engine::request_memory_pressure_drain();
+            EngineError::Common(error)
+        })
+}
+
 /// One refusal item per paired action, in body order (#2427). Used when the
 /// whole request is refused before its parse: a single summary item would
 /// not match the body's action count, and the autoindex client (like any
@@ -1882,6 +1967,31 @@ pub async fn process_bulk_with_opts(
         #[cfg(test)]
         let _ = semantic_lifecycle_hook(&index_name, SemanticLifecyclePoint::Parsed);
 
+        // #2427: charge the embedding expansion before it is allocated. Held
+        // to the end of this group, after its documents are published.
+        let _embed_reservation = match reserve_semantic_group(&idx, &valid_sources).await {
+            Ok(reservation) => reservation,
+            Err(e) => {
+                let status = engine_error_http_status(&e);
+                let reason = e.to_string();
+                drop(valid_sources);
+                drop(valid_memory);
+                for (item_idx, id) in valid_meta {
+                    items[item_idx] = Some(BulkItemResult {
+                        action: "index".into(),
+                        index: index_name.clone(),
+                        id: id.unwrap_or_default(),
+                        status,
+                        result: None,
+                        error: Some(reason.clone()),
+                        get_source: None,
+                    });
+                }
+                errors = true;
+                continue;
+            }
+        };
+
         // Backend-owned chunk strings, tokenizer tensors, and inference
         // scratch are not yet logically attributed. Their effect remains
         // visible only as allocator/RSS physical delta; it is not zero.
@@ -2112,6 +2222,28 @@ pub async fn process_bulk_with_opts(
                     }
                 }
             }
+            // #2427: the same embedding reservation as the semantic groups.
+            let _embed_reservation = match reserve_semantic_group(&idx, &sources).await {
+                Ok(reservation) => reservation,
+                Err(e) => {
+                    let status = engine_error_http_status(&e);
+                    let reason = e.to_string();
+                    drop(sources);
+                    for (item_idx, doc_id) in meta {
+                        items[item_idx] = Some(BulkItemResult {
+                            action: "index".into(),
+                            index: index_name.clone(),
+                            id: doc_id,
+                            status,
+                            result: None,
+                            error: Some(reason.clone()),
+                            get_source: None,
+                        });
+                    }
+                    errors = true;
+                    continue;
+                }
+            };
             let prepared = idx.apply_semantic_embeddings_batch(sources).await;
             let docs = meta
                 .into_iter()
@@ -3220,6 +3352,55 @@ mod semantic_lifecycle_tests {
         release_raw_owner(&mut owners, source);
         assert!(owners.is_empty());
         assert_eq!(current(ledger, Category::RawSource), 0);
+    }
+
+    /// #2427: a semantic group's embedding expansion is reserved against
+    /// the governor before the embedding step runs. The parse reservation
+    /// is dropped before it, so without this the packed vectors of every
+    /// in-flight bulk were allocated with nothing charged (436-536 MB on
+    /// the 1 GB gate's ingest node). Other tests share the process-wide
+    /// governor and can only add to the pool, so the check is a lower bound.
+    #[tokio::test]
+    async fn semantic_group_reserves_its_embedding_expansion_before_embedding() {
+        let name = "semantic-embed-reservation-2427";
+        let (_dir, engine) = semantic_engine_with_targets(name, &[("content", "content_vector")]);
+        let text = "memory budget for the semantic expansion of a bulk group ".repeat(400);
+        let mut body = String::new();
+        for i in 0..6 {
+            let source = serde_json::to_string(&json!({ "content": text })).unwrap();
+            body.push_str(&format!(
+                "{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"d{i}\"}}}}\n{source}\n"
+            ));
+        }
+        let idx = engine.get_index(name).unwrap();
+        let specs = semantic_embed_specs(&idx).await;
+        assert_eq!(specs.len(), 1);
+        let expected =
+            6 * crate::governor::semantic_embed_reserve_bytes(text.len() as u64, specs[0].dims);
+        // A caller-supplied vector is not embedded, so it is not charged.
+        let supplied = json!({ "content": text, "content_vector": vec![0.5f32; 16] });
+        assert_eq!(semantic_group_reserve_bytes(&specs, &[supplied]), 0);
+        assert!(expected > 0);
+
+        let seen = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let seen_in_hook = Arc::clone(&seen);
+        let hook: SemanticLifecycleHook = Arc::new(move |_, point| {
+            if point == SemanticLifecyclePoint::EmbeddingInside {
+                let held = crate::governor::global()
+                    .map(|g| g.analyze_reserved_for_test())
+                    .unwrap_or(0);
+                seen_in_hook.fetch_max(held, std::sync::atomic::Ordering::Relaxed);
+            }
+            SemanticLifecycleFault::None
+        });
+        let result =
+            with_semantic_lifecycle_hook(name, hook, process_bulk(&engine, None, &body)).await;
+        assert!(!result.errors, "{:?}", result.items);
+        assert!(
+            seen.load(std::sync::atomic::Ordering::Relaxed) >= expected,
+            "embedding ran with {} bytes reserved, expected at least {expected}",
+            seen.load(std::sync::atomic::Ordering::Relaxed)
+        );
     }
 
     async fn run_case(

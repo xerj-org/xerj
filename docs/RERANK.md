@@ -95,6 +95,52 @@ endpoint = "https://api.typesafe.ai/v1/systemone"  # or TYPESAFE_ENDPOINT; this 
 The settings are resolved once, at startup. Changing the environment of a
 running node does nothing; restart it.
 
+### Cohere Rerank as the provider
+
+A search can use Cohere Rerank instead of the default judge by saying
+`"provider": "cohere"` in its `rerank` block. The operator configures it the
+same way, under its own block, with the same precedence rule:
+
+```toml
+[rerank.cohere]
+api_key  = "co-..."                             # or COHERE_API_KEY
+endpoint = "https://api.cohere.com/v2/rerank"   # or COHERE_ENDPOINT; this is the default
+```
+
+```sh
+curl -s -XPOST localhost:9200/docs/_search -H 'content-type: application/json' -d '{
+  "query": {"match": {"body": "vitamin d and bone density"}},
+  "rerank": {"provider": "cohere", "model": "rerank-v5.0-fast", "window": 50}
+}'
+```
+
+Expected: the hits in Cohere's order, `_score` set to Cohere's
+`relevance_score`, and a `_rerank` block with `"provider": "cohere"`,
+`"applied": true` and `usage.search_units`.
+
+- **Models:** `rerank-v5.0-fast` (the default), `rerank-v5.0-pro`,
+  `rerank-v3.5`. Any other name is a 400 before anything is sent.
+- **Not supported with Cohere, refused with a 400:** `instructions` (Cohere
+  Rerank judges against the query only) and `min_score` (Cohere's scores are
+  not calibrated on this engine's data; we have not measured them, so the node
+  does not prune by them).
+- **Batching:** up to 100 documents per Cohere call (`max_docs_per_call` in
+  `GET /_xerj/rerank` under `by_provider.cohere`); a window of 300 is three
+  calls.
+- **Keeping text inside your network:** point `endpoint` (or
+  `COHERE_ENDPOINT`) at a private Cohere deployment. The default endpoint is
+  Cohere's public API, and then the question and the hits' text leave the
+  node.
+- **Billing:** Cohere bills rerank in search units. The node reports what
+  Cohere reported in `_rerank.usage.search_units`; input/output token counts
+  are 0 for this provider.
+- **Status:** `GET /_xerj/rerank` keeps its top-level `api_key`/`endpoint` for
+  the default provider and adds `by_provider.jev` and `by_provider.cohere`,
+  each saying whether a key is set and where it came from, never the key.
+- **Tested against:** a local stub that speaks Cohere's documented
+  `/v2/rerank` request and response shape. No live Cohere numbers are
+  published for this provider yet.
+
 There is deliberately **no per-request key**. A key in a search body would land
 in slow-query logs, audit trails and client-side request dumps.
 
@@ -108,7 +154,7 @@ curl -s -H "Authorization: ApiKey $ADMIN_KEY" http://localhost:9200/_xerj/rerank
 {
   "enabled": true,
   "configured": true,
-  "providers": ["jev"],
+  "providers": ["jev", "cohere"],
   "api_key":  { "set": true, "source": "config" },
   "endpoint": { "url": "https://api.typesafe.ai/v1/systemone", "source": "default" },
   "defaults": { "provider": "jev", "model": "jev-latest", "window": 30, "batch": 30,
@@ -373,10 +419,12 @@ client appears in a source file this list does not account for:
 | Path | What leaves the node | When | Default |
 |---|---|---|---|
 | **Rerank provider** — `[rerank]`, `TYPESAFE_API_KEY` / `TYPESAFE_ENDPOINT` | The question, `rerank.instructions`, the model name, and the returned text of up to `window` hits (above) | A search that carries a `rerank` block | Off: no key is configured |
+| **Cohere Rerank** — `[rerank.cohere]`, `COHERE_API_KEY` / `COHERE_ENDPOINT` | The question, the model name, and the returned text of up to `window` hits, to `api.cohere.com` unless `endpoint` names a private Cohere deployment | A search whose `rerank` block says `"provider": "cohere"` | Off: no key is configured |
 | **Proxy embeddings** — `[embedding] default_endpoint`, `--embed-mode proxy` | Document text of the fields it embeds, and the text of queries it embeds | Document text at write time (index, `_bulk`, update, reindex); query text at search time, for every query it embeds (`semantic`, hybrid, semantic memory recall) | Off: `default_endpoint` is empty |
 | **WAL tap** — `[wal_tap]`, `PUT /_xerj/wal_tap` | Every write on the tapped indices (indexed documents and deletes), as `_bulk` to `{target_url}/_bulk`; never system indices | Continuously, every `poll_interval_ms` | Off: `enabled = false` |
 | **Neural model download** — `--embed-mode neural` | HTTPS requests to the HuggingFace Hub naming the model (`config.json`, `tokenizer.json`, `model.safetensors`); no document or query text | The first time the neural embedder loads without `embedding.local_model_dir`; later starts read the local cache | Off: the default embedder is lexical |
 | **Cluster transport** — `[cluster] enabled = true` | Raft messages to the configured `peers`: index names, mappings, shard assignments, node addresses, cluster settings; no document text and no queries | While cluster mode runs | Off: single node |
+| **Live database sources** — `xerj connect`, `PUT /_xerj/sources/{name}` | A Postgres connection to the database you register: the user name and the password read from the environment variable or file you referenced, the `SELECT`s of the first snapshot, and logical-replication commands (replication slot, `START_REPLICATION`, standby status updates carrying the applied LSN). Rows travel INTO the machine; no document text from other indices and no query text is sent | While a source is registered: the snapshot once, then a continuous replication stream (or polling, when replication is not permitted) | Off: no source is registered |
 | **Object storage backend** — `[storage]`, `S3Backend` | S3 requests to the configured endpoint: bucket and key names, ranged reads, and the credentials from the environment. The index bundles it writes when it is the active home DO carry stored document text — no query text ever leaves | Since v1.0.0-rc.77 ([#1008](https://github.com/xerj-org/xerj/pull/1008) closing [#965](https://github.com/xerj-org/xerj/issues/965)): one immutable ZBM1 bundle per segment family plus `snapshot.json`, when `storage.backend = "s3"` and `storage.s3_bucket` names an existing bucket | Off: the default backend is `local` |
 | **`xerj autoindex s3://`** (client, not the node) — `--endpoint-url`, `AWS_*` | S3 requests to the configured endpoint: bucket and key names and the credentials; the objects travel INTO the machine, and their text then goes to the node URL you gave the client | While that command runs | Off: only when you pass an `s3://` root |
 | **`xerj autoindex s3:// --watch`** (client, not the node) — `--poll-interval`, `--endpoint-url`, `AWS_*` | The same S3 requests as above, repeated every poll interval: a `ListObjectsV2` page per cycle plus a GET per changed object. Billed to the operator's object-store account, so the run keeps a spend ledger and stops at its budget | Every `--poll-interval` (default 300 s) while the watch runs | Off: only with `--watch` on an `s3://` root |
@@ -394,7 +442,7 @@ the picture:
   [air-gapped recipe](./recipes/air-gapped-deployment.md) names the three pages
   that link the fonts, and a blocked request falls back to system fonts.
 - **The command-line clients in the same binary** (`xerj autoindex`,
-  `xerj mcp`, `xerj batch-search`, `xerj search`, `xerj code`, `xerj corpus list`,
+  `xerj autoindex --facts`, `xerj mcp`, `xerj connect`, `xerj sources`, `xerj batch-search`, `xerj search`, `xerj code`, `xerj corpus list`,
   `xerj hub` and the others) send what they read to the node URL you give them,
   `http://localhost:9200` unless you say otherwise. On an empty corpus ledger,
   `xerj code` and `xerj corpus list` also POST one catalog search to that same

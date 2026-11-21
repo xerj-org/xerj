@@ -297,8 +297,86 @@ fn mcp_registration(bin: &str, url: &str) -> String {
          \x20 Kimi CLI:  `~/.kimi-code/mcp.json` (user) or `.kimi-code/mcp.json` (project); root key \"mcpServers\"; the current CLI, not the archived `~/.kimi/mcp.json`\n\
          \x20 Windsurf, Claude Desktop, Cline:  copy the \"xerj\" entry from .mcp.json; the root key is \"mcpServers\"\n\
          \x20 VS Code (.vscode/mcp.json):  root key \"servers\", not \"mcpServers\"; the entry needs \"type\": \"stdio\"\n\
-         \x20 Codex (.codex/config.toml, trusted projects only; xerj init writes it when .codex/ exists): [mcp_servers.xerj]",
-        shell_quote(bin)
+         \x20 Codex (.codex/config.toml, trusted projects only; xerj init writes it when .codex/ exists): [mcp_servers.xerj]\n\
+         {}\n\
+         {}",
+        shell_quote(bin),
+        desktop_agent_registration(bin, url),
+        remote_registration(bin, url)
+    )
+}
+
+/// Default `xerj mcp --http` listen port (xerj-mcp `http::DEFAULT_BIND`).
+const MCP_HTTP_PORT: u16 = 9330;
+
+/// Print-only setup for clients that take a server URL, not a command
+/// (#3066, #2756): CopilotKit OpenBot, cloud agents, hosted chat apps.
+///
+/// Checked against upstream docs on 2026-11-20: CopilotKit/OpenBot
+/// docs/plugins/mcp-by-url.md: Connections > Add server takes an address;
+/// OpenBot probes it with no credential and, on a `401` with no OAuth sign-in
+/// to follow, asks for a key. Every address must be https, with no IP
+/// literal and no `localhost` (`OPENBOT_ALLOW_LOOPBACK_MCP=1` admits
+/// `http://127.0.0.1:<port>` for development only), so a tunnel is required.
+fn remote_registration(bin: &str, url: &str) -> String {
+    // `--url`, not an env prefix: `XERJ_URL=… xerj` is POSIX-only, and this
+    // line must paste into PowerShell too (same rule as the Claude line).
+    let node = if url == DEFAULT_URL {
+        String::new()
+    } else {
+        format!(" --url {}", shell_quote(url))
+    };
+    let remote = "https://<tunnel-host>/mcp";
+    let block = json!({"mcpServers": {"xerj": {
+        "type": "http",
+        "url": remote,
+        "headers": {"Authorization": "Bearer <token>"},
+    }}});
+    format!(
+        "URL-only clients and cloud agents (CopilotKit OpenBot, hosted chat apps; print only):\n\
+         \x20 1. Serve MCP over HTTP with a token (read-only tools; --allow-writes for all):\n\
+         \x20    set XERJ_MCP_TOKEN to a secret of 16+ characters (`openssl rand -hex 32` prints one), then:\n\
+         \x20    {} mcp --http{node}    (listens on http://127.0.0.1:{MCP_HTTP_PORT}/mcp)\n\
+         \x20 2. Publish it, token first: tailscale serve --bg {MCP_HTTP_PORT} | cloudflared tunnel --url http://127.0.0.1:{MCP_HTTP_PORT} | ngrok http {MCP_HTTP_PORT}\n\
+         \x20 3. Remote URL: {remote}   header: Authorization: Bearer <token>\n\
+         \x20    Claude Code:  claude mcp add --transport http xerj {remote} --header \"Authorization: Bearer <token>\"\n\
+         \x20    {block}\n\
+         \x20 CopilotKit OpenBot:  Connections > Add server, enter {remote}; it gets a 401 and asks for a key: paste the token. It refuses localhost, IP and plain-http addresses, so use the tunnel URL.\n\
+         \x20 Guide: https://xerj.org/docs/agents/endpoints#remote-mcp",
+        shell_quote(bin),
+    )
+}
+
+/// Print-only setup for computer-use tools and AI-coworker apps (#2965,
+/// #2756). Nothing here is written: init never edits another app's data.
+///
+/// Checked against upstream docs on 2026-11-19:
+/// * vercel-labs/agent-desktop and agent-browser are MCP *servers*
+///   (`agent-desktop mcp`, `agent-browser mcp`, stdio, `mcpServers` shape in
+///   their READMEs), not MCP clients. They run inside a coding agent, so xerj
+///   goes in that agent's config beside them.
+/// * OpenMausBot (milind-soni, docs/custom-mcp-servers.md): Plugins > MCP
+///   servers > Add server takes a `claude mcp add` line or an `mcpServers`
+///   block; the registry is `~/.openmausbot/config.json`; its first-run
+///   import brings servers from `~/.claude.json` in switched off.
+fn desktop_agent_registration(bin: &str, url: &str) -> String {
+    let mut xerj = json!({"command": bin, "args": ["mcp"]});
+    if url != DEFAULT_URL {
+        xerj["env"] = json!({ "XERJ_URL": url });
+    }
+    let alone = json!({"mcpServers": {"xerj": xerj.clone()}});
+    let beside = json!({"mcpServers": {
+        "xerj": xerj,
+        "agent-desktop": {"command": "agent-desktop", "args": ["mcp"]},
+        "agent-browser": {"command": "agent-browser", "args": ["mcp"]},
+    }});
+    format!(
+        "Computer-use tools and AI-coworker apps (print only; init writes none of these files):\n\
+         \x20 agent-desktop, agent-browser (vercel-labs):  MCP servers, not clients; register xerj in the same agent's \"mcpServers\", beside them:\n\
+         \x20   {beside}\n\
+         \x20 OpenMausBot:  Plugins > MCP servers > Add server, paste this block (registry: ~/.openmausbot/config.json; success: \"Connected: <N> tools\"):\n\
+         \x20   {alone}\n\
+         \x20   A xerj entry its first-run import copied from ~/.claude.json arrives switched off: turn \"xerj\" on in Plugins > MCP servers"
     )
 }
 
@@ -1344,6 +1422,104 @@ mod tests {
             printed.contains("Windsurf, Claude Desktop, Cline"),
             "{printed}"
         );
+    }
+
+    /// #2965 / #2756: the computer-use tools and OpenMausBot get a pasteable
+    /// stdio block with this binary and this URL, and init writes no file of
+    /// theirs.
+    #[test]
+    fn desktop_agents_and_openmausbot_get_a_pasteable_stdio_block() {
+        let printed = mcp_registration(r"C:\Program Files\xerj\xerj.exe", "http://10.0.0.7:9200");
+        let blocks: Vec<Value> = printed
+            .lines()
+            .map(str::trim)
+            .filter(|l| l.starts_with("{\"mcpServers\""))
+            .map(|l| serde_json::from_str(l).unwrap_or_else(|e| panic!("{l}: {e}")))
+            .collect();
+        assert_eq!(blocks.len(), 3, "{printed}");
+        let beside = &blocks[0]["mcpServers"];
+        for tool in ["agent-desktop", "agent-browser"] {
+            assert_eq!(beside[tool]["command"], tool);
+            assert_eq!(beside[tool]["args"], json!(["mcp"]));
+        }
+        for block in &blocks[..2] {
+            let xerj = &block["mcpServers"]["xerj"];
+            assert_eq!(xerj["command"], r"C:\Program Files\xerj\xerj.exe");
+            assert_eq!(xerj["args"], json!(["mcp"]));
+            assert_eq!(xerj["env"]["XERJ_URL"], "http://10.0.0.7:9200");
+            // stdio only: no URL transport is offered for xerj.
+            assert!(xerj.get("url").is_none() && xerj.get("type").is_none());
+        }
+        assert_eq!(blocks[1]["mcpServers"].as_object().unwrap().len(), 1);
+        assert!(printed.contains("~/.openmausbot/config.json"));
+        assert!(printed.contains("switched off"));
+        assert!(printed.contains("init writes none of these files"));
+
+        let default = mcp_registration("/usr/local/bin/xerj", DEFAULT_URL);
+        assert!(!default.contains("XERJ_URL"), "{default}");
+    }
+
+    /// #3066 / #2756: URL-only clients (CopilotKit OpenBot, cloud agents) get
+    /// the `xerj mcp --http` line with this binary, a token set before the
+    /// tunnel, the remote URL form and a pasteable URL block. Init prints the
+    /// placeholder, never a token.
+    #[test]
+    fn url_only_clients_get_the_http_line_the_tunnel_and_the_remote_url() {
+        let printed = mcp_registration("/opt/x y/xerj", "http://10.0.0.7:9200");
+        let quoted = shell_quote("/opt/x y/xerj");
+        let url = shell_quote("http://10.0.0.7:9200");
+        assert!(
+            printed.contains(&format!("{quoted} mcp --http --url {url}")),
+            "{printed}"
+        );
+        let token_at = printed.find("set XERJ_MCP_TOKEN").expect("token line");
+        let tunnel_at = printed.find("tailscale serve --bg 9330").expect("tunnel");
+        assert!(token_at < tunnel_at, "the token comes before the tunnel");
+        for needle in [
+            "cloudflared tunnel --url http://127.0.0.1:9330",
+            "ngrok http 9330",
+            "https://<tunnel-host>/mcp",
+            "Authorization: Bearer <token>",
+            "claude mcp add --transport http xerj https://<tunnel-host>/mcp",
+            "CopilotKit OpenBot:  Connections > Add server",
+            "asks for a key",
+            "https://xerj.org/docs/agents/endpoints#remote-mcp",
+        ] {
+            assert!(printed.contains(needle), "{needle}\n{printed}");
+        }
+        let block: Value = printed
+            .lines()
+            .map(str::trim)
+            .filter(|l| l.starts_with("{\"mcpServers\""))
+            .map(|l| serde_json::from_str(l).unwrap())
+            .find(|b: &Value| b["mcpServers"]["xerj"].get("url").is_some())
+            .expect("a URL block");
+        let xerj = &block["mcpServers"]["xerj"];
+        assert_eq!(xerj["type"], "http");
+        assert_eq!(xerj["url"], "https://<tunnel-host>/mcp");
+        assert_eq!(xerj["headers"]["Authorization"], "Bearer <token>");
+        assert!(xerj.get("command").is_none());
+        let default = mcp_registration("/usr/local/bin/xerj", DEFAULT_URL);
+        let bin = shell_quote("/usr/local/bin/xerj");
+        assert!(
+            default.contains(&format!("\n     {bin} mcp --http    (listens")),
+            "no --url for the default node: {default}"
+        );
+        assert!(!printed.contains("$("), "pastes outside a POSIX shell");
+        for line in printed.lines() {
+            assert!(line.chars().count() <= 300, "{line}");
+        }
+    }
+
+    #[test]
+    fn init_writes_nothing_into_openmausbot_or_agent_tool_config() {
+        let dir = tmp();
+        let lines = run_init_in(dir.path(), DEFAULT_URL, false).unwrap();
+        for line in &lines {
+            assert!(!line.contains(".openmausbot"), "{line}");
+            assert!(!line.contains("agent-desktop"), "{line}");
+        }
+        assert!(!dir.path().join(".openmausbot").exists());
     }
 
     /// What init prints and what the skill teaches are one registration, not

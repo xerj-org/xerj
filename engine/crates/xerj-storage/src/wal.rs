@@ -445,6 +445,15 @@ impl WalWriter {
     ) -> Result<Self> {
         let dir = dir.as_ref().to_path_buf();
         fs::create_dir_all(&dir)?;
+        // A crash between `PreparedGeneration::create` and its rename leaves
+        // a header-only `.wal.next` file that no generation scan reads.
+        if let Ok(entries) = fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                if entry.file_name().to_string_lossy().ends_with(".wal.next") {
+                    let _ = fs::remove_file(entry.path());
+                }
+            }
+        }
 
         // Find the highest existing generation
         let (generation, max_seq) = find_latest_generation(&dir)?;
@@ -1055,6 +1064,45 @@ impl WalWriter {
         self.dirty
     }
 
+    /// First half of an fsync that does not hold the shard mutex (#3324).
+    ///
+    /// Drains the userspace buffer to the kernel, clears `dirty` and returns
+    /// a second descriptor of the active generation. The caller drops the
+    /// shard mutex and then calls `sync_all` on that descriptor: an fsync
+    /// covers every byte the kernel holds for the inode when it starts, so
+    /// every append made before this call is durable when it returns —
+    /// the same guarantee [`sync`](Self::sync) gives, without making every
+    /// append to the shard wait on the disk. On ext4 an fsync can wait
+    /// seconds for the journal commit (#3324 measured 25 s); with the
+    /// mutex held, each append behind it, and each search waiting on the
+    /// publication bracket that append holds, waited that long too.
+    ///
+    /// Appends that land while the fsync runs set `dirty` and re-arm the
+    /// scheduler, so they get their own fsync. If the fsync fails the
+    /// caller must call [`mark_unsynced`](Self::mark_unsynced).
+    ///
+    /// Returns `None` when there is nothing to make durable.
+    pub fn begin_unlocked_sync(&mut self) -> Result<Option<File>> {
+        if !self.dirty {
+            return Ok(None);
+        }
+        let Some(w) = self.writer.as_mut() else {
+            self.dirty = false;
+            return Ok(None);
+        };
+        w.flush()?;
+        let file = w.get_ref().file().try_clone()?;
+        self.dirty = false;
+        Ok(Some(file))
+    }
+
+    /// An fsync started by [`begin_unlocked_sync`](Self::begin_unlocked_sync)
+    /// failed: the bytes it covered may not be durable, so the shard is
+    /// dirty again and the scheduler retries it.
+    pub fn mark_unsynced(&mut self) {
+        self.mark_dirty();
+    }
+
     /// Flush the BufWriter to the kernel without a `fsync(2)`.
     ///
     /// The buffered bytes are visible to any reader on the same
@@ -1126,14 +1174,69 @@ impl WalWriter {
     /// on every append so the on-disk prefix is complete up to
     /// `current_offset`).
     pub fn read_generation_entries(&self, gen: u64) -> (Vec<ReplayEntry>, bool) {
-        let path = wal_path(&self.dir, gen);
-        if !path.exists() {
-            return (Vec::new(), true);
+        read_generation_entries_in(&self.dir, gen)
+    }
+
+    /// This writer's directory.
+    pub fn dir(&self) -> &Path {
+        &self.dir
+    }
+
+    /// True when the active generation holds frames, so a maintenance pass
+    /// has something to rotate out.
+    pub fn has_frames(&self) -> bool {
+        self.current_offset > WAL_HEADER_LEN
+    }
+
+    /// Rotate the active generation out WITHOUT any fsync under the shard
+    /// mutex (#3324).
+    ///
+    /// `prepared` is the next generation's file, created and fsynced by
+    /// [`PreparedGeneration::create`] before the caller took the mutex.
+    /// This call drains the buffer, renames that file into place, and
+    /// hands back the generation it froze together with a descriptor of it.
+    /// The caller releases the mutex and only then fsyncs, decodes,
+    /// checkpoints and prunes the frozen generation: nothing appends to it
+    /// any more, so none of that needs the mutex appends wait on.
+    ///
+    /// [`force_rotate`](Self::force_rotate) does the same work with the
+    /// mutex held: an fsync of the active file in `checkpoint`, a second in
+    /// `rotate`, one for the checkpoint file and one for the new
+    /// generation's header — four journal-commit waits per shard per pass.
+    pub fn rotate_detached(
+        &mut self,
+        mut prepared: PreparedGeneration,
+    ) -> Result<DetachedRotation> {
+        if !self.has_frames() {
+            self.release_if_empty();
+            return Ok(DetachedRotation::Empty);
         }
-        let results = read_wal_file(path);
-        let clean = results.iter().all(|r| r.is_ok());
-        let entries = results.into_iter().filter_map(|r| r.ok()).collect();
-        (entries, clean)
+        if prepared.generation != self.generation + 1 || prepared.dir != self.dir {
+            return Ok(DetachedRotation::Stale);
+        }
+        let Some(w) = self.writer.as_mut() else {
+            // Unreachable under the materialization invariant (frames
+            // imply a writer); treat it as nothing to rotate.
+            return Ok(DetachedRotation::Empty);
+        };
+        w.flush()?;
+        let file = w.get_ref().file().try_clone()?;
+        fs::rename(&prepared.temp, wal_path(&self.dir, prepared.generation))?;
+        prepared.installed = true;
+        let frozen = FrozenGeneration {
+            generation: self.generation,
+            offset: self.current_offset,
+            file,
+        };
+        self.generation = prepared.generation;
+        // The old writer's buffer was drained above; the new generation is
+        // left unmaterialized exactly as `force_rotate` leaves it (#873).
+        self.writer = None;
+        self.current_offset = WAL_HEADER_LEN;
+        // The frozen generation's bytes are fsynced by the caller, and the
+        // new generation holds nothing yet.
+        self.dirty = false;
+        Ok(DetachedRotation::Rotated(frozen))
     }
 
     /// RC4 W1 #8 — remove WAL generations whose entries are **all verified
@@ -2478,6 +2581,129 @@ fn tail_wal_file(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/// The next WAL generation's file, created outside the shard mutex under a
+/// temporary name so a concurrent rotation can never truncate a live file.
+/// [`WalWriter::rotate_detached`] renames it into place; dropped unused, it
+/// removes itself.
+pub struct PreparedGeneration {
+    dir: PathBuf,
+    generation: u64,
+    temp: PathBuf,
+    installed: bool,
+}
+
+impl PreparedGeneration {
+    /// Create and fsync generation `generation`'s header in `dir`.
+    pub fn create(dir: &Path, generation: u64) -> Result<Self> {
+        let temp = prepared_wal_path(dir, generation);
+        drop(create_wal_file(&temp, generation)?);
+        Ok(Self {
+            dir: dir.to_path_buf(),
+            generation,
+            temp,
+            installed: false,
+        })
+    }
+}
+
+impl Drop for PreparedGeneration {
+    fn drop(&mut self) {
+        if !self.installed {
+            let _ = fs::remove_file(&self.temp);
+        }
+    }
+}
+
+/// A generation [`WalWriter::rotate_detached`] froze: nothing appends to it
+/// any more.
+pub struct FrozenGeneration {
+    pub generation: u64,
+    /// End of the last frame.
+    pub offset: u64,
+    file: File,
+}
+
+impl FrozenGeneration {
+    /// fsync the frozen generation.
+    pub fn sync(&self) -> Result<()> {
+        self.file.sync_all()?;
+        Ok(())
+    }
+}
+
+/// Outcome of [`WalWriter::rotate_detached`].
+pub enum DetachedRotation {
+    /// The active generation was frozen; the prepared file is now active.
+    Rotated(FrozenGeneration),
+    /// The active generation holds no frames; nothing to rotate.
+    Empty,
+    /// Another rotation moved the generation since the file was prepared.
+    Stale,
+}
+
+/// Decode every entry of generation `gen` in `dir`; see
+/// [`WalWriter::read_generation_entries`].
+pub fn read_generation_entries_in(dir: &Path, gen: u64) -> (Vec<ReplayEntry>, bool) {
+    let path = wal_path(dir, gen);
+    if !path.exists() {
+        return (Vec::new(), true);
+    }
+    let results = read_wal_file(path);
+    let clean = results.iter().all(|r| r.is_ok());
+    let entries = results.into_iter().filter_map(|r| r.ok()).collect();
+    (entries, clean)
+}
+
+/// Write and fsync the checkpoint of a FROZEN generation: frames up to
+/// `offset` with seq <= `max_seq_no` are covered by segments. The same
+/// file [`WalWriter::checkpoint`] writes for the active generation before
+/// rotating it.
+pub fn write_frozen_checkpoint(
+    dir: &Path,
+    generation: u64,
+    offset: u64,
+    max_seq_no: SeqNo,
+) -> Result<()> {
+    if offset <= WAL_HEADER_LEN {
+        return Ok(());
+    }
+    let chkpt = WalCheckpoint {
+        generation,
+        offset,
+        max_seq_no,
+    };
+    let mut f = File::create(checkpoint_path(dir, generation))?;
+    chkpt.write_to(&mut f)?;
+    f.sync_all()?;
+    Ok(())
+}
+
+/// Generations in `dir` strictly older than `active`, ascending.
+pub fn generations_before(dir: &Path, active: u64) -> Result<Vec<u64>> {
+    let mut gens: Vec<u64> = fs::read_dir(dir)?
+        .flatten()
+        .filter_map(|e| parse_wal_generation(&e.file_name().to_string_lossy()))
+        .filter(|&g| g < active)
+        .collect();
+    gens.sort_unstable();
+    Ok(gens)
+}
+
+/// Delete generation `gen` in `dir`; see [`WalWriter::delete_generation`].
+pub fn delete_generation_in(dir: &Path, gen: u64) -> Result<bool> {
+    let removed = match fs::remove_file(wal_path(dir, gen)) {
+        Ok(()) => true,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+        Err(e) => return Err(e.into()),
+    };
+    let _ = fs::remove_file(checkpoint_path(dir, gen));
+    Ok(removed)
+}
+
+fn prepared_wal_path(dir: &Path, generation: u64) -> PathBuf {
+    dir.join(format!("{generation:016x}.wal.next"))
+}
+
 fn wal_path(dir: &Path, generation: u64) -> PathBuf {
     dir.join(format!("{generation:016x}.wal"))
 }
@@ -2590,6 +2816,112 @@ mod tests {
     /// ingest-shard count and again by the number of open indices — so the
     /// property under test is "an index that is not being written to stops
     /// paying for a write buffer", not a micro-optimisation of one shard.
+    /// #3324 — `rotate_detached` freezes the active generation with no
+    /// fsync under the mutex, leaves the next one active and unmaterialized,
+    /// and loses nothing: the frozen file plus later appends replay whole.
+    #[test]
+    fn rotate_detached_freezes_the_generation_and_keeps_every_frame() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut w = make_writer(dir.path());
+        w.set_sync_mode(SyncMode::Batched);
+        w.append(&doc("d1")).unwrap();
+        w.append(&doc("d2")).unwrap();
+        let prepared = PreparedGeneration::create(dir.path(), 1).unwrap();
+        assert!(prepared_wal_path(dir.path(), 1).exists());
+        let DetachedRotation::Rotated(frozen) = w.rotate_detached(prepared).unwrap() else {
+            panic!("a generation with frames must rotate");
+        };
+        assert_eq!(frozen.generation, 0);
+        assert_eq!(
+            frozen.offset,
+            fs::metadata(wal_path(dir.path(), 0)).unwrap().len()
+        );
+        assert_eq!(w.active_generation(), 1);
+        assert!(
+            !w.is_materialized(),
+            "the new generation starts unmaterialized"
+        );
+        assert!(
+            !prepared_wal_path(dir.path(), 1).exists(),
+            "renamed into place"
+        );
+        assert_eq!(
+            fs::metadata(wal_path(dir.path(), 1)).unwrap().len(),
+            WAL_HEADER_LEN
+        );
+        frozen.sync().unwrap();
+        let (entries, clean) = read_generation_entries_in(dir.path(), 0);
+        assert!(clean);
+        assert_eq!(entries.len(), 2);
+        write_frozen_checkpoint(dir.path(), 0, frozen.offset, 2).unwrap();
+        assert!(checkpoint_path(dir.path(), 0).exists());
+        w.append(&doc("d3")).unwrap();
+        assert_eq!(
+            generations_before(dir.path(), w.active_generation()).unwrap(),
+            vec![0]
+        );
+        drop(w);
+        let replayed: Vec<_> = WalReader::new(dir.path())
+            .replay()
+            .unwrap()
+            .collect::<Result<Vec<_>>>()
+            .unwrap();
+        assert_eq!(replayed.len(), 3);
+        assert!(delete_generation_in(dir.path(), 0).unwrap());
+        assert!(!checkpoint_path(dir.path(), 0).exists());
+    }
+
+    /// A prepared file for a generation that is no longer next is refused
+    /// and removed, an empty generation does not rotate, and a crash
+    /// leftover `.wal.next` is removed at open.
+    #[test]
+    fn rotate_detached_refuses_a_stale_prepared_generation() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut w = make_writer(dir.path());
+        let prepared = PreparedGeneration::create(dir.path(), 1).unwrap();
+        assert!(matches!(
+            w.rotate_detached(prepared).unwrap(),
+            DetachedRotation::Empty
+        ));
+        assert!(!prepared_wal_path(dir.path(), 1).exists());
+        assert_eq!(w.active_generation(), 0);
+
+        w.append(&doc("d1")).unwrap();
+        let stale = PreparedGeneration::create(dir.path(), 5).unwrap();
+        assert!(matches!(
+            w.rotate_detached(stale).unwrap(),
+            DetachedRotation::Stale
+        ));
+        assert!(!prepared_wal_path(dir.path(), 5).exists());
+        assert_eq!(w.active_generation(), 0);
+        drop(w);
+
+        drop(create_wal_file(&prepared_wal_path(dir.path(), 1), 1).unwrap());
+        let w = make_writer(dir.path());
+        assert!(!prepared_wal_path(dir.path(), 1).exists());
+        assert_eq!(w.active_generation(), 0);
+    }
+
+    /// #3324 — the batched fsync drains the buffer under the mutex and
+    /// syncs a second descriptor after releasing it; a failed sync makes the
+    /// shard dirty again.
+    #[test]
+    fn unlocked_sync_hands_out_a_descriptor_only_when_dirty() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut w = make_writer(dir.path());
+        w.set_sync_mode(SyncMode::Batched);
+        assert!(w.begin_unlocked_sync().unwrap().is_none());
+        w.append(&doc("d1")).unwrap();
+        assert!(w.is_dirty());
+        let file = w.begin_unlocked_sync().unwrap().expect("dirty shard");
+        assert!(!w.is_dirty());
+        // The buffer reached the kernel before the descriptor was handed out.
+        assert!(fs::metadata(wal_path(dir.path(), 0)).unwrap().len() > WAL_HEADER_LEN);
+        file.sync_all().unwrap();
+        w.mark_unsynced();
+        assert!(w.is_dirty());
+    }
+
     #[test]
     fn an_empty_wal_generation_holds_no_descriptor_and_no_buffer() {
         let dir = tempfile::tempdir().unwrap();

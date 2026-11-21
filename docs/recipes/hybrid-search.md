@@ -165,11 +165,60 @@ systems yourself. The scores above fall straight out of this formula:
 Other `fusion` options:
 
 - `"rrf"` or `{"type": "rrf", "k": 40}` — rank-based, the safe default.
-- `"linear"` — weighted sum of the raw sub-query scores (use `weight` to
-  tilt toward keyword or vector; requires comparable score scales).
+  `rank_constant` is accepted as another name for `k` (it is what the ES
+  `rrf` retriever calls it); give one or the other, not both.
+- `"linear"` — weighted sum of min-max-normalised sub-query scores (use
+  `weight` to tilt toward keyword or vector).
 
-Per-query `weight` lets you bias the blend, e.g. `1.5` on the `match`
-sub-query to favor exact terms.
+## Weighting the legs
+
+Each sub-query's `weight` multiplies its RRF contribution: a document at
+1-based rank `r` in leg `i` adds `weight_i / (k + r)`. The default is
+`1.0` for every leg, which is plain, equal-weight RRF. Weights must be
+numbers `>= 0`; anything else (a string, a negative number) is a 400
+rather than a silent `1.0`.
+
+```json
+{ "query": { "hybrid": {
+    "queries": [
+      { "query": { "match": { "title": "reset password" } }, "weight": 0.5 },
+      { "query": { "knn": { "field": "vec", "query_vector": [1.0, 0.2, 0.0, 0.1], "k": 50 } }, "weight": 1.0 }
+    ],
+    "fusion": { "type": "rrf", "k": 60 }
+} } }
+```
+
+With `0.5` on the keyword leg, a document that only BM25 found at rank 1
+scores `0.5/61 = 0.0082`, below a document that only kNN found at rank 30
+(`1/90 = 0.0111`): the vector ranking leads and BM25 mostly reorders
+documents both legs agree on.
+
+- **Raise `k`** (say 60 to 200) to flatten the rank curve, so agreement
+  between the legs counts for more than a single top rank. **Lower it**
+  to let each leg's first few hits dominate.
+- **`weight: 0`** on a leg removes its contribution to the score, but the
+  documents that leg found are still in the fused list (scored on the
+  other legs, or `0`). To drop a leg, leave it out.
+
+### When kNN alone is the better query
+
+Equal-weight RRF assumes both legs are roughly as good. When one is
+clearly stronger, fusion can pull the stronger ranking down toward the
+weaker one. [#3016](https://github.com/xerj-org/xerj/issues/3016)
+reports exactly that on BEIR SciFact and FiQA-2018 with strong embedders:
+equal-weight hybrid scored below kNN alone, and the same happened in a
+SQLite FTS5 + sqlite-vec stack, so it is a property of the fusion, not of
+one engine. Prefer kNN alone, or down-weight the keyword leg, when:
+
+- your embedder is a strong neural model trained for retrieval, and
+- your queries are natural-language questions rather than codes, names,
+  error strings or rare terms (those are where BM25 earns its place).
+
+Keep hybrid when queries carry exact identifiers, when your embedder is
+the built-in lexical one, or when you have not measured. Pick by running
+both on a few dozen of your own queries with known good answers (nDCG@10
+or recall@10). XERJ's default stays equal-weight RRF, because no weighted
+default has been measured across corpora yet.
 
 ## Reproduce it yourself
 
@@ -236,6 +285,12 @@ below.
   order does not reorder an equal-weight request. Before
   [#940](https://github.com/xerj-org/xerj/issues/940) a tie followed
   hash-map iteration order, which changed from one process to the next.
+  Before [#3017](https://github.com/xerj-org/xerj/issues/3017) the same
+  held one level down: a `knn` leg served from the HNSW graph returned
+  equally similar neighbours in graph order, and the graph differs between
+  the indexing process, a restart and a second node, so RRF positions (and
+  the fused scores built from them) could change. Every kNN executor now
+  ranks its neighbours in the same score, `_seq_no`, `_id` order.
 - **Vector quality is your embeddings' job.** This recipe supplies
   vectors directly for a deterministic demo. For real semantic recall,
   generate `dense_vector` values with a production embedding model, or

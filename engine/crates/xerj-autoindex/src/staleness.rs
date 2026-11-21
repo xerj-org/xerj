@@ -274,7 +274,7 @@ fn field_str<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
         .filter(|s| !s.is_empty())
 }
 
-fn parse_time(raw: &str) -> Option<SystemTime> {
+pub fn parse_time(raw: &str) -> Option<SystemTime> {
     let dt = chrono::DateTime::parse_from_rfc3339(raw).ok()?;
     let secs = dt.timestamp();
     if secs < 0 {
@@ -628,7 +628,7 @@ fn counts_as_indexed(status: Option<&str>) -> bool {
 
 /// A catalog path that stays inside the root. Absolute paths and `..` are
 /// ignored so a catalog row cannot point the stat at another directory.
-fn safe_rel(rel: &str) -> Option<&str> {
+pub(crate) fn safe_rel(rel: &str) -> Option<&str> {
     if rel.is_empty() || rel.len() > 1024 || rel.starts_with('/') || rel.starts_with('\\') {
         return None;
     }
@@ -769,6 +769,123 @@ fn fetch_files(client: &CatalogClient, prefix: &str) -> Option<Vec<CatalogFile>>
     Some(files)
 }
 
+/// The newest run recorded for `prefix` on `url`, or `None` when the node
+/// has no catalog, no run for it, or did not answer within the catalog
+/// timeout. `xerj status` (#3268) reads the same stamp the hint does.
+pub fn load_stamp(url: &str, api_key: Option<&str>, prefix: &str) -> Option<IndexStamp> {
+    let prefix = prefix.trim();
+    let url = url.trim().trim_end_matches('/');
+    if prefix.is_empty() || url.is_empty() {
+        return None;
+    }
+    let client = CatalogClient::new(url, api_key)?;
+    let runs = fetch_runs(&client, prefix)?;
+    latest_stamp(&runs, prefix)
+}
+
+/// Files under a root whose mtime is newer than the index stamp (#3268).
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct ChangedScan {
+    /// Root-relative, `/`-separated paths, newest directory first, then in
+    /// directory-listing order sorted by name.
+    pub files: Vec<String>,
+    /// False when the stat cap, the wall clock, or `max_files` stopped the
+    /// scan before it saw every admitted file.
+    pub complete: bool,
+    /// Entries stat'd.
+    pub stats: u64,
+}
+
+/// Every admitted file under `root` (same ignore rules as [`check`]) whose
+/// mtime is newer than `indexed_at` plus the grace. Stops at `max_files`,
+/// the stat cap, or the wall clock, and says so in `complete`. Read-only:
+/// metadata only, no file contents.
+pub fn changed_files(
+    root: &Path,
+    indexed_at: SystemTime,
+    limits: &WalkLimits,
+    max_files: usize,
+) -> ChangedScan {
+    let started = Instant::now();
+    let mut scan = ChangedScan {
+        complete: true,
+        ..ChangedScan::default()
+    };
+    let Ok(root) = root.canonicalize() else {
+        scan.complete = false;
+        return scan;
+    };
+    if !root.is_dir() {
+        scan.complete = false;
+        return scan;
+    }
+    let mut stack = IgnoreStack::new(&root, IgnoreOptions::default());
+    let newer = |mtime: SystemTime| {
+        mtime
+            .duration_since(indexed_at)
+            .is_ok_and(|age| age > limits.grace)
+    };
+    // Depth-first, an explicit stack so a deep tree cannot overflow.
+    let mut pending: Vec<(PathBuf, usize)> = vec![(root.clone(), 0)];
+    while let Some((dir, depth)) = pending.pop() {
+        if depth >= MAX_DEPTH {
+            continue;
+        }
+        stack.truncate_to(depth);
+        stack.enter_dir(&dir, depth);
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
+        let mut names: Vec<PathBuf> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
+        names.sort();
+        let mut subdirs: Vec<(SystemTime, PathBuf)> = Vec::new();
+        for path in names {
+            if scan.stats >= limits.stat_cap || started.elapsed() >= limits.wall {
+                scan.complete = false;
+                return scan;
+            }
+            scan.stats += 1;
+            let Ok(meta) = fs::symlink_metadata(&path) else {
+                continue;
+            };
+            let Some(name) = path.file_name() else {
+                continue;
+            };
+            if is_hidden_name(name) {
+                continue;
+            }
+            let file_type = meta.file_type();
+            if file_type.is_symlink() {
+                continue;
+            }
+            let mtime = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+            if file_type.is_dir() {
+                if stack.skip_dir(&path).is_some() || marker_generated_dir(&path).is_some() {
+                    continue;
+                }
+                subdirs.push((mtime, path));
+                continue;
+            }
+            if !file_type.is_file() || stack.skip_file(&path).is_some() {
+                continue;
+            }
+            if newer(mtime) {
+                if scan.files.len() >= max_files {
+                    scan.complete = false;
+                    return scan;
+                }
+                scan.files.push(rel_of(&root, &path));
+            }
+        }
+        // Newest directory is popped first.
+        subdirs.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| b.1.cmp(&a.1)));
+        for (_, path) in subdirs {
+            pending.push((path, depth + 1));
+        }
+    }
+    scan
+}
+
 fn hit_sources(body: &Value) -> Vec<Value> {
     body.pointer("/hits/hits")
         .and_then(Value::as_array)
@@ -787,6 +904,47 @@ mod tests {
 
     fn run_doc(prefix: &str, root: &str, started: &str) -> Value {
         json!({"doc_kind": "run", "prefix": prefix, "root": root, "started": started})
+    }
+
+    /// #3268: the changed-file scan lists only admitted files newer than the
+    /// stamp, skips ignored and hidden paths, and reports a cap it hit.
+    #[test]
+    fn changed_files_lists_newer_admitted_files_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join("src/deep")).unwrap();
+        fs::create_dir_all(root.join("node_modules/x")).unwrap();
+        fs::write(root.join("old.c"), "int a;\n").unwrap();
+        let stamp = SystemTime::now();
+        let later = stamp + Duration::from_secs(60);
+        for rel in [
+            "src/new.c",
+            "src/deep/edit.s",
+            "node_modules/x/i.js",
+            ".hidden.c",
+        ] {
+            let path = root.join(rel);
+            fs::write(&path, "x\n").unwrap();
+            fs::File::options()
+                .write(true)
+                .open(&path)
+                .unwrap()
+                .set_modified(later)
+                .unwrap();
+        }
+        let limits = WalkLimits {
+            stat_cap: 1000,
+            wall: Duration::from_secs(5),
+            grace: Duration::from_secs(2),
+        };
+        let scan = changed_files(root, stamp, &limits, 100);
+        let mut files = scan.files.clone();
+        files.sort();
+        assert_eq!(files, vec!["src/deep/edit.s", "src/new.c"]);
+        assert!(scan.complete);
+        let capped = changed_files(root, stamp, &limits, 1);
+        assert_eq!(capped.files.len(), 1);
+        assert!(!capped.complete);
     }
 
     /// #2644: `--prefix skills` searches `skills-*`, which spans one folder

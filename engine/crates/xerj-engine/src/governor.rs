@@ -330,6 +330,89 @@ pub fn analyze_reserve_bytes_for_doc(raw_json: &[u8]) -> u64 {
         .min(analyze_reserve_bytes(len))
 }
 
+/// Heap bookkeeping charged per `String`, `Vec` or `serde_json::Value` the
+/// semantic expansion allocates (#2427): the 24-byte header, the value
+/// enum, and jemalloc's size-class rounding of a small block.
+pub const SEMANTIC_EMBED_PER_ALLOCATION_OVERHEAD: u64 = 64;
+
+/// Allocations every embedded document adds whatever its length (#2427):
+/// the parsed source map and its entries, the job, the passage metadata
+/// object, its offset arrays, and the new map entries for the vectors.
+/// Measured per document on 4,000 300-byte documents
+/// (`tests/semantic_embed_reservation_matches_usage.rs`).
+pub const SEMANTIC_EMBED_PER_DOC_ALLOCATIONS: u64 = 8;
+
+/// Passages the ingest chunker cuts from `text_bytes` of `semantic_text`
+/// (#2427). The chunker counts characters, so one byte per character (ASCII)
+/// gives the most passages for a byte length: one passage up to
+/// `SEMANTIC_CHUNK_SIZE`, then one more per `SEMANTIC_CHUNK_SIZE -
+/// SEMANTIC_CHUNK_OVERLAP` bytes. A cut on a word boundary can add one.
+pub fn semantic_embed_passages(text_bytes: u64) -> u64 {
+    use xerj_ai::semantic_lexical::{SEMANTIC_CHUNK_OVERLAP, SEMANTIC_CHUNK_SIZE};
+    let size = SEMANTIC_CHUNK_SIZE as u64;
+    let stride = size.saturating_sub(SEMANTIC_CHUNK_OVERLAP as u64).max(1);
+    if text_bytes <= size {
+        1
+    } else {
+        2 + (text_bytes - size).div_ceil(stride)
+    }
+}
+
+/// Bytes the semantic embedding expansion of one document allocates before
+/// the document reaches the memtable (#2427).
+///
+/// `apply_semantic_embeddings_batch` copies the text, cuts it into
+/// overlapping passages (copied again), embeds every passage into a
+/// `Vec<f32>` of `dims`, and writes the pooled vector plus, for more than one
+/// passage, every passage vector into the source as a packed
+/// `xerj:f32:` hex string of 8 bytes per dimension. Measured with a counting
+/// allocator, parsing and expanding a batch peaks at about 11x the raw bytes
+/// at 384 dimensions (`tests/semantic_embed_reservation_matches_usage.rs`). The bulk path dropped its parse reservation
+/// before this step, so nothing charged it: on the 1 GB release gate the
+/// heap profile of the ingest node held 436-536 MB of packed vectors in
+/// in-flight `_bulk` requests (`pack_f32_vector` under
+/// `process_bulk_with_opts`), 25-29% of the live heap, while the
+/// ingest-memory trace counted none of it.
+///
+/// `text_bytes` is the length of the embedding field's text (an upper bound
+/// works); `dims == 0` reserves nothing.
+pub fn semantic_embed_reserve_bytes(text_bytes: u64, dims: u64) -> u64 {
+    if dims == 0 {
+        return 0;
+    }
+    use xerj_ai::semantic_lexical::{SEMANTIC_CHUNK_OVERLAP, SEMANTIC_CHUNK_SIZE};
+    let size = SEMANTIC_CHUNK_SIZE as u64;
+    let stride = size.saturating_sub(SEMANTIC_CHUNK_OVERLAP as u64).max(1);
+    let passages = semantic_embed_passages(text_bytes);
+    // The pooled vector, plus one per passage when there is more than one.
+    let vectors = if passages > 1 { passages + 1 } else { 1 };
+    let packed = (xerj_common::packed_f32::PACKED_F32_PREFIX.len() as u64)
+        .saturating_add(dims.saturating_mul(8))
+        .saturating_add(SEMANTIC_EMBED_PER_ALLOCATION_OVERHEAD);
+    let raw = dims
+        .saturating_mul(4)
+        .saturating_add(SEMANTIC_EMBED_PER_ALLOCATION_OVERHEAD);
+    // The parsed source and the original-text copy, the passage copies
+    // (overlap included), and the per-document map entries and passage
+    // metadata object written beside the vectors.
+    let text = text_bytes
+        .saturating_mul(2)
+        .saturating_add(text_bytes.saturating_mul(size) / stride)
+        .saturating_add(passages.saturating_mul(SEMANTIC_EMBED_PER_ALLOCATION_OVERHEAD))
+        .saturating_add(
+            SEMANTIC_EMBED_PER_DOC_ALLOCATIONS * SEMANTIC_EMBED_PER_ALLOCATION_OVERHEAD,
+        );
+    text.saturating_add(vectors.saturating_mul(raw.saturating_add(packed)))
+}
+
+/// Longest a semantic `_bulk` group waits for its embedding reservation
+/// before it answers 429 (#2427). See
+/// [`ResourceGovernor::reserve_semantic_embed`].
+pub const SEMANTIC_EMBED_ADMISSION_WAIT: Duration = Duration::from_secs(5);
+
+/// How often a waiting semantic group retries its reservation.
+const SEMANTIC_EMBED_ADMISSION_POLL: Duration = Duration::from_millis(25);
+
 /// `true` when `request` bytes of analyze reservation still fit.
 ///
 /// A watermark of `0` is the disabled breaker: every request fits. Otherwise
@@ -519,9 +602,110 @@ pub struct ResourceGovernor {
     commit_starved: AtomicBool,
     /// The process cap was lowered to the commit ceiling at startup.
     commit_capped: bool,
+    /// The cap came from the AUTO tier (config or env `auto`), so resident
+    /// memory the node needs before any write may be added on top (#3277).
+    auto_tier: bool,
+    /// Resident bytes reserved with [`Self::reserve_resident`]: memory the
+    /// node holds before any write (runtime, opened indices, a loaded model).
+    resident_reserved_bytes: AtomicU64,
+}
+
+/// What [`ResourceGovernor::reserve_resident`] did, for the boot log.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResidentReservation {
+    /// Watermark before and after, in bytes.
+    pub watermark_before: u64,
+    pub watermark_after: u64,
+    /// Process memory when the reservation was made.
+    pub observed: u64,
+    /// One line for the log: an `info` when the auto tier grew, a `warn`
+    /// when the node already sits at or over a breaker it cannot grow.
+    pub line: Option<(bool, String)>,
 }
 
 impl ResourceGovernor {
+    /// The watermark the node uses when no live override is set: the boot
+    /// value, plus the resident reservation under the AUTO tier, clamped to
+    /// the machine (or the Windows commit ceiling).
+    fn default_watermark(&self) -> u64 {
+        if self.memory_watermark_bytes_default == 0 || !self.auto_tier {
+            return self.memory_watermark_bytes_default;
+        }
+        self.memory_watermark_bytes_default
+            .saturating_add(self.resident_reserved_bytes.load(Ordering::Relaxed))
+            .min(self.machine_memory_bytes)
+            .max(1)
+    }
+
+    /// Reserve `bytes` the node holds before it takes any write (#3277).
+    ///
+    /// The AUTO tier is sized from RAM alone. On a small machine it chose an
+    /// 846 MB breaker for a node whose facts model alone was ~1 GB resident,
+    /// so the node was over its breaker from boot and every write was a 429.
+    /// Under the AUTO tier the reservation is added to the watermark, so the
+    /// tier's budget is for writes, on top of what the node needs to exist;
+    /// it never climbs past the machine (or the Windows commit ceiling).
+    /// An explicit cap (`limits.max_process_memory_mb`, a number in
+    /// `XERJ_MAX_PROCESS_MEMORY_MB`) is the operator's number and is not
+    /// moved; when the node already sits at or over it, the returned line is
+    /// the warning to log, naming both numbers and the variable to raise.
+    pub fn reserve_resident(&self, label: &str, bytes: u64) -> ResidentReservation {
+        const MIB: u64 = 1024 * 1024;
+        let watermark_before = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        let observed = current_process_memory_bytes();
+        if self.memory_watermark_bytes_default == 0 {
+            return ResidentReservation {
+                watermark_before,
+                watermark_after: watermark_before,
+                observed,
+                line: None,
+            };
+        }
+        if self.auto_tier && bytes > 0 {
+            self.resident_reserved_bytes
+                .fetch_add(bytes, Ordering::Relaxed);
+            // A live override (`indices.breaker.total.limit`) is re-applied
+            // by the sampler on its next tick; until then the new default
+            // holds, and it is never lower than what was in force.
+            let after = self.default_watermark().max(watermark_before);
+            self.memory_watermark_bytes.store(after, Ordering::Relaxed);
+        }
+        let watermark_after = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        let line = if observed >= watermark_after && observed > 0 {
+            let suggest_mb = (observed.saturating_mul(2) / MIB).max(1024);
+            Some((
+                true,
+                format!(
+                    "memory: this node holds {}MB before any write ({label}), at or over its \
+                     {}MB write breaker, so every write will get HTTP 429. Raise the cap: \
+                     XERJ_MAX_PROCESS_MEMORY_MB={suggest_mb} (or limits.max_process_memory_mb), \
+                     or free memory on this machine",
+                    observed / MIB,
+                    watermark_after / MIB,
+                ),
+            ))
+        } else if watermark_after > watermark_before {
+            Some((
+                false,
+                format!(
+                    "memory: {label} holds {}MB; the auto write breaker moves from {}MB to {}MB \
+                     so writes keep their budget",
+                    bytes / MIB,
+                    watermark_before / MIB,
+                    watermark_after / MIB,
+                ),
+            ))
+        } else {
+            None
+        };
+        ResidentReservation {
+            watermark_before,
+            watermark_after,
+            observed,
+            line,
+        }
+    }
+
     // ── Admission checks (hot path — relaxed atomic loads only) ─────────
 
     /// Ingest admission. Returns a 429 `circuit_breaking_exception` when the
@@ -713,6 +897,71 @@ impl ResourceGovernor {
     ) -> Result<AnalyzeReservation, XerjError> {
         self.check_ingest_admission()?;
         self.reserve_analyze(body_bytes)
+    }
+
+    /// Reserve the semantic embedding expansion of one `_bulk` group before
+    /// it is parsed and embedded, or `Ok(None)` when it does not fit yet
+    /// (#2427). `bytes` is the sum of [`semantic_embed_reserve_bytes`] over
+    /// the group's documents.
+    ///
+    /// The reservation shares the analyze pool, so ingest admission, flush
+    /// builds and other bulks see it before the vectors are allocated. A
+    /// latched breaker refuses at once (`Err`, HTTP 429). A group that is
+    /// the only analyze reservation in the process is admitted while live
+    /// RSS plus its bytes stays under the process limit, so one group larger
+    /// than the room left under the watermark still makes progress instead
+    /// of being refused forever.
+    pub(crate) fn try_reserve_semantic_embed(
+        &self,
+        bytes: u64,
+    ) -> Result<Option<AnalyzeReservation>, XerjError> {
+        if bytes == 0 || self.memory_watermark_bytes.load(Ordering::Relaxed) == 0 {
+            return Ok(Some(AnalyzeReservation::none()));
+        }
+        self.check_ingest_admission()?;
+        if let Ok(reservation) = self.reserve_analyze(bytes) {
+            return Ok(Some(reservation));
+        }
+        let observed = self.observed_process_memory();
+        let lone = self.analyze_reserved.load(Ordering::Acquire) == 0;
+        if lone && observed.saturating_add(bytes) < self.memory_limit_bytes {
+            self.analyze_reserved.fetch_add(bytes, Ordering::AcqRel);
+            let id = self.lock_analyze_baselines().insert(observed);
+            return Ok(Some(AnalyzeReservation {
+                slot: Some(Arc::clone(&self.analyze_reserved)),
+                baseline: Some((Arc::clone(&self.analyze_baselines), id)),
+                bytes,
+            }));
+        }
+        Ok(None)
+    }
+
+    /// [`Self::try_reserve_semantic_embed`], waiting up to `wait` for the
+    /// group to fit, then refusing with the analyze 429 (#2427).
+    ///
+    /// Waiting instead of refusing at once turns a burst of concurrent
+    /// semantic bulks into a queue on memory: each one starts when the
+    /// vectors of the groups ahead of it have been published (their
+    /// reservations dropped), which is the "serve the request only when its
+    /// memory fits, otherwise hold it" rule of Quickwit's search permit
+    /// provider (`quickwit-search/src/search_permit_provider.rs:376-389`,
+    /// `pop_if_smaller_than(available_memory)`). The bulk permit already
+    /// bounds how many requests can be waiting.
+    pub(crate) async fn reserve_semantic_embed(
+        &self,
+        bytes: u64,
+        wait: Duration,
+    ) -> Result<AnalyzeReservation, XerjError> {
+        let deadline = tokio::time::Instant::now() + wait;
+        loop {
+            if let Some(reservation) = self.try_reserve_semantic_embed(bytes)? {
+                return Ok(reservation);
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return Err(self.analyze_reservation_refused(bytes));
+            }
+            tokio::time::sleep(SEMANTIC_EMBED_ADMISSION_POLL).await;
+        }
     }
 
     fn lock_analyze_baselines(&self) -> std::sync::MutexGuard<'_, AnalyzeBaselines> {
@@ -1309,7 +1558,7 @@ impl ResourceGovernor {
         }
         let effective = match override_bytes {
             Some(bytes) => bytes.min(self.machine_memory_bytes).max(1),
-            None => self.memory_watermark_bytes_default,
+            None => self.default_watermark(),
         };
         self.memory_watermark_bytes
             .store(effective, Ordering::Relaxed);
@@ -1419,6 +1668,29 @@ impl ResourceGovernor {
             return 0;
         }
         self.memory_limit_bytes.max(watermark)
+    }
+
+    /// #2427: admission for one query-time transient the hydration cache
+    /// refused (a whole-segment stored-values decode, a per-query vector
+    /// column). The search was admitted under the hard limit, but such a
+    /// value is sized by the segment, not the request: on a node near its
+    /// limit it is what carries RSS into the OOM killer. A transient that
+    /// would cross the limit gets a 429 `circuit_breaking_exception` instead.
+    /// No-op when no limit is known.
+    pub fn check_read_transient(&self, bytes: u64, label: &str) -> Result<(), XerjError> {
+        let limit = self.search_hard_limit_bytes();
+        let rss = self.search_admission_rss();
+        if limit != 0 && rss.saturating_add(bytes) > limit {
+            return Err(XerjError::circuit_breaking(format!(
+                "[parent] Data too large: data for [{label}] would be [{}/{}], which is larger than the memory limit of [{limit}/{}] (process memory [{rss}/{}], transient read [{bytes}/{}]); search rejected",
+                rss.saturating_add(bytes),
+                human_bytes(rss.saturating_add(bytes)),
+                human_bytes(limit),
+                human_bytes(rss),
+                human_bytes(bytes),
+            )));
+        }
+        Ok(())
     }
 
     fn check_search_hard_limit(&self) -> Result<(), XerjError> {
@@ -2353,6 +2625,8 @@ fn build(config: &Config) -> ResourceGovernor {
         ),
         commit_starved: AtomicBool::new(startup_starved),
         commit_capped,
+        auto_tier: resolved_process_cap.auto_tier,
+        resident_reserved_bytes: AtomicU64::new(0),
     }
 }
 
@@ -2914,6 +3188,20 @@ impl ResourceGovernor {
         self.memory_watermark_bytes
             .store(live.saturating_add(headroom).max(1), Ordering::Relaxed);
         self.rss_bytes.store(live, Ordering::Relaxed);
+    }
+
+    /// A standalone governor whose hard search limit is `limit` and whose
+    /// last RSS sample is `rss` (#2427 read-transient admission tests).
+    pub(crate) fn with_rss_and_limit_for_test(rss: u64, limit: u64) -> Arc<Self> {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        let mut governor = build(&cfg);
+        governor.memory_limit_bytes = limit;
+        governor
+            .memory_watermark_bytes
+            .store(limit, Ordering::Relaxed);
+        governor.rss_bytes.store(rss, Ordering::Relaxed);
+        Arc::new(governor)
     }
 
     /// Bytes currently held by analyze reservations.
@@ -3787,6 +4075,77 @@ mod tests {
         assert!(g.check_ingest_admission().is_ok());
         assert!(g.check_disk_block("i").is_ok());
         assert_eq!(g.max_concurrent_searches(), 64);
+    }
+
+    /// #3277: under the AUTO tier, memory the node holds before any write is
+    /// added to the breaker, never past the machine, and survives clearing a
+    /// live override.
+    #[test]
+    fn an_auto_tier_reservation_raises_the_breaker_up_to_the_machine() {
+        if std::env::var_os("XERJ_MAX_PROCESS_MEMORY_MB").is_some() {
+            return;
+        }
+        const MIB: u64 = 1024 * 1024;
+        let g = build(&Config::default());
+        assert!(g.auto_tier);
+        let before = g.memory_watermark_bytes();
+        let r = g.reserve_resident("test model", 64 * MIB);
+        let expected = (before + 64 * MIB).min(g.machine_memory_bytes);
+        assert_eq!(r.watermark_after, expected);
+        assert_eq!(g.memory_watermark_bytes(), expected);
+        g.set_memory_watermark_override(Some(before / 2));
+        g.set_memory_watermark_override(None);
+        assert_eq!(
+            g.memory_watermark_bytes(),
+            expected,
+            "default keeps the reservation"
+        );
+        let huge = g.reserve_resident("huge", u64::MAX / 4);
+        assert_eq!(huge.watermark_after, g.machine_memory_bytes);
+    }
+
+    /// #3277: an explicit cap is the operator's number. A node already over
+    /// it at boot gets one line naming both numbers and the variable.
+    #[test]
+    fn an_explicit_cap_is_not_moved_and_a_node_over_it_is_warned() {
+        if std::env::var_os("XERJ_MAX_PROCESS_MEMORY_MB").is_some()
+            || xerj_common::resource::current_rss_bytes().is_none()
+        {
+            return;
+        }
+        let mut cfg = Config::default();
+        cfg.limits.max_process_memory_mb = 1;
+        let g = build(&cfg);
+        assert!(!g.auto_tier);
+        let before = g.memory_watermark_bytes();
+        let r = g.reserve_resident("boot", 512 * 1024 * 1024);
+        assert_eq!(r.watermark_after, before);
+        let (warn, line) = r.line.expect("a node over a 1 MiB cap is warned");
+        assert!(warn);
+        assert!(line.contains("every write will get HTTP 429"), "{line}");
+        assert!(line.contains("XERJ_MAX_PROCESS_MEMORY_MB="), "{line}");
+        assert!(
+            line.contains(&format!("{}MB write breaker", before / (1024 * 1024))),
+            "{line}"
+        );
+    }
+
+    /// #2427: a refused read transient that would carry RSS past the hard
+    /// limit is a 429, not an allocation; one that fits passes; no known
+    /// limit never rejects.
+    #[test]
+    fn read_transient_over_the_hard_limit_is_a_429_2427() {
+        const MIB: u64 = 1024 * 1024;
+        let g = ResourceGovernor::with_rss_and_limit_for_test(900 * MIB, 1000 * MIB);
+        assert!(g.check_read_transient(100 * MIB, "stored-values").is_ok());
+        let err = g
+            .check_read_transient(100 * MIB + 1, "stored-values")
+            .unwrap_err();
+        assert_eq!(err.http_status(), 429);
+        assert!(matches!(err, XerjError::CircuitBreaking { .. }));
+        assert!(format!("{err}").contains("[stored-values]"), "{err}");
+        let unlimited = ResourceGovernor::with_rss_and_limit_for_test(900 * MIB, 0);
+        assert!(unlimited.check_read_transient(u64::MAX, "x").is_ok());
     }
 
     #[test]
@@ -5572,5 +5931,135 @@ mod tests {
             .expect("task");
         assert_eq!(second.bytes(), 400 * MB);
         assert_eq!(g.flush_build_reserved(), (400 * MB, 1));
+    }
+
+    /// #2427: the reservation covers at least the vector bytes ingest writes
+    /// into the source (`document_limit::semantic_vector_bytes`, which
+    /// follows `apply_semantic_embeddings_batch`), for one passage, for many
+    /// passages, and for multibyte text, and it grows with the text.
+    #[test]
+    fn semantic_embed_reservation_covers_the_persisted_vectors() {
+        let texts = [
+            "short".to_string(),
+            "word ".repeat(100),
+            "fn main() { let x = compute(42); }\n".repeat(400),
+            "語".repeat(5000),
+        ];
+        for dims in [64usize, 384, 1024] {
+            let mut last = 0;
+            for text in &texts {
+                let passages = xerj_ai::semantic_lexical::semantic_passage_offsets(text);
+                let persisted = xerj_common::document_limit::semantic_vector_bytes(
+                    "body",
+                    "body_vector",
+                    dims,
+                    &passages,
+                ) as u64;
+                let reserve = semantic_embed_reserve_bytes(text.len() as u64, dims as u64);
+                assert!(
+                    reserve >= persisted + text.len() as u64,
+                    "dims={dims} len={}: reserve {reserve} < persisted {persisted} + text",
+                    text.len()
+                );
+                assert!(
+                    semantic_embed_passages(text.len() as u64) >= passages.len() as u64,
+                    "passage bound below the chunker for len {}",
+                    text.len()
+                );
+                if text.len() > 1000 {
+                    assert!(reserve > last, "reservation must grow with the text");
+                }
+                last = reserve;
+            }
+        }
+        assert_eq!(semantic_embed_reserve_bytes(1 << 20, 0), 0);
+    }
+
+    /// A standalone governor `headroom` below its watermark and `limit_room`
+    /// below its process limit, measured from the live RSS (#2427).
+    fn semantic_embed_governor(headroom: u64, limit_room: u64) -> ResourceGovernor {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        let mut g = build(&cfg);
+        let live = g.observed_process_memory();
+        g.memory_limit_bytes = live.saturating_add(limit_room);
+        g.memory_watermark_bytes
+            .store(live.saturating_add(headroom), Ordering::Relaxed);
+        g.rss_bytes.store(live, Ordering::Relaxed);
+        g
+    }
+
+    /// #2427: semantic groups share the analyze pool. A second group that
+    /// would cross the watermark next to a held one waits (`None`), a
+    /// group alone is admitted under the process limit even past the
+    /// watermark, nothing is admitted past the limit, a latched breaker
+    /// refuses with 429, and dropping a reservation returns its bytes.
+    #[test]
+    fn semantic_embed_reservation_is_admitted_against_the_analyze_pool() {
+        let g = semantic_embed_governor(1024 * MB, 4096 * MB);
+
+        let first = g
+            .try_reserve_semantic_embed(600 * MB)
+            .unwrap()
+            .expect("fits under the watermark");
+        assert_eq!(g.analyze_reserved_for_test(), 600 * MB);
+        assert!(
+            g.try_reserve_semantic_embed(600 * MB).unwrap().is_none(),
+            "a second group past the watermark must wait"
+        );
+        // Ingest admission sees the held group before its vectors exist.
+        assert!(g.reserve_analyze(600 * MB).is_err());
+        drop(first);
+        assert_eq!(g.analyze_reserved_for_test(), 0);
+
+        // Alone: larger than the watermark room, under the process limit.
+        let lone = g
+            .try_reserve_semantic_embed(2048 * MB)
+            .unwrap()
+            .expect("a lone group under the limit makes progress");
+        assert_eq!(g.analyze_reserved_for_test(), 2048 * MB);
+        drop(lone);
+        assert!(
+            g.try_reserve_semantic_embed(8192 * MB).unwrap().is_none(),
+            "never admitted past the process limit"
+        );
+        assert_eq!(g.analyze_reserved_for_test(), 0);
+
+        g.memory_tripped.store(true, Ordering::Relaxed);
+        let refused = g.try_reserve_semantic_embed(MB).unwrap_err();
+        assert_eq!(refused.http_status(), 429, "{refused}");
+        assert_eq!(g.analyze_reserved_for_test(), 0);
+    }
+
+    /// #2427: a waiting group starts once the group ahead of it releases,
+    /// and answers 429 when the wait runs out.
+    #[tokio::test(start_paused = true)]
+    async fn semantic_embed_reservation_waits_then_refuses() {
+        let g = Arc::new(semantic_embed_governor(1024 * MB, 1536 * MB));
+        let first = g.try_reserve_semantic_embed(700 * MB).unwrap().unwrap();
+        let waiter = {
+            let g = Arc::clone(&g);
+            tokio::spawn(async move {
+                g.reserve_semantic_embed(700 * MB, Duration::from_secs(5))
+                    .await
+            })
+        };
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        assert!(!waiter.is_finished(), "must wait while the first is held");
+        drop(first);
+        let second = tokio::time::timeout(Duration::from_secs(2), waiter)
+            .await
+            .expect("admitted after the release")
+            .expect("task")
+            .expect("reserved");
+        assert_eq!(g.analyze_reserved_for_test(), 700 * MB);
+
+        let refused = g
+            .reserve_semantic_embed(700 * MB, Duration::from_secs(1))
+            .await
+            .unwrap_err();
+        assert_eq!(refused.http_status(), 429, "{refused}");
+        drop(second);
+        assert_eq!(g.analyze_reserved_for_test(), 0);
     }
 }

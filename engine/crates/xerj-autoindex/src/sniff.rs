@@ -1396,22 +1396,34 @@ pub fn unsupported_data_advice(binary_kind: &str) -> Option<String> {
 /// so. "binary content (zip)" is true and useless to someone whose entire
 /// Google Takeout download is that one file — so the reason names the action.
 pub fn archive_advice(binary_kind: &str, gzip: bool) -> Option<String> {
-    let (what, how) = match (binary_kind, gzip) {
-        ("zip", _) => ("zip archive", "unzip <file>"),
-        ("tar", true) => ("gzip-compressed tar archive", "tar -xzf <file>"),
-        ("tar", false) => ("tar archive", "tar -xf <file>"),
-        ("7z", _) => ("7z archive", "7z x <file>"),
-        ("rar", _) => ("rar archive", "unrar x <file>"),
+    // zip / tar / tar.gz open on their own (`xerj autoindex <file>`, see
+    // `crate::archive`); a folder run still does not unpack archives it finds
+    // inside the folder, because that would mirror every nested archive.
+    let (what, how, opens) = match (binary_kind, gzip) {
+        ("zip", _) => ("zip archive", "unzip <file>", true),
+        ("tar", true) => ("gzip-compressed tar archive", "tar -xzf <file>", true),
+        ("tar", false) => ("tar archive", "tar -xf <file>", true),
+        ("7z", _) => ("7z archive", "7z x <file>", false),
+        ("rar", _) => ("rar archive", "unrar x <file>", false),
         ("xz", _) => (
             "xz-compressed file",
             "xz -dk <file>, or tar -xJf <file> for a .tar.xz",
+            false,
         ),
         _ => return None,
     };
-    Some(format!(
-        "unextracted {what}: autoindex does not open archives — extract it first ({how}), \
-         then run autoindex on the extracted folder"
-    ))
+    Some(if opens {
+        format!(
+            "unextracted {what}: a folder run does not open archives inside the folder — index it \
+             on its own with `xerj autoindex <file>`, or extract it first ({how}) and run \
+             autoindex on the extracted folder"
+        )
+    } else {
+        format!(
+            "unextracted {what}: autoindex does not open this archive format — extract it first \
+             ({how}), then run autoindex on the extracted folder"
+        )
+    })
 }
 
 fn decode(bytes: &[u8]) -> (String, &'static str) {
@@ -5591,7 +5603,12 @@ mod mail_and_archive_sniff_tests {
             let text = advice(kind, gz);
             assert!(text.contains("extract it first"), "{kind}: {text}");
             assert!(text.contains(command), "{kind}: {text}");
-            assert!(text.contains("does not open archives"), "{kind}: {text}");
+            let opens = matches!(kind, "zip" | "tar");
+            assert_eq!(
+                text.contains("xerj autoindex <file>"),
+                opens,
+                "{kind}: {text}"
+            );
         }
         // Not an archive: no advice, the ordinary "binary content (…)" stands.
         for kind in ["png", "pdf", "unknown", "", "設計"] {

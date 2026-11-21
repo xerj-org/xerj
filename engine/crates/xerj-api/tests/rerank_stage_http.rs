@@ -94,6 +94,8 @@ struct Stub {
     fault: Arc<Mutex<Fault>>,
     seen: Arc<Mutex<Vec<Captured>>>,
     endpoint: String,
+    /// The same stub, speaking Cohere's `/v2/rerank` shape.
+    cohere_endpoint: String,
 }
 
 impl Stub {
@@ -107,9 +109,11 @@ impl Stub {
             fault: Arc::new(Mutex::new(Fault::None)),
             seen: Arc::new(Mutex::new(Vec::new())),
             endpoint: format!("http://{addr}/v1/systemone"),
+            cohere_endpoint: format!("http://{addr}/v2/rerank"),
         };
         let app = axum::Router::new()
             .route("/v1/systemone", post(systemone))
+            .route("/v2/rerank", post(cohere_rerank))
             .with_state(stub.clone());
         tokio::spawn(async move {
             let _ = axum::serve(listener, app).await;
@@ -258,6 +262,95 @@ async fn systemone(
         "model": parsed["model"],
         "answers": answers,
         "usage": usage,
+    }))
+    .into_response()
+}
+
+/// Cohere `/v2/rerank`: `{query, documents: [string], top_n, model}` in,
+/// `{results: [{index, relevance_score}], meta: {billed_units}}` out. Shares the
+/// stub's verdict table, capture log and the faults that apply to any HTTP API.
+async fn cohere_rerank(
+    axum::extract::State(stub): axum::extract::State<Stub>,
+    headers: HeaderMap,
+    body: String,
+) -> axum::response::Response {
+    let parsed: Value = serde_json::from_str(&body).unwrap_or(Value::Null);
+    let nth = {
+        let mut seen = stub.seen.lock().unwrap();
+        seen.push(Captured {
+            authorization: headers
+                .get("authorization")
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_string),
+            body: parsed.clone(),
+        });
+        seen.len()
+    };
+    let fault = stub.fault.lock().unwrap().clone();
+    match fault {
+        Fault::Status(code) => {
+            return (
+                StatusCode::from_u16(code).unwrap(),
+                axum::Json(json!({"message": "stub fault"})),
+            )
+                .into_response();
+        }
+        Fault::StatusThenOk { n, status } if nth <= n => {
+            return (
+                StatusCode::from_u16(status).unwrap(),
+                axum::Json(json!({"message": "stub fault"})),
+            )
+                .into_response();
+        }
+        Fault::EchoKey => {
+            let auth = headers
+                .get("authorization")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or_default();
+            return (
+                StatusCode::UNAUTHORIZED,
+                axum::Json(json!({"message": format!("invalid api token: {auth}")})),
+            )
+                .into_response();
+        }
+        Fault::Garbage => return (StatusCode::OK, "not json").into_response(),
+        Fault::Delay(d) => tokio::time::sleep(d).await,
+        _ => {}
+    }
+    let query = words(parsed["query"].as_str().unwrap_or_default());
+    let verdicts = stub.verdicts.lock().unwrap().clone();
+    let mut results = Vec::new();
+    for (i, d) in parsed["documents"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .enumerate()
+    {
+        let doc = d.as_str().unwrap_or_default();
+        let (title, text) = match doc.split_once(". ") {
+            Some((t, x)) => (t, x),
+            None => (doc, ""),
+        };
+        let p = match &verdicts {
+            Verdicts::Overlap => {
+                let have = words(&format!("{title} {text}"));
+                query.intersection(&have).count() as f64 / query.len().max(1) as f64
+            }
+            Verdicts::ByTitle(table) => table.get(title).copied().unwrap_or(0.0),
+        };
+        results.push(json!({"index": i, "relevance_score": p}));
+    }
+    results.sort_by(|a, b| {
+        b["relevance_score"]
+            .as_f64()
+            .partial_cmp(&a["relevance_score"].as_f64())
+            .unwrap()
+    });
+    axum::Json(json!({
+        "id": "stub",
+        "results": results,
+        "meta": {"billed_units": {"search_units": 1}},
     }))
     .into_response()
 }
@@ -3073,5 +3166,159 @@ async fn every_page_request_judges_the_whole_window_again() {
     assert_eq!(
         judged, 90,
         "three pages of one 30-document window pay for 90"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cohere Rerank (`rerank.provider = "cohere"`), against the same stub
+// ─────────────────────────────────────────────────────────────────────────────
+
+async fn cohere_node(stub: &Stub) -> Node {
+    node_with(
+        ProviderSettings::resolve(true, "", "", None, None).with_cohere(
+            "co-test-key",
+            &stub.cohere_endpoint,
+            None,
+            None,
+        ),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn cohere_reorders_by_its_relevance_scores_and_reports_search_units() {
+    let stub = Stub::start().await;
+    inverted(&stub);
+    let node = cohere_node(&stub).await;
+    node.seed_kb().await;
+    let (st, r) = node
+        .search(
+            "/kb/_search",
+            json!({"query": match_q(), "rerank": {"provider": "cohere"}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    assert_eq!(ids(&r), INVERTED_IDS, "{r}");
+    assert_eq!(r["_rerank"]["applied"], true, "{r}");
+    assert_eq!(r["_rerank"]["provider"], "cohere");
+    assert_eq!(r["_rerank"]["usage"]["search_units"], 1, "{r}");
+    let calls = stub.calls();
+    assert_eq!(calls.len(), 1, "four hits fit one Cohere call");
+    assert_eq!(
+        calls[0].authorization.as_deref(),
+        Some("Bearer co-test-key")
+    );
+    assert_eq!(calls[0].body["model"], xerj_rerank::COHERE_DEFAULT_MODEL);
+    assert_eq!(calls[0].body["top_n"], 4);
+    assert!(calls[0].body["documents"][0].is_string());
+    assert!(calls[0].body.get("questions").is_none());
+}
+
+#[tokio::test]
+async fn cohere_without_a_key_is_a_503_naming_its_variable_and_sends_nothing() {
+    let stub = Stub::start().await;
+    // A TypeSafe key does not unlock Cohere.
+    let node = node_with(ProviderSettings::with_key_and_endpoint(
+        "ts-key",
+        &stub.endpoint,
+    ))
+    .await;
+    node.seed_kb().await;
+    let (st, r) = node
+        .search(
+            "/kb/_search",
+            json!({"query": match_q(), "rerank": {"provider": "cohere"}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::SERVICE_UNAVAILABLE, "{r}");
+    assert!(reason(&r).contains("COHERE_API_KEY"), "{r}");
+    assert!(stub.calls().is_empty());
+}
+
+#[tokio::test]
+async fn cohere_refuses_instructions_and_min_score_and_unknown_models_before_sending() {
+    let stub = Stub::start().await;
+    let node = cohere_node(&stub).await;
+    node.seed_kb().await;
+    for block in [
+        json!({"provider": "cohere", "instructions": "be strict"}),
+        json!({"provider": "cohere", "min_score": 0.5}),
+        json!({"provider": "cohere", "model": "rerank-english-v9"}),
+    ] {
+        let (st, r) = node
+            .search("/kb/_search", json!({"query": match_q(), "rerank": block}))
+            .await;
+        assert_eq!(st, StatusCode::BAD_REQUEST, "{block} -> {r}");
+    }
+    assert!(stub.calls().is_empty(), "a refused request sends nothing");
+}
+
+#[tokio::test]
+async fn cohere_401_surfaces_as_502_and_never_echoes_the_key() {
+    let stub = Stub::start().await;
+    stub.fault(Fault::EchoKey);
+    let node = cohere_node(&stub).await;
+    node.seed_kb().await;
+    let (st, text) = node
+        .raw(
+            "POST",
+            "/kb/_search",
+            json!({"query": match_q(), "rerank": {"provider": "cohere"}}).to_string(),
+        )
+        .await;
+    assert_eq!(st, StatusCode::BAD_GATEWAY, "{text}");
+    assert!(!text.contains("co-test-key"), "{text}");
+    assert_eq!(stub.calls().len(), 1, "a 401 is not retried");
+}
+
+#[tokio::test]
+async fn a_slow_cohere_degrades_and_the_engine_order_stands() {
+    let stub = Stub::start().await;
+    stub.fault(Fault::Delay(Duration::from_millis(1500)));
+    let node = cohere_node(&stub).await;
+    node.seed_kb().await;
+    let (_, plain) = node
+        .search("/kb/_search", json!({"query": match_q()}))
+        .await;
+    let (st, r) = node
+        .search(
+            "/kb/_search",
+            json!({"query": match_q(), "rerank": {"provider": "cohere", "timeout_ms": 200}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    assert_eq!(r["_rerank"]["applied"], false, "{r}");
+    assert_eq!(ids(&r), ids(&plain));
+}
+
+#[tokio::test]
+async fn the_status_endpoint_reports_cohere_separately_and_never_its_key() {
+    let stub = Stub::start().await;
+    let node = cohere_node(&stub).await;
+    let (st, text) = node.raw("GET", "/_xerj/rerank", String::new()).await;
+    assert_eq!(st, StatusCode::OK, "{text}");
+    assert!(!text.contains("co-test-key"), "{text}");
+    let r: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(r["providers"], json!(["jev", "cohere"]));
+    assert_eq!(r["configured"], true);
+    assert_eq!(r["by_provider"]["jev"]["configured"], false);
+    let c = &r["by_provider"]["cohere"];
+    assert_eq!(c["configured"], true);
+    assert_eq!(c["api_key"], json!({"set": true, "source": "config"}));
+    assert_eq!(c["endpoint"]["url"], stub.cohere_endpoint);
+    assert_eq!(
+        c["max_docs_per_call"],
+        xerj_rerank::COHERE_MAX_DOCS_PER_CALL
+    );
+    assert_eq!(c["default_model"], xerj_rerank::COHERE_DEFAULT_MODEL);
+}
+
+/// `xerj-common` cannot link `xerj-rerank`, so the endpoint variable name is
+/// written in both crates; this pins them equal.
+#[test]
+fn cohere_env_names_agree_across_crates() {
+    assert_eq!(
+        xerj_rerank::CohereProvider::ENV_ENDPOINT,
+        xerj_common::config::CohereRerankConfig::ENV_ENDPOINT
     );
 }

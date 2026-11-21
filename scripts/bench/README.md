@@ -13,11 +13,31 @@ to want to check. Each one:
   source pointer, and
 - tears the node down (pass `KEEP=1` to keep the data dir and server log).
 
+Every script starts its node with `XERJ_DISABLE_QUERY_CACHE=1` (set by
+`lib/repro.sh`). XERJ caches whole search responses by default, and a repeated
+identical query is then answered from memory instead of executed (#3020
+measured 0.70 ms cached against 7.80 ms executed), so a timed loop would
+measure the cache, not search. `request_cache=false` does not turn that cache
+off. The `run environment` block at the end of each run prints the node's own
+`xerj_query_cache_hits` / `xerj_query_cache_misses` from `/v1/metrics`: both
+are 0 with the cache off, and a non-zero hit count prints a warning. The
+counters are per index, summed over the indexes open at that moment, so a
+deleted index's hits are gone: read them before deleting what you timed. The same
+rule holds for any latency measured outside these scripts: start the node
+with `XERJ_DISABLE_QUERY_CACHE=1`, or send only unique queries.
+
 They are honest by construction: docs/s is computed from the verified
 post-refresh `_count`, never the intended count; kNN recall is scored against
 a client-side brute-force ground truth and `GET /_cat/ann` proves the HNSW
 graph (not a silent exact-scan fallback) served the queries; the rerank script
 counts the provider calls the node actually made, from the provider's side.
+
+They also stop instead of printing a number that describes something else:
+the latency repro exits on any non-2xx `_search` answer (an error page is fast
+and would flatter the mean), and the kNN repro refuses to score recall until
+`GET /_cat/ann` reports the graph `covered` (every vector graphed, not stale,
+not rebuilding; `ANN_WAIT_S`, default 120 s). `tests/test_bench_guards.py`
+checks both against a stub node (`tests/fake_xerj.py`), no engine build needed.
 
 ## The four repros
 

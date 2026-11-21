@@ -6676,7 +6676,7 @@ fn run_date_histogram(
 fn run_value_count<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCache<'d>) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
-        None => return json!({"value": 0}),
+        None => return json!({"value": 0, "__xy_agg__": "value_count"}),
     };
 
     // Count the *number of values* (not docs): a multi-valued field with
@@ -6693,7 +6693,7 @@ fn run_value_count<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCach
             count += v.len();
         }
     }
-    json!({ "value": count })
+    json!({ "value": count, "__xy_agg__": "value_count" })
 }
 
 fn get_missing_value(params: &Value) -> Option<f64> {
@@ -6732,10 +6732,12 @@ fn run_avg<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
 /// `sum(weights) == 0` and an empty bucket both yield `value: null`, as ES
 /// does.
 ///
-/// ES rejects a multi-valued *weight* field with a 400 ("Multi weight field
-/// not allowed"). The aggregation evaluator has no error channel, so such a
-/// document is skipped here; the case stays in
-/// `tests/es-compat-yaml/catch-lenient.txt` until that channel exists.
+/// A document with a value and more than one weight fails the aggregation,
+/// as ES's `WeightedAvgAggregator#collect` does: there is no single weight to
+/// pair the value with. The failure is embedded in this slot of the result
+/// (`{"error", "__error_status__"}`), which the API turns into the 400 ES
+/// answers. ES only reads the weights of a document that has a value, so a
+/// multi-weight document without one (and no `value.missing`) is skipped.
 /// The API layer still rejects a `weighted_avg` that has no `field`, a
 /// non-numeric `missing`, or a `script` (see `find_invalid_agg_params`).
 fn run_weighted_avg<'d>(params: &Value, cache: &mut FieldCache<'d>) -> Value {
@@ -6759,10 +6761,15 @@ fn run_weighted_avg<'d>(params: &Value, cache: &mut FieldCache<'d>) -> Value {
     let mut weighted_sum = 0.0f64;
     let mut weight_sum = 0.0f64;
     for (values, weights) in values_per_doc.iter().zip(weights_per_doc) {
-        // A multi-valued weight is an error in ES (see the doc comment); skip
-        // the document rather than pairing every value with every weight.
         if weights.len() > 1 {
-            continue;
+            if values.is_empty() && value_missing.is_none() {
+                continue;
+            }
+            return json!({
+                "error": "Encountered more than one weight for a single document. Use a \
+                          script to combine multiple weights-per-doc into a single value.",
+                "__error_status__": 400u32,
+            });
         }
         let value_placeholder: [f64; 1];
         let values: &[f64] = if values.is_empty() {
@@ -9027,9 +9034,29 @@ fn run_composite(
                 }
             }
 
+            // Keep a canonical, typed identity for cross-index reduction.
+            // Formatted date keys may be non-monotone or even lossy; the HTTP
+            // layer removes this internal field before returning the result.
+            let raw_key: Vec<Value> = source_defs
+                .iter()
+                .enumerate()
+                .map(|(i, (_, src_type, _, _))| {
+                    let val = &key[i];
+                    if val == "__null__" {
+                        Value::Null
+                    } else if src_type == "date_histogram" || src_type == "histogram" {
+                        composite_typed_key_value(CompositeKeyKind::Heuristic, val)
+                    } else if src_type == "terms" {
+                        composite_typed_key_value(kinds[i], val)
+                    } else {
+                        Value::String(val.clone())
+                    }
+                })
+                .collect();
             let mut bucket = json!({
                 "key": Value::Object(key_obj),
-                "doc_count": doc_count
+                "doc_count": doc_count,
+                "__xy_composite_key__": raw_key
             });
 
             if let Some(sub) = sub_aggs {
@@ -12119,11 +12146,12 @@ pub fn run_agg_fast_filtered(
 /// `extended_stats` — same as `stats` plus `std_deviation`, `variance`,
 /// `std_deviation_bounds` (upper/lower), and `sum_of_squares`.
 fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCache<'d>) -> Value {
+    let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => {
             return json!({
-                "count": 0, "min": Value::Null, "max": Value::Null,
+                "__xy_sigma__": sigma, "count": 0, "min": Value::Null, "max": Value::Null,
                 "avg": Value::Null, "sum": 0.0, "sum_of_squares": 0.0,
                 "variance": Value::Null, "std_deviation": Value::Null,
                 "std_deviation_bounds": { "upper": Value::Null, "lower": Value::Null }
@@ -12142,7 +12170,7 @@ fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldC
         // order moment as null when there are no values to compute it
         // from. Note: sum_of_squares is null, not 0, per ES.
         return json!({
-            "count": 0, "min": Value::Null, "max": Value::Null,
+            "__xy_sigma__": sigma, "count": 0, "min": Value::Null, "max": Value::Null,
             "avg": Value::Null, "sum": 0.0, "sum_of_squares": Value::Null,
             "variance": Value::Null, "variance_population": Value::Null,
             "variance_sampling": Value::Null,
@@ -12175,9 +12203,8 @@ fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldC
     };
     let std_deviation = variance_pop.max(0.0).sqrt();
     let std_deviation_samp = variance_samp.max(0.0).sqrt();
-    let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
-
     json!({
+        "__xy_sigma__": sigma,
         "count": count,
         "min": min,
         "max": max,
@@ -12599,6 +12626,11 @@ fn run_date_range(
     // RFC3339/ISO-ish strings, so formats like `dd-MM-yyyy` need
     // format-aware parsing to yield a valid ms timestamp.
     let parse_with_fmt = |val: &Value| -> Option<i64> {
+        // `now-30d/d` is date math, which parse_date_ms doesn't read.
+        if let Some(math) = val.as_str().filter(|s| s.trim_start().starts_with("now")) {
+            let resolved = xerj_query::dates::resolve_date_bound_str(math, false, None).ok()??;
+            return parse_date_ms(&Value::String(resolved));
+        }
         // Epoch formats interpret raw numbers as seconds / milliseconds.
         // parse_date_ms would otherwise return the number as-is (always
         // treating it as millis), which for `format: epoch_second` is
@@ -14560,6 +14592,34 @@ mod tests {
         assert_eq!(empty["w"]["value"], Value::Null, "{empty}");
     }
 
+    /// FAIL-BEFORE: the document carrying several weights was skipped and
+    /// the aggregation answered 10 (from the one single-weight document).
+    #[test]
+    fn weighted_avg_refuses_a_multi_valued_weight() {
+        let wa = |value: Value, docs: &[Value]| {
+            run_aggs(
+                &json!({"w": {"weighted_avg": {"value": value, "weight": {"field": "w"}}}}),
+                docs,
+            )
+        };
+        let reason = "Encountered more than one weight for a single document. Use a script \
+                      to combine multiple weights-per-doc into a single value.";
+
+        let docs = [json!({"n": 1, "w": [1, 2]}), json!({"n": 10, "w": 3})];
+        let r = wa(json!({"field": "n"}), &docs);
+        assert_eq!(r["w"]["error"], reason, "{r}");
+        assert_eq!(r["w"]["__error_status__"], json!(400), "{r}");
+
+        // ES only reads the weights of a document that has a value, so one
+        // without a value is skipped as before ...
+        let docs = [json!({"w": [1, 2]}), json!({"n": 10, "w": 3})];
+        let r = wa(json!({"field": "n"}), &docs);
+        assert_eq!(r["w"]["value"].as_f64(), Some(10.0), "{r}");
+        // ... unless `value.missing` gives it one.
+        let r = wa(json!({"field": "n", "missing": 5}), &docs);
+        assert_eq!(r["w"]["error"], reason, "{r}");
+    }
+
     #[test]
     fn missing_agg_counts_empty_and_null_arrays() {
         // ES `missing` agg counts docs with NO value: absent, null, [] and
@@ -15588,7 +15648,45 @@ mod tests {
         assert_eq!(result["t"]["sum_other_doc_count"], 6);
     }
 
+    #[test]
+    fn multi_index_metric_primitives_survive_slow_execution() {
+        let docs = [json!({"n": 1.0}), json!({"n": 2.0})];
+        for docs in [&docs[..], &[][..]] {
+            let result = run_aggs(
+                &json!({
+                    "e": {"extended_stats": {"field": "n", "sigma": 3.0}},
+                    "v": {"value_count": {"field": "n"}},
+                    "missing": {"value_count": {"field": "absent"}}
+                }),
+                docs,
+            );
+            assert_eq!(result["e"]["__xy_sigma__"], 3.0);
+            assert_eq!(result["v"]["__xy_agg__"], "value_count");
+            assert_eq!(result["v"]["value"], docs.len());
+            assert_eq!(result["missing"]["__xy_agg__"], "value_count");
+            assert_eq!(result["missing"]["value"], 0);
+        }
+    }
+
     // ── RC4-W2 item 7: composite key typing from the field mapping ──────
+
+    #[test]
+    fn composite_canonical_keys_preserve_formatted_date_identity() {
+        let docs = vec![
+            json!({"ts":"2024-01-02T00:00:00Z"}),
+            json!({"ts":"2023-12-31T00:00:00Z"}),
+        ];
+        let result = run_aggs(
+            &json!({"c":{"composite":{"sources":[{"d":{"date_histogram":{"field":"ts","calendar_interval":"1d","format":"dd-MM-yyyy"}}}]}}}),
+            &docs,
+        );
+        let buckets = result["c"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 2);
+        assert_eq!(buckets[0]["key"]["d"], "31-12-2023");
+        assert_eq!(buckets[0]["__xy_composite_key__"][0], 1703980800000i64);
+        assert_eq!(buckets[1]["key"]["d"], "02-01-2024");
+        assert_eq!(buckets[1]["__xy_composite_key__"][0], 1704153600000i64);
+    }
 
     #[test]
     fn composite_missing_order_is_absolute_and_pages_match_full_result() {
@@ -15955,6 +16053,31 @@ mod tests {
             Some(5),
             "a span exactly at the cap must still be served, got {ok}"
         );
+    }
+}
+
+#[cfg(test)]
+mod date_range_math_tests {
+    use super::run_date_range;
+    use serde_json::json;
+
+    #[test]
+    fn date_math_bounds_split_the_documents() {
+        let now = chrono::Utc::now();
+        let old = (now - chrono::Duration::days(40)).to_rfc3339();
+        let recent = (now - chrono::Duration::days(2)).to_rfc3339();
+        let docs = vec![json!({"ts": old}), json!({"ts": recent})];
+        let params = json!({"field": "ts", "ranges": [{"to": "now-30d/d"}, {"from": "now-30d/d"}]});
+
+        let out = run_date_range(&params, None, &docs, &docs);
+
+        let counts: Vec<i64> = out["buckets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| b["doc_count"].as_i64().unwrap())
+            .collect();
+        assert_eq!(counts, vec![1, 1]);
     }
 }
 

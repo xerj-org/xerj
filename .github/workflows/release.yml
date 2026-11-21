@@ -315,6 +315,38 @@ jobs:
       - name: List artifacts
         run: ls -la dist/
 
+      # #3286: the MCP tool schema of THIS release, read from the binary being
+      # published rather than from main. `mcp-tools.json` on the site follows
+      # main, so an agent on an installed release read a tool list its binary
+      # did not serve. The script names the file from the binary's own
+      # serverInfo.version. When the release cut committed the file, it must
+      # match this binary (a frozen schema never changes); otherwise it is
+      # generated here and still attached, with a warning to commit it.
+      # Ubuntu runners ship jq.
+      - name: MCP tool schema for this release
+        run: |
+          set -euo pipefail
+          VER="${GITHUB_REF_NAME#v}"
+          STAGE="xerj-${VER}-x86_64-unknown-linux-gnu"
+          mkdir -p "${RUNNER_TEMP}/mcp-bin"
+          tar -C "${RUNNER_TEMP}/mcp-bin" -xzf "dist/${STAGE}.tar.gz"
+          export XERJ_BIN="${RUNNER_TEMP}/mcp-bin/${STAGE}/xerj"
+          SCHEMA="landing/docs/agents/schemas/mcp-tools-${VER}.json"
+          if [ -f "${SCHEMA}" ]; then
+            bash scripts/mcp-schema-check.sh --release
+          else
+            bash scripts/mcp-schema-check.sh --release --write
+            echo "::warning::${SCHEMA} was not committed with the release cut; it is attached to the release only. Commit it to main so xerj.org serves it."
+          fi
+          cp "${SCHEMA}" dist/
+          ( cd dist && sha256sum "mcp-tools-${VER}.json" > "mcp-tools-${VER}.json.sha256" )
+
+      # One combined checksum file for mirror installs (#3278). The model
+      # bundle is uploaded separately; `scripts/release-sha256sums.sh --tag`
+      # rebuilds this asset from every *.sha256 on the release afterwards.
+      - name: Build SHA256SUMS
+        run: bash scripts/release-sha256sums.sh --dir dist
+
       # GitHub anchors auto-generated release notes ("Full Changelog") on the
       # most recently *published* release. Since the daily pack-rust-vulns-*
       # corpus-pack releases started, that anchor is a corpus pack, not the
@@ -378,3 +410,5 @@ jobs:
             dist/*.zip
             dist/*.deb
             dist/*.sha256
+            dist/mcp-tools-*.json
+            dist/SHA256SUMS

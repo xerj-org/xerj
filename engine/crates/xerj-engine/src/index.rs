@@ -78,6 +78,93 @@ fn transient_read_permit(
     }
 }
 
+/// #2427: [`transient_read_permit`] for a value sized by its segment rather
+/// than by the request, where a refusal can be reported: when the cache
+/// cannot keep it, the parent breaker (`governor`) first refuses with a 429 a
+/// value that would carry the process past its hard memory limit, then the
+/// read budget reserves it.
+fn admit_transient_read(
+    hydration: &SegmentHydrationBudget,
+    read_budget: &Arc<ReadTransientBudget>,
+    governor: Option<&crate::governor::ResourceGovernor>,
+    bytes: u64,
+    label: &str,
+) -> std::result::Result<Option<ReadPermit>, xerj_common::XerjError> {
+    if hydration.has_headroom(bytes) {
+        return Ok(None);
+    }
+    if let Some(governor) = governor {
+        governor.check_read_transient(bytes, label)?;
+    }
+    Ok(Some(read_budget.acquire(bytes)))
+}
+
+/// The budgets one read-side transient is admitted against (#2427). Search
+/// paths use the process-wide ones; tests pin their own.
+#[derive(Clone)]
+struct ReadAdmission {
+    hydration: Arc<SegmentHydrationBudget>,
+    read_budget: Arc<ReadTransientBudget>,
+    governor: Option<Arc<crate::governor::ResourceGovernor>>,
+}
+
+impl ReadAdmission {
+    fn admit(
+        &self,
+        bytes: u64,
+        label: &str,
+    ) -> std::result::Result<Option<ReadPermit>, xerj_common::XerjError> {
+        admit_transient_read(
+            &self.hydration,
+            &self.read_budget,
+            self.governor.as_deref(),
+            bytes,
+            label,
+        )
+    }
+
+    /// [`Self::admit`] for a caller on an async runtime worker: the same
+    /// parent-breaker 429, but the reservation is accounted without waiting
+    /// for room. `acquire` parks the thread on a condvar for up to its
+    /// max wait, and parking a tokio worker stalls every task scheduled on
+    /// it, so the exact kNN scan only records what it is about to build.
+    fn admit_on_runtime(
+        &self,
+        bytes: u64,
+        label: &str,
+    ) -> std::result::Result<Option<ReadPermit>, xerj_common::XerjError> {
+        if self.hydration.has_headroom(bytes) {
+            return Ok(None);
+        }
+        if let Some(governor) = self.governor.as_deref() {
+            governor.check_read_transient(bytes, label)?;
+        }
+        Ok(Some(self.read_budget.reserve_built(bytes)))
+    }
+}
+
+/// Peak of a whole-segment stored-values load over its decompressed size:
+/// the decompressed bytes and the parsed `Value` tree (a number-heavy row
+/// parses to ~3.5x its JSON text) are alive together during the parse.
+const STORED_VALUES_PEAK_FACTOR: u64 = 4;
+
+/// Pre-build size of a per-segment vector column (#2427): `docs` pooled
+/// vectors of `dims` `f32`s plus each document's entry, slot and identity.
+/// Passage-chunked documents hold more; the reservation is trued up to the
+/// built column's measured size.
+fn vector_column_estimate(docs: usize, dims: usize) -> u64 {
+    const PER_DOC_OVERHEAD: u64 = 112;
+    (docs as u64).saturating_mul(
+        (dims as u64)
+            .saturating_mul(std::mem::size_of::<f32>() as u64)
+            .saturating_add(PER_DOC_OVERHEAD),
+    )
+}
+
+/// A cold stored-values load as its single-flight followers see it: the
+/// parsed section, or the 429 that refused the decode (#2427).
+type StoredValuesLoad = std::result::Result<Resident<Vec<Value>>, Arc<str>>;
+
 /// How long a rayon worker polls a segment's stored-decode flight lock
 /// before decoding on its own (#2427).
 const STORED_FLIGHT_WORKER_WAIT: std::time::Duration = std::time::Duration::from_millis(200);
@@ -1677,6 +1764,198 @@ mod collection_publication_fail_closed_tests {
         assert!(idx.get_document("late").await.unwrap().is_none());
     }
 
+    /// #3324: a bulk batch appends to the WAL before it opens the collection
+    /// publication bracket. WAL maintenance and the batched fsync hold a WAL
+    /// shard lock across disk waits (25 s measured under ext4 journal
+    /// pressure); a batch queued on that lock used to be inside the bracket
+    /// already, so every search on the index waited the same 25 s and came
+    /// back `timed_out` with no hits.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn search_is_not_held_behind_a_bulk_waiting_on_the_wal_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("wal-lock-readers", text_schema())
+            .unwrap();
+        let idx = engine.get_index("wal-lock-readers").unwrap();
+        idx.index_batch_turbo_raw(vec![(
+            "seed".into(),
+            Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+        )])
+        .await
+        .unwrap();
+        idx.refresh().await.unwrap();
+
+        let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
+        let entered_tx = parking_lot::Mutex::new(Some(entered_tx));
+        idx.set_publication_test_hook(Some(Arc::new(move |_, point| {
+            if point == PublicationTestPoint::RawBeforeCollectionBegin {
+                if let Some(tx) = entered_tx.lock().take() {
+                    let _ = tx.send(());
+                }
+            }
+        })));
+        // Stands in for a maintenance pass or fsync that holds the lock.
+        let wal_locks = idx.store.hold_wal_shards_for_test();
+        let writer_idx = Arc::clone(&idx);
+        let writer = tokio::spawn(async move {
+            writer_idx
+                .index_batch_turbo_raw(vec![(
+                    "late".into(),
+                    Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+                )])
+                .await
+        });
+        tokio::task::spawn_blocking(move || {
+            entered_rx
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .expect("bulk never reached the WAL append")
+        })
+        .await
+        .unwrap();
+        // Let the batch reach the lock and park on it.
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert!(
+            !writer.is_finished(),
+            "the bulk must be parked on the WAL lock"
+        );
+
+        let mut request = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "alpha"}}, "size": 10
+        }))
+        .unwrap();
+        request.timeout_ms = Some(2_000);
+        let result = tokio::time::timeout(std::time::Duration::from_secs(5), idx.search(&request))
+            .await
+            .expect("search hung")
+            .unwrap();
+        assert!(
+            !result.timed_out,
+            "search waited out its deadline behind a bulk parked on the WAL lock"
+        );
+        assert_eq!(result.hits.len(), 1);
+        assert_eq!(result.hits[0].id, "seed");
+
+        drop(wal_locks);
+        tokio::time::timeout(std::time::Duration::from_secs(10), writer)
+            .await
+            .expect("bulk did not finish after the WAL lock was released")
+            .unwrap()
+            .unwrap();
+        idx.set_publication_test_hook(None);
+        assert!(!idx.collection_publication.state().2);
+        assert!(idx.get_document("late").await.unwrap().is_some());
+    }
+
+    /// #3324: the flush publication bracket closes as soon as the segment is
+    /// published. Its guard used to live to the end of the finalizer, across
+    /// `after_flush_publish` (snapshot fsync, WAL rotate and prune), so
+    /// every search on the index waited out that disk work. Here the WAL
+    /// maintenance is parked on held WAL locks after the publish.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn search_is_not_held_behind_post_flush_wal_maintenance() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("post-flush-readers", text_schema())
+            .unwrap();
+        let idx = engine.get_index("post-flush-readers").unwrap();
+        idx.index_batch_turbo_raw(vec![(
+            "doc".into(),
+            Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+        )])
+        .await
+        .unwrap();
+        assert!(idx.store.snapshot().segments.is_empty());
+
+        // The first flush of a store always runs WAL maintenance (its 1 s
+        // gate starts open); with the WAL locks held it parks there.
+        let wal_locks = idx.store.hold_wal_shards_for_test();
+        let flush_idx = Arc::clone(&idx);
+        let flush = tokio::spawn(async move { flush_idx.flush().await });
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while idx.store.snapshot().segments.is_empty() {
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("flush never published its segment");
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        assert!(
+            !flush.is_finished(),
+            "the flush must be parked in post-publish WAL maintenance"
+        );
+
+        let mut request = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "alpha"}}, "size": 10
+        }))
+        .unwrap();
+        request.timeout_ms = Some(2_000);
+        let result = tokio::time::timeout(std::time::Duration::from_secs(5), idx.search(&request))
+            .await
+            .expect("search hung")
+            .unwrap();
+        assert!(
+            !result.timed_out,
+            "search waited out its deadline behind post-flush WAL maintenance"
+        );
+        assert_eq!(result.hits.len(), 1);
+
+        drop(wal_locks);
+        tokio::time::timeout(std::time::Duration::from_secs(10), flush)
+            .await
+            .expect("flush did not finish after the WAL locks were released")
+            .unwrap()
+            .unwrap();
+        assert!(!idx.collection_publication.state().2);
+    }
+
+    /// #3324: a WAL write failure happens before the publication bracket
+    /// opens, so it fails the batch without poisoning the index (inside the
+    /// bracket, the early return dropped an uncommitted guard).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn raw_wal_write_failure_does_not_poison_the_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("wal-write-fails", text_schema())
+            .unwrap();
+        let idx = engine.get_index("wal-write-fails").unwrap();
+        // No write has materialized a WAL file yet (#873), so with the WAL
+        // directory gone the first append cannot create its generation.
+        let wal_dir = idx.store.wal_dir();
+        let moved = wal_dir.with_extension("away");
+        std::fs::rename(&wal_dir, &moved).unwrap();
+        let error = idx
+            .index_batch_turbo_raw(vec![(
+                "lost".into(),
+                Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+            )])
+            .await;
+        std::fs::rename(&moved, &wal_dir).unwrap();
+        error.unwrap_err();
+        assert!(
+            !idx.collection_publication.state().2,
+            "a WAL write error must not poison the index"
+        );
+        assert!(idx.store.version_map.get("lost").is_none());
+        idx.index_batch_turbo_raw(vec![(
+            "kept".into(),
+            Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+        )])
+        .await
+        .unwrap();
+        idx.refresh().await.unwrap();
+        assert!(idx.get_document("kept").await.unwrap().is_some());
+        assert!(idx.get_document("lost").await.unwrap().is_none());
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn raw_cancellation_before_publication_does_not_poison_or_write() {
         let dir = tempfile::tempdir().unwrap();
@@ -2694,6 +2973,203 @@ mod flush_publication_recovery_tests {
             "only the transient decode reserved"
         );
         drop(cached);
+    }
+
+    async fn vector_index_2427(engine: &crate::Engine, name: &str, docs: u64) -> Arc<Index> {
+        engine.create_index(name, Schema::empty()).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        idx.abort_background_tasks();
+        for i in 0..docs {
+            let x = (i as f32 + 1.0) / docs as f32;
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "embedding": [x, 1.0 - x, 0.5, 0.25]}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        idx.release_memory();
+        idx.stored_value_cache.clear();
+        idx.vector_column_cache.clear();
+        idx
+    }
+
+    fn pinned_admission_2427(
+        hydration: u64,
+        governor: Option<Arc<crate::governor::ResourceGovernor>>,
+    ) -> ReadAdmission {
+        ReadAdmission {
+            hydration: SegmentHydrationBudget::new(hydration),
+            read_budget: ReadTransientBudget::new(1 << 30, std::time::Duration::from_secs(5)),
+            governor,
+        }
+    }
+
+    /// #2427: a whole-segment stored-values decode the hydration cache
+    /// refuses reserves its size in the read budget before decoding and holds
+    /// it until the last reader drops the value; one the cache keeps
+    /// reserves nothing.
+    ///
+    /// Fails before the fix: the cold load decoded and parsed the section
+    /// with no reservation, so the read budget saw 0 bytes and 0 admissions.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn transient_stored_values_hold_a_read_reservation_until_dropped_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let idx = vector_index_2427(&engine, "sv-read-budget", 256).await;
+        let seg = idx.store.snapshot().segments[0].clone();
+
+        let full = pinned_admission_2427(0, None);
+        let docs = idx
+            .stored_values_load_with(&seg.id, full.clone())
+            .await
+            .unwrap()
+            .expect("stored values load");
+        assert_eq!(docs.len() as u64, seg.doc_count);
+        assert!(!idx.stored_value_cache.contains_key(&seg.id));
+        let held = full.read_budget.snapshot().current;
+        assert!(held > 0, "the transient decode must hold a reservation");
+        assert_eq!(full.read_budget.snapshot().admitted, 1);
+        let second = Arc::clone(&docs);
+        drop(docs);
+        assert_eq!(full.read_budget.snapshot().current, held);
+        drop(second);
+        assert_eq!(
+            full.read_budget.snapshot().current,
+            0,
+            "released with the last reader"
+        );
+        assert!(idx.stored_value_loads.is_empty());
+
+        let roomy = pinned_admission_2427(u64::MAX, None);
+        let cached = idx
+            .stored_values_load_with(&seg.id, roomy.clone())
+            .await
+            .unwrap()
+            .expect("stored values load");
+        assert!(idx.stored_value_cache.contains_key(&seg.id));
+        assert_eq!(roomy.read_budget.snapshot().current, 0);
+        assert_eq!(roomy.read_budget.snapshot().admitted, 0);
+        drop(cached);
+    }
+
+    /// #2427: a cold stored-values decode that would carry the process past
+    /// its hard memory limit is refused with a 429 before it allocates —
+    /// every single-flight follower sees the 429, nothing is cached or
+    /// reserved, and the single-flight slot is freed for a later retry.
+    ///
+    /// Fails before the fix: the decode ran unconditionally (no `Err` path).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cold_stored_values_decode_over_the_hard_limit_is_a_429_2427() {
+        const MIB: u64 = 1024 * 1024;
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let idx = vector_index_2427(&engine, "sv-breaker", 256).await;
+        let seg = idx.store.snapshot().segments[0].clone();
+        let at_limit =
+            crate::governor::ResourceGovernor::with_rss_and_limit_for_test(1024 * MIB, 1024 * MIB);
+        let tripped = pinned_admission_2427(0, Some(at_limit));
+        let err = match idx.stored_values_load_with(&seg.id, tripped.clone()).await {
+            Err(err) => err,
+            Ok(value) => panic!("expected a 429, got a value: {}", value.is_some()),
+        };
+        assert!(
+            matches!(
+                &err,
+                EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. })
+            ),
+            "{err:?}"
+        );
+        assert!(format!("{err}").contains("stored_values_decode"), "{err}");
+        assert!(!idx.stored_value_cache.contains_key(&seg.id));
+        assert_eq!(tripped.read_budget.snapshot().admitted, 0);
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while !idx.stored_value_loads.is_empty() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the refused load must free its single-flight slot");
+
+        // Room under the limit: the same load succeeds.
+        let roomy_node =
+            crate::governor::ResourceGovernor::with_rss_and_limit_for_test(MIB, 64 * 1024 * MIB);
+        let ok = idx
+            .stored_values_load_with(&seg.id, pinned_admission_2427(0, Some(roomy_node)))
+            .await
+            .unwrap();
+        assert!(ok.is_some());
+    }
+
+    /// #2427: the exact kNN scan's per-query vector column (built from the
+    /// stored documents when the cache refuses it) reserves read memory, and
+    /// a scan whose transients would cross the hard limit answers 429 rather
+    /// than allocating — the kNN search fails with `circuit_breaking_exception`
+    /// instead of silently skipping the segment or growing RSS into an OOM.
+    ///
+    /// Fails before the fix: the scan made no read reservation (admitted 0),
+    /// and a refused load was `None`, so the segment was skipped (`continue`).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn knn_scan_transients_reserve_read_memory_and_429_at_the_limit_2427() {
+        const MIB: u64 = 1024 * 1024;
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let idx = vector_index_2427(&engine, "knn-breaker", 256).await;
+        let request = SearchRequest {
+            timeout_ms: Some(10_000),
+            ..SearchRequest::default()
+        };
+        let query = [1.0_f32, 0.0, 0.5, 0.25];
+
+        // Cache full: the stored values and the column are both transient.
+        let full = pinned_admission_2427(0, None);
+        *idx.test_read_admission.lock() = Some(full.clone());
+        let result = idx
+            .run_knn_brute_force(
+                &request,
+                "embedding",
+                &query,
+                3,
+                Some(Box::new(QueryNode::MatchAll)),
+                "cosine",
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(result.hits.len(), 3);
+        assert_eq!(result.hits[0].id, "doc-255");
+        let snap = full.read_budget.snapshot();
+        assert!(
+            snap.admitted >= 2,
+            "stored values and vector column must both reserve ({snap:?})"
+        );
+        assert_eq!(snap.current, 0, "released when the query drops them");
+        assert!(idx.vector_column_cache.is_empty());
+
+        // At the hard limit: a 429, not a partial answer.
+        let at_limit =
+            crate::governor::ResourceGovernor::with_rss_and_limit_for_test(1024 * MIB, 1024 * MIB);
+        *idx.test_read_admission.lock() = Some(pinned_admission_2427(0, Some(at_limit)));
+        let err = idx
+            .run_knn_brute_force(
+                &request,
+                "embedding",
+                &query,
+                3,
+                Some(Box::new(QueryNode::MatchAll)),
+                "cosine",
+                None,
+                None,
+            )
+            .await
+            .unwrap_err();
+        match &err {
+            EngineError::Common(e) => assert_eq!(e.http_status(), 429, "{e}"),
+            other => panic!("expected a 429 circuit_breaking_exception, got {other:?}"),
+        }
+        *idx.test_read_admission.lock() = None;
     }
 
     fn topk_projection_config(dir: &std::path::Path) -> Config {
@@ -6008,6 +6484,144 @@ impl Drop for HnswPublicationGuard {
         let previous = self.in_flight.fetch_sub(1, Ordering::AcqRel);
         debug_assert!(previous > 0, "HNSW publication counter underflow");
         self.generation.fetch_add(1, Ordering::Release);
+    }
+}
+
+#[cfg(test)]
+mod knn_exact_cutover_tests {
+    use super::*;
+
+    #[test]
+    fn byte_rule_matches_the_documented_budget() {
+        let budget = KNN_EXACT_SCAN_MAX_KB_DEFAULT * 1024;
+        // #3006's indexes: 721 and 3,080 E5 vectors of 768 dims.
+        assert!(knn_prefers_exact_scan(721, 768, budget));
+        assert!(knn_prefers_exact_scan(3_080, 768, budget));
+        // 10,000 KiB / 3,072 B = 3,333.33 vectors of 768 dims.
+        assert!(knn_prefers_exact_scan(3_333, 768, budget));
+        assert!(!knn_prefers_exact_scan(3_334, 768, budget));
+        assert!(!knn_prefers_exact_scan(1_000_000, 384, budget));
+        // Low dimensions: the byte budget alone would take 1.28 M 2-d
+        // vectors; the document ceiling keeps those on the graph.
+        assert!(knn_prefers_exact_scan(16_384, 2, budget));
+        assert!(!knn_prefers_exact_scan(16_385, 2, budget));
+        assert!(!knn_prefers_exact_scan(1_000_000, 2, budget));
+        // `0` is the pre-#3006 gate: never prefer the scan.
+        assert!(!knn_prefers_exact_scan(1, 1, 0));
+        assert!(!knn_prefers_exact_scan(u64::MAX, usize::MAX, budget));
+    }
+
+    /// Over `HNSW_MIN_DOCS` with a complete graph, the production budget
+    /// sends an unfiltered kNN to the exact scan, and the served page is the
+    /// exact scan's page — same ids, scores, order and sources — at every
+    /// `from`/`size` window, while `total` stays the capped pool `k`.
+    #[tokio::test]
+    async fn small_vector_set_is_served_by_the_exact_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("embedding", FieldType::Vector))
+            .unwrap();
+        engine.create_index("cutover", schema).unwrap();
+        let index = engine.get_index("cutover").unwrap();
+        // Every 7th document repeats a vector, so the page has exact ties for
+        // the `seq_no, _id` tie-break to order.
+        // The raw ingest path is the one the ANN publication tests use.
+        let docs: Vec<(String, Arc<[u8]>)> = (0..HNSW_MIN_DOCS + 64)
+            .map(|i| {
+                let j = if i % 7 == 0 { 7 } else { i };
+                let x = (j + 1) as f32 / ((HNSW_MIN_DOCS + 64) as f32 * 2.0);
+                let source = serde_json::json!({"embedding": [x, 1.0 - x, 0.1], "n": i});
+                (
+                    format!("doc-{i:05}"),
+                    Arc::<[u8]>::from(serde_json::to_vec(&source).unwrap()),
+                )
+            })
+            .collect();
+        index.index_batch_turbo_raw(docs).await.unwrap();
+        let stats = index.hnsw_stats().await;
+        assert_eq!(stats["covered"], true, "{stats}");
+
+        let query = [1.0f32, 0.0, 0.0];
+        let k = 300;
+        let knn = |from: usize, size: usize| SearchRequest {
+            query: QueryNode::Knn {
+                field: "embedding".to_owned(),
+                vector: query.to_vec(),
+                k,
+                num_candidates: Some(k),
+                filter: None,
+                boost: None,
+                similarity: None,
+            },
+            from,
+            size,
+            ..SearchRequest::default()
+        };
+        let deadline = || std::time::Instant::now() + std::time::Duration::from_secs(30);
+
+        // Budget 0 (the unit-test default): the graph serves.
+        assert!(
+            index
+                .run_knn_hnsw(
+                    &knn(0, 10),
+                    deadline(),
+                    "embedding",
+                    &query,
+                    k,
+                    Some(k),
+                    "cosine"
+                )
+                .await
+                .is_some(),
+            "a complete graph must serve ANN at budget 0: {stats}"
+        );
+        index
+            .knn_exact_scan_max_bytes
+            .store(KNN_EXACT_SCAN_MAX_KB_DEFAULT * 1024, Ordering::Relaxed);
+        assert!(index
+            .run_knn_hnsw(
+                &knn(0, 10),
+                deadline(),
+                "embedding",
+                &query,
+                k,
+                Some(k),
+                "cosine"
+            )
+            .await
+            .is_none());
+
+        // The whole pool, hydrated: the oracle every window must agree with.
+        let oracle = index
+            .run_knn_brute_force(
+                &knn(0, k),
+                "embedding",
+                &query,
+                k,
+                None,
+                "cosine",
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(oracle.hits.len(), k);
+        for (from, size) in [(0, 10), (5, 20), (290, 50), (0, k), (k + 5, 10)] {
+            index.query_cache.clear();
+            let page = index.search(&knn(from, size)).await.unwrap();
+            assert_eq!(page.total.value, k as u64, "from={from} size={size}");
+            let want: Vec<_> = oracle.hits.iter().skip(from).take(size).collect();
+            assert_eq!(page.hits.len(), want.len(), "from={from} size={size}");
+            for (got, want) in page.hits.iter().zip(want) {
+                assert_eq!(got.id, want.id, "from={from} size={size}");
+                assert_eq!(got.score, want.score, "from={from} size={size}");
+                assert_eq!(got.source, want.source, "from={from} size={size}");
+            }
+        }
     }
 }
 
@@ -11398,6 +12012,11 @@ pub struct Index {
     /// stale rebuild (RC4 W2 item 17, `rebuild_hnsw_from_docs`) once the
     /// graph has been re-derived from the authoritative doc set.
     hnsw_stale: Arc<std::sync::atomic::AtomicBool>,
+    /// #3006: an unfiltered kNN over at most this many bytes of stored f32
+    /// vectors (`vector_doc_count * dims * 4`) is served by the exact scan
+    /// even when a complete HNSW graph exists. See
+    /// [`knn_exact_scan_max_bytes_default`] and [`knn_prefers_exact_scan`].
+    knn_exact_scan_max_bytes: AtomicU64,
     /// True while `rebuild_hnsw_from_docs` is running (RC4 W2 item 17):
     /// guards against double-spawn and is surfaced in stats so operators
     /// can distinguish "healing" from "permanently degraded".
@@ -11457,6 +12076,9 @@ pub struct Index {
     test_hnsw_save_passage_snapshot_ready: Arc<AtomicBool>,
     #[cfg(test)]
     test_stored_value_load_delay_ms: Arc<AtomicU64>,
+    /// Pins the budgets read-side transients are admitted against (#2427).
+    #[cfg(test)]
+    test_read_admission: Arc<parking_lot::Mutex<Option<ReadAdmission>>>,
     #[cfg(test)]
     test_stored_value_load_count: Arc<AtomicU64>,
     #[cfg(test)]
@@ -11672,7 +12294,7 @@ pub struct Index {
     /// publishes the immutable parsed section to every concurrent vector
     /// query; the detached producer survives cancellation of any requester.
     stored_value_loads:
-        Arc<dashmap::DashMap<String, tokio::sync::watch::Sender<Option<Resident<Vec<Value>>>>>>,
+        Arc<dashmap::DashMap<String, tokio::sync::watch::Sender<Option<StoredValuesLoad>>>>,
     /// Bounds simultaneous whole-segment decompression/parsing across distinct
     /// cold segments. Per-segment single-flight removes duplicate work; this
     /// bound prevents a many-segment cold storm from multiplying peak memory.
@@ -12240,6 +12862,8 @@ impl Index {
             #[cfg(test)]
             test_stored_value_load_delay_ms: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
+            test_read_admission: Arc::new(parking_lot::Mutex::new(None)),
+            #[cfg(test)]
             test_stored_value_load_count: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
             test_stored_value_load_pause_before_publish: Arc::new(
@@ -12267,6 +12891,7 @@ impl Index {
             hnsw_field: Arc::new(std::sync::RwLock::new(None)),
             passage_chunk_fields: Arc::new(std::sync::RwLock::new(passage_chunk_fields_init)),
             hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            knn_exact_scan_max_bytes: AtomicU64::new(knn_exact_scan_max_bytes_default()),
             hnsw_rebuilding: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             hnsw_rebuild_task: Arc::new(parking_lot::Mutex::new(None)),
             sq8_stores: Arc::new(parking_lot::RwLock::new(HashMap::new())),
@@ -12662,6 +13287,8 @@ impl Index {
             #[cfg(test)]
             test_stored_value_load_delay_ms: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
+            test_read_admission: Arc::new(parking_lot::Mutex::new(None)),
+            #[cfg(test)]
             test_stored_value_load_count: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
             test_stored_value_load_pause_before_publish: Arc::new(
@@ -12748,6 +13375,7 @@ impl Index {
             hnsw_field: Arc::new(std::sync::RwLock::new(hnsw_field_init)),
             passage_chunk_fields: Arc::new(std::sync::RwLock::new(passage_chunk_fields_init)),
             hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(hnsw_stale_init)),
+            knn_exact_scan_max_bytes: AtomicU64::new(knn_exact_scan_max_bytes_default()),
             hnsw_rebuilding: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             hnsw_rebuild_task: Arc::new(parking_lot::Mutex::new(None)),
             sq8_stores: Arc::new(parking_lot::RwLock::new(HashMap::new())),
@@ -13495,19 +14123,27 @@ impl Index {
             None
         };
 
+        // #3324 — WAL write before the publication bracket, version map
+        // inside it; see `index_batch_turbo_raw`.
+        if self.collection_publication.state().2 {
+            return Err(collection_publication_interrupted());
+        }
+        let wal_t = std::time::Instant::now();
+        let seq_nos = self.store.wal_write_batch(&wal_refs)?;
+        let wal_elapsed = wal_t.elapsed();
         let mut collection_publication = self
             .collection_publication
             .begin()
             .map_err(|_| collection_publication_interrupted())?;
-        let wal_t = std::time::Instant::now();
-        let seq_nos = self.store.wal_append_batch(&wal_refs)?;
+        self.store
+            .publish_batch_versions(wal_refs.iter().map(|(id, _)| id.as_str()), &seq_nos);
         #[cfg(test)]
         if let Some(first) = processed.first() {
             self.publication_test_point(&first.id, PublicationTestPoint::TurboAfterWalVersionMap);
         }
         // RC4 W4 item 2: WAL durability-write latency.
         if let Some(m) = crate::engine_metrics() {
-            m.observe_wal_write(wal_t.elapsed().as_secs_f64());
+            m.observe_wal_write(wal_elapsed.as_secs_f64());
         }
         let t3_dur = t3.elapsed();
 
@@ -14001,10 +14637,16 @@ impl Index {
             tokio::task::yield_now().await;
         }
 
-        let mut collection_publication = self
-            .collection_publication
-            .begin()
-            .map_err(|_| collection_publication_interrupted())?;
+        // #3324 — the WAL write runs BEFORE the publication bracket opens.
+        // It has no reader-visible effect, but it takes the WAL shard lock,
+        // which WAL maintenance and a strict-mode fsync hold across disk
+        // waits; inside the bracket every search on this index waited on
+        // that disk too. The version map and the memtable, which readers
+        // do see, are still published together inside the bracket.
+        // A poisoned index refuses the batch before it reaches the WAL.
+        if self.collection_publication.state().2 {
+            return Err(collection_publication_interrupted());
+        }
         let wal_t = std::time::Instant::now();
         let (docs, sources, seq_nos) = if has_copy_to {
             let (docs, _) = validated.into_parts();
@@ -14015,10 +14657,10 @@ impl Index {
                 .zip(&sources)
                 .map(|((id, _), source)| (id.clone(), Arc::clone(source)))
                 .collect();
-            let seq_nos = self.store.wal_append_batch(&wal_docs)?;
+            let seq_nos = self.store.wal_write_batch(&wal_docs)?;
             (docs, sources, seq_nos)
         } else {
-            let seq_nos = self.store.wal_append_batch_raw(&validated)?;
+            let seq_nos = self.store.wal_write_batch_raw(&validated)?;
             let (docs, parsed) = validated.into_parts();
             (
                 docs,
@@ -14026,6 +14668,13 @@ impl Index {
                 seq_nos,
             )
         };
+        let wal_elapsed = wal_t.elapsed();
+        let mut collection_publication = self
+            .collection_publication
+            .begin()
+            .map_err(|_| collection_publication_interrupted())?;
+        self.store
+            .publish_batch_versions(docs.iter().map(|(id, _)| id.as_str()), &seq_nos);
         #[cfg(test)]
         if let Some((doc, _)) = docs.first() {
             self.publication_test_point(doc, PublicationTestPoint::RawAfterWalVersionMap);
@@ -14033,7 +14682,7 @@ impl Index {
         }
         // RC4 W4 item 2: WAL durability-write latency.
         if let Some(m) = crate::engine_metrics() {
-            m.observe_wal_write(wal_t.elapsed().as_secs_f64());
+            m.observe_wal_write(wal_elapsed.as_secs_f64());
         }
         if prof {
             p_wal_us = p_t.elapsed().as_micros();
@@ -14348,11 +14997,17 @@ impl Index {
             if let Some((id, _)) = raw_docs.first() {
                 self.sync_prepublication_test_point(id)?;
             }
+            // #3324 — WAL write before the bracket; see `index_batch_turbo_raw`.
+            if self.collection_publication.state().2 {
+                return Err(collection_publication_interrupted());
+            }
+            let seq_nos = self.store.wal_write_batch(&wal_docs)?;
             let collection_publication = self
                 .collection_publication
                 .begin()
                 .map_err(|_| collection_publication_interrupted())?;
-            let seq_nos = self.store.wal_append_batch(&wal_docs)?;
+            self.store
+                .publish_batch_versions(wal_docs.iter().map(|(id, _)| id.as_str()), &seq_nos);
             let docs = raw_docs
                 .into_iter()
                 .zip(transformed)
@@ -14378,11 +15033,18 @@ impl Index {
             if let Some((id, _)) = validated.docs().first() {
                 self.sync_prepublication_test_point(id)?;
             }
+            if self.collection_publication.state().2 {
+                return Err(collection_publication_interrupted());
+            }
+            let seq_nos = self.store.wal_write_batch_raw(&validated)?;
             let collection_publication = self
                 .collection_publication
                 .begin()
                 .map_err(|_| collection_publication_interrupted())?;
-            let seq_nos = self.store.wal_append_batch_raw(&validated)?;
+            self.store.publish_batch_versions(
+                validated.docs().iter().map(|(id, _)| id.as_str()),
+                &seq_nos,
+            );
             let (raw_docs, parsed) = validated.into_parts();
             let parsed = parsed.expect("parse_validated_raw_batch retains parsed values");
             let docs = raw_docs
@@ -14396,11 +15058,18 @@ impl Index {
             if let Some((id, _)) = validated.docs().first() {
                 self.sync_prepublication_test_point(id)?;
             }
+            if self.collection_publication.state().2 {
+                return Err(collection_publication_interrupted());
+            }
+            let seq_nos = self.store.wal_write_batch_raw(&validated)?;
             let collection_publication = self
                 .collection_publication
                 .begin()
                 .map_err(|_| collection_publication_interrupted())?;
-            let seq_nos = self.store.wal_append_batch_raw(&validated)?;
+            self.store.publish_batch_versions(
+                validated.docs().iter().map(|(id, _)| id.as_str()),
+                &seq_nos,
+            );
             let (docs, parsed) = validated.into_parts();
             let docs = match parsed {
                 Some(parsed) => docs
@@ -14827,6 +15496,16 @@ impl Index {
         }
     }
 
+    /// The analyzer a document-scan `match_phrase` uses for text fields
+    /// (#3285): the segment text analyzer when it is not `standard`, else
+    /// `None` (the standard walk).
+    fn scan_phrase_analyzer(&self) -> Option<Arc<AnalyzerPipeline>> {
+        match self.segment_text_analyzer() {
+            "standard" => None,
+            name => self.registry.get_analyzer(name),
+        }
+    }
+
     /// How the segment FTS query projection analyses text clauses (#937) —
     /// the same term space [`Self::segment_text_analyzer`] writes.
     fn segment_analyzer_binding(&self) -> SegmentAnalyzerBinding<'_> {
@@ -14925,31 +15604,45 @@ impl Index {
             self.flush_sema.acquire(),
         )
         .await?;
-        // M5.2 — explicit refresh drains EVERY non-empty shard in
-        // sequence (one shard per `do_flush_shard` call) so the
-        // user-visible `refresh()` returns with zero unflushed
-        // documents.  Sharded flushes run serially here because the
-        // caller is waiting synchronously; the background scheduler
-        // still fires shard flushes in parallel.
+        // M5.2 — explicit refresh drains EVERY non-empty shard (one
+        // segment per `do_flush_shard` call) so the user-visible
+        // `refresh()` returns with zero unflushed documents.
+        //
+        // #2929 — the shards drain CONCURRENTLY, as `flush()` already does
+        // (M5.15); the process-global finalize gate still bounds how many
+        // build at once, and #2427's working-set reservation still charges
+        // each build before its freeze. Bulk routes every document to its
+        // own shard, so a 5-document catalog bulk lands on 5 shards and its
+        // refresh publishes 5 segments of ~117 files each (a set per field),
+        // every file fsynced and renamed. One shard at a time, that held
+        // autoindex's `finalize-catalog-commit` for ~35 s on Windows, where
+        // each file is a FlushFileBuffers plus a write-through MoveFileExW.
+        // With 10 ms injected per fsync on Linux the same 3-file run's
+        // commit took 1.75 s serially and 0.5 s concurrently.
         let n_shards = self.memtable.shard_count();
+        let mut shard_tasks = Vec::new();
+        let mut out_of_budget = false;
         for shard_idx in 0..n_shards {
             // #1226 — skip empty shards (same reasoning as `flush()`): a
             // no-op shard finalize still acquires the process-global
             // `flush_finalize_gate`, so an empty shard would make this
-            // serial refresh wait behind unrelated indices' ingest flushes
-            // for nothing. Bound the work to the shards actually holding
+            // refresh wait behind unrelated indices' ingest flushes for
+            // nothing. Bound the work to the shards actually holding
             // documents.
             if self.memtable.shard_load(shard_idx).0 == 0 {
                 continue;
             }
-            let left = deadline.saturating_duration_since(std::time::Instant::now());
-            if left.is_zero() {
-                return Err(flush_budget_timeout_error(&index_name, flush_timeout));
+            if deadline
+                .saturating_duration_since(std::time::Instant::now())
+                .is_zero()
+            {
+                out_of_budget = true;
+                break;
             }
             // Spawn so a timeout detaches the shard task instead of
             // cancelling a publication that has already frozen the
             // memtable (#1015). The success path still waits for it.
-            let task = tokio::spawn(do_flush_shard(
+            let flush = do_flush_shard(
                 shard_idx,
                 Arc::clone(&self.store),
                 Arc::clone(&self.memtable),
@@ -14959,15 +15652,37 @@ impl Index {
                 field_configs.clone(),
                 excluded_fts_fields.clone(),
                 dv_skip.clone(),
-                || {}, // serial refresh path — no permit to drop early
+                || {}, // refresh holds its permit — none to drop early
                 self.publish_warm_caches(),
                 index_name.clone(),
                 admit_timeout,
                 #[cfg(test)]
                 None,
-            ));
-            await_flush_task(&index_name, left, task).await?;
+            );
+            #[cfg(not(test))]
+            shard_tasks.push(tokio::spawn(flush));
+            #[cfg(test)]
+            {
+                let probe_index = index_name.clone();
+                shard_tasks.push(tokio::spawn(async move {
+                    let _in_flight = FlushShardProbe::enter(&probe_index).await;
+                    flush.await
+                }));
+            }
         }
+        let mut result: Result<()> = if out_of_budget {
+            Err(flush_budget_timeout_error(&index_name, flush_timeout))
+        } else {
+            Ok(())
+        };
+        for task in shard_tasks {
+            let left = deadline.saturating_duration_since(std::time::Instant::now());
+            let joined = await_flush_task(&index_name, left, task).await;
+            if result.is_ok() {
+                result = joined;
+            }
+        }
+        result?;
 
         // Update the doc counter so maybe_auto_flush uses a fresh baseline.
         self.last_flush_doc_count
@@ -17394,6 +18109,19 @@ impl Index {
         }
     }
 
+    /// Undo [`Self::abort_background_tasks`]'s merge stop for an index that
+    /// goes back into service: a delete that could not free the name puts
+    /// the handle back (#206, #3274), and it must keep merging. Arms one
+    /// check so work that arrived while scheduling was stopped is seen.
+    pub fn resume_merge_scheduling(self: &Arc<Self>) {
+        // The aborted check task can no longer disarm itself.
+        self.merge_check_armed
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        self.merge_scheduling_stopped
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        self.request_merge_check();
+    }
+
     /// Stop this index's background merge scheduling permanently and abort
     /// the armed check task, if any.
     ///
@@ -18772,6 +19500,9 @@ impl Index {
     ///   * `vector_doc_count >= HNSW_MIN_DOCS` — small vector sets (every
     ///     ES-YAML vector test is ≤ a few hundred docs) keep today's
     ///     byte-identical exact path;
+    ///   * the stored vectors exceed the exact-scan budget (#3006,
+    ///     [`knn_prefers_exact_scan`]): below it the exact scan is the faster
+    ///     executor and its recall is exact;
     ///   * coverage: `hnsw_id_map.len() == vector_doc_count` (item 8), i.e.
     ///     every doc that CARRIES the pinned vector field has a graph entry.
     ///     Docs lacking the field are not vector docs and belong in neither
@@ -18846,6 +19577,16 @@ impl Index {
         // brute — never to wrong results.
         let vector_doc_count = self.vector_doc_count.load(Ordering::Relaxed);
         if vector_doc_count < HNSW_MIN_DOCS {
+            return None;
+        }
+        // #3006: a small vector set is cheaper to scan exactly than to search
+        // through the graph and then hydrate every candidate for the rescore,
+        // and the exact scan's answer has exact recall.
+        if knn_prefers_exact_scan(
+            vector_doc_count,
+            query_vec.len(),
+            self.knn_exact_scan_max_bytes.load(Ordering::Relaxed),
+        ) {
             return None;
         }
         if self.hnsw_id_map.read().await.len() as u64 != vector_doc_count {
@@ -19403,6 +20144,8 @@ impl Index {
         let store = Arc::clone(&self.store);
         let load_segment_id = segment_id.to_string();
         let vector_field = field.to_string();
+        let admission = self.read_admission();
+        let hydration = Arc::clone(&admission.hydration);
         let built = Self::on_background_pool(move || {
             let _permit = permit;
             let reader = store.open_segment_arc(&load_segment_id).ok()?;
@@ -19428,6 +20171,20 @@ impl Index {
             {
                 return None;
             }
+            // #2427: reserve the column before copying the projection into
+            // it. A refusal (the parent breaker) answers `Unavailable`: the
+            // caller's stored-document load then meets the same breaker and
+            // reports the 429.
+            let dims = projection
+                .vectors
+                .iter()
+                .flatten()
+                .map(Vec::len)
+                .next()
+                .unwrap_or(0);
+            let read_permit = admission
+                .admit(vector_column_estimate(rows, dims), "vector_column")
+                .ok()?;
             let mut builder = ColumnBuilder::new(&vector_field, ColumnMode::BestPassage);
             for row in 0..rows {
                 builder.push_projected(
@@ -19440,24 +20197,26 @@ impl Index {
                         .and_then(|chunks| chunks[row].as_deref()),
                 );
             }
-            Some(Some(builder.finish()))
+            Some(Some((builder.finish(), read_permit)))
         })
         .await;
-        let column = match built {
-            Some(Some(column)) => column,
+        let (column, read_permit) = match built {
+            Some(Some(built)) => built,
             Some(None) => return ProjectedColumn::NoStoredSection,
             None => return ProjectedColumn::Unavailable,
         };
         let bytes = column
             .retained_bytes()
             .saturating_add(column_key.len() as u64);
-        ProjectedColumn::Built(self.publish_current(
+        ProjectedColumn::Built(self.publish_current_permitted(
             &self.vector_column_cache,
             segment_id,
             column_key,
             SegmentCacheCategory::VectorColumn,
             bytes,
             column,
+            &hydration,
+            read_permit,
         ))
     }
 
@@ -20170,12 +20929,15 @@ impl Index {
             }
             let docs_arc = match tokio::time::timeout_at(
                 tokio::time::Instant::from_std(deadline),
-                self.stored_values_for_async(&meta.id),
+                self.stored_values_for_async_checked(&meta.id),
             )
             .await
             {
-                Ok(Some(a)) => a,
-                Ok(None) => continue,
+                Ok(Ok(Some(a))) => a,
+                Ok(Ok(None)) => continue,
+                // #2427: the parent breaker refused the cold decode — a 429,
+                // not a segment silently missing from the answer.
+                Ok(Err(refused)) => return Err(refused),
                 Err(_) => {
                     timed_out = true;
                     break;
@@ -20188,6 +20950,17 @@ impl Index {
             let mut builder = cached_column
                 .is_none()
                 .then(|| ColumnBuilder::new(field, column_mode));
+            // #2427: a column the cache cannot keep is a per-query transient
+            // as large as the segment's vectors. Reserve it before building
+            // (a 429 if it would carry the process past its hard limit).
+            let admission = self.read_admission();
+            let mut column_permit = match builder.as_ref() {
+                Some(_) => admission.admit_on_runtime(
+                    vector_column_estimate(docs_arc.len(), query_vec.len()),
+                    "vector_column",
+                )?,
+                None => None,
+            };
             let view = segment_views.len();
             let mut segment_complete = true;
             // Cache-backed iteration: stored_values_for() handles the
@@ -20223,24 +20996,37 @@ impl Index {
                 (Some(column), _) => column,
                 // A column abandoned at the deadline covers a prefix of the
                 // segment. It serves this request's partial answer and is
-                // dropped — only a complete column is ever published.
+                // dropped — only a complete column is ever published. It is
+                // transient even when the cache had room, so it always holds
+                // a read reservation (#2427).
                 (None, Some(builder)) if !segment_complete => {
-                    CacheResident::uncached(builder.finish())
+                    let column = builder.finish();
+                    let bytes = column.retained_bytes();
+                    let permit = match column_permit.take() {
+                        Some(mut permit) => {
+                            permit.true_up(bytes);
+                            permit
+                        }
+                        None => admission.read_budget.reserve_built(bytes),
+                    };
+                    CacheResident::uncached_with_permit(column, Some(permit))
                 }
                 (None, Some(builder)) => {
                     let column = builder.finish();
                     let bytes = column
                         .retained_bytes()
                         .saturating_add(column_key.len() as u64);
-                    // Over budget this comes back uncached: the next query
-                    // derives it again, which is what every query did before.
-                    self.publish_current(
+                    // Over budget this comes back uncached, holding its read
+                    // reservation: the next query derives it again.
+                    self.publish_current_permitted(
                         &self.vector_column_cache,
                         &meta.id,
                         column_key,
                         SegmentCacheCategory::VectorColumn,
                         bytes,
                         column,
+                        &admission.hydration,
+                        column_permit.take(),
                     )
                 }
                 (None, None) => unreachable!("a builder exists whenever the column is not cached"),
@@ -20492,11 +21278,36 @@ impl Index {
         // shared stored values, so a query pays for `k` sources, not for the
         // corpus.
         rank_knn_pool(&mut scored, k, |entry| entry.1);
+        // #3006: put the capped pool in page order BEFORE hydrating, from ids
+        // alone (#3017's `score, seq_no, _id` key needs no source), so only
+        // the documents the response returns are hydrated. A `k: 300` request
+        // for a 10-hit page used to decode and clone 300 sources — every one
+        // carrying its stored vector — and keep 10. Aggregations read every
+        // neighbour's source, so with `aggs` the whole pool is still hydrated.
+        let mut ordered: Vec<(String, f32, Value, Option<u32>)> = scored
+            .iter()
+            .map(|&(candidate, score, ordinal)| {
+                let id = candidates[candidate].id(&mem_docs, &segment_views);
+                (id, score, Value::from(candidate as u64), ordinal)
+            })
+            .collect();
+        order_knn_pool_page_order(self, &mut ordered);
+        let page = if request.aggs.is_some() {
+            0..ordered.len()
+        } else if request.size == 0 {
+            0..0
+        } else {
+            let start = request.from.min(ordered.len());
+            start..request.from.saturating_add(request.size).min(ordered.len())
+        };
+        let candidate_of = |entry: &(String, f32, Value, Option<u32>)| {
+            entry.2.as_u64().expect("candidate index") as usize
+        };
         // #1091: winners in a column-scanned segment are hydrated together,
         // one row-selective decode per segment, before the page is assembled.
         let mut by_view: HashMap<usize, Vec<usize>> = HashMap::new();
-        for (candidate, _, _) in &scored {
-            if let KnnCandidateAt::Segment { view, position } = candidates[*candidate] {
+        for entry in &ordered[page.clone()] {
+            if let KnnCandidateAt::Segment { view, position } = candidates[candidate_of(entry)] {
                 if segment_views[view].docs.is_none() {
                     by_view.entry(view).or_default().push(position);
                 }
@@ -20544,14 +21355,52 @@ impl Index {
         for (view, positions) in by_view {
             let hydrate_started = std::time::Instant::now();
             let rows_wanted = positions.len();
-            let rows = match self
-                .hydrate_segment_rows(
-                    &segment_views[view].segment_id,
-                    positions.clone(),
-                    omit_companions.clone(),
-                )
-                .await
-            {
+            // #3006: a warm segment hydrates from its cached offset index —
+            // one JSON parse per returned row. The row decoder below walks
+            // every requested column end to end to reach its rows, so its
+            // cost is the segment's, not the page's: measured 20 ms on a
+            // 721-doc and 80 ms on a 3,080-doc segment of 768-dim vectors,
+            // for 10 rows as for 300, against a 2 ms scan. A cold segment
+            // still takes the row decode and then schedules the same
+            // background warm the BM25 cold path does (#2422/#2423), so the
+            // next query is warm.
+            let warm_rows = self
+                .stored_slices_cache
+                .get(segment_views[view].segment_id.as_str())
+                .map(|entry| Arc::clone(entry.value()))
+                .and_then(|slices| {
+                    positions
+                        .iter()
+                        .map(|&position| {
+                            let &(start, end) = slices.offsets.get(position)?;
+                            let slice = slices.bytes.get(start as usize..end as usize)?;
+                            // serde_json, not simd_json: see ffd49ac.
+                            let doc = serde_json::from_slice::<Value>(slice).ok()?;
+                            Some(knn_stored_hit_owned(doc))
+                        })
+                        .collect::<Option<Vec<_>>>()
+                });
+            let cold_rows = match warm_rows {
+                Some(rows) => Some(rows),
+                None => {
+                    let rows = self
+                        .hydrate_segment_rows(
+                            &segment_views[view].segment_id,
+                            positions.clone(),
+                            omit_companions.clone(),
+                        )
+                        .await;
+                    if let Some(meta) = snap
+                        .segments
+                        .iter()
+                        .find(|meta| meta.id == segment_views[view].segment_id)
+                    {
+                        self.schedule_cold_stored_warm(&meta.id, meta.doc_count);
+                    }
+                    rows
+                }
+            };
+            let rows = match cold_rows {
                 Some(rows) => rows,
                 // A section the row decoder cannot address — LZ4 below
                 // `V2_MIN_DOCS` documents, a ZBS3 wrapper, a dependency shape
@@ -20560,8 +21409,8 @@ impl Index {
                 // gone altogether sends the request back to a full rescan.
                 None => {
                     let Some(docs) = self
-                        .stored_values_for_async(&segment_views[view].segment_id)
-                        .await
+                        .stored_values_for_async_checked(&segment_views[view].segment_id)
+                        .await?
                     else {
                         return Ok(None);
                     };
@@ -20591,8 +21440,19 @@ impl Index {
                 tracing::info!(index=%self.name, segment=%segment_views[view].segment_id, rows=rows_wanted, elapsed_ms=hydrate_started.elapsed().as_millis() as u64, "semantic_phase=hydrate_rows");
             }
         }
-        let mut ranked: Vec<(String, f32, Value, Option<u32>)> = Vec::with_capacity(scored.len());
-        for (candidate, score, ordinal) in scored {
+        // #3017: the cap above kept tied candidates in scan order (memtable,
+        // then segments), which moves when a memtable flushes; `ordered` is
+        // the one score-ranked order every executor shares. Entries outside
+        // the page keep a `Null` source: `knn_result_from_ranked` counts them
+        // into `total` and never reads them.
+        let mut ranked = ordered;
+        for (at, entry) in ranked.iter_mut().enumerate() {
+            if !page.contains(&at) {
+                entry.2 = Value::Null;
+            }
+        }
+        for entry in &mut ranked[page] {
+            let candidate = candidate_of(entry);
             let (id, source) = match candidates[candidate].hydrate(&mem_docs, &segment_views) {
                 KnnHydrated::Ready(id, source) => (id, source),
                 KnnHydrated::Columnar { view, position } => {
@@ -20602,7 +21462,10 @@ impl Index {
                     }
                 }
             };
-            ranked.push((id, score, source, ordinal));
+            if id != entry.0 {
+                return Ok(None);
+            }
+            entry.2 = source;
         }
 
         // (result shaping is shared with the HNSW path so hits format / total
@@ -21597,6 +22460,82 @@ impl Index {
             .await
     }
 
+    /// #3018: run every hybrid leg at once, one OS thread per leg, and return
+    /// the outcomes in leg order. Leg 0 runs on the calling thread.
+    ///
+    /// The calling thread is handed to the blocking pool first
+    /// (`block_in_place`; a no-op hand-off when a search is already running
+    /// inside one, which is how a hybrid request arrives), so no async worker
+    /// is parked while the legs run. Each leg drives its own future with
+    /// `Handle::block_on`, so its awaits (segment loads on the blocking pool,
+    /// an embedder round trip) work as they do on the request's task.
+    ///
+    /// A thread does not inherit the request's task-locals, so the ones a
+    /// search consults are carried over by hand: the index-visibility rule
+    /// (`index_guard`), the script deadline, and a script-fault sink whose
+    /// first fault is re-raised into the request's own capture scope. The
+    /// semantic-highlight plan is not carried: hybrid legs never highlight.
+    ///
+    /// A panicking leg is resumed on the caller, exactly as a panic inside a
+    /// joined future would have unwound it.
+    fn run_hybrid_legs_on_threads(
+        &self,
+        handle: &tokio::runtime::Handle,
+        sub_requests: &[SearchRequest],
+        deadline: std::time::Instant,
+    ) -> Vec<Result<SearchResult>> {
+        let visibility = crate::index_guard::current();
+        let script_deadline = crate::painless::current_script_deadline();
+        let run_leg = |leg: &SearchRequest| {
+            let visibility = visibility.clone();
+            handle.block_on(crate::painless::with_script_fault_capture(async move {
+                let search = crate::index_guard::scoped_opt(
+                    visibility,
+                    Box::pin(self.search_inner(leg, deadline)),
+                );
+                match script_deadline {
+                    Some(at) => crate::painless::with_script_deadline(at, search).await,
+                    None => search.await,
+                }
+            }))
+        };
+        let outcomes: Vec<(Result<SearchResult>, Option<String>)> =
+            tokio::task::block_in_place(|| {
+                std::thread::scope(|scope| {
+                    let others: Vec<_> = sub_requests[1..]
+                        .iter()
+                        .map(|leg| {
+                            std::thread::Builder::new()
+                                .name("xerj-hybrid-leg".into())
+                                .spawn_scoped(scope, || run_leg(leg))
+                        })
+                        .collect();
+                    let mut outcomes = Vec::with_capacity(sub_requests.len());
+                    outcomes.push(run_leg(&sub_requests[0]));
+                    for (offset, spawned) in others.into_iter().enumerate() {
+                        let outcome = match spawned {
+                            Ok(thread) => thread
+                                .join()
+                                .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+                            // The OS refused a thread: run that leg here.
+                            Err(_) => run_leg(&sub_requests[offset + 1]),
+                        };
+                        outcomes.push(outcome);
+                    }
+                    outcomes
+                })
+            });
+        outcomes
+            .into_iter()
+            .map(|(outcome, fault)| {
+                if let Some(fault) = fault {
+                    crate::painless::record_script_fault(&fault);
+                }
+                outcome
+            })
+            .collect()
+    }
+
     async fn run_hybrid_with_deadline(
         &self,
         request: &SearchRequest,
@@ -21636,9 +22575,12 @@ impl Index {
         // Under the default lexical embedder the embedding is synchronous and
         // there is nothing to overlap; this costs nothing there.
         //
-        // Spawning each leg as its own task would buy real parallelism, but
-        // needs an `Arc<Self>` this `&self` chain does not have, next to the
-        // `block_in_place` hand-off that produced #751. Not for ~10 ms.
+        // #3018: that was the whole story only on a current-thread runtime.
+        // On the multi-thread runtime the legs now run in PARALLEL, one OS
+        // thread each (`run_hybrid_legs_on_threads`), because a lexical scan
+        // and a vector scan are both CPU-bound and do not await: a measured
+        // two-leg request cost the sum of its legs. The consumption order and
+        // the error/timeout rules below are the same for both executions.
         let mut sub_results: Vec<(Vec<Hit>, f32)> = Vec::with_capacity(sub_queries.len());
         let mut sub_savings: Vec<PayloadSavings> = Vec::new();
         let mut any_timed_out = false;
@@ -21675,8 +22617,24 @@ impl Index {
             .collect();
         let mut leg_outcomes: Vec<Option<Result<SearchResult>>> =
             sub_requests.iter().map(|_| None).collect();
+        let parallel_runtime = tokio::runtime::Handle::try_current()
+            .ok()
+            .filter(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread)
+            .filter(|_| hybrid_parallel_legs_enabled());
         if std::time::Instant::now() >= deadline {
             any_timed_out = true;
+        } else if let (Some(handle), true) = (parallel_runtime, sub_requests.len() > 1) {
+            // #3018: on the multi-thread runtime every leg gets its own OS
+            // thread. The join below only overlapped a leg's awaits; a BM25
+            // scan and an exact or ANN vector scan are CPU work that never
+            // awaits, so a two-leg request cost the SUM of its legs.
+            for (leg, outcome) in self
+                .run_hybrid_legs_on_threads(&handle, &sub_requests, deadline)
+                .into_iter()
+                .enumerate()
+            {
+                leg_outcomes[leg] = Some(outcome);
+            }
         } else {
             let mut poll_order: Vec<usize> = (0..sub_requests.len()).collect();
             // Stable: legs that embed keep their relative order, then the rest.
@@ -22045,12 +23003,15 @@ impl Index {
             // run_knn_brute_force.
             let docs_arc = match tokio::time::timeout_at(
                 tokio::time::Instant::from_std(deadline),
-                self.stored_values_for_async(&meta.id),
+                self.stored_values_for_async_checked(&meta.id),
             )
             .await
             {
-                Ok(Some(a)) => a,
-                Ok(None) => continue,
+                Ok(Ok(Some(a))) => a,
+                Ok(Ok(None)) => continue,
+                // #2427: the parent breaker refused the cold decode — a 429,
+                // not a segment silently missing from the answer.
+                Ok(Err(refused)) => return Err(refused),
                 Err(_) => {
                     timed_out = true;
                     break;
@@ -23924,13 +24885,26 @@ impl Index {
         let started = std::time::Instant::now();
         let deadline =
             started + std::time::Duration::from_millis(request.timeout_ms.unwrap_or(30_000));
+        let mut admission_wait: Option<std::time::Instant> = None;
         loop {
             let token = loop {
                 let notified = self.collection_publication.notified();
                 tokio::pin!(notified);
                 notified.as_mut().enable();
                 match self.collection_publication.try_admit_reader() {
-                    ReadAdmission::Admitted(token) => break token,
+                    ReadAdmission::Admitted(token) => {
+                        if let Some(since) = admission_wait.take() {
+                            let waited = since.elapsed();
+                            if xerj_storage::stall_trace::is_slow(waited) {
+                                tracing::warn!(
+                                    index = %self.name,
+                                    waited_ms = waited.as_millis() as u64,
+                                    "search waited for a collection publication bracket"
+                                );
+                            }
+                        }
+                        break token;
+                    }
                     ReadAdmission::Poisoned => {
                         return Err(collection_publication_interrupted());
                     }
@@ -23950,6 +24924,7 @@ impl Index {
                         // on the wake.
                         self.collection_publication.arm_reader();
                         let _waiting = ReaderWaitGuard(&self.collection_publication);
+                        admission_wait.get_or_insert_with(std::time::Instant::now);
                         if tokio::time::timeout_at(
                             tokio::time::Instant::from_std(deadline),
                             notified,
@@ -23957,6 +24932,11 @@ impl Index {
                         .await
                         .is_err()
                         {
+                            tracing::warn!(
+                                index = %self.name,
+                                waited_ms = started.elapsed().as_millis() as u64,
+                                "search deadline spent waiting for a collection publication bracket"
+                            );
                             return Ok(self.deadline_exhausted_result(started));
                         }
                     }
@@ -24050,15 +25030,21 @@ impl Index {
         // `dataset_version` counter which bumps on every doc write.
         //
         // Skipped when:
-        // - `request.profile == true` (profiling output should always
-        //   reflect a fresh execution).
         // - `request.scroll.is_some()` / scroll cursor (stateful).
         // - `request.search_after.is_some()` (cursor-based pagination
         //   could collide with cached state).
         // XERJ_DISABLE_QUERY_CACHE=1 turns off the whole-result cache so a
         // benchmark measures true per-request execution on every call (no
         // took_ms=0 clone). Read once. Normal operation is unaffected.
-        let cache_eligible = !request.profile && request.search_after.is_none() && {
+        //
+        // #3020: a `profile: true` request is cached too (its key differs
+        // from the plain request's: `profile` is part of the hashed body), and
+        // its profile says which way it went: `request_cache` is "miss" on
+        // the run that executed, "hit" when this cache (or an in-flight
+        // identical request) answered, "bypass" when the request was not
+        // eligible. Before this, profile requests always bypassed the cache
+        // and nothing in any response said whether a timing was a cache hit.
+        let cache_eligible = request.search_after.is_none() && {
             static DISABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
             !*DISABLED.get_or_init(|| {
                 matches!(
@@ -24125,6 +25111,7 @@ impl Index {
                 self.query_cache_hits.fetch_add(1, Ordering::Relaxed);
                 let mut cloned = (**entry.value()).clone();
                 cloned.took_ms = 0;
+                stamp_request_cache(&mut cloned, request, RequestCacheOutcome::Hit);
                 self.metric_query_count.fetch_add(1, Ordering::Relaxed);
                 return Ok(cloned);
             }
@@ -24183,6 +25170,7 @@ impl Index {
                         if let Some(r) = rx.borrow_and_update().clone() {
                             let mut cloned = (*r).clone();
                             cloned.took_ms = 0;
+                            stamp_request_cache(&mut cloned, request, RequestCacheOutcome::Hit);
                             self.metric_query_count.fetch_add(1, Ordering::Relaxed);
                             self.metric_singleflight_coalesced
                                 .fetch_add(1, Ordering::Relaxed);
@@ -24208,6 +25196,7 @@ impl Index {
                             if let Some(entry) = self.query_cache.get(&key) {
                                 let mut cloned = (**entry.value()).clone();
                                 cloned.took_ms = 0;
+                                stamp_request_cache(&mut cloned, request, RequestCacheOutcome::Hit);
                                 self.metric_query_count.fetch_add(1, Ordering::Relaxed);
                                 self.metric_singleflight_coalesced
                                     .fetch_add(1, Ordering::Relaxed);
@@ -24375,7 +25364,18 @@ impl Index {
                 .await
         };
         match search_result {
-            Ok(result) => {
+            Ok(mut result) => {
+                if let Ok(r) = result.as_mut() {
+                    stamp_request_cache(
+                        r,
+                        request,
+                        if cache_key.is_some() {
+                            RequestCacheOutcome::Miss
+                        } else {
+                            RequestCacheOutcome::Bypass
+                        },
+                    );
+                }
                 let took_ms = search_start.elapsed().as_millis() as u64;
                 // Record metrics.
                 self.metric_query_count.fetch_add(1, Ordering::Relaxed);
@@ -24583,6 +25583,10 @@ impl Index {
         // partial by construction and MUST be replaced by `shortcut_count`
         // post-loop (mirrors `scan_hit_cap` for the unsorted bounded scan).
         let mut sort_candidates_narrowed = false;
+        // Set when a `residual_gate` segment pass stopped after its own best
+        // `materialisation_limit` hits; its `total_count` is then partial and
+        // the post-loop overwrite replaces it with the shortcut total.
+        let mut residual_truncated = false;
         // Slow-query phase attribution (logged for >1 s queries).
         let phase_t0 = std::time::Instant::now();
         let mut phase_marks: Vec<(&'static str, u64)> = Vec::new();
@@ -25757,6 +26761,7 @@ impl Index {
                     self.build_collection_stats(
                         &snap,
                         query,
+                        &dmq_schema,
                         &text_fields,
                         &exact_fields,
                         fts_kw_fields,
@@ -25772,6 +26777,20 @@ impl Index {
 
         let mem_snapshot = {
             let mem = &*self.memtable;
+            // #3329: the analyzer the multi_match / phrase / filtered-bool
+            // memtable arms count query tokens with. Taken once, and only for
+            // the shapes those arms can serve (a shard read lock per call).
+            let mem_analyzer = if mem_doc_count > 0
+                && matches!(
+                    query,
+                    QueryNode::MultiMatch { .. }
+                        | QueryNode::MatchPhrase { .. }
+                        | QueryNode::Bool { .. }
+                ) {
+                mem.default_analyzer()
+            } else {
+                None
+            };
             if mem_doc_count == 0 {
                 MemSnapshot::Empty
             } else if matches!(query, QueryNode::MatchAll) && size == 0 && request.aggs.is_none() {
@@ -25903,8 +26922,90 @@ impl Index {
                         uncollected,
                     )
                 }
-            } else if let Some((bf_field, bf_text, bf_must, bf_gate)) =
-                bool_filter_mem_fts_must(query)
+            } else if let Some((mm_subs, mm_tie)) =
+                multi_match_mem_fts_subs(query, &dmq_schema, &text_fields, mem_analyzer.as_deref())
+            {
+                // #3329: a field-centric `multi_match` used to fall through
+                // to the stored-doc scan, whose scorer gives 1.0 per matched
+                // field — every buffered hit tied and the ranking changed at
+                // flush (BEIR scifact nDCG@10 0.19 unflushed vs 0.62
+                // flushed). Score each field through the SAME memtable BM25
+                // path a standalone `match` takes and combine per doc like the
+                // segment projection: MAX for `best_fields`, SUM for
+                // `most_fields` / `cross_fields`. Same ghost-window widening
+                // as the `dis_max` arm above.
+                let mem_limit = if self.store.version_map.ghost_events() > 0 {
+                    usize::MAX
+                } else {
+                    fetch_limit
+                };
+                let mem_stats = collection_stats();
+                let (hits, mem_total) = mem.search_dis_max_boosted_with_total_using(
+                    &mm_subs,
+                    mm_tie,
+                    mem_limit,
+                    mem_stats.as_deref(),
+                );
+                if hits.is_empty() {
+                    MemSnapshot::Empty
+                } else {
+                    let uncollected = mem_total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::FtsHits(
+                        hits.into_iter().map(|h| (h.doc_id, h.score)).collect(),
+                        uncollected,
+                    )
+                }
+            } else if let Some(ph_subs) = self
+                .scan_phrase_analyzer()
+                .is_none()
+                .then(|| {
+                    phrase_mem_fts_subs(query, &dmq_schema, &text_fields, mem_analyzer.as_deref())
+                })
+                .flatten()
+            {
+                // #3329: `match_phrase` and `multi_match` `type: phrase` fell
+                // to the stored-doc scan too (1.0 per hit). Score each field
+                // like a `match` of the phrase text — what the segment's
+                // `execute_phrase` sums for a matching doc — gated by the
+                // stored-doc phrase predicate the scan already used, combined
+                // by MAX (dis_max, tie 0.0) like the segment projection.
+                // Each sub runs UNCAPPED inside
+                // `search_dis_max_gated_with_total_using` (a capped page could
+                // lose a gated hit); only the combined list is capped.
+                // Standard text analyzer only: under a non-standard one
+                // (`code`, #3285) the scan's phrase predicate needs the
+                // `ScanPhraseAnalyzer` scope and the segment phrase walks
+                // stacked positions, so that index keeps the doc-scan route.
+                let mem_limit = if self.store.version_map.ghost_events() > 0 {
+                    usize::MAX
+                } else {
+                    fetch_limit
+                };
+                let subs: Vec<(&str, &str, f32)> = ph_subs.iter().map(|(sub, _)| *sub).collect();
+                let admit = |i: usize, doc_id: &str| {
+                    mem.get_doc_source_arc(doc_id).is_some_and(|src| {
+                        doc_matches_query_typed(&ph_subs[i].1, &src, &dmq_schema)
+                    })
+                };
+                let mem_stats = collection_stats();
+                let (hits, mem_total) = mem.search_dis_max_gated_with_total_using(
+                    &subs,
+                    0.0,
+                    mem_limit,
+                    mem_stats.as_deref(),
+                    &admit,
+                );
+                if hits.is_empty() {
+                    MemSnapshot::Empty
+                } else {
+                    let uncollected = mem_total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::FtsHits(
+                        hits.into_iter().map(|h| (h.doc_id, h.score)).collect(),
+                        uncollected,
+                    )
+                }
+            } else if let Some((bf_plan, bf_must, bf_gate)) =
+                bool_filter_mem_fts_must(query, &dmq_schema, &text_fields, mem_analyzer.as_deref())
             {
                 // #2403: `bool{must:[match], filter|must_not:[..]}` used to
                 // fall through to the stored-doc scan, which scored every
@@ -25917,17 +27018,31 @@ impl Index {
                 // admits. UNCAPPED: the gate runs after scoring, so a capped
                 // list could drop a hit the gate would keep, and the consume
                 // arm's ghost-window liveness filter needs every hit anyway.
-                let mut field_boosts: std::collections::HashMap<String, f32> =
-                    std::collections::HashMap::new();
-                collect_field_boosts(bf_must, &mut field_boosts);
+                //
+                // #3329: a `multi_match` `must` scores through the same
+                // per-field combine as the standalone `multi_match` arm above.
                 let mem_stats = collection_stats();
-                let (hits, _) = mem.search_text_boosted_with_total_using(
-                    bf_text,
-                    &[bf_field],
-                    usize::MAX,
-                    &field_boosts,
-                    mem_stats.as_deref(),
-                );
+                let (hits, _) = match bf_plan {
+                    MemFtsMust::Match(bf_field, bf_text) => {
+                        let mut field_boosts: std::collections::HashMap<String, f32> =
+                            std::collections::HashMap::new();
+                        collect_field_boosts(bf_must, &mut field_boosts);
+                        mem.search_text_boosted_with_total_using(
+                            bf_text,
+                            &[bf_field],
+                            usize::MAX,
+                            &field_boosts,
+                            mem_stats.as_deref(),
+                        )
+                    }
+                    MemFtsMust::MultiMatch(subs, tie) => mem
+                        .search_dis_max_boosted_with_total_using(
+                            &subs,
+                            tie,
+                            usize::MAX,
+                            mem_stats.as_deref(),
+                        ),
+                };
                 // Same conservative `_id` detection as the doc-scan arm: only
                 // a gate that can read `_id` pays for injecting it.
                 let gate_may_read_id: bool = serde_json::to_string(&bf_gate)
@@ -26292,6 +27407,9 @@ impl Index {
             }
             MemSnapshot::DocsForScan(docs) => {
                 // Lock already released — scan docs without holding the memtable lock.
+                // #3285: no `.await` in this arm, so the scoped analyzer
+                // stays on this thread for the whole walk.
+                let _phrase_analyzer = ScanPhraseAnalyzer::enter(self.scan_phrase_analyzer());
                 //
                 // `_id` injection (a full per-doc Object clone) is only
                 // observable when the query tree can actually read `_id`
@@ -26923,6 +28041,27 @@ impl Index {
             // itself is made delete-aware. (`deletes_present` hoisted above.)
             let count_authoritative: bool = !query_needs_fts
                 && (is_match_all_effective || (shortcut_count.is_some() && !deletes_present));
+            // Read-under-write bool collapse: `bool{must:[keyword term],
+            // filter:[range]}` takes the `residual_gate` FTS pass whenever the
+            // memtable holds a document (`scored_columnar` needs it empty).
+            // That pass decodes and re-tests EVERY match of every segment just
+            // to tally `hits.total` — ~4.5 µs per match, 6.6 s at 1.4M
+            // matches, while the same index with an empty memtable answers in
+            // ~20 ms. When the doc-values shortcut already holds the exact
+            // total (same delete-blind gate as F1 above), a segment can stop
+            // after it has admitted its own best `materialisation_limit` hits:
+            // `seg_hits` is sorted (score DESC, position ASC) and positions are
+            // `seq_no` order, so later hits of the same segment cannot displace
+            // them. The post-loop overwrite then takes the shortcut total.
+            let residual_bounded_ok: bool = residual_gate
+                && !count_only
+                && !deletes_present
+                && sort_topk.is_none()
+                && shortcut_count.is_some()
+                && request.aggs.is_none()
+                && request.min_score.is_none()
+                && request.collapse.is_none()
+                && request.rescore.is_empty();
 
             // Whether a Regexp query's field is keyword-typed — gates the
             // FST term-dictionary route of the regexp pre-filter (computed
@@ -27283,6 +28422,7 @@ impl Index {
                                                 .and_then(|d| d.get(pos as usize).cloned())
                                         }
                                     };
+                                    let mut seg_admitted: usize = 0;
                                     for (scanned, sh) in seg_hits.iter().enumerate() {
                                         // #2431: per-hit source reads + full
                                         // query re-test over O(matches) hits.
@@ -27290,6 +28430,8 @@ impl Index {
                                             deadline_exceeded = true;
                                             break;
                                         }
+                                        #[cfg(test)]
+                                        RESIDUAL_HITS_DECODED.with(|c| c.set(c.get() + 1));
                                         let doc = match fetch(sh.doc_id) {
                                             Some(d) => d,
                                             None => continue,
@@ -27370,6 +28512,7 @@ impl Index {
                                                 topk.offer(hit, seq, self);
                                             } else {
                                                 all_hits.push(hit);
+                                                seg_admitted += 1;
                                                 #[cfg(test)]
                                                 RESIDUAL_HITS_PEAK
                                                     .with(|c| c.set(c.get().max(all_hits.len())));
@@ -27392,6 +28535,22 @@ impl Index {
                                                         materialisation_limit,
                                                     );
                                                     all_hits = kept;
+                                                }
+                                                // This segment has admitted its own best
+                                                // `materialisation_limit` hits; with the
+                                                // shortcut total standing in for the tally
+                                                // (`residual_bounded_ok`), the rest of its
+                                                // matches can only be counted, so stop. A
+                                                // shortcut already below the exact running
+                                                // tally is not trusted (it under-counts
+                                                // some field shapes, see the F1 overwrite).
+                                                if residual_bounded_ok
+                                                    && seg_admitted >= materialisation_limit
+                                                    && shortcut_count
+                                                        .is_some_and(|sc| total_count <= sc)
+                                                {
+                                                    residual_truncated = true;
+                                                    break;
                                                 }
                                             }
                                         }
@@ -29240,6 +30399,16 @@ impl Index {
         // same overwrite.
         if is_match_all_effective {
             total_count = self.live_doc_count();
+        } else if residual_truncated {
+            // A `residual_gate` segment pass stopped once it held its own
+            // best page (see `residual_bounded_ok`), so the tally is partial;
+            // the doc-values shortcut (segments + memtable, no deletes) is
+            // the exact total. Same sanity floor as the F1 branch below.
+            if let Some(sc) = shortcut_count {
+                if sc >= total_count.max(final_hits.len() as u64) {
+                    total_count = sc;
+                }
+            }
         } else if !count_only
             && !query_needs_fts
             && !scored_fast_applied
@@ -29492,7 +30661,7 @@ impl Index {
                 // caller decodes and publishes, every other concurrent
                 // caller (single-flight) and every later query (cache hit)
                 // just clone the `Arc`.
-                let arr = match self.stored_values_for_async(&seg.id).await {
+                let arr = match self.stored_values_for_async_checked(&seg.id).await? {
                     Some(a) => a,
                     // Segment unreadable (transient I/O, or merged away
                     // under this pass's snapshot). A skipped segment
@@ -31099,8 +32268,15 @@ impl Index {
     // ── Delete index ──────────────────────────────────────────────────────────
 
     /// Remove all data files for this index.
+    ///
+    /// The directory is renamed into `<data_dir>/_trash` first, so the name
+    /// is free even when a file in it cannot be removed yet (an NFS
+    /// silly-renamed mmap, a straggling flush); see [`crate::index_trash`]
+    /// (#3274). `Err` means the name could not be freed at all.
     pub async fn delete_all_data(&self) -> Result<()> {
-        std::fs::remove_dir_all(&self.data_dir).map_err(EngineError::Io)?;
+        let root = self.data_dir.parent().unwrap_or(&self.data_dir);
+        crate::index_trash::retire_dir(root, &self.data_dir, self.name.as_str())
+            .map_err(EngineError::Io)?;
         Ok(())
     }
 
@@ -33778,6 +34954,7 @@ impl Index {
         &self,
         snap: &xerj_storage::index_store::IndexSnapshot,
         query: &QueryNode,
+        schema: &Schema,
         text_fields: &[String],
         exact_fields: &HashSet<String>,
         keyword_fields: &HashSet<String>,
@@ -33847,11 +35024,31 @@ impl Index {
         // A filtered `bool` (#2403) has no query text of its own, but its
         // memtable arm scores the one `must` match: count that clause, or a
         // mixed index scores its segment hits against a union that left the
-        // unflushed docs out.
-        let mem_text = match bool_filter_mem_fts_must(query) {
-            Some((_, text, _, _)) => Some(text.to_string()),
-            None => extract_query_text(query),
-        };
+        // unflushed docs out. A field-centric `multi_match` (#3329) has no
+        // `extract_query_text` either; its memtable arm scores its query text
+        // over its fields, so count that too.
+        let mem_analyzer = self.memtable.default_analyzer();
+        let mem_text =
+            match bool_filter_mem_fts_must(query, schema, text_fields, mem_analyzer.as_deref()) {
+                Some((plan, _, _)) => plan.text().map(str::to_string),
+                None => extract_query_text(query)
+                    .or_else(|| {
+                        multi_match_mem_fts_subs(
+                            query,
+                            schema,
+                            text_fields,
+                            mem_analyzer.as_deref(),
+                        )
+                        .and_then(|(subs, _)| subs.first().map(|s| s.1.to_string()))
+                    })
+                    .or_else(|| {
+                        if self.scan_phrase_analyzer().is_some() {
+                            return None;
+                        }
+                        phrase_mem_fts_subs(query, schema, text_fields, mem_analyzer.as_deref())
+                            .and_then(|subs| subs.first().map(|((_, text, _), _)| text.to_string()))
+                    }),
+            };
         let mem_stats: Option<xerj_fts::CollectionStats> = if mem_doc_count > 0 {
             mem_text.and_then(|text| self.memtable.collection_stats(&text, &field_refs))
         } else {
@@ -35495,9 +36692,59 @@ impl Index {
     /// warms the immutable segment for the next request. The segment-current
     /// check prevents such a detached completion from resurrecting a cache
     /// entry that a concurrent merge already retired.
+    ///
+    /// Background callers (index rebuilds, presence probes) read a refused
+    /// decode as `None`, like an unreadable segment; search paths use
+    /// [`Self::stored_values_for_async_checked`] to answer it with a 429.
     async fn stored_values_for_async(&self, segment_id: &str) -> Option<Resident<Vec<Value>>> {
+        self.stored_values_for_async_checked(segment_id)
+            .await
+            .ok()
+            .flatten()
+    }
+
+    /// [`Self::stored_values_for_async`] for a search: `Err` is the 429
+    /// `circuit_breaking_exception` of a cold decode the parent breaker
+    /// refused (#2427).
+    async fn stored_values_for_async_checked(
+        &self,
+        segment_id: &str,
+    ) -> Result<Option<Resident<Vec<Value>>>> {
+        self.stored_values_load_with(segment_id, self.read_admission())
+            .await
+    }
+
+    /// The process-wide budgets a read-side transient is admitted against.
+    fn read_admission(&self) -> ReadAdmission {
+        #[cfg(test)]
+        if let Some(pinned) = self.test_read_admission.lock().clone() {
+            return pinned;
+        }
+        ReadAdmission {
+            hydration: Arc::clone(&self.segment_hydration_budget),
+            read_budget: Arc::clone(crate::read_budget::global()),
+            governor: crate::governor::global(),
+        }
+    }
+
+    /// The cold load behind [`Self::stored_values_for_async_checked`], with
+    /// explicit budgets (tests pin them).
+    ///
+    /// #2427: a whole-segment decode the hydration cache cannot keep is a
+    /// per-query transient. Before the decode it reserves a bound on its peak
+    /// (decompressed section plus the parsed tree) in the read budget and
+    /// keeps the reservation until its last reader drops it, like the
+    /// stored-slices, doc-values and FTS-reader builds. One that would carry
+    /// the process past its hard memory limit is refused with a 429 before
+    /// anything is allocated. Before this the load decoded and parsed the
+    /// whole section with no reservation at all.
+    async fn stored_values_load_with(
+        &self,
+        segment_id: &str,
+        admission: ReadAdmission,
+    ) -> Result<Option<Resident<Vec<Value>>>> {
         if let Some(entry) = self.stored_value_cache.get(segment_id) {
-            return Some(Arc::clone(entry.value()));
+            return Ok(Some(Arc::clone(entry.value())));
         }
 
         let segment_id = segment_id.to_string();
@@ -35512,7 +36759,6 @@ impl Index {
                     let store = Arc::clone(&self.store);
                     let cache = Arc::clone(&self.stored_value_cache);
                     let lifecycle = Arc::clone(&self.segment_cache_lifecycle);
-                    let budget = Arc::clone(&self.segment_hydration_budget);
                     let loads = Arc::clone(&self.stored_value_loads);
                     let load_semaphore = Arc::clone(&self.stored_value_load_semaphore);
                     let load_segment_id = segment_id.clone();
@@ -35565,8 +36811,8 @@ impl Index {
                         // pool's `nice(10)`, which only bites when every core is
                         // already saturated.
                         let (decoded_tx, decoded_rx) =
-                            tokio::sync::oneshot::channel::<Option<Resident<Vec<Value>>>>();
-                        let decode = move || -> Option<Resident<Vec<Value>>> {
+                            tokio::sync::oneshot::channel::<Option<StoredValuesLoad>>();
+                        let decode = move || -> Option<StoredValuesLoad> {
                             #[cfg(test)]
                             {
                                 load_count.fetch_add(1, Ordering::Relaxed);
@@ -35577,15 +36823,35 @@ impl Index {
                             }
                             let reader = store.open_segment(&load_segment_id).ok()?;
                             let stored_bytes_raw = reader.section(SectionType::Stored).ok()??;
+                            let doc_count = store
+                                .snapshot()
+                                .segments
+                                .iter()
+                                .find(|meta| meta.id == load_segment_id)
+                                .map_or(0, |meta| meta.doc_count);
+                            let estimate = stored_slices_bound(stored_bytes_raw, doc_count)
+                                .saturating_mul(STORED_VALUES_PEAK_FACTOR);
+                            let mut read_permit =
+                                match admission.admit(estimate, "stored_values_decode") {
+                                    Ok(permit) => permit,
+                                    Err(refused) => {
+                                        return Some(Err(Arc::from(refused.to_string())));
+                                    }
+                                };
                             let stored_bytes =
                                 xerj_storage::stored_codec::decode_stored(stored_bytes_raw).ok()?;
                             let docs: Vec<Value> = serde_json::from_slice(&stored_bytes).ok()?;
+                            drop(stored_bytes);
                             let key = load_segment_id.clone();
                             let bytes = cache_estimates::stored_values_bytes(
                                 &key,
                                 std::mem::size_of::<CacheResident<Vec<Value>>>(),
                                 &docs,
                             );
+                            if let Some(permit) = read_permit.as_mut() {
+                                permit.true_up(bytes);
+                            }
+                            let budget = &admission.hydration;
                             #[cfg(test)]
                             {
                                 ready_to_publish.store(true, Ordering::Release);
@@ -35601,7 +36867,7 @@ impl Index {
                                     .iter()
                                     .any(|meta| meta.id == load_segment_id)
                                 {
-                                    CacheResident::uncached(docs)
+                                    CacheResident::uncached_with_permit(docs, read_permit)
                                 } else {
                                     use dashmap::mapref::entry::Entry;
                                     match cache.entry(key) {
@@ -35611,6 +36877,8 @@ impl Index {
                                                 SegmentCacheCategory::StoredValues,
                                                 bytes,
                                             ) {
+                                                // The cache accounts it now;
+                                                // the reservation is returned.
                                                 let resident = CacheResident::admitted(
                                                     docs,
                                                     charge,
@@ -35620,13 +36888,16 @@ impl Index {
                                                 entry.insert(Arc::clone(&resident));
                                                 resident
                                             } else {
-                                                CacheResident::uncached(docs)
+                                                CacheResident::uncached_with_permit(
+                                                    docs,
+                                                    read_permit,
+                                                )
                                             }
                                         }
                                     }
                                 }
                             };
-                            Some(resident)
+                            Some(Ok(resident))
                         };
                         crate::background_pool().spawn(move || {
                             // Preserve the pre-#751 failure semantics: a panic
@@ -35653,11 +36924,17 @@ impl Index {
         };
 
         loop {
-            if let Some(value) = receiver.borrow_and_update().clone() {
-                return Some(value);
+            match receiver.borrow_and_update().clone() {
+                Some(Ok(value)) => return Ok(Some(value)),
+                Some(Err(refused)) => {
+                    return Err(EngineError::Common(
+                        xerj_common::XerjError::circuit_breaking(refused.to_string()),
+                    ))
+                }
+                None => {}
             }
             if receiver.changed().await.is_err() {
-                return None;
+                return Ok(None);
             }
         }
     }
@@ -37447,6 +38724,9 @@ impl Index {
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
         schema: &Schema,
     ) {
+        // #3285: this walk is synchronous, so the scoped analyzer covers
+        // every `doc_matches_query_typed` below.
+        let _phrase_analyzer = ScanPhraseAnalyzer::enter(self.scan_phrase_analyzer());
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
         // JSON array of objects).  We walk the bytes, find each top-level
@@ -39100,7 +40380,7 @@ async fn do_flush_shard(
             callback();
         }
         let joined = tokio::task::spawn_blocking(move || {
-            let _fin_permit = fin_permit;
+            let fin_permit = fin_permit;
             let _pressure_permit = pressure_permit;
             let flush_reservation = flush_reservation;
             let flush_build_trace = flush_build_trace;
@@ -39159,8 +40439,16 @@ async fn do_flush_shard(
                         return Err(collection_publication_interrupted());
                     }
                 };
+                let bracket_opened = std::time::Instant::now();
                 let published = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     crate::background_pool().install(|| {
+                        let queued = bracket_opened.elapsed();
+                        if xerj_storage::stall_trace::is_slow(queued) {
+                            tracing::warn!(
+                                queued_ms = queued.as_millis() as u64,
+                                "flush publish queued on the background pool inside the publication bracket"
+                            );
+                        }
                         store_for_finalize
                             .publish_flush_segment(&storage_drained_for_finalize, &meta)
                     })
@@ -39207,6 +40495,19 @@ async fn do_flush_shard(
                         std::panic::resume_unwind(payload);
                     }
                 };
+                // #3324 — close the bracket HERE. `commit()` only records the
+                // outcome; the bracket stays open until the guard drops, and
+                // this guard used to live to the end of the closure, across
+                // `after_flush_publish` below (snapshot fsync, WAL rotate and
+                // prune). Every search on the index waited out that disk
+                // work: measured 0.5-1.7 s per flush under I/O pressure, the
+                // all-op stalls that ended at the "segment flushed" log line.
+                drop(collection_publication_guard);
+                // #3324 — the finalize permit bounds CPU-heavy segment builds.
+                // What follows is disk and network wait (snapshot fsync, WAL
+                // checkpoint, bucket catalog PUT), so the next queued
+                // finalize may start now instead of waiting on this disk.
+                drop(fin_permit);
                 // ── POST-publish maintenance — OUTSIDE the bracket (#1015):
                 // the bucket catalog PUT is network I/O and the WAL
                 // checkpoint/prune takes locks; neither belongs between
@@ -42234,6 +43535,10 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
     if query_terms.is_empty() {
         return hits;
     }
+    // A field holding none of the terms may still have matched on single
+    // CJK characters (the standard tokenizer indexes one per ideograph):
+    // tag those there rather than return a hit with no highlight.
+    let cjk_char_terms = cjk_char_fallback_terms(&query_terms);
 
     let pre_default = hl.pre_tag.as_deref().unwrap_or("<em>");
     let post_default = hl.post_tag.as_deref().unwrap_or("</em>");
@@ -42268,12 +43573,18 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                     // so matches can be translated back to original-text char
                     // boundaries (fixes the multibyte highlight SIGABRT).
                     let (text_lower, lower_map) = build_lower_offset_map(&text);
-                    let has_any = query_terms
-                        .iter()
-                        .any(|t| next_term_match(&text_lower, t, 0).is_some());
-                    if !has_any {
+                    let has_any = |terms: &[String]| {
+                        terms
+                            .iter()
+                            .any(|t| next_term_match(&text_lower, t, 0).is_some())
+                    };
+                    let query_terms = if has_any(&query_terms) {
+                        &query_terms
+                    } else if has_any(&cjk_char_terms) {
+                        &cjk_char_terms
+                    } else {
                         continue;
-                    }
+                    };
                     let fragments = if num_frags_raw == 0 {
                         // ES semantics: `number_of_fragments: 0` disables
                         // fragmenting entirely and emits the full text
@@ -42284,7 +43595,7 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                             &text,
                             &text_lower,
                             &lower_map,
-                            &query_terms,
+                            query_terms,
                             pre,
                             post,
                         )]
@@ -42294,7 +43605,7 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                             &text,
                             &text_lower,
                             &lower_map,
-                            &query_terms,
+                            query_terms,
                             pre,
                             post,
                             frag_size,
@@ -42454,16 +43765,31 @@ fn extract_highlight_terms(query: &QueryNode) -> Vec<String> {
 
 fn collect_highlight_terms(query: &QueryNode, out: &mut Vec<String>) {
     match query {
-        QueryNode::Match { query, .. }
-        | QueryNode::MatchPhrase { query, .. }
-        | QueryNode::MultiMatch { query, .. } => {
-            for tok in query.split_whitespace() {
+        QueryNode::Match { query: text, .. }
+        | QueryNode::MatchPhrase { query: text, .. }
+        | QueryNode::MultiMatch { query: text, .. } => {
+            // A phrase is contiguous, so its whole token is the term; `match`
+            // also matched the analyzer's CJK pieces one by one.
+            let phrase = matches!(
+                query,
+                QueryNode::MatchPhrase { .. }
+                    | QueryNode::MultiMatch {
+                        match_type: xerj_query::ast::MultiMatchType::Phrase
+                            | xerj_query::ast::MultiMatchType::PhrasePrefix,
+                        ..
+                    }
+            );
+            for tok in text.split_whitespace() {
                 let tok = tok
                     .trim_matches(|c: char| !c.is_alphanumeric())
                     .to_lowercase();
-                if !tok.is_empty() {
-                    out.push(tok);
+                if tok.is_empty() {
+                    continue;
                 }
+                if !phrase {
+                    push_unspaced_terms(&tok, out);
+                }
+                out.push(tok);
             }
         }
         QueryNode::QueryString { query, .. } => {
@@ -42511,6 +43837,68 @@ fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
+/// Han, kana and Hangul: scripts the analyzers split inside an unbroken run
+/// (the standard tokenizer emits one token per ideograph, the `cjk` analyzer
+/// emits bigrams), so a run of them is not one word for highlighting.
+fn is_unspaced_script(c: char) -> bool {
+    matches!(c as u32,
+        0x3040..=0x30FF | 0x31F0..=0x31FF | 0x3400..=0x4DBF | 0x4E00..=0x9FFF |
+        0xAC00..=0xD7AF | 0xF900..=0xFAFF | 0x20000..=0x3FFFF)
+}
+
+/// Whether `a` followed by `b` is one word, so a highlight may not start or
+/// end between them. A Han, kana or Hangul character on either side is a
+/// token boundary, as in UAX #29 word segmentation.
+fn glued(a: char, b: char) -> bool {
+    is_word_char(a) && is_word_char(b) && !is_unspaced_script(a) && !is_unspaced_script(b)
+}
+
+/// Every Han, kana or Hangul character of `terms`, sorted and deduplicated:
+/// the highlight terms for a field where no whole term or pair occurs.
+fn cjk_char_fallback_terms(terms: &[String]) -> Vec<String> {
+    let mut chars: Vec<String> = terms
+        .iter()
+        .flat_map(|t| t.chars())
+        .filter(|&c| is_unspaced_script(c))
+        .map(String::from)
+        .collect();
+    chars.sort();
+    chars.dedup();
+    chars
+}
+
+/// Push the highlight terms of one query token. A token holding Han, kana or
+/// Hangul also yields its non-CJK parts and every adjacent CJK pair (a lone
+/// CJK character stands for itself), so a `match` on `北京天气` tags `北京`
+/// and `天气` in `北京的天气` the way the analyzers matched it.
+fn push_unspaced_terms(tok: &str, out: &mut Vec<String>) {
+    if !tok.chars().any(is_unspaced_script) {
+        return;
+    }
+    let chars: Vec<char> = tok.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let cjk = is_unspaced_script(chars[i]);
+        let mut j = i;
+        while j < chars.len() && is_unspaced_script(chars[j]) == cjk {
+            j += 1;
+        }
+        let run = &chars[i..j];
+        if cjk && run.len() == 1 {
+            out.push(run[0].to_string());
+        } else if cjk {
+            out.extend(run.windows(2).map(|w| w.iter().collect::<String>()));
+        } else {
+            let part: String = run.iter().collect();
+            let part = part.trim_matches(|c: char| !c.is_alphanumeric());
+            if !part.is_empty() {
+                out.push(part.to_string());
+            }
+        }
+        i = j;
+    }
+}
+
 /// The next occurrence of highlight `term` in `text_lower` at or after byte
 /// `from` that stands as a whole word: the characters on either side are not
 /// word characters. A term ending in `*` (a `query_string` prefix) needs a
@@ -42519,12 +43907,20 @@ fn is_word_char(c: char) -> bool {
 /// Plain substring search (#1948) highlighted `or` inside `for`, `no` inside `not`
 /// and `OR` inside `SECTOR`, and a phrase's short words then claimed the
 /// fragment away from the phrase itself.
+///
+/// Han, kana and Hangul have no spaces between words, so a neighbour in one
+/// of those scripts is a boundary (see [`glued`]). Treating every ideograph
+/// as a word character made `北京` in `我喜欢北京的天气` never a whole word,
+/// and a CJK `match_phrase` hit came back with no highlight at all.
 fn next_term_match(text_lower: &str, term: &str, from: usize) -> Option<(usize, usize)> {
     let (needle, prefix) = match term.strip_suffix('*') {
         Some(stem) => (stem, true),
         None => (term, false),
     };
-    if needle.is_empty() || from > text_lower.len() {
+    let (Some(first), Some(last)) = (needle.chars().next(), needle.chars().next_back()) else {
+        return None;
+    };
+    if from > text_lower.len() {
         return None;
     }
     let mut start = from;
@@ -42534,15 +43930,19 @@ fn next_term_match(text_lower: &str, term: &str, from: usize) -> Option<(usize, 
         let before_ok = !text_lower[..abs]
             .chars()
             .next_back()
-            .is_some_and(is_word_char);
+            .is_some_and(|prev| glued(prev, first));
         if prefix {
             end += text_lower[end..]
                 .char_indices()
-                .find(|&(_, c)| !is_word_char(c))
+                .find(|&(_, c)| !is_word_char(c) || is_unspaced_script(c))
                 .map(|(i, _)| i)
                 .unwrap_or(text_lower.len() - end);
         }
-        let after_ok = prefix || !text_lower[end..].chars().next().is_some_and(is_word_char);
+        let after_ok = prefix
+            || !text_lower[end..]
+                .chars()
+                .next()
+                .is_some_and(|next| glued(last, next));
         if before_ok && after_ok {
             return Some((abs, end));
         }
@@ -46187,6 +47587,80 @@ impl<'a> QueryScorer<'a> {
 /// today's byte-identical exact path.
 const HNSW_MIN_DOCS: u64 = 1024;
 
+/// #3006: default byte budget below which an unfiltered kNN skips a complete
+/// HNSW graph and scans every stored vector exactly.
+///
+/// The cutover is a size of vector data, not a document count, because the
+/// exact scan's cost is `docs * dims` multiply-adds over a cached flat column,
+/// while the graph path pays a beam search (`ef >= HNSW_EF_FLOOR` = 800, so
+/// the beam alone visits most of a few-thousand-node graph) plus fetching and
+/// parsing EVERY candidate's stored document for the exact rescore. qdrant
+/// makes the same call with the same unit: `full_scan_threshold` in KB of
+/// vectors, default 10,000 (qdrant `lib/segment/src/types.rs:820-827,2321`;
+/// applied per segment in `lib/segment/src/index/hnsw_index/hnsw.rs:81-95`),
+/// and Lucene's `AbstractKnnVectorQuery` falls back to `exactSearch` when it
+/// is cheaper (`AbstractKnnVectorQuery.java:282-302`). Same default here;
+/// XERJ's measured crossover is in the #3006 commit body.
+///
+/// The process-wide override is `XERJ_KNN_EXACT_SCAN_MAX_KB` (`0` turns the
+/// cutover off and restores the old `HNSW_MIN_DOCS`-only gate).
+const KNN_EXACT_SCAN_MAX_KB_DEFAULT: u64 = 10_000;
+
+/// The exact-scan byte budget a new [`Index`] starts with (#3006).
+///
+/// Unit tests start at `0`, the pre-#3006 gate, so the many tests that build
+/// a just-over-`HNSW_MIN_DOCS` low-dimension corpus to exercise the ANN path
+/// keep exercising it; the cutover's own tests set the production value.
+fn knn_exact_scan_max_bytes_default() -> u64 {
+    if cfg!(test) {
+        return 0;
+    }
+    static BUDGET: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *BUDGET.get_or_init(|| {
+        std::env::var("XERJ_KNN_EXACT_SCAN_MAX_KB")
+            .ok()
+            .and_then(|raw| raw.trim().parse::<u64>().ok())
+            .unwrap_or(KNN_EXACT_SCAN_MAX_KB_DEFAULT)
+            .saturating_mul(1024)
+    })
+}
+
+/// #3018: whether a hybrid request on the multi-thread runtime runs its legs
+/// on one OS thread each. On by default; `XERJ_HYBRID_PARALLEL_LEGS=0` keeps
+/// every leg on the request's thread, the pre-#3018 execution — for a node
+/// saturated with concurrent hybrid requests, where the extra threads buy no
+/// throughput, and for measuring what the parallel legs are worth.
+fn hybrid_parallel_legs_enabled() -> bool {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        !matches!(
+            std::env::var("XERJ_HYBRID_PARALLEL_LEGS")
+                .as_deref()
+                .map(str::trim),
+            Ok("0") | Ok("false") | Ok("off")
+        )
+    })
+}
+
+/// Whether an unfiltered kNN over `vector_doc_count` vectors of `dims` f32s
+/// should take the exact scan instead of the HNSW graph (#3006).
+fn knn_prefers_exact_scan(vector_doc_count: u64, dims: usize, max_bytes: u64) -> bool {
+    let bytes = vector_doc_count
+        .saturating_mul(dims as u64)
+        .saturating_mul(std::mem::size_of::<f32>() as u64);
+    max_bytes > 0 && bytes <= max_bytes && vector_doc_count <= KNN_EXACT_SCAN_MAX_DOCS
+}
+
+/// #3006: document ceiling on the exact-scan cutover, beside the byte budget.
+///
+/// The byte rule alone sends a low-dimension set to the scan at any size
+/// (10,000 KiB is 1.28 M vectors of 2 dims), and the scan pays a fixed
+/// per-candidate cost (pool entry, rank, id) on top of the dot product, so
+/// its cost there is the document count, not the bytes. 16,384 is about 5x
+/// the 3,080-vector set measured in #3006 and never binds at 768 dims
+/// (3,333 vectors fill the byte budget first).
+const KNN_EXACT_SCAN_MAX_DOCS: u64 = 16_384;
+
 /// Lower bound on the HNSW beam width (`ef`).
 ///
 /// DOCUMENTED DIVERGENCE from ES's `num_candidates` contract: Lucene runs
@@ -47015,7 +48489,8 @@ fn knn_result_from_scored(
     generated_companion_fields: &HashSet<String>,
     schema: Option<&Schema>,
 ) -> SearchResult {
-    rank_knn_pool(&mut scored, k, |entry| entry.1);
+    order_knn_pool_page_order(index, &mut scored);
+    scored.truncate(k.max(1));
     knn_result_from_ranked(
         index,
         request,
@@ -47025,6 +48500,43 @@ fn knn_result_from_scored(
         generated_companion_fields,
         schema,
     )
+}
+
+/// #3017: order a hydrated kNN pool into THE score-ranked page order,
+/// `score DESC, seq_no ASC (arrival, ES `_doc`), _id ASC` — the same key
+/// [`Index::sort_hits_page_order`] and hybrid fusion (`fuse_finish`) use.
+///
+/// Equal scores used to keep the order the executor collected them in. For
+/// the HNSW path that is the graph's traversal order, and the graph's layers
+/// come from `thread_rng`, so a graph built while indexing and the one a
+/// restarted process loads or rebuilds visit tied neighbours differently: the
+/// kNN page and every RRF rank fed from it changed across server processes
+/// (#3017 repro on a synthetic corpus of 5,000 docs carrying 2,500 distinct
+/// 384-dim vectors: 116 of 160 kNN and 118 of 160 hybrid rankings identical
+/// between the indexing process and a restart).
+///
+/// The seq_no is resolved once per candidate (a pool is at most `k` plus a
+/// few rescore candidates on the ANN path), and a NaN score sorts last as in
+/// `fuse_finish`, so the comparator is a total order.
+fn order_knn_pool_page_order(index: &Index, pool: &mut Vec<(String, f32, Value, Option<u32>)>) {
+    fn key(score: f32) -> f32 {
+        if score.is_nan() {
+            f32::NEG_INFINITY
+        } else {
+            score
+        }
+    }
+    let mut decorated: Vec<(u64, (String, f32, Value, Option<u32>))> = std::mem::take(pool)
+        .into_iter()
+        .map(|entry| (index.lookup_seq_no(&entry.0).unwrap_or(u64::MAX), entry))
+        .collect();
+    decorated.sort_by(|a, b| {
+        key(b.1 .1)
+            .total_cmp(&key(a.1 .1))
+            .then_with(|| a.0.cmp(&b.0))
+            .then_with(|| a.1 .0.cmp(&b.1 .0))
+    });
+    *pool = decorated.into_iter().map(|(_, entry)| entry).collect();
 }
 
 /// Rank a kNN candidate pool by score, descending, and cap it at `k` — the one
@@ -47230,6 +48742,30 @@ impl KnnCandidateAt {
         }
     }
 
+    /// The candidate's `_id` alone, without touching its source (#3006): a
+    /// column-scanned segment answers from the column's identity, so the
+    /// whole capped pool can be put in page order before any hydration.
+    fn id(&self, mem_docs: &[(String, Arc<Value>)], segment_views: &[KnnSegmentView]) -> String {
+        match *self {
+            Self::Memtable(slot) => mem_docs[slot].0.clone(),
+            Self::Segment { view, position } => {
+                let segment = &segment_views[view];
+                match segment.docs.as_ref() {
+                    Some(docs) => docs[position]
+                        .get("_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    None => segment
+                        .column
+                        .identity(position)
+                        .map(|(id, _)| id.to_string())
+                        .unwrap_or_default(),
+                }
+            }
+        }
+    }
+
     /// The candidate's id and an OWNED source — paid for returned hits only.
     fn hydrate(
         &self,
@@ -47272,6 +48808,26 @@ fn knn_stored_hit(doc: &Value) -> (String, Value) {
         d
     });
     (id, source)
+}
+
+/// [`knn_stored_hit`] for a document the caller owns: the source is moved out,
+/// not cloned (#3006, the warm hydration of the exact scan).
+fn knn_stored_hit_owned(doc: Value) -> (String, Value) {
+    let mut doc = match doc {
+        Value::Object(doc) => doc,
+        other => return knn_stored_hit(&other),
+    };
+    let id = match doc.get("_id") {
+        Some(Value::String(id)) => id.clone(),
+        _ => String::new(),
+    };
+    match doc.remove("_source") {
+        Some(source) => (id, source),
+        None => {
+            doc.remove("_id");
+            (id, Value::Object(doc))
+        }
+    }
 }
 
 /// How the exact kNN scan shows one document to its `filter` (#939).
@@ -48236,14 +49792,25 @@ fn lookup_vector_quantization(schema: &Schema, field: &str) -> Option<String> {
 /// mapping options to honour.
 pub(crate) fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a FieldConfig> {
     fn find<'a>(fields: &'a [FieldConfig], path: &[&str]) -> Option<&'a FieldConfig> {
-        let head = *path.first()?;
-        let tail = &path[1..];
-        for fc in fields {
-            if fc.name == head {
-                if tail.is_empty() {
-                    return Some(fc);
+        if path.is_empty() {
+            return None;
+        }
+        // Prefer the longest dotted-key match starting at this level, matching
+        // `get_field_value_parts` so literal dotted field names in `Schema::fields`
+        // (such as `files_manifest.json_recorded_at` or its `.keyword`
+        // multi-field) resolve instead of failing with `No mapping found`.
+        for take in (1..=path.len()).rev() {
+            let candidate = path[..take].join(".");
+            let tail = &path[take..];
+            for fc in fields {
+                if fc.name == candidate {
+                    if tail.is_empty() {
+                        return Some(fc);
+                    }
+                    if let Some(found) = find(&fc.fields, tail) {
+                        return Some(found);
+                    }
                 }
-                return find(&fc.fields, tail);
             }
         }
         None
@@ -48256,7 +49823,7 @@ pub(crate) fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a 
 /// Such a field's doc-values column — when its mapping asks for one (ES's
 /// `mapper.text.doc_values`) — holds the RAW `_source` values, while `_search`
 /// resolves a `term`/`terms` leaf against the analyzed token stream
-/// (`tokens_contain` in `doc_matches_query_typed` — the answer the memtable
+/// (`text_tokens_contain` in `doc_matches_query_typed` — the answer the memtable
 /// gives before any flush). A set built from the column is therefore NOT a
 /// superset of the segment's matches, and every consumer that treats it as one
 /// (the term/terms prefilters, the doc-values count shortcuts) silently drops
@@ -51892,6 +53459,199 @@ fn dis_max_mem_fts_subs(q: &QueryNode) -> Option<(Vec<(&str, &str, f32)>, f32)> 
     }
 }
 
+/// The per-field `(field, query, boost)` subs and the combine `tie_breaker`
+/// of a field-centric `multi_match` the memtable BM25 path can score the way
+/// the segment projection does (#3329).
+///
+/// `query_node_to_fts_projected` lowers `best_fields` / `most_fields` /
+/// `cross_fields` to one clause per field — the per-token BM25 sum, times the
+/// field's `^boost` — and combines them with `dis_max` (tie 0.0) for
+/// `best_fields` and a summing `bool.should` for the other two, under the
+/// outer `boost`. Each field clause is exactly what the memtable scores for a
+/// standalone single-field `match`, so the combination is
+/// `max + tie × (Σ − max)` with tie 0.0 (max) or 1.0 (sum), and the outer
+/// boost folds into every sub because both combines are linear.
+///
+/// Without this every buffered `multi_match` hit took the stored-doc scan,
+/// whose scorer gives 1.0 per matched field, so the ranking changed at
+/// `_flush` (BEIR scifact nDCG@10 0.19 unflushed vs 0.62 flushed).
+///
+/// Declines (`None`, keeping the doc-scan route) wherever the segment
+/// projection would take a different path or the memtable could not
+/// reproduce it: phrase types, a per-query `analyzer`, multi-token
+/// `operator: and`, a query that analyses to no token, a wildcard field, or
+/// any field that is not an analysed, indexed `text` field of the mapping
+/// (keyword fields are already split out by
+/// `rewrite_keyword_full_text_to_term`; unmapped and dotted sub-field names
+/// keep their existing routing).
+fn multi_match_mem_fts_subs<'a>(
+    q: &'a QueryNode,
+    schema: &Schema,
+    text_fields: &'a [String],
+    analyzer: Option<&AnalyzerPipeline>,
+) -> Option<(Vec<(&'a str, &'a str, f32)>, f32)> {
+    use xerj_query::ast::{BoolOperator, MultiMatchType};
+    let QueryNode::MultiMatch {
+        fields,
+        query,
+        match_type,
+        operator,
+        analyzer: None,
+        boost,
+        ..
+    } = q
+    else {
+        return None;
+    };
+    let tie = match match_type {
+        MultiMatchType::BestFields => 0.0,
+        MultiMatchType::MostFields | MultiMatchType::CrossFields => 1.0,
+        MultiMatchType::Phrase | MultiMatchType::PhrasePrefix => return None,
+    };
+    let tokens = analyzer?.analyze(query).len();
+    if tokens == 0 || (matches!(operator, Some(BoolOperator::And)) && tokens > 1) {
+        return None;
+    }
+    let outer = boost.unwrap_or(1.0);
+    let specs: Vec<(&'a str, f32)> = if fields.is_empty() {
+        text_fields.iter().map(|f| (f.as_str(), 1.0)).collect()
+    } else {
+        fields.iter().map(|s| parse_field_boost(s)).collect()
+    };
+    if specs.is_empty()
+        || !specs
+            .iter()
+            .all(|(f, _)| mem_fts_scorable_text_field(schema, f))
+    {
+        return None;
+    }
+    Some((
+        specs
+            .into_iter()
+            .map(|(f, fb)| (f, query.as_str(), fb * outer))
+            .collect(),
+        tie,
+    ))
+}
+
+/// `true` when the memtable BM25 path scores `name` exactly as the segment
+/// does: an analysed, indexed `text` field of the mapping, named outright (no
+/// wildcard).
+fn mem_fts_scorable_text_field(schema: &Schema, name: &str) -> bool {
+    !name.contains('*')
+        && schema.fields.iter().any(|f| {
+            f.name == name
+                && matches!(f.field_type, FieldType::Text)
+                && f.options.indexed
+                && f.options.analyzed
+        })
+}
+
+/// Per-field phrase subs for the memtable BM25 path (#3329): each
+/// `(field, query, boost)` plus the single-field clause whose stored-doc
+/// match is that sub's membership gate.
+type MemPhraseSubs<'a> = Vec<((&'a str, &'a str, f32), QueryNode)>;
+
+/// The phrase shapes the segment projection lowers to positional
+/// `FtsQuery::Phrase` clauses (#3329): `match_phrase` with slop 0, and
+/// `multi_match` `type: phrase` (any slop, one clause per field, combined by
+/// `dis_max` with tie 0.0). `execute_phrase` scores a matching doc as the sum
+/// of its phrase terms' BM25 on that field — the same number a single-field
+/// `match` of the phrase text gives that doc — so the memtable scores each
+/// field through the `match` path and keeps only the docs the stored-doc
+/// phrase predicate admits (the predicate the doc-scan already used, so the
+/// hit set is unchanged).
+///
+/// Same declines as the segment projection plus the memtable's own:
+/// `phrase_prefix`, a per-query `analyzer`, sloppy `match_phrase`, a query
+/// with no analysed token, and any field that is not an analysed, indexed
+/// `text` field.
+fn phrase_mem_fts_subs<'a>(
+    q: &'a QueryNode,
+    schema: &Schema,
+    text_fields: &'a [String],
+    analyzer: Option<&AnalyzerPipeline>,
+) -> Option<MemPhraseSubs<'a>> {
+    match q {
+        QueryNode::MatchPhrase {
+            field,
+            query,
+            slop: 0,
+            analyzer: None,
+            boost,
+            ..
+        } => {
+            if !mem_fts_scorable_text_field(schema, field) || analyzer?.analyze(query).is_empty() {
+                return None;
+            }
+            Some(vec![(
+                (field.as_str(), query.as_str(), boost.unwrap_or(1.0)),
+                q.clone(),
+            )])
+        }
+        QueryNode::MultiMatch {
+            fields,
+            query,
+            match_type: xerj_query::ast::MultiMatchType::Phrase,
+            analyzer: None,
+            boost,
+            ..
+        } => {
+            if analyzer?.analyze(query).is_empty() {
+                return None;
+            }
+            let specs: Vec<&'a str> = if fields.is_empty() {
+                text_fields.iter().map(String::as_str).collect()
+            } else {
+                fields.iter().map(String::as_str).collect()
+            };
+            if specs.is_empty()
+                || !specs
+                    .iter()
+                    .all(|s| mem_fts_scorable_text_field(schema, parse_field_boost(s).0))
+            {
+                return None;
+            }
+            let outer = boost.unwrap_or(1.0);
+            Some(
+                specs
+                    .into_iter()
+                    .map(|spec| {
+                        let (field, fb) = parse_field_boost(spec);
+                        let mut gate = q.clone();
+                        if let QueryNode::MultiMatch { fields, .. } = &mut gate {
+                            *fields = vec![spec.to_string()];
+                        }
+                        ((field, query.as_str(), fb * outer), gate)
+                    })
+                    .collect(),
+            )
+        }
+        _ => None,
+    }
+}
+
+/// How the memtable BM25 path scores the lone `must` clause of a filtered
+/// `bool` (#2403, #3329).
+enum MemFtsMust<'a> {
+    /// A single-field `match`: `(field, query)`, boost via
+    /// `collect_field_boosts`.
+    Match(&'a str, &'a str),
+    /// A field-centric `multi_match`: per-field subs and the combine tie.
+    MultiMatch(Vec<(&'a str, &'a str, f32)>, f32),
+}
+
+impl MemFtsMust<'_> {
+    /// The query text the memtable scores, for its share of the index-wide
+    /// collection statistics.
+    fn text(&self) -> Option<&str> {
+        match self {
+            MemFtsMust::Match(_, text) => Some(text),
+            MemFtsMust::MultiMatch(subs, _) => subs.first().map(|s| s.1),
+        }
+    }
+}
+
 /// The lone `must` match's `(field, query)` and the non-scoring gate of a
 /// `bool{must:[match], filter:[..], must_not:[..]}` whose `must` clause would
 /// take the standalone-`Match` memtable FTS arm on its own (#2403): same
@@ -51902,7 +53662,15 @@ fn dis_max_mem_fts_subs(q: &QueryNode) -> Option<(Vec<(&str, &str, f32)>, f32)> 
 /// `filter` and `must_not` clauses, evaluated per hit by the stored-doc
 /// matcher, so membership stays what the doc-scan route enforced. Any other
 /// shape answers `None` and keeps its existing route.
-fn bool_filter_mem_fts_must(q: &QueryNode) -> Option<(&str, &str, &QueryNode, QueryNode)> {
+///
+/// #3329: a `multi_match` `must` clause qualifies on the same terms as a
+/// standalone one (`multi_match_mem_fts_subs`).
+fn bool_filter_mem_fts_must<'a>(
+    q: &'a QueryNode,
+    schema: &Schema,
+    text_fields: &'a [String],
+    analyzer: Option<&AnalyzerPipeline>,
+) -> Option<(MemFtsMust<'a>, &'a QueryNode, QueryNode)> {
     let QueryNode::Bool {
         must,
         should,
@@ -51921,18 +53689,24 @@ fn bool_filter_mem_fts_must(q: &QueryNode) -> Option<(&str, &str, &QueryNode, Qu
     // the index default, while the stored-doc matcher and the segment
     // projection honour it, so taking this arm would change the hit set at
     // flush.
-    let QueryNode::Match {
-        field,
-        query,
-        analyzer: None,
-        ..
-    } = clause
-    else {
-        return None;
+    let plan = match clause {
+        QueryNode::Match {
+            field,
+            query,
+            analyzer: None,
+            ..
+        } => {
+            if is_doc_scan_query(clause) || extract_query_text(clause).is_none() {
+                return None;
+            }
+            MemFtsMust::Match(field.as_str(), query.as_str())
+        }
+        QueryNode::MultiMatch { .. } => {
+            let (subs, tie) = multi_match_mem_fts_subs(clause, schema, text_fields, analyzer)?;
+            MemFtsMust::MultiMatch(subs, tie)
+        }
+        _ => return None,
     };
-    if is_doc_scan_query(clause) || extract_query_text(clause).is_none() {
-        return None;
-    }
     let gate = QueryNode::Bool {
         must: Vec::new(),
         should: Vec::new(),
@@ -51940,7 +53714,7 @@ fn bool_filter_mem_fts_must(q: &QueryNode) -> Option<(&str, &str, &QueryNode, Qu
         filter: filter.clone(),
         minimum_should_match: None,
     };
-    Some((field.as_str(), query.as_str(), clause, gate))
+    Some((plan, clause, gate))
 }
 
 /// Erase `bool` wrappers whose only clause is a single SCORING clause.
@@ -52391,6 +54165,143 @@ fn geo_coord(v: &Value) -> Option<f64> {
         .or_else(|| v.as_str().and_then(|s| s.trim().parse().ok()))
 }
 
+thread_local! {
+    /// The index text analyzer a document-scan `match_phrase` must use
+    /// (#3285). Set only around synchronous scan loops by
+    /// [`ScanPhraseAnalyzer::enter`]; `None` (the default) keeps the
+    /// standard-analyzer walk every other caller has always had.
+    static SCAN_PHRASE_ANALYZER: std::cell::RefCell<Option<Arc<AnalyzerPipeline>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Scope guard for [`SCAN_PHRASE_ANALYZER`]. Not `Send`, so holding it
+/// across an `.await` in a spawned future is a compile error rather than a
+/// value leaking onto another task's thread.
+pub(crate) struct ScanPhraseAnalyzer {
+    previous: Option<Arc<AnalyzerPipeline>>,
+    _not_send: std::marker::PhantomData<*const ()>,
+}
+
+impl ScanPhraseAnalyzer {
+    pub(crate) fn enter(analyzer: Option<Arc<AnalyzerPipeline>>) -> Self {
+        let previous = SCAN_PHRASE_ANALYZER.with(|cell| cell.replace(analyzer));
+        Self {
+            previous,
+            _not_send: std::marker::PhantomData,
+        }
+    }
+}
+
+impl Drop for ScanPhraseAnalyzer {
+    fn drop(&mut self) {
+        let previous = self.previous.take();
+        SCAN_PHRASE_ANALYZER.with(|cell| *cell.borrow_mut() = previous);
+    }
+}
+
+fn scan_phrase_analyzer() -> Option<Arc<AnalyzerPipeline>> {
+    SCAN_PHRASE_ANALYZER.with(|cell| cell.borrow().clone())
+}
+
+/// `match_phrase` over one text value with the index's own text analyzer —
+/// the document-scan twin of the segment projection, which builds its
+/// `PhraseQuery` from [`phrase_terms_and_positions`] and matches indexed
+/// positions. Same terms, same positions, same matcher, so a buffered
+/// document answers as it will after `_flush` (#3285).
+fn analyzed_phrase_match(analyzer: &AnalyzerPipeline, text: &str, query: &str, slop: u32) -> bool {
+    let query_tokens = analyzer.analyze(query);
+    if query_tokens.is_empty() {
+        return true;
+    }
+    let (terms, positions) = phrase_terms_and_positions(&query_tokens);
+    let doc_tokens = analyzer.analyze(text);
+    let lists: Vec<Vec<u32>> = terms
+        .iter()
+        .enumerate()
+        .map(|(i, term)| {
+            let mut raw: Vec<u32> = doc_tokens
+                .iter()
+                .filter(|t| &t.text == term)
+                .map(|t| t.position)
+                .collect();
+            raw.sort_unstable();
+            raw.dedup();
+            if positions.is_empty() {
+                raw
+            } else {
+                xerj_fts::search::shift_to_slot(&raw, positions[i], i as u32)
+            }
+        })
+        .collect();
+    let refs: Vec<&[u32]> = lists.iter().map(Vec::as_slice).collect();
+    xerj_fts::search::phrase_positions_match(&refs, slop)
+}
+
+/// Phrase terms, plus their relative phrase positions when the analyzer
+/// stacked tokens on one position (#3285).
+///
+/// The `code` analyzer (`word_delimiter`) emits an identifier's sub-words at
+/// the identifier's own position: `request.client.host` indexes `request`,
+/// `client`, `host` and `request.client.host` all at one position. Flattening
+/// that stack into a four-term phrase asked for the four terms one after
+/// another, which no document holds, so `match_phrase` found nothing that
+/// `match` found. The stack is kept as one phrase position instead: every
+/// term in it must occur at the same document position.
+///
+/// Inside a stack, a delimiter compound (a token with a non-alphanumeric
+/// character whose alphanumeric runs are all in the stack too) is dropped:
+/// its parts carry it. That is what lets `client.host` match the indexed
+/// `request.client.host` — the document stack has `client` and `host`, but
+/// not the token `client.host`.
+///
+/// Positions a stop filter skipped are kept as holes, because the indexed
+/// document has the same holes: `quick the fox` under `english` is
+/// `quick@0 fox@2` on both sides, which a flattened `quick fox` never
+/// matched. A stream with neither stacks nor holes (the standard analyzer)
+/// is returned flat with no positions, so it builds exactly the phrase it
+/// built before.
+fn phrase_terms_and_positions(tokens: &[xerj_fts::analyzer::Token]) -> (Vec<String>, Vec<u32>) {
+    let mut seen = HashSet::new();
+    let stacked = tokens.iter().any(|t| !seen.insert(t.position));
+    let base = tokens.iter().map(|t| t.position).min().unwrap_or(0);
+    // A stop filter leaves holes (`quick the fox` → quick@0, fox@2); the
+    // indexed document has the same holes, so the phrase keeps them too.
+    let gapped = tokens
+        .iter()
+        .enumerate()
+        .any(|(i, t)| t.position - base != i as u32);
+    if !stacked && !gapped {
+        return (tokens.iter().map(|t| t.text.clone()).collect(), Vec::new());
+    }
+    let mut groups: std::collections::BTreeMap<u32, Vec<&str>> = std::collections::BTreeMap::new();
+    for t in tokens {
+        let group = groups.entry(t.position - base).or_default();
+        if !group.contains(&t.text.as_str()) {
+            group.push(t.text.as_str());
+        }
+    }
+    let mut terms = Vec::new();
+    let mut positions = Vec::new();
+    for (pos, group) in groups {
+        let is_compound = |tok: &str| {
+            group.len() > 1
+                && tok.chars().any(|c| !c.is_alphanumeric())
+                && tok
+                    .split(|c: char| !c.is_alphanumeric())
+                    .filter(|r| !r.is_empty())
+                    .all(|r| group.contains(&r))
+        };
+        let kept: Vec<&str> = group.iter().copied().filter(|t| !is_compound(t)).collect();
+        // A stack of nothing but compounds keeps them all.
+        let kept = if kept.is_empty() { group } else { kept };
+        for t in kept {
+            terms.push(t.to_string());
+            positions.push(pos);
+        }
+    }
+    (terms, positions)
+}
+
 /// The analyzed token stream the stored-doc evaluator treats as "positions".
 ///
 /// It runs the **standard analyzer** — the same pipeline the indexing path
@@ -52594,6 +54505,44 @@ fn multi_match_field_values_lc(source: &Value, field: &str) -> Option<Vec<String
     }
 }
 
+/// #3020: how the whole-response query cache served one request.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RequestCacheOutcome {
+    /// Eligible, executed, and (unless timed out) stored for the next caller.
+    Miss,
+    /// Answered from the cache or from an identical in-flight request.
+    Hit,
+    /// Not eligible (`search_after`, `XERJ_DISABLE_QUERY_CACHE=1`).
+    Bypass,
+}
+
+impl RequestCacheOutcome {
+    fn as_str(self) -> &'static str {
+        match self {
+            RequestCacheOutcome::Miss => "miss",
+            RequestCacheOutcome::Hit => "hit",
+            RequestCacheOutcome::Bypass => "bypass",
+        }
+    }
+}
+
+/// Record the cache outcome in a `profile: true` result's engine profile
+/// (`profile.request_cache`), which the `_search` handler copies into every
+/// shard of the ES profile. A request without `profile` is left untouched,
+/// so a non-profile response never grows a key.
+fn stamp_request_cache(r: &mut SearchResult, request: &SearchRequest, how: RequestCacheOutcome) {
+    if !request.profile {
+        return;
+    }
+    let v = Value::String(how.as_str().to_string());
+    match r.profile.as_mut().and_then(Value::as_object_mut) {
+        Some(obj) => {
+            obj.insert("request_cache".to_string(), v);
+        }
+        None => r.profile = Some(serde_json::json!({ "request_cache": v })),
+    }
+}
+
 /// Evaluate a query against a single stored document source value.
 ///
 /// Returns true if the document matches the query.
@@ -52625,6 +54574,30 @@ pub(crate) fn value_present(v: &Value) -> bool {
     }
 }
 
+/// Text-field token fallback shared by the stored-scan `term` and `terms`
+/// arms: if the doc value is a string with whitespace (it looks tokenised),
+/// each space-separated token is a candidate match. This mirrors ES running
+/// `term`/`terms` against the analysed token stream of a text field, case
+/// folded to match the `standard` analyzer.
+fn text_tokens_contain(doc_val: &Option<Value>, v: &Value) -> bool {
+    let target = match v {
+        Value::String(s) => s.to_lowercase(),
+        Value::Number(n) => n.to_string(),
+        _ => return false,
+    };
+    let dv = match doc_val {
+        Some(Value::String(s)) => s,
+        _ => return false,
+    };
+    if !dv.contains(char::is_whitespace) {
+        return false;
+    }
+    dv.split_whitespace().any(|t| {
+        t.trim_matches(|c: char| !c.is_alphanumeric())
+            .eq_ignore_ascii_case(&target)
+    })
+}
+
 pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bool {
     match q {
         QueryNode::MatchAll => true,
@@ -52642,7 +54615,15 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                     }
                 }
             }
-            json_values_equal(&doc_val, value)
+            if json_values_equal(&doc_val, value) {
+                return true;
+            }
+            // #3259: `term` is `terms` with one value. On a mapped, indexed
+            // `text` field the `terms` arm below also matches the analysed
+            // token stream, so `term: "quick"` returned 0 where
+            // `terms: ["quick"]` returned 2. Same token rule here; the raw
+            // whole-value match above is kept (an open question on #3259).
+            field_is_analyzed_text(schema, field) && text_tokens_contain(&doc_val, value)
         }
 
         QueryNode::Terms { field, values, .. } => {
@@ -52659,30 +54640,7 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             {
                 return false;
             }
-            // Text-field fallback: if the doc has a string with whitespace
-            // (i.e. looks tokenized), treat each space-separated token as a
-            // candidate match. This mirrors ES's behavior of running `terms`
-            // against the analyzed-token stream for text fields. Case folded
-            // to match ES's standard analyzer.
-            fn tokens_contain(doc_val: &Option<Value>, v: &Value) -> bool {
-                let target = match v {
-                    Value::String(s) => s.to_lowercase(),
-                    Value::Number(n) => n.to_string(),
-                    _ => return false,
-                };
-                let dv = match doc_val {
-                    Some(Value::String(s)) => s,
-                    _ => return false,
-                };
-                if !dv.contains(char::is_whitespace) {
-                    return false;
-                }
-                dv.split_whitespace().any(|t| {
-                    t.trim_matches(|c: char| !c.is_alphanumeric())
-                        .eq_ignore_ascii_case(&target)
-                })
-            }
-            values.iter().any(|v| tokens_contain(&doc_val, v))
+            values.iter().any(|v| text_tokens_contain(&doc_val, v))
         }
 
         QueryNode::Range {
@@ -53480,6 +55438,29 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                     query_tokens,
                     slop,
                 ))
+            }
+            // #3285: a text field of an index whose declared default
+            // analyzer is not `standard` (the `code` analyzer autoindex
+            // puts on code datasets) is matched with that analyzer, the
+            // term space its segments hold.
+            let scoped = scan_phrase_analyzer().filter(|_| {
+                schema
+                    .field(field)
+                    .is_some_and(|f| matches!(f.field_type, FieldType::Text))
+            });
+            if let Some(analyzer) = scoped {
+                let one = |v: &Value| -> bool {
+                    let s = match v {
+                        Value::String(s) => s.clone(),
+                        Value::Bool(_) | Value::Number(_) => v.to_string(),
+                        _ => return false,
+                    };
+                    analyzed_phrase_match(&analyzer, &s, query, *slop)
+                };
+                return get_field_value(source, field).is_some_and(|v| match &v {
+                    Value::Array(arr) => arr.iter().any(&one),
+                    _ => one(&v),
+                });
             }
             get_field_value(source, field)
                 .and_then(|v| match &v {
@@ -58440,6 +60421,7 @@ fn query_node_to_fts_projected(
                             terms: terms.clone(),
                             slop: *slop,
                             boost: *fb,
+                            positions: Vec::new(),
                         })
                     });
                 }
@@ -58912,11 +60894,13 @@ fn query_node_to_fts_projected(
                         b,
                     )));
                 }
+                let (terms, positions) = phrase_terms_and_positions(&tokens);
                 return Some(FtsQuery::Phrase(xerj_fts::search::PhraseQuery {
                     field: field.clone(),
-                    terms: tokens.iter().map(|t| t.text.clone()).collect(),
+                    terms,
                     slop: 0,
                     boost: b,
+                    positions,
                 }));
             }
             None
@@ -63573,6 +65557,118 @@ mod highlight_multibyte_tests {
         assert_eq!(next_term_match("rewild", "wild*", 0), None);
     }
 
+    fn hl_terms(query: serde_json::Value) -> Vec<String> {
+        extract_highlight_terms(&xerj_query::parse_query(&query).expect("query parses"))
+    }
+
+    #[test]
+    fn cjk_match_phrase_highlights_inside_an_unspaced_run() {
+        let text = "我喜欢北京的天气 and the weather in Beijing";
+        let (lower, map) = build_lower_offset_map(text);
+        let terms = hl_terms(serde_json::json!({"match_phrase": {"body": "北京"}}));
+        assert_eq!(terms, vec!["北京".to_string()]);
+        let frags = build_highlight_fragments(text, &lower, &map, &terms, "<em>", "</em>", 150, 3);
+        assert_eq!(
+            frags,
+            vec![format!(
+                "我喜欢<em>北京</em>的天气 and the weather in Beijing"
+            )]
+        );
+        let full = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert_eq!(full, "我喜欢<em>北京</em>的天气 and the weather in Beijing");
+
+        for (text, term) in [
+            ("東京都に住んでいます", "東京"),
+            ("東京都に住んでいます", "住んで"),
+            ("서울에서 만나요", "서울"),
+        ] {
+            let (lower, map) = build_lower_offset_map(text);
+            let full = highlight_full_text(text, &lower, &map, &[term.to_string()], "[", "]");
+            assert!(
+                full.contains(&format!("[{term}]")),
+                "{text} / {term}: {full}"
+            );
+        }
+    }
+
+    #[test]
+    fn cjk_match_tags_the_query_pairs_the_document_holds() {
+        let terms = hl_terms(serde_json::json!({"match": {"body": "北京天气"}}));
+        for t in ["北京", "京天", "天气", "北京天气"] {
+            assert!(terms.contains(&t.to_string()), "{t} in {terms:?}");
+        }
+        let text = "我喜欢北京的天气";
+        let (lower, map) = build_lower_offset_map(text);
+        let full = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert_eq!(full, "我喜欢<em>北京</em>的<em>天气</em>");
+        let text = "北京天气很好";
+        let (lower, map) = build_lower_offset_map(text);
+        let full = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert_eq!(
+            full, "<em>北京天气</em>很好",
+            "adjacent pairs merge into one tag"
+        );
+
+        // A phrase keeps the whole run; mixed tokens split at the script edge.
+        let phrase = hl_terms(serde_json::json!({"multi_match": {
+            "query": "北京天气", "fields": ["body"], "type": "phrase"}}));
+        assert_eq!(phrase, vec!["北京天气".to_string()]);
+        let mixed = hl_terms(serde_json::json!({"match": {"body": "iPhone手机"}}));
+        assert!(mixed.contains(&"iphone".to_string()), "{mixed:?}");
+        assert!(mixed.contains(&"手机".to_string()), "{mixed:?}");
+        let single = hl_terms(serde_json::json!({"match": {"body": "京"}}));
+        assert_eq!(single, vec!["京".to_string()]);
+    }
+
+    #[test]
+    fn every_cjk_match_hit_gets_a_highlight() {
+        let hit = |id: &str, body: &str| -> Hit {
+            serde_json::from_value(serde_json::json!({
+                "id": id, "score": 1.0, "_source": {"body": body},
+                "sort": [], "matched_queries": [],
+            }))
+            .expect("hit")
+        };
+        let hl: HighlightRequest =
+            serde_json::from_value(serde_json::json!({"fields": {"body": {}}})).expect("hl");
+        let query = xerj_query::parse_query(&serde_json::json!({"match": {"body": "北京天气"}}))
+            .expect("query");
+        let hits = apply_highlight(
+            vec![
+                hit("pair", "我喜欢北京的天气"),
+                hit("char", "東京都に住んでいます"),
+                hit("none", "nothing here"),
+            ],
+            &hl,
+            &query,
+        );
+        let body = |h: &Hit| h.highlight.as_ref().map(|m| m["body"].clone());
+        assert_eq!(
+            body(&hits[0]),
+            Some(vec!["我喜欢<em>北京</em>的<em>天气</em>".to_string()]),
+            "pairs win where they occur: no lone 北 or 天 tags"
+        );
+        assert_eq!(
+            body(&hits[1]),
+            Some(vec!["東<em>京</em>都に住んでいます".to_string()]),
+            "a hit that matched on one character still shows it"
+        );
+        assert_eq!(body(&hits[2]), None);
+    }
+
+    #[test]
+    fn cjk_boundaries_leave_latin_whole_word_rules_alone() {
+        assert!(next_term_match("北京abc", "abc", 0).is_some());
+        assert!(next_term_match("abc北京", "abc", 0).is_some());
+        assert_eq!(next_term_match("xabc北京", "abc", 0), None);
+        assert_eq!(next_term_match("for", "or", 0), None);
+        assert_eq!(next_term_match("sector", "or", 0), None);
+        let text = "a wildcard北京 and wild cats";
+        let (lower, map) = build_lower_offset_map(text);
+        let full = highlight_full_text(text, &lower, &map, &["wild*".to_string()], "[", "]");
+        assert_eq!(full, "a [wildcard]北京 and [wild] cats");
+    }
+
     #[test]
     fn fragment_highlight_after_multibyte_does_not_panic() {
         let text = "İstanbul cafe";
@@ -66124,6 +68220,9 @@ thread_local! {
     /// reached inside the `residual_gate` per-segment loop.
     pub(crate) static RESIDUAL_HITS_PEAK: std::cell::Cell<usize> =
         const { std::cell::Cell::new(0) };
+    /// How many segment hits the `residual_gate` loop decoded and re-tested.
+    pub(crate) static RESIDUAL_HITS_DECODED: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
     /// #892 fail-before instrument: how many segments the search answered
     /// from the inverted index (`fts_handled`) and how many it answered by
     /// parsing their stored section. Which route a request took is invisible
@@ -66298,6 +68397,102 @@ mod residual_gate_trim_577_tests {
             peak <= 513,
             "residual survivors must stay O(page cap), not O(matches): peak={peak} (N={N})"
         );
+    }
+
+    /// Read-under-write bool collapse: with ONE document in the memtable,
+    /// `bool{must:[keyword match], filter:[range]}` loses the columnar scored
+    /// path and takes the residual pass, which decoded and re-tested every
+    /// match of every segment to tally `hits.total` (6.6 s at 1.4M matches
+    /// under a bulk writer). With the doc-values shortcut holding the exact
+    /// total, each segment now stops after its own best page. Fail-before:
+    /// the residual pass decoded every `ok` hit (2,000 here). Page and total
+    /// must equal the same query with `min_score: 0`, which stays unbounded.
+    #[tokio::test]
+    async fn residual_gate_stops_counting_when_the_shortcut_is_exact() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        // One segment per flush, so each segment holds more matches than
+        // the page cap and the per-segment stop can fire.
+        config.engine.ingest_shards = 1;
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("status", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("n", FieldType::Long))
+            .unwrap();
+        engine.create_index("residual-ruw", schema).unwrap();
+        let idx = engine.get_index("residual-ruw").unwrap();
+        idx.abort_background_tasks();
+
+        // Two flushed segments of 2,000 docs; half `ok`, n = 0..3999.
+        for batch in 0..2u64 {
+            for i in batch * 2000..(batch + 1) * 2000 {
+                let status = if i % 2 == 0 { "ok" } else { "err" };
+                idx.index_document(Some(format!("d{i}")), json!({"status": status, "n": i}))
+                    .await
+                    .unwrap();
+            }
+            idx.flush().await.unwrap();
+        }
+        // One unflushed doc: the memtable is no longer empty.
+        idx.index_document(Some("m0".into()), json!({"status": "ok", "n": 9000}))
+            .await
+            .unwrap();
+        assert_eq!(idx.memtable.doc_count(), 1);
+        assert_eq!(idx.store.snapshot().segments.len(), 2);
+
+        // ok docs with n >= 200: 1,900 in segments + the memtable doc.
+        let expected_total = 1901u64;
+        for size in [10usize, 300] {
+            let body = json!({
+                "size": size,
+                "track_total_hits": true,
+                "query": {"bool": {
+                    "must": [{"match": {"status": "ok"}}],
+                    "filter": [{"range": {"n": {"gte": 200}}}]
+                }}
+            });
+            let mut reference_body = body.clone();
+            reference_body["min_score"] = json!(0.0);
+
+            RESIDUAL_HITS_DECODED.with(|c| c.set(0));
+            let bounded = idx
+                .search(&xerj_query::parse_request(&body).unwrap())
+                .await
+                .unwrap();
+            let bounded_decoded = RESIDUAL_HITS_DECODED.with(|c| c.get());
+
+            // `min_score` keeps the bounded stop off (and takes another
+            // route), so it is an independent answer to compare against.
+            let reference = idx
+                .search(&xerj_query::parse_request(&reference_body).unwrap())
+                .await
+                .unwrap();
+
+            assert_eq!(reference.total.value, expected_total, "size {size}");
+            assert_eq!(bounded.total.value, expected_total, "size {size}");
+            let ids = |r: &SearchResult| r.hits.iter().map(|h| h.id.clone()).collect::<Vec<_>>();
+            assert_eq!(
+                ids(&bounded),
+                ids(&reference),
+                "page must not change (size {size})"
+            );
+            assert_eq!(bounded.hits.len(), size);
+            // 2,000 `ok` hits sit in the two segments; the old pass decoded
+            // every one of them.
+            assert!(
+                bounded_decoded > 0,
+                "the residual pass must have run for this query (size {size})"
+            );
+            assert!(
+                bounded_decoded < 2000,
+                "the residual pass must stop once each segment holds its page: \
+                 decoded {bounded_decoded} of 2000 ok hits (size {size})"
+            );
+        }
     }
 }
 
@@ -66957,6 +69152,14 @@ mod exact_scan_hydration_tests {
         }
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         scored.truncate(k.max(1));
+        // #3017: the capped page is in score DESC, seq_no ASC, _id ASC order.
+        let seq_of = |id: &str| idx.lookup_seq_no(id).unwrap_or(u64::MAX);
+        scored.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| seq_of(&a.0).cmp(&seq_of(&b.0)))
+                .then_with(|| a.0.cmp(&b.0))
+        });
         scored
             .into_iter()
             .map(|(id, score, src, ordinal)| (id, score.to_bits(), ordinal, src))
@@ -67827,6 +70030,60 @@ mod exact_scan_hydration_tests {
         assert!(doc_matches_query_typed(&query, &source, &Schema::empty()));
     }
 
+    /// #3259: on a mapped, indexed `text` field `term` answers exactly like
+    /// `terms` with one value — token hits added, the raw whole-value hit
+    /// kept. Keyword and undeclared fields keep whole-value `term` matching.
+    #[test]
+    fn term_on_indexed_text_matches_tokens_like_terms() {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("tag", FieldType::Keyword))
+            .unwrap();
+        let term = |f: &str, v: &str| QueryNode::Term {
+            field: f.into(),
+            value: Value::from(v),
+            boost: None,
+        };
+        let terms = |f: &str, v: &str| QueryNode::Terms {
+            field: f.into(),
+            values: vec![Value::from(v)],
+            boost: None,
+        };
+        let docs = [
+            serde_json::json!({ "body": "the quick brown fox", "tag": "a b" }),
+            serde_json::json!({ "body": "quick start", "tag": "quick" }),
+            serde_json::json!({ "body": "lazy dog", "tag": "c" }),
+        ];
+        for v in ["quick", "fox", "the quick brown fox", "slow"] {
+            for d in &docs {
+                assert_eq!(
+                    doc_matches_query_typed(&term("body", v), d, &schema),
+                    doc_matches_query_typed(&terms("body", v), d, &schema),
+                    "term vs terms on body={v:?} doc={d}"
+                );
+            }
+        }
+        let hits = |q: &QueryNode| {
+            docs.iter()
+                .filter(|d| doc_matches_query_typed(q, d, &schema))
+                .count()
+        };
+        assert_eq!(hits(&term("body", "quick")), 2);
+        assert_eq!(hits(&term("body", "the quick brown fox")), 1);
+        // Keyword: whole value only, no token fallback for `term`.
+        assert_eq!(hits(&term("tag", "a")), 0);
+        assert_eq!(hits(&term("tag", "quick")), 1);
+        // Undeclared field: whole value only, as before.
+        assert!(!doc_matches_query_typed(
+            &term("text", "brown"),
+            &serde_json::json!({ "text": "quick brown fox" }),
+            &Schema::empty()
+        ));
+    }
+
     /// The full-source plan IS the old behaviour: the whole source with `_id`
     /// inserted over whatever the document carried under that key.
     #[test]
@@ -68051,6 +70308,38 @@ mod log_match_operator_tests {
         assert!(
             !hit_ids(&plain.search(&phrase).await.unwrap()).contains(&"is-only".to_string()),
             "the english analyzer already drops is, on a non-log index too"
+        );
+    }
+
+    #[test]
+    fn declared_field_resolves_literal_dotted_field_names_and_multifields() {
+        use xerj_common::types::{FieldConfig, FieldOptions, FieldType, Schema};
+
+        let mut schema = Schema::empty();
+        schema.fields.push(FieldConfig {
+            name: "files_manifest.json_recorded_at".to_string(),
+            field_type: FieldType::Date,
+            options: FieldOptions::default(),
+            embedding: None,
+            fields: vec![FieldConfig {
+                name: "keyword".to_string(),
+                field_type: FieldType::Keyword,
+                options: FieldOptions::default(),
+                embedding: None,
+                fields: vec![],
+            }],
+        });
+
+        let found = declared_field(&schema, "files_manifest.json_recorded_at")
+            .expect("literal dotted field name in Schema::fields must resolve");
+        assert!(matches!(found.field_type, FieldType::Date));
+
+        let kw = declared_field(&schema, "files_manifest.json_recorded_at.keyword")
+            .expect("multi-field under literal dotted field name must resolve");
+        assert!(matches!(kw.field_type, FieldType::Keyword));
+        assert!(
+            declared_field(&schema, "files_manifest.json_missing").is_none(),
+            "undeclared dotted sibling must still return None"
         );
     }
 }

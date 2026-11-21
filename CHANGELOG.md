@@ -7,8 +7,649 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Merges and flushes encode fields that are sometimes a scalar and
+  sometimes an array in less memory (#3311, refs #2427 #1122).** The
+  stored-section encoder now keeps a `_source` column as row JSON text when
+  any row is an array or object, not only when every row is (#3266). Fields
+  such as `"t1"` / `["t1","t2"]` or `0.5` / `[0.5, ...]` were parsed into one
+  `serde_json::Value` tree per row for the whole encode. The encoded bytes
+  are unchanged (same length and hash on both builds). Measured on one
+  6,000-document encode with a 1024-d vector, text, keyword, long and three
+  mixed fields (121.5 MB input): peak heap 725.3 MB before, 398.9 MB after.
+  On a 12,000-document `_forcemerge` with `XERJ_MAX_PROCESS_MEMORY_MB=1200`,
+  peak RSS went from 936-943 MB to 791-820 MB; under the automatic cap the
+  peak did not move (1,014-1,056 MB both ways). Inputs without mixed fields
+  see no difference.
+
+### Fixed
+
+- **Searches no longer wait on WAL and snapshot fsyncs while bulk writes run
+  (refs #3324 #3331).** Three code paths held the collection-publication
+  bracket (every search on the index waits while it is open) across disk
+  waits. A flush kept its bracket open through post-publish maintenance
+  (snapshot fsync, WAL rotate and prune). `_bulk` opened its bracket before
+  appending to the WAL, so it waited inside the bracket for a WAL shard
+  lock that WAL maintenance and the batched fsync held across fsyncs. The
+  flush bracket now closes when the segment is published, and `_bulk`
+  appends to the WAL before opening the bracket. WAL maintenance and the
+  `wal_batch_ms` fsync now fsync without holding the shard lock: the next
+  generation's file is created and synced first, and only the rename runs
+  under the lock. The same fsyncs still happen, so durability does not
+  change. A WAL write error no longer poisons the index. Measured over 3
+  runs each, 60 s, 300k preload plus a closed-loop 5,000-doc auto-id writer,
+  ext4: p99 over all reads went from 204-265 ms to 40-85 ms (load 25-50).
+  With a `dd` fdatasync neighbour on the same disk it went from 260-305 ms
+  to 45-60 ms, and the longest all-op stall from 2.3-4.2 s to 0.7-1.5 s
+  (load 14-46). Writer throughput went from 34-50k to 53-66k docs/s.
+  Holds and waits of 1 s or more (`XERJ_STALL_TRACE_MS` sets the threshold)
+  are now logged at WARN with the holder's call site.
+
+- **Short Chinese, Japanese, and Korean document bodies are searchable
+  after autoindexing (#3330).** Autoindex now maps these bodies as text
+  even when they lack whitespace. Re-index previously affected folders
+  with a fresh prefix and state directory.
+
+- **A collapsed `_search` or `_msearch` whose `collapse.inner_hits` block has
+  no `name` is refused with a 400**, as Elasticsearch 8.13 refuses it
+  (`x_content_parse_exception` caused by `illegal_argument_exception`
+  "inner_hits must have a [name]..."). `_search` ran the search and listed
+  the group's hits under a made-up `inner_hits` key; `_msearch` ran it
+  ungrouped. Every entry of an `inner_hits` array is checked; one unnamed
+  block fails a whole `_msearch`.
+
+## [1.0.0-rc.104] - 2026-11-18
+
+**rc.104: rc.103 on every platform.** rc.104 is the rc.103 code with the
+macOS and Windows builds that rc.103 could not ship. No pull request merged
+to `main` between the rc.103 cut (`0de7653b`) and this one, so the engine,
+the model crates, the model bundle and the serve rule are exactly those of
+rc.103; the only source change is the version string. Everything in the
+rc.103 section below (the rc.101 field-report fixes #3287 #3289 #3290 #3291
+#3292, the 2026-11-18 fix sweep, the contributor ES-compatibility wave)
+ships in rc.104 on all platforms.
+
+### Upgrade notes
+
+- **All platforms, marked latest.** rc.104 ships eight targets: Linux x86_64
+  and aarch64 (glibc and musl, `.deb` for both glibc targets), macOS x86_64
+  and aarch64, and Windows x86_64 and aarch64, plus the rc.102 model bundle
+  under the rc.104 name. It supersedes v1.0.0-rc.103, which was published
+  Linux-only; GitHub releases on this repository are immutable once
+  published, so the macOS and Windows builds could not be added to rc.103.
+  `releases/latest` and the installer move from v1.0.0-rc.101 to rc.104.
+- **Data directories, provenance and the opt-in model flag** are as stated
+  for rc.103 below: on-disk format 4 (an rc.101, rc.102 or rc.103 data
+  directory opens unchanged); binaries built from a private tree (public
+  `main` plus the XERJ-Query engine lanes plus the **Proprietary** model
+  crates `xerj-infer`, `xerj-serve` and `xerj-exec`); `/_facts` answers 404
+  `xerj_query_not_enabled` unless `--facts-model-dir <DIR>` is set.
+
+### Changed
+
+- Version `1.0.0-rc.104`; landing footer stamps follow.
+
+## [1.0.0-rc.103] - 2026-11-18
+
+<!-- notes-exempt: #2956 #2974 #3004 #3027 #3041 #3045 #3046 #3068 #3072 #3107 #3110 #3112 #3124 #3132 #3139 #3144 #3147 #3150 #3151 #3242 (CLA signatures and the .contributors list only) -->
+<!-- notes-exempt: #3251 (README hero only, no shipped-binary change) -->
+<!-- notes-exempt: #3001 (research scoring script for ask-plan macro-F1, not in the binary) -->
+
+**rc.103: the rc.101 field-report fixes, the 2026-11-18 fix sweep, and a wave
+of Elasticsearch-compatibility fixes from contributors.** Five lanes answer
+the rc.101 field reports (#3287, #3289, #3290, #3291, #3292): a stopped local
+node starts again on its own, a zero-hit search says why, `xerj def` checks
+hits against the files on disk, `DELETE` of an index no longer fails while
+its files are held, and `match_phrase` matches dotted identifiers under the
+`code` analyzer. The fix sweep (#3263, #3264, #3265, #3266) adds a token
+budget to memory recall, stubs lockfiles by default, makes small-index kNN
+and hybrid search faster, and lowers `_forcemerge` memory on vector indices.
+The model, its bundle and its serve rule are those of rc.102.
+
+### Upgrade notes
+
+- **Linux only, not marked latest.** rc.103 ships Linux binaries (x86_64 and
+  aarch64, glibc and musl, `.deb` for both glibc targets) and the rc.102
+  model bundle under the rc.103 name. macOS and Windows builds need the
+  release workflow, which cannot run for this release; macOS and Windows
+  users stay on v1.0.0-rc.101, which `releases/latest` and the installer
+  keep serving.
+- **Data directories.** rc.103 keeps the rc.101 storage defaults (ZPS4
+  postings, row-dictionary stored text, on-disk format 4), so an rc.101 or
+  rc.102 data directory opens unchanged. The storage and ingest lanes are
+  still not on public `main` (carried forward from rc.101 and rc.102): a
+  build from public `main` writes format 3 and refuses a format-4 directory.
+- **Provenance.** The rc.103 binaries are built from a private tree: public
+  `main` at `5a449f4b` plus the XERJ-Query engine lanes plus the model crates
+  `xerj-infer`, `xerj-serve` and `xerj-exec`, which are licensed
+  **Proprietary** and ship as binary + model bundle only. The Apache-2.0
+  LICENSE covers the engine source on `main`.
+- **XERJ-Query stays opt-in.** The flag is `--facts-model-dir <DIR>` (or
+  `XERJ_FACTS_MODEL_DIR`); without it every `/_facts` path answers 404
+  `xerj_query_not_enabled`.
+- **`DELETE /<index>` moves the directory to `<data-dir>/_trash/` first**
+  and removes it there; a removal that fails is retried in the background
+  and at the next boot (#3292). An index cannot be named `_trash`.
+- **Hybrid search legs run in parallel** on the multi-thread runtime (#3265).
+  `XERJ_HYBRID_PARALLEL_LEGS=0` restores the single-thread join.
+- **MCP search tools drop embedding arrays from `_source`** and say so in
+  `_xerj.hints` (`vectors_omitted`); `include_vectors: true` keeps them
+  (#3289). Detection is by shape: an array of at least 8 numbers with a
+  fraction, so a long float time series is dropped too unless asked for.
+- **`xerj_memory_recall` is budgeted** at 8,000 words by default, like the
+  search tools (#3263).
+- **Lockfiles are stubbed by default** in `xerj autoindex`
+  (`--no-default-stubs` turns full extraction back on) (#3264).
+
 ### Added
 
+- **A stopped local node starts again on its own** (#3290, refs #3267, which
+  stays open for macOS/Windows verification and the installer wording). The
+  server writes `<data-dir>/node.launch.json` after it binds; when a loopback
+  client (`xerj mcp` node-backed tools, `xerj search`, `def`, `code`,
+  `batch-search`, `autoindex map`) finds the port closed, it starts the node
+  that last served it, detached, and waits for a real answer before the call.
+  `XERJ_NO_AUTOSTART=1` or `xerj mcp --no-autostart` turns it off; a
+  non-loopback URL is never started. `xerj --detach …` starts a node in the
+  background and prints its url, data dir, log and stop command. Not run on
+  macOS or Windows.
+- `xerj status [--prefix p] [--json]` (#3291): when a prefix was indexed, the
+  commit then and now, the changed files and a verdict. `xerj_map` adds
+  `index_runs` with the same commits.
+- Code extraction for assembly (`.s`, `.S`, `.asm`: labels, exported
+  functions, macros and constants), GDScript (`.gd`) and K&R C definitions
+  without a return type (#3291).
+- `_reindex` accepts several source indices and wildcards (#2921).
+- `scripts/release-sha256sums.sh` builds one `SHA256SUMS` from a release's
+  per-asset `.sha256` files, and the release workflow publishes it (#3287).
+- A zero-dependency Node.js semantic and hybrid search recipe (#3067).
+- `xerj-autoindex`: detect OpenSpec (`openspec/`) and `github/spec-kit` (`.specify/`, `specs/<feature>/spec.md`) layouts and route specs, constitutions, and ADRs into a dedicated `<prefix>-specs` corpus by default (#2966).
+- `xerj-autoindex`: add `--worktree shared|isolated` so parallel agents in linked Git worktrees either share one main-checkout index (`ax-<repo>`) or keep an isolated per-worktree index (`ax-<repo>-<worktree>`) without lock contention or prefix collisions (#2967).
+- Configurable, deterministic plain-text writing review primitive in
+  `xerj-common` (#2970, refs #2765): phrase, length, repetition, hedging and
+  syntactic source-citation checks with stable line notes. This is a library
+  foundation; recipe-runner and MCP integration remain pending #2762.
+
+### Changed
+
+- **Small-index kNN and hybrid search** (#3265, fixes #3006 and #3016, refs
+  #3018). An unfiltered kNN over at most 10,000 KiB of stored f32 vectors
+  (3,333 vectors of 768 dims) scans exactly instead of walking the graph;
+  only the requested page is hydrated, not the whole `k` pool; a single ES
+  top-level `knn` clause no longer raises the engine page to `k` when nothing
+  re-ranks afterwards; the two hybrid legs run on their own threads. RRF
+  refuses a non-numeric or negative leg `weight` and an invalid `k` with 400
+  (they were silently 1.0 and 60), and accepts `rank_constant` as the ES name
+  for `k`. Measured in #3265 on public `main` (721 docs, 768-d, `query.knn`
+  k=300, size 10): server `took` 29 ms to 0-1 ms; not re-measured on the
+  rc.103 binaries.
+- `xerj_memory_recall` takes `max_tokens` and is budgeted by default at 8,000
+  words, like the search tools (#3263, carries #2958).
+- `xerj autoindex` stubs the eight common lockfiles by default
+  (`--no-default-stubs` restores full extraction), and an explicit `--stub`
+  is now honoured on the `--no-graph` route too (#3264, fixes #2439). The
+  catalog commit after the read-back is its own progress phase,
+  `finalize-catalog-commit`, and names a request that takes 5 s or more;
+  progress lines count terminal cells, so CJK paths keep their width; an
+  empty `autoindex map` names the node's data directory; sitemap dates come
+  from one `git log` walk (fixes #3226). The Windows stall behind #2929 is
+  not reproduced and stays open.
+- `--exclude` applies during the walk (#3287, fixes #3280): excluded files are
+  never stat'ed and `<dir>/**` prunes the directory. Measured in #3287 on
+  Linux tmpfs with 200k excluded files: 1.67 s to 0.48 s. A large excluded
+  directory with no `<dir>/**` glob is still read in full. Not measured on
+  Windows, where #3280 was reported.
+- Hub packs: one shared member and unpacked-size cap for the builder, the
+  catalogue and the client, which names the real count and the cap (#3287,
+  fixes #3283).
+- Benchmark recipes switch the query cache off and report its hits (#3255,
+  refs #3020).
+- With no `search.max_buckets` set, the node's `limits.max_buckets` (default
+  65536) now also caps the total buckets a `_search` or `_msearch` response
+  keeps across its whole aggregation tree, as Elasticsearch's default does.
+  Before, it capped each aggregation on its own, so a response could keep
+  more buckets in total.
+
+### Fixed
+
+- **`DELETE /<index>` no longer answers 500 while the index's files are still
+  held** (#3292, fixes #3274). The index is unregistered first, merges stop,
+  the delete waits up to 3 s for other handles, then the directory is renamed
+  to `<data-dir>/_trash/<name>-<uuid>` and removed there; a failed removal is
+  retried for about 10 minutes and swept at boot. Measured in #3292: DELETE
+  200 in 422 ms after a SIGKILLed autoindex, `_trash` empty after. The NFS
+  case is covered by a test, not reproduced live.
+- **`match_phrase` on a dotted identifier under the `code` analyzer** returned
+  0 hits after a flush (#3292, fixes #3285). `PhraseQuery` takes per-term
+  positions, so tokens the analyzer stacks at one position match there.
+  `request.client.host` and `client.host` now match before and after flush.
+- `record_count` and a `match_all` total differed by the file-card anchors;
+  `xerj_map` and `xerj autoindex map` now report `count_units` and a per-index
+  `files` count (#3292, fixes #3275).
+- **Headless first launch aborted with exit 134** when stderr could not be
+  written (`2>/dev/full`, a closed fd) (#3290, fixes #3276). Prints are
+  fallible, closed fds 0-2 point at `/dev/null`, and the setup link is also
+  written to `<data-dir>/owner-claim.txt` (mode 0600).
+- The auto memory tier adds the memory the node holds at boot to its write
+  breaker (#3290). Partial fix of #3277, which stays open: the facts-model
+  preload does not reserve its own RSS yet.
+- `xerj def` and MCP `xerj_def` check hits against the files when the index
+  is stale (#3291, fixes #3268): a moved declaration is re-anchored
+  (`reanchored: true`), a deleted one is dropped, and a definition not yet
+  indexed is found by parsing the changed files read-only (`unindexed: true`).
+  Assembly (fixes #3270) and GDScript (fixes #3271) are indexed as code.
+- **A zero-hit search says why** (#3289, fixes #3269): MCP `xerj_search` adds
+  `zero_hits_reason` (`no_index` or `no_match`) and a hint naming the closest
+  prefix; the CLI's missing-prefix line ends with `closest: <p>`.
+- A `query` string holding a JSON object is read as DSL, and hybrid,
+  semantic and vector search keep `_source` (#3289, fixes #3272). When a node
+  refuses `?savings=false`, the CLI retries once without it and says what the
+  node is (#3289, fixes #3273). A bad `xerj_batch_search` item fails on its
+  own with the keys it accepts (#3289); the Windows `_msearch` timeout in
+  #2497 is not reproduced and stays open.
+- The installer checks every tool it needs up front and exits 2 naming all
+  missing ones, resumes the model bundle download with a 30 s stall timeout,
+  and `get.ps1` prints the full path to `xerj.exe` (#3287, fixes #3278).
+  `get.ps1` was not run (no PowerShell on the build host). A refused
+  download names the HTTP status and prints a manual install (#3062); the
+  rest of #2460 stays open.
+- A full data-dir drive is named in one sentence (drive, used %, flood stage,
+  how much to free, the `--data-dir` fix): first stderr line of autoindex,
+  `disk_hint` in the budget JSON and `xerj_index_budget`, and a node WARN
+  when flood stage engages (#3287, fixes #3282).
+- `xerj index` retries memory-breaker rejections and exits 1 when documents
+  are lost (#2991). It used to drop the batch and exit 0.
+- Cluster: a replica that misses a write the primary applied leaves the
+  in-sync set (#2993).
+- `PUT /_bulk` and `PUT /{index}/_bulk` are accepted (#3037, fixes #3036).
+- Auth secrets are redacted from debug and serialized config output (#3149,
+  fixes #3057).
+- Large scalar string fields in extracted JSON are capped at
+  `NESTED_JSON_FIELD_MAX` (#3115, fixes #3058).
+- `xerj feedback` keeps `--title` and `--filed-alongside` in its
+  ready-to-run commands (#3106, fixes #3061).
+- Fused BM25 file and symbol hits report the fused `hits.total` and relation
+  (#3071, fixes #3060).
+- Autoindex: quarantining changed content replaces its junk status (#3026);
+  the remove that rebuilds a folder after a record-count abort is named
+  (#2907, fixes #2669); a first run is pointed at the existing data dir
+  (#2953, fixes #2941); `.luau` is Lua code end to end (#2955, fixes #2940);
+  `xerj code` accepts dot-leading repo names such as `.tmux` (#2952, fixes
+  #2939).
+- Elasticsearch-compatibility fixes from contributors, each matching ES 8:
+  clear-scroll that frees nothing answers 404 (#2914); `?create=true` on the
+  three template PUTs (#2930) and ES's names on template GET and DELETE
+  (#2931); date min/max keep their format across indices (#2943); stats
+  (#2948) and composite pages (#2949) reduce over every participating index;
+  integer `_search` URL params are bounded (#2960); closing a PIT id no node
+  issued is refused (#2961); `exists` on `_source` is refused (#2962);
+  `extended_stats` `sigma` is validated (#2963); search parameters ES 8
+  refuses are refused (#2964); a negative `track_total_hits` reads as in ES 8
+  and the query cache is keyed per tracking mode (#2973); `indices_boost`
+  keys resolve before searching (#2977); `weighted_avg` fails on a
+  multi-valued weight (#2981); a `fields` format on a type that cannot format
+  is refused (#2986); percentile aggregations on a non-numeric field are
+  refused (#2989); `search.allow_expensive_queries` is honoured (#2996); a
+  `buckets_path` that reaches no number is refused (#2997); regex
+  include/exclude on a non-string `terms` field (#3008), a `reverse_nested`
+  path that is not a parent (#3009), collapse with `search_after` unless
+  sorted on the collapse field (#3010), match queries and aggregations on a
+  lookup runtime field (#3011) and a script on `matrix_stats` (#3012) are
+  refused with ES's errors.
+- **`_forcemerge` on a vector index no longer holds a parsed copy of every
+  vector (#3266; partial fix of #2917, which stays open because forced
+  merges are still exempt from the yield rules; refs #2427).** The stored-section encoder and decoder kept
+  array and object fields (a 1024-d `dense_vector` in `_source`) as one
+  `serde_json::Value` per number for the whole segment. They now keep those
+  columns as row JSON text, and at the same zstd level the encoded and
+  decoded bytes are identical to before (tested). The
+  explicit-forcemerge long-effort zstd candidate drops from level 19 to 12
+  above 16 MiB per column and to 9 above 128 MiB, keeping long-distance
+  matching. On a 12,000-doc, 101.7 MB, 1024-d index merged from 2 segments to
+  1: peak RSS 1,770 MB → 885 MB and 144 s → 15 s at the auto cap; at a
+  1,200 MB cap 2,318 MB (7 breaker engages) → 776 MB (none). The merged
+  segment is 1.8% larger (89.4 → 91.0 MB). Those numbers were measured on
+  public `main`. In the rc.103 binaries a JSON column of 256 KiB or more is
+  written as row blocks when they come out smaller than LZ4 over the whole
+  column (the rc.101 storage default; `XERJ_STORED_ROW_BLOCKS=0` turns it
+  off), and the row text is cut into those blocks without parsing it. The
+  rc.103 binaries were not re-measured.
+- **Cluster: each index routes documents with its own shard count (#2992).** The shard
+  router used one hash width for the whole cluster, set to the widest plan, so
+  creating an index with more shards (for example after a fourth node joined)
+  re-bucketed every older index: acknowledged ids answered 404 and new writes
+  landed on a shard the older index's plan does not have. The width is now
+  per index, derived from that index's own plan. A write to a planned shard
+  that has no primary is refused with 503 `shard_not_assigned_exception`
+  instead of being stored on the node that received it. Documents already
+  misplaced on a running cluster are not moved by this fix.
+- A newly elected cluster leader now appends a no-op entry of its own term
+  (Raft §5.4.2, §8), so a log tail left uncommitted by the previous leader
+  commits right after the election instead of waiting for the next client
+  write; before this, a metadata write interrupted by an election stayed at
+  commit=0 and timed out. A leader that cannot persist the no-op steps down.
+  The rc.101 "Fixed" note that claimed this was premature: no such code
+  shipped in rc.101, and the fix lands here (#2987). The same bug was a main
+  cause of the `log_catchup` CI flake; those tests now re-propose a write only
+  when a leader change dropped it.
+- `xerj autoindex` and `xerj feedback` check the node identity before querying
+  the autoindex catalog, so an unrelated HTTP service on the default port
+  does not trigger catalog retries. Feedback still drafts a report when catalog
+  autofill is unavailable and now warns when its endpoint ignores `XERJ_URL`.
+  Use `--url` to select the node explicitly ([#2942](https://github.com/xerj-org/xerj/issues/2942)).
+- `xerj-sources` refuses a percent-encoded password in a source URL without
+  echoing it, and turns truncated `R`, `T` and `D` wire frames into errors
+  instead of panicking (#3013).
+- `xerj autoindex <path> --facts <namespace>` resets its local `VersionState`
+  journal when the target namespace on the node is absent or empty (`GET
+  /_facts/<ns>` returns `404` or `records: 0`), so re-indexing into a recreated
+  node writes the rows instead of skipping them as unchanged, and escapes tabs,
+  newlines and backslashes in `doc_id` when writing and replaying `.journal`
+  files (#3130).
+- Incremental autoindex and watch passes (#3069) accept an edited file that becomes
+  identical to another indexed file. The existing content group keeps its
+  identity and gains the path as an alias; the superseded group is retired
+  instead of failing with conflicting content and path identities.
+- `search.max_buckets` set through `PUT _cluster/settings` (#3073) now caps the
+  aggregation buckets of `_search` and `_msearch`, as in Elasticsearch 8. It
+  was stored and returned by `GET _cluster/settings` but never read, so
+  `_search` kept answering 200. The buckets the response keeps are counted
+  across the whole aggregation tree, nested buckets included, with at most
+  `size` counted for `terms`, `significant_terms`, `significant_text`,
+  `multi_terms`, `composite` and the geo grids. A count over the limit is a
+  400 `too_many_buckets_exception` carrying `max_buckets`; transient wins over
+  persistent. A composite `size` over the limit (10 when not given) is
+  refused, and an `_msearch` item over it fails on its own. The node's
+  per-aggregation cap from `limits.max_buckets` still applies too, so a
+  setting above it does not raise that cap. `_async_search`,
+  `_search/template` and `_msearch/template` do not read the setting yet.
+
+## [1.0.0-rc.102] - 2026-11-06
+
+<!-- notes-exempt: #2971 #2972 #2976 #2978 #2980 #2990 #3032 #3034 (site, blog, donation and README/AGENTS pages only, no shipped-binary change) -->
+<!-- notes-exempt: #3031 (CI test-only: the /get privacy test clock) -->
+
+**rc.102: the XERJ Query-1 serve rule R8, a guard against counts the counting
+path cannot express, and the rc.102 public window.** The model bundle that
+ships with this release, `candidate_a_s47_r8`, holds the same weights as
+rc.101's `candidate_a_s47` (every weight file has the same sha256) and changes
+only how answers are served: rule R8 (details under Changed). On XERJ Score v2
+(credit measured against Opus 5.5 = 100), on the four development families
+`teacher_dev`, `bench_select`, `s1b_dev` and `d1_select` (400 items each,
+1,600 in all), seed 47 moves from **90.29 to 94.69** (+4.40, 95% interval
++3.32 to +5.64, paired world-cluster bootstrap); seeds 11 and 29 move +3.95
+and +4.17. These are development items, and R8 was chosen from a diagnosis of
+those same items, so 94.69 is an in-sample number, not a held-out one. Wrong
+answers rise on every seed: 9 to 10 of 1,600 on seed 47, 12 to 15 on seed 11.
+The one held-out read is the fresh_v1 set, read once on 2026-11-04 and
+re-scored under R8 without a second read: Net 0.3333 to 0.3481, right 112 to
+118, wrong 11 to 12. Robustness to new wordings and fresh-set counting are not
+separately measured. The engine serves the evaluated rule exactly: on the
+merged rc.102 tree the engine's rows for all 1,600 development items give the
+same served outcome as the evaluation's Python rows (1,600 of 1,600; 284 rows
+differ only in the raw status, `UNKNOWN` versus `UNSUPPORTED`, and both are
+declines). Without `--facts-model-dir` a node is the node rc.101 was.
+
+### Upgrade notes
+
+- **Cluster: upgrade every member before restarting the ring.** The leader
+  no-op is a new Raft log entry type (`"Noop"`). A member still on an older
+  build cannot decode it and will not accept the log of a new-build leader,
+  so a mixed-version cluster must not run with a new-build leader. Stop and
+  upgrade all members, then start them. Once a new build has written a
+  no-op, an older build fails to open that data directory's Raft log
+  ("decode raft entry"), so there is no downgrade in place.
+- **The rc.102 bundle needs an rc.102 binary.** rc.101 refuses its
+  `bundle.json` (unknown rule `decline_v2_r8`, model state `unavailable`).
+  The rc.102 binary still loads the rc.101 bundle and serves it under
+  `decline_v2` with partner agreement, byte for byte as before.
+- **Counting no longer waits for a partner under R8.** With the rc.102
+  bundle a count is served when the question routes to counting, the hard
+  checks pass and the engine answers; the partner model does not run, and
+  `partner_agreement` is `null` instead of `true`. Read `final_status` and
+  `final_answer` as before.
+- **Data directories.** rc.102 keeps rc.101's storage defaults (ZPS4
+  postings, row-dictionary stored text, on-disk format 4), so an rc.101 data
+  directory opens unchanged. The one-way upgrade from rc.100 described under
+  rc.101 still applies to a directory rc.100 last wrote. Not done in this
+  window, and carried forward: rc.101 said its storage and ingest lanes would
+  reach public `main` before rc.102. They have not; they are in the private
+  build tree only, and a build from public `main` still writes format 3 and
+  refuses a format-4 directory.
+- **Provenance.** The rc.102 binaries are built from a private tree: public
+  `main` at `34a2f244` (this window's merges) plus the XERJ-Query engine lanes
+  plus the model crates `xerj-infer`, `xerj-serve` and `xerj-exec`, which are
+  licensed **Proprietary** and ship as binary + model bundle only. Those
+  crates are not Apache-2.0 and are not in the public repository; the
+  Apache-2.0 LICENSE covers the engine source on `main`.
+- **XERJ-Query stays opt-in.** The flag is `--facts-model-dir <DIR>` (or
+  `XERJ_FACTS_MODEL_DIR`); without it every `/_facts` path answers 404
+  `xerj_query_not_enabled`.
+
+### Added
+
+- `xerj autoindex <path> --facts <namespace>` writes table rows as XERJ Query-1
+  facts: SQLite files, SQL dumps, CSV/TSV and XLSX (#2988). Each row is one subject
+  whose `subject_id` is the key column (`id`, `<table>_id`, … or `--key`), each
+  other column one typed fact quoting the row, so counting questions engage
+  without hand-written facts. Re-runs write only changed rows (withdraw the old
+  version, write the new one) and withdraw removed rows; unchanged rows are a
+  no-op. Measured on rc.101: 1,000 rows → 6,000 facts in 0.36 s; "How many
+  people have office Berlin?" → 366 via `path: counting` with partner
+  agreement (gold 366). The mapping is a per-row-change function
+  (`facts_rows::RowFactMapper::map_change`) so streamed sources can reuse it.
+- Live Postgres sources inside the node (#2984): `xerj connect
+  postgres://…` snapshots the chosen tables in a consistent snapshot, then
+  applies every insert, update, delete and truncate through logical
+  replication, survives restarts and resumes from its acknowledged LSN.
+  HTTP `GET /_xerj/sources`, `GET|PUT|DELETE /_xerj/sources/{name}`; MCP tool
+  `xerj_sources` (the MCP lists 21 tools without the hub key, 24 with it).
+  Measured in that PR on an x86_64 laptop (32 threads) against Postgres 16 on
+  the same host: a 1,000,000-row table snapshotted at 54,776 rows/s;
+  commit-to-readable p50 16.9 ms, p95 26.6 ms over 6,000 samples at 991
+  commits/s; after a `kill -9` mid-stream, 27,696 rows = 27,696 docs with 0
+  missing, extra, stale or duplicate. See `docs/LIVE_SOURCES.md`.
+- `xerj autoindex` indexes zip, tar, tar.gz/tgz and tar.zst archives, one
+  level deep, refusing absolute and `..` member paths, links and special
+  files, with byte, member and expansion-ratio caps (#2982). `xerj sources
+  [--json]` and `docs/SOURCES.md` list every way to get data in.
+- Cohere Rerank as a second `_search` reranking provider, `"rerank":
+  {"provider": "cohere"}`, off until an operator sets a key; the endpoint is
+  configurable so document text can stay on a private Cohere deployment
+  (#2985). See `docs/RERANK.md`.
+- Cohere examples (#2983): an embedder config for Cohere's OpenAI-compatible
+  route, a stdlib Command RAG example whose citations resolve to file and
+  page, and the XERJ tools as a Cohere Chat v2 tool schema. Replay-tested
+  against a mock Cohere API; no live Cohere run yet.
+- The rc.101 documentation set and `/get --with-model` (#2969): the
+  `/_facts` API, model bundle and quickstart pages, and an installer flag that
+  fetches the model bundle with the binary and checks its sha256.
+
+### Changed
+
+- **Serve rule R8 (opt-in per bundle; the rc.102 bundle opts in).**
+  `bundle.json` may name `facts.rule = "decline_v2_r8"` and
+  `counting.signal = "H"`. Under `decline_v2_r8` the facts path serves the
+  raw program's answer where `decline_v2` would have declined it with policy
+  code `D2C_COUNT_COMPARISON` or `D2D_TYPE_DATE`; every other code declines as
+  before. Under signal `H` a count is served on its own hard checks, without
+  the partner model. A bundle that names neither keeps `decline_v2` and
+  signal `A`. The rule and its numbers are summarised at the top of this
+  section.
+- XERJ Query-1 launch claims corrected across the site, README and docs after
+  a review of 1,370 statements on 13 surfaces (#3023): latency is answer time
+  against Messages API time, never CLI start-up; the accuracy headline names
+  its scope (each question's own records given, development-set questions);
+  corpora are named next to numbers.
+- The `/_facts` wait loop in `landing/llms.txt` and `docs/MODEL_QUICKSTART.md`
+  stops on `unavailable` and `xerj_query_not_enabled` instead of polling
+  forever (#3028). This is the docs half of issue #3021; the start-up half
+  stays open.
+
+### Fixed
+
+- A count the counting op-set cannot express is no longer served (partial
+  fix of issue [#3015](https://github.com/xerj-org/xerj/issues/3015)). rc.101
+  served "How many people are in Berlin or Munich?" (Berlin x2, Munich x1) as
+  a verified count of 1, because both models dropped the `or` and agreed on
+  the program for Munich alone. When the serve rule would serve a count and
+  the question joins alternatives with `or` (`either … or`, `nor`) or asks
+  for a sum or a total of a quantity ("total height"), the answer is now a
+  decline on the counting path: `final_status: "UNKNOWN"`, `reason_code:
+  "COUNT_CONNECTIVE_UNSUPPORTED"`, a reason naming the connective, and the
+  withheld program's sha as `withheld_program_sha256`. An `or` that only makes
+  a threshold inclusive ("12 lines or more", "on or after 1990-01-01") is a
+  count the op-set expresses and is still served. The guard matters more
+  under R8, which drops the partner check: on the rc.102 release binary with
+  the rc.102 bundle, both "How many people are in Berlin or Munich?" and "How
+  many people have office Berlin or Munich?" reached the serve point with a
+  one-city program (the withheld shas are those of "office Munich" and
+  "office Berlin") and are declined; "How many people have office Berlin?"
+  is still served as 2. Regression tests: the three Berlin-or-Munich probes
+  (`xerj-serve` unit tests, and an HTTP test over the real models). What
+  stays open on #3015: returning the counted member ids.
+- `_search` with `profile: true` reports measured phase timings, in
+  nanoseconds, instead of 0/1 ns placeholders (#3029, issue #3005). Only
+  phases are measured: a non-zero breakdown timer is its phase total (an
+  upper bound), `*_count` fields are not measured, and the new field
+  `profile.xerj_timing` says so.
+- Tied kNN neighbours are ranked by score, then `seq_no`, then `_id` on every
+  executor (#3030, issue #3017), so a kNN or hybrid ranking with ties is the
+  same in the indexing process and after a restart. On a synthetic 5,000-doc
+  set with 2,500 distinct 384-d vectors and 160 queries, indexing process
+  versus restart went from 234 of 320 identical rankings to 320 of 320.
+- The proxy embedder accepts embedding responses without a per-item `index`
+  (Cohere's OpenAI-compatible route omits it), so `semantic_text` writes
+  through such a route no longer fail with `response parse` (#2983).
+- The aarch64 Linux release assets are built with a 64 KiB jemalloc page
+  again (`JEMALLOC_SYS_WITH_LG_PAGE=16`, issue #1663). The rc.101
+  aarch64-unknown-linux-gnu, aarch64-unknown-linux-musl and arm64 `.deb`
+  assets were built natively without it (4 KiB page), so they abort at start
+  on 16 KiB- and 64 KiB-page aarch64 kernels.
+
+### Known limitations of counting on rc.102
+
+Unchanged from rc.101 except where stated. Counting engages only when every
+fact of the counted subjects carries a stable `subject_id`. The op-set is set
+counts ("how many X have Y", optionally "distinct <field>", with inclusive
+thresholds); a disjunction, a sum or a total of a quantity is now declined
+with a reason (above) instead of served narrower. A served count still tallies
+the members of the matched set and does not check the noun of the question:
+"How many devices do the Berlin offices have in total?" over `office = Berlin`
+facts with no `devices` relation is served as a count of people. Counting
+answers carry no evidence ids and name the program only by its sha.
+
+## [1.0.0-rc.101] - 2026-11-05
+
+<!-- notes-exempt: #2499 #2504 #2505 #2508 #2523 #2529 #2546 #2569 #2570 #2582 #2589 #2614 #2633 #2636 #2641 #2647 #2689 #2707 #2749 #2787 #2795 #2797 #2806 #2843 #2850 #2853 #2862 #2866 #2890 #2897 #2909 #2920 #2922 #2934 (CLA signatures) -->
+<!-- notes-exempt: #2543 #2544 #2552 #2620 #2628 #2648 #2702 #2706 #2790 #2842 #2848 #2851 #2856 #2858 #2867 #2880 #2902 #2911 #2923 (agent field reports / feedback docs) -->
+<!-- notes-exempt: #1811 #2293 #2331 #2446 #2495 #2525 #2590 #2622 #2649 #2742 #2770 #2785 #2794 #2804 #2837 #2927 #2946 (site, blog, docs and translation pages only) -->
+<!-- notes-exempt: #2384 #2448 #2509 (benchmark harnesses and hub corpus definitions, no shipped-binary change) -->
+<!-- notes-exempt: #2588 #2639 #2739 #2832 #2924 (CI, CLA tooling and test-only) -->
+<!-- notes-exempt: #2695 (server.json + Docker pin to rc.100, release infra) -->
+
+**rc.101: XERJ-Query — the engine answers facts and counting questions from a
+model that runs on CPU, off by default.** This release ships XERJ-Query compiled
+into the binary and serves it over `/_facts` on a node started with
+`--facts-model-dir <DIR>`: write facts to a namespace, ask a natural-language
+question, and read a *verified* answer with its cited evidence and the exact
+program that produced it. Counting questions ("how many … over …?") are answered
+by an exact executor, served only when two independently-seeded models agree on
+the program. The model ships as a separate release asset, a swappable
+`xerj-model-bundle-v1` directory (FP16 weights, served on CPU with an int8-guard
+encoding of the same weights — no GPU, nothing leaves the machine). On the honest
+XERJ Score v2 (credit measured against Opus 5.5 = 100 on the facts + counting
+evaluation) the shipped bundle, `candidate_a_s47`, scores **90.29** on the
+standard eval — not the fresh/sealed set; robustness to new wordings and
+fresh-set counting are not separately measured for this bundle. The engine serves
+the evaluated bundle exactly: a byte-for-byte reproduction of its answers across
+all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
+`/_facts` route, no model load, the same MCP tool list.
+
+### Upgrade notes — read before starting rc.101 on an existing data directory
+
+- **ONE-WAY DATA-DIRECTORY UPGRADE.** rc.101 writes new segments as ZPS4 postings
+  and stores text columns as row-dictionary blocks **by default**. The first
+  flush moves the data directory to on-disk format **4**; rc.100 and every
+  earlier build read only format 3 and refuse such a directory at open ("written
+  by a newer xerj"). A data directory that rc.101 has written to **cannot be
+  opened by rc.100 again** — take a backup or snapshot before the first start if
+  you may need to roll back. To keep writing format 3 postings, set
+  `XERJ_FTS_POST_CODEC=packed` before the first rc.101 start (and
+  `XERJ_STORED_ROW_BLOCKS=0` to keep the old stored-text layout); the opt-in
+  positions-off text fields (`index_options: docs|freqs`) move the directory to
+  format 5. These defaults will be on public `main` before rc.102, so a later
+  public release opens rc.101 directories.
+- **Provenance.** The rc.101 binaries are built from a private tree: public
+  `main` at `3f6aefa8` plus the XERJ-Query engine lanes (storage, ingest, facts
+  wiring) plus the model crates `xerj-infer`, `xerj-serve` and `xerj-exec`,
+  which are licensed **Proprietary** and ship as binary + model bundle only.
+  Those three crates are not Apache-2.0 and are not in the public repository; the
+  Apache-2.0 LICENSE covers the engine source on `main`. The engine lanes
+  (non-proprietary) land on public `main` by pull request before rc.102.
+- **XERJ-Query is opt-in.** Nothing changes for a node started as before. The
+  flag is `--facts-model-dir <DIR>`; see the first entry under Added.
+
+
+### Added
+
+- XERJ-Query is opt-in. It ships compiled in and stays off until the server
+  is started with `--facts-model-dir <DIR>` (or `XERJ_FACTS_MODEL_DIR`; the
+  flag wins). Off, a node behaves as rc.100 did: every `/_facts` path answers
+  404 `xerj_query_not_enabled` naming the flag, no model loads and no facts
+  thread starts, the MCP tool list has no `xerj_facts_ask` (the published
+  schema is that default list), and memory namespaces and brains ending in
+  `-facts` are ordinary names again. On, everything below applies; `xerj mcp`
+  lists `xerj_facts_ask` when the node it proxies answers `GET /_facts`
+  (`XERJ_MCP_FACTS=on|off` decides instead).
+- Facts in the default build: `/_facts`, the `xerj_facts_ask` MCP tool, and
+  `_ask` with `decline_v2` as the default rule (`verify: served` remains).
+  Read `final_status` and `final_answer`: under `decline_v2` the plain `status`
+  and `answer` are the unchecked program's. Every `_ask` response now carries a
+  `path` field, `facts` or `counting`, and a counting answer reports its
+  `program_sha256` and whether the partner model agreed. The `/_facts` status
+  no longer carries a `"spike": true` flag and reports the node's counting
+  state. Without a model directory XERJ-Query is off (see the entry above).
+- Exact counting answers in the default build. When the node is started with a
+  model bundle that carries a counting role (see "Model bundles" below), a
+  counting question is answered by an exact executor — the RC4 counting path
+  (stack v6) in `xerj-infer` and `xerj_serve::counting` — and served only when
+  the question routed to counting, its hard checks passed, and a partner model
+  produced the same program; otherwise the fact path answers under `decline_v2`.
+  The `xerj ask` CLI gains the matching count operation. `COUNTING_OFF` now
+  applies only when the bundle has no counting role, or its counting model is
+  absent or fails its load checks; in that case facts keeps serving and only
+  counting questions decline.
+  **Known limitations of counting on rc.101 (measured on user-written facts):**
+  counting engages only when every fact of the counted subjects carries a
+  stable `subject_id` (one per subject, on every fact about it); without it the
+  count is `INCOMPLETE` and the answer is `UNKNOWN` with `path: "facts"`. The
+  op-set is set counts ("how many X have Y", optionally "distinct <field>");
+  sums, totals and numeric thresholds decline. A served count tallies the
+  members of the matched set and does not check the noun of the question:
+  "How many devices do the Berlin offices have in total?" over `office = Berlin`
+  facts with no `devices` relation is served as a verified count of people
+  (`path: "counting"`, `partner_agreement: true`, the same `program_sha256` as
+  "how many people have office Berlin"). Counting answers carry no evidence ids
+  by design, and the response names the program only by `program_sha256`. Ask
+  for the member type you mean and read a count as a member count.
+- Model bundles. `--facts-model-dir` (or `XERJ_FACTS_MODEL_DIR`) may point at a bundle directory
+  (`bundle.json`, schema `xerj-model-bundle-v1`) that holds a `facts` role and
+  optional `counting/served` and `counting/partner` roles, each a directory
+  with its own `manifest.json` and weights. A directory with no `bundle.json`
+  stays a plain facts export, as before. Replacing a single role is a directory
+  rename while the node is stopped, with no change to `bundle.json` or code;
+  load checks refuse a role whose weights or tokenizer hash does not match its
+  manifest, a served/partner pair that disagree, or an unknown rule name.
+  Serving precision is per role in `bundle.json` (`XERJ_FACTS_PRECISION` still
+  overrides facts); weights may be stored F32 or F16 and both widen to f32 at
+  load, so no serving path depends on how a model was trained. See
+  [`docs/MODEL_BUNDLE.md`](docs/MODEL_BUNDLE.md).
+- `xerj-pagedir`, page-pointer directories with self-checking reads. With
+  `XERJ_AUTOINDEX_SOURCE_REF=1` and `XERJ_SOURCE_REF_DIR` set on client and
+  server, long JSONL fields stay in the original file; an edited file gives an
+  error, never wrong text. Off by default.
 - Opt-in hub answer evidence receipts (Refs #1789, #1786): Rust callers can
   bind exact UTF-8 excerpts to pinned source bytes and export SHA-256/JCS
   trace reports. MCP ask/def accepts trace identities through `evidence`;
@@ -147,8 +788,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the top 3 for 22; every rank, misses included, is in
   `benchmarks/skills-intent/results/`. Part of #2644.
 
+#### Public pull requests merged since rc.100
+
+- Add --exclude <glob> to leave paths out of the index (#2682)
+- Index a SKILL.md's name and description as fields (#2741)
+- Teach agents to find an installed skill by task (#2748)
+- Add opt-in Claude Code session handoff hooks (#2849)
+- Add version-pinned byte-span citation and RFC 8785 JCS trace-evidence core (#2857)
+- Add opt-in Claude Code search hints (#2869)
+- Add opt-in Gemini CLI search hints (#2879)
+- Import a claude-mem store with --format claude-mem (#2883)
+- Add Herdr integration (#2891)
+- Wire opt-in pinned answer evidence receipts (#2932)
+- Add fail-closed cyber scope guard (#2933)
+
+### Changed
+
+- Stored text columns are 64 KiB row blocks with a per-column trained 112 KiB
+  zstd dictionary (codec 8), level 3 on flush, 9 on merge, 19 on `_forcemerge`,
+  and a page of results reads only its rows. Older builds refuse such segments.
+  Opt out: `XERJ_STORED_ROW_BLOCKS=0`, `XERJ_STORED_BLOCK_DICT=0`,
+  `XERJ_STORED_ROW_SELECT=0`.
+- New segments write postings as ZPS4, with no per-posting position count. The
+  data-directory format goes to 4 at the first such flush and older builds
+  refuse the directory at open. Opt out: `XERJ_FTS_POST_CODEC=packed`.
+- Text fields may be mapped `index_options: docs` or `freqs` to store no
+  positions. Phrase, phrase-prefix, interval, span and `multi_match` phrase
+  queries on such a field are refused with HTTP 400 ("indexed without position
+  data"); term frequencies are still stored, so BM25 scores do not change. On a
+  one-million-passage benchmark corpus the on-disk postings for such a field
+  were about 53% smaller — positions are the largest posting class — with p95
+  query latency within about 2% (paired, same cores). This is opt-in, never a
+  default. The postings use a new codec family (ZPA); an index that uses it
+  moves the data-directory format to 5, and older builds refuse such a
+  directory at open. See [`docs/STORAGE_COMPACTION.md`](docs/STORAGE_COMPACTION.md).
+- BM25 search walks block-max trees, shares a live floor across segments and
+  opens segments in parallel by default; threads default to min(4, cores/2).
+  Each switch remains an opt-out with identical results.
+- Autoindex sends several bulks of one file at once, with a window that starts
+  at 2, grows while clean and honours `Retry-After`; progress moves inside one
+  large file.
+
+#### Public pull requests merged since rc.100
+
+- Autoindex remove: --uncataloged cleans up a build that never reached finalize (#2663)
+- Read the child's errno portably so the lib-test target builds off Linux (#2679)
+- Say corpora do not follow git remotes, and how to refresh one (#2704)
+- Publish explicit-id index actions as one batch (#2717)
+- Compact version-map keys and report the map's heap (#2726)
+- Plan HNSW inserts under a shared lock, in parallel per batch (#2728)
+- Stream HNSW graph and ids.json snapshots to disk (no whole-graph buffer per flush) (#2809)
+- Stream the HNSW graph file on load instead of reading it whole (#2812)
+- Node.lock: readable holder pid on Windows via node.lock.pid (#2820)
+- Exact compound identifier ranks its definition first, or warns (#2821)
+- Calibrate the neural pre-run estimate to steady-state ingest (#2825)
+- Reserve the memtable flush build working set and purge freed pages after a build (#2826)
+- Store HNSW graph vectors as scaled binary16 to halve resident vector_graph memory (#2827)
+- Xerj def / xerj_def: carry the index_stale hint like search (#2829)
+- Poll the request deadline inside per-segment loops (#2834)
+- Align Docker builder and runtime images (#2847)
+- Bump candle to 0.11.1 to drop zip 7.2.0 (RUSTSEC-2026-0429) (#2881)
+
 ### Fixed
 
+- A newly elected cluster leader now commits an uncommitted log tail left by
+  the previous term by appending an entry of its own term, so a metadata write
+  interrupted by a leader election commits promptly instead of timing out after
+  five seconds. This removes a cluster-metadata replication flake.
+- Large autoindex builds fsync once for a batch of publication intents and
+  group file-completion records, instead of one fsync per file; files stay
+  crash-safe, because a lost completion is republished. Flushes start earlier
+  and smaller under a small process memory cap, and the finalize-correlate
+  phase and wide sparse-segment decodes are bounded, so a one-gigabyte build no
+  longer trips the memory watermark.
+- `_update` and `_update_by_query` re-embed changed `semantic_text`, so a stale
+  vector no longer stays stored.
+- Fields scored by passage no longer build an HNSW graph nobody can read.
+- The autoindex semantic cap counts past the first 1,024 rows of a file, and a
+  sender parked on a full wire no longer hangs the run.
+- Multi-index composite aggregation pages now use the requested global source
+  order and page size, combine duplicate bucket counts, and set the cursor from
+  the retained page. Internal typed keys preserve formatted-date ordering.
 - Finalize top-level leaf `terms` buckets across participating indices after
   complete bounded counts, preserving requested count/key order and global
   minimum/size. Refuse bucket-cap overflow instead of silently dropping terms;
@@ -177,6 +897,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the check cannot read with confidence (JSON ES's own parser rejects, an
   escaped key, a byte order mark) stops the check there, and the rest of the
   body is answered as before.
+
+- `_reindex` accepts `source.index` as a string or array, splits comma lists,
+  and expands wildcards over concrete indices only (a pattern is expanded only
+  when it contains `*` or is `_all`; alias names are not matched and `?` is
+  literal). An exact alias contributes its per-member filter; several aliases
+  on one index are ORed, while naming the concrete index (or an unfiltered
+  alias) copies the whole index once. A source containing the destination is
+  refused before any copy; a wildcard matching nothing is a 404. Previously an
+  array was rejected at deserialization and comma/wildcard names were looked
+  up as literal indices.
+
 - Data-stream `_rollover` honours `dry_run` and its `conditions` instead of
   ignoring the body: `max_docs`/`max_age` are ORed and reported in
   `conditions`, and a dry run or an unmet condition creates no backing index.
@@ -185,12 +916,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rollover. Size-based conditions and alias-rollover body fields are refused
   rather than silently ignored.
 
+- `_search` refuses the parameter values Elasticsearch 8 refuses, with its
+  reasons, instead of running the search: a negative `size` (URL or body) now
+  names itself, a negative `terminate_after` (URL or body) and a
+  `track_total_hits` below -1 are refused, and `track_total_hits: -1` turns
+  total tracking off as `false` does. `rest_total_hits_as_int=true` now counts
+  exactly when no limit is set (it reported 10000 for 10,001 matches) and
+  refuses a limit that would make the integer a lower bound.
+  `terminate_after` is still not applied. On a multi-node index the search
+  now takes `size` and `from` from the URL: the fan-out read only the body,
+  so `?size=1` returned every hit and `?size=-5` ran. A window over the
+  index's `index.max_result_window` now gets ES's "Result window is too
+  large" there too, in place of the fan-out's own refusal.
 - A hub catalogue already on disk is verified against its sibling signature
   before it is served, including a fresh cache and a `304 Not Modified`
   (#2904). Replacing `catalogue.json` used to be enough: `load_catalogue`
   parsed it with no signature check, and a future mtime kept that file
   fresh. A `304` then re-touched the replacement. The cache is dropped and
   refetched when the sibling signature does not verify.
+
+- A negative `track_total_hits` in a search body now means what it means in
+  Elasticsearch 8; it used to be read as `true`. `-1` turns total tracking
+  off, as `false` does, and a value below `-1` is refused with a 400. In
+  `_msearch` the refusal is ES's `illegal_argument_exception` ("[track_total_hits]
+  parameter must be positive or equals to -1, got N") for the whole request,
+  before any item runs. An `_msearch`, `_search/template` or
+  `_msearch/template` item with tracking off now leaves `hits.total` out, as
+  `_search` does; `_msearch` used to print a total capped at `size`, and the
+  template paths labelled that capped count `eq`. The native and gRPC
+  surfaces read `-1` as tracking off too.
+
+- A search with `track_total_hits: true` no longer reports the capped total
+  of the same search run earlier with `track_total_hits: false`. The query
+  cache could not tell the two modes apart (both serialized as `null`), so
+  any search that sent both (`_search`, `_msearch`, `_async_search`, the
+  template paths, and the native and gRPC APIs) could answer the second one
+  with, for example, `{"value": 1, "relation": "gte"}` for 3 matches until the
+  next write.
 
 - `xerj mcp` no longer answers a JSON-RPC notification, and runs every
   `tools/call` off the stdio read loop (#2898). A `tools/call` with no `id`, or
@@ -205,6 +967,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bind fails with "this test starts a fake server on 127.0.0.1 and needs
   loopback networking" instead of hundreds of bare `PermissionDenied` panics.
 
+- `PUT /_template/{name}`, `PUT /_index_template/{name}` and
+  `PUT /_component_template/{name}` honour `?create=true`: a name that is
+  already taken is refused with a 400 `illegal_argument_exception` (ES's own
+  reasons, `index_template [n] already exists`, `index template [n] already
+  exists` and `component template [n] already exists`) and the stored template
+  is left alone. The flag used to be dropped, so the request answered 200 and
+  overwrote. The check and the insert are one step in the engine, so two
+  concurrent creates of one name cannot both win. A bare `?create` means true,
+  any value but `true` or `false` is a 400, and without the flag a PUT still
+  creates or replaces as before.
 - `/lead` rejects non-string email values with HTTP 400 before storage.
   Arrays no longer become accepted addresses through string coercion, and
   objects with a non-callable `toString` no longer cause HTTP 500.
@@ -215,6 +987,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   name was not, because the Dart query adapted from tree-sitter-dart's
   `tags.scm` had dropped both forms.
 
+- `xerj autoindex` now says how to recover when its finalize check finds a
+  live record count that disagrees with what it published (#2669). The abort already named the counts
+  and the indices; a resume checks the same indices, so rerunning stopped there
+  again. It now ends with the `xerj autoindex remove --prefix ... --root ...
+  --yes` command for that folder (adding `--url` and `--state-dir` when the run
+  set them), then says to rerun; a `--watch` session is told to stop the
+  watcher first. `--fresh` is not offered because it is refused once a durable
+  generation exists.
 - The field-report HTTP fallback now enforces its 16 KiB body limit on raw
   bytes before decoding or storage access. Multibyte JSON without a reliable
   `Content-Length` no longer bypasses the limit by having fewer characters.
@@ -231,6 +1011,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--workers 32` and 19 of 26 with `--workers 16`; both now finish all 26
   files and 179,374 records (#2841).
 
+- Template GET and DELETE now take the names Elasticsearch takes, on legacy
+  (`/_template`), composable (`/_index_template`) and component
+  (`/_component_template`) templates. A GET with no name lists every template
+  and is 200 even when there are none (it was a 400
+  `invalid_index_name_exception`). A `*` pattern such as `logs-*` selects the
+  matching templates on GET and DELETE (it was a 404 unless the name was
+  exactly `*`), a legacy GET takes a comma list, and a composable or component
+  DELETE takes an all-or-nothing comma list. A pattern that matches nothing is
+  a 404, except that deleting `*` from an empty store is acknowledged, as in
+  ES 8.13.
 - `weighted_avg` now executes field-based requests (`value` / `weight`, each
   with a `field` and optional numeric `missing`) instead of returning HTTP 200
   with an `unsupported aggregation type` error in the aggregations body. A
@@ -627,6 +1417,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refusal, and every rerun stopped on the same record. A run that an earlier
   version already stopped this way replays the list it fixed and stops again;
   index that folder under a new `--prefix` and `--state-dir` (#2807).
+
+#### Public pull requests merged since rc.100
+
+- Reject null JSON payloads as client errors (#2330)
+- Size a bare semantic_text at the backend's confirmed width (#2476)
+- Accept a Windows path in corpus add (#2501)
+- Accept plain query strings in xerj_batch_search (#2502)
+- Name an unknown flag instead of dumping usage (#2516)
+- Complete rc.100 staging and back-pressure follow-ups (#2551)
+- Unblock index deletion behind stalled statistics (#2558)
+- Refuse a partial clone by name instead of reporting "could not clone" (#2599)
+- Preserve MCP search compatibility, default budgets and honest node status (#2613)
+- Preserve corpus checkouts and verify autoindex completion (#2616)
+- Preserve usable partial clones and import archived sessions (#2618)
+- Preserve reindex aliases, Boolean scores and exported definitions (#2625)
+- Score CJK evidence inside continuous text (#2635)
+- Apply items that share an _id in request order (#2650)
+- Bound hdr number_of_significant_value_digits; one request hung a search thread (#2651)
+- Validate slice before running a search; a slice.max of 2^32 aborted the node (#2652)
+- _reindex honours op_type, conflicts and max_docs (#2653)
+- Count only memory the node can release on Linux (#2656)
+- Keep a nested constant_score boost after flush (#2658)
+- Say which data dir to restart when the node behind a port died (#2660)
+- Cite the live name of a deduplicated file, not its backup copy (#2665)
+- Match a numeric term by value in the memtable and _source paths (#2667)
+- Keep every line when the text chunker hits its byte cap (#2668)
+- Show live/expected record counts and indices when the group count verify aborts (#2671)
+- Retry a crossed capture in the exact kNN scan instead of failing the run (#2678)
+- Say a prefix's first run has not finished on a search miss (#2696)
+- Batch prior-edge invalidation so --fresh stops refreshing per file (#2703)
+- A lone background merge waits until its reservation fits (#2709)
+- A reopened index runs no catch-up merge until it changes (#2710)
+- Give query-time reads their own memory budget and stop breaker cache thrash (#2712)
+- Answer simple_query_string fields ["*"] from the inverted index (#2714)
+- Run at most one background cold stored warm per index (#2715)
+- Stop warming published segments once RSS passes the release level (#2718)
+- _reindex applies source filtering and refuses scripts (#2719)
+- Let a small merge write run after a yield streak below the watermark (#2722)
+- Chunk HNSW vector storage and account for the graph in the ingest trace (#2724)
+- Size the bulk analyze reservation by token count (#2730)
+- Read the root licence from the pin when a paths harvest leaves it unchecked-out (#2733)
+- Share one parsed _source between storage and FTS memtables (#2734)
+- Size the publish-time stored warm before decoding it (#2737)
+- Trust the OS certificate store alongside bundled roots (#2747)
+- Finalize-count reads time bounds by sort, not min/max aggs (#2750)
+- Cap a streak merge write at the memory watermark (#2751)
+- Flush one shard at a time when draining for memory pressure (#2753)
+- Share HNSW doc ids between the id maps and ledger them (#2777)
+- Reserve read budget for uncached doc_values decodes (#2778)
+- Stop a search deadlocking on a cold segment's stored-section lock (#2780)
+- Store common doc ids inline in the version map (#2781)
+- Delete a one-page _delete_by_query match set without a flush (#2782)
+- Report exact code size-limit skips (#2789)
+- Execute weighted_avg and fail loud on unsupported shapes (#2805)
+- Don't hold the turbo-ingest analyze reservation across schema and WAL waits (#2813)
+- Never journal a file past a record the server refused (#2816)
+- Name the flags when symlinks are skipped (#2824)
+- Stop the memtable scan at the search deadline (#2830)
+- Enforce the raw request byte limit (#2845)
+- Reject non-string email inputs (#2854)
+- Index Dart extension and extension type declarations (#2865)
+- Refuse more than one alias write index at update time (#2876)
+- Index INSERT-only seed migrations instead of junking them (#2878)
+- Data-stream rollover honours dry_run, conditions and write routing (#2900)
+- Calamine 0.38.0 for RUSTSEC-2026-0436 (cargo-audit red on every PR) (#2912)
+- Reject avg/sum/min/max/stats on a non-numeric field like ES (#2913)
+- Validate scroll searches the way SearchRequest#validate does (#2915)
+- Enforce index.max_terms_count on terms queries (#2936)
+- Enforce the search.max_keep_alive cluster setting (#2937)
+- Refuse a malformed _bulk action line for the whole request (#2938)
+- Keep composite missing order consistent across pages (#2944)
 
 ## [1.0.0-rc.100] - 2026-10-26
 

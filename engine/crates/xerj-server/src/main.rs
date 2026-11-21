@@ -136,6 +136,36 @@ use xerj_common::{config::Config, metrics::Metrics};
 use xerj_console_api::{state::ClusterMode, ConsoleState, RpConfig};
 use xerj_engine::Engine;
 
+// #3276: the binary's own print macros, with fallible writes.
+//
+// `std`'s `println!`/`eprintln!` panic when the write fails, and the release
+// profile is `panic = "abort"`. A node started from an agent terminal keeps
+// that terminal (or pipe) as its stdout/stderr; once the session ends, a
+// write returns EIO or ENOSPC-like errors instead of reaching anyone, and the
+// next banner line aborted the node (exit 134, reproduced on rc.74 with
+// `2>/dev/full`). A lost line is not worth the node. Defined before the
+// `mod` items, so every module of this binary uses them. SIGPIPE keeps its
+// default disposition (`restore_default_sigpipe`), so `xerj … | head` still
+// ends quietly with 141.
+macro_rules! println {
+    ($($arg:tt)*) => {{
+        use ::std::io::Write as _;
+        let _ = ::std::writeln!(::std::io::stdout(), $($arg)*);
+    }};
+}
+macro_rules! print {
+    ($($arg:tt)*) => {{
+        use ::std::io::Write as _;
+        let _ = ::std::write!(::std::io::stdout(), $($arg)*);
+    }};
+}
+macro_rules! eprintln {
+    ($($arg:tt)*) => {{
+        use ::std::io::Write as _;
+        let _ = ::std::writeln!(::std::io::stderr(), $($arg)*);
+    }};
+}
+
 mod brain;
 #[cfg(all(target_os = "linux", feature = "debug-profiling"))]
 mod debug_profiling;
@@ -174,11 +204,14 @@ fn is_top_level_command(arg: &str) -> bool {
         "index"
             | "search"
             | "batch-search"
+            | "eval"
             | "sessions"
             | "def"
+            | "status"
             | "init"
             | "gain"
             | "autoindex"
+            | "sources"
             | "brain"
             | "share"
             | "feedback"
@@ -280,6 +313,9 @@ where
             // whole argument list, so its position never matters); accepted
             // here only so it is not an "unknown argument".
             xerj_common::feedback::DISABLE_FLAG => {}
+            // Handled in `main` before this parser runs (`run_detached`); the
+            // detached child never sees it. Accepted so it is not "unknown".
+            "--detach" => {}
             "--help" | "-h" => {
                 print_help();
                 std::process::exit(0);
@@ -334,6 +370,7 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20autoindex --help)\n\
          \x20\x20\x20\x20xerj autoindex map [folder]        data map of indexed data, or preview a folder\n\
          \x20\x20\x20\x20xerj autoindex remove --prefix <P>  drop one autoindexed folder, after a plan\n\
+         \x20\x20\x20\x20xerj sources --types [--json]       every way to get data in, one command each\n\
          \x20\x20\x20\x20xerj code <corpus> \"<query>\"        reference-coding retrieval over a corpus\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20of peer projects (see xerj code --help)\n\
          \x20\x20\x20\x20xerj corpus add|index|list          the corpus lifecycle behind `xerj code`\n\
@@ -364,6 +401,13 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20XERJ_ALLOW_INSECURE_NETWORK_BIND=true), because every\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20request — API key included — would cross the network in\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20cleartext. Env: XERJ_BIND_ADDRESS\n\
+         \x20\x20\x20\x20--detach               Start the node in the background and return once it\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20serves. It is detached from this terminal (its own\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20session on Linux/macOS, a detached process on Windows),\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20so closing the terminal or agent session does not stop\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20it. Output goes to <data_dir>/node.log. Clients on this\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20machine (xerj mcp, search, def, code) also start a\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20stopped local node this way; XERJ_NO_AUTOSTART=1 stops that.\n\
          \x20\x20\x20\x20--insecure, -k         Disable TLS *and* API-key authentication — local dev only.\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Auth is ON by default, so without this flag every client\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(`xerj autoindex` and `xerj brain` included) must send the\n\
@@ -457,10 +501,17 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20xerj index      <opts>          direct NDJSON → engine ingest (see xerj index --help)\n\
          \x20\x20\x20\x20xerj autoindex  <folder> [opts] zero-config folder discovery + indexing (see xerj autoindex --help)\n\
          \x20\x20\x20\x20xerj autoindex  map [folder]    data map of indexed data, or a read-only folder preview\n\
+         \x20\x20\x20\x20xerj connect    postgres://...  live database source: snapshot, then stream every\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20change in real time (see xerj connect --help)\n\
+         \x20\x20\x20\x20xerj sources    [name]          live sources on a node: state, lag, rows/s\n\
          \x20\x20\x20\x20xerj search     \"<text>\"         retrieve code/passages from a running node — the\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20query client, no wrapper scripts (see xerj search --help)\n\
+         \x20\x20\x20\x20xerj eval       --qrels F --queries F  nDCG@k, recall@k, MRR per query + paired\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20significance test vs a saved run (see xerj eval --help)\n\
          \x20\x20\x20\x20xerj def        \"<symbol>\"       go-to-definition: where is this symbol defined, and\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20what is its signature (see xerj def --help)\n\
+         \x20\x20\x20\x20xerj status     [--prefix <p>]  when a prefix was indexed, its commit then and now,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20and how many files changed since (xerj status --help)\n\
          \x20\x20\x20\x20xerj code       <corpus> \"<q>\"  reference-coding retrieval: how did peer projects\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20solve this (see xerj code --help)\n\
          \x20\x20\x20\x20xerj corpus     add|index|list   clone + index + list the reference corpora that\n\
@@ -1675,6 +1726,63 @@ mod starting_responder_tests {
         assert!(after.ends_with("real"), "{after}");
         server.abort();
     }
+
+    /// A connection still sending its request at the hand-over used to
+    /// outlive `stop` (axum spawns connections detached) and answer
+    /// "starting" after the real router was serving. It is closed now, and
+    /// a "starting" answer tells keep-alive clients to reconnect.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn no_starting_answer_after_the_hand_over() {
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
+        listener.set_nonblocking(true).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let starting = StartingResponder::start(&[(&listener, "ES-compat")]);
+
+        let answer = get(addr, "/_cluster/health").await.to_ascii_lowercase();
+        assert!(answer.contains("connection: close"), "{answer}");
+
+        let mut partial = tokio::net::TcpStream::connect(addr).await.unwrap();
+        partial
+            .write_all(b"GET /_cluster/health HTTP/1.1\r\nHost: x\r\n")
+            .await
+            .unwrap();
+        // Let the responder read the partial head, so the connection is
+        // past version detection and mid-request.
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        let begun = std::time::Instant::now();
+        starting.stop().await;
+        let stop_took = begun.elapsed();
+        assert!(
+            stop_took < STARTING_GRACE * 3,
+            "stop took {stop_took:?} with a stalled client"
+        );
+
+        let real =
+            Router::new().route("/_cluster/health", axum::routing::get(|| async { "green" }));
+        let server = tokio::spawn(async move {
+            axum::serve(TcpListener::from_std(listener).unwrap(), real)
+                .await
+                .unwrap();
+        });
+        assert!(get(addr, "/_cluster/health").await.ends_with("green"));
+
+        let _ = partial.write_all(b"\r\n").await;
+        let mut late = Vec::new();
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            partial.read_to_end(&mut late),
+        )
+        .await
+        .expect("the stalled connection is closed, not left open");
+        let late = String::from_utf8_lossy(&late);
+        assert!(
+            !late.contains("503"),
+            "starting answer after hand-over: {late}"
+        );
+        server.abort();
+    }
 }
 
 #[cfg(test)]
@@ -1862,7 +1970,14 @@ const AUTO_PORT_SCAN: u16 = 1000;
 /// opens the data dir (#2575). Every path returns 503 with an ES-shaped
 /// `node_starting_exception` and `Retry-After: 1`, except `/health/live`,
 /// which returns 200 because the process is alive. `/health/ready` gets the
-/// 503 like everything else.
+/// 503 like everything else. Every answer carries `Connection: close`, so a
+/// keep-alive client opens a fresh connection for its retry and that one
+/// lands on the real router.
+///
+/// The responder owns its connections. It used `axum::serve`, which spawns
+/// each connection as a detached task: `stop` aborted the accept loop after
+/// its grace, but a connection still mid-request kept running and answered
+/// "starting" after the node was ready.
 struct StartingResponder {
     stop: tokio::sync::watch::Sender<bool>,
     tasks: Vec<tokio::task::JoinHandle<()>>,
@@ -1871,6 +1986,12 @@ struct StartingResponder {
 const STARTING_REASON: &str = "XERJ is starting: the node is opening the indices in its data \
      directory and will serve requests when that finishes. Retry shortly; GET /health/ready \
      returns 200 once the node is ready.";
+
+/// How long `StartingResponder::stop` lets open connections finish. A
+/// "starting" answer is static and leaves in microseconds; what is still
+/// open after this is a client that has not finished sending its request,
+/// and it would hold the real routers off the port.
+const STARTING_GRACE: std::time::Duration = std::time::Duration::from_millis(500);
 
 fn starting_router() -> Router {
     use axum::http::{header, StatusCode};
@@ -1881,6 +2002,7 @@ fn starting_router() -> Router {
             get(|| async {
                 (
                     StatusCode::OK,
+                    [(header::CONNECTION, "close")],
                     axum::Json(serde_json::json!({"status": "starting"})),
                 )
             }),
@@ -1888,7 +2010,7 @@ fn starting_router() -> Router {
         .fallback(|| async {
             (
                 StatusCode::SERVICE_UNAVAILABLE,
-                [(header::RETRY_AFTER, "1")],
+                [(header::RETRY_AFTER, "1"), (header::CONNECTION, "close")],
                 axum::Json(serde_json::json!({
                     "error": {"type": "node_starting_exception", "reason": STARTING_REASON},
                     "status": 503,
@@ -1912,33 +2034,27 @@ impl StartingResponder {
                     continue;
                 }
             };
-            let mut rx = rx.clone();
+            let rx = rx.clone();
             let name = *name;
             tasks.push(tokio::spawn(async move {
-                let listener = match TcpListener::from_std(clone) {
-                    Ok(listener) => listener,
-                    Err(error) => {
-                        warn!("{name}: no starting responder ({error})");
-                        return;
-                    }
-                };
-                let serve =
-                    axum::serve(listener, starting_router()).with_graceful_shutdown(async move {
-                        let _ = rx.wait_for(|stopped| *stopped).await;
-                    });
-                let _ = serve.await;
+                match TcpListener::from_std(clone) {
+                    Ok(listener) => serve_starting(listener, rx).await,
+                    Err(error) => warn!("{name}: no starting responder ({error})"),
+                }
             }));
         }
         StartingResponder { stop, tasks }
     }
 
-    /// Stop answering and release the duplicate sockets before the real
-    /// routers take the listeners. In-flight "starting" answers get 2 s.
+    /// Stop answering, close every "starting" connection and release the
+    /// duplicate sockets before the real routers take the listeners.
     async fn stop(self) {
         let _ = self.stop.send(true);
         for task in self.tasks {
+            // `serve_starting` bounds itself to STARTING_GRACE. Aborting a
+            // stuck task drops its `JoinSet`, which aborts its connections.
             let abort = task.abort_handle();
-            if tokio::time::timeout(std::time::Duration::from_secs(2), task)
+            if tokio::time::timeout(STARTING_GRACE * 4, task)
                 .await
                 .is_err()
             {
@@ -1946,6 +2062,66 @@ impl StartingResponder {
             }
         }
     }
+}
+
+/// Resolves once the starting responder is told to stop (or its sender is
+/// gone). Drops the watch guard here, so callers' futures stay `Send`.
+async fn stopped(stop: &mut tokio::sync::watch::Receiver<bool>) {
+    let _ = stop.wait_for(|stopped| *stopped).await;
+}
+
+/// Serve [`starting_router`] on `listener` until `stop` turns true, then
+/// stop accepting, give open connections [`STARTING_GRACE`] and close the
+/// rest. Every connection lives in `conns`, so none outlives this function.
+///
+/// Accept loop and per-connection graceful shutdown follow axum 0.7.9
+/// `src/serve.rs` (`WithGracefulShutdown::into_future`, MIT); the change is
+/// the `JoinSet`, where axum's `tokio::spawn` leaves connections running.
+async fn serve_starting(listener: TcpListener, mut stop: tokio::sync::watch::Receiver<bool>) {
+    use hyper_util::rt::{TokioExecutor, TokioIo};
+    use hyper_util::server::conn::auto::Builder;
+    use hyper_util::service::TowerToHyperService;
+
+    let service = TowerToHyperService::new(starting_router());
+    let mut conns = tokio::task::JoinSet::new();
+    let conn_stop = stop.clone();
+    loop {
+        tokio::select! {
+            biased;
+            _ = stopped(&mut stop) => break,
+            Some(_) = conns.join_next(), if !conns.is_empty() => {}
+            accepted = listener.accept() => {
+                let stream = match accepted {
+                    Ok((stream, _)) => stream,
+                    Err(_) => {
+                        // Out of descriptors and the like: back off, as
+                        // axum's accept loop does, instead of spinning.
+                        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                        continue;
+                    }
+                };
+                let _ = stream.set_nodelay(true);
+                let service = service.clone();
+                let mut stop = conn_stop.clone();
+                conns.spawn(async move {
+                    let builder = Builder::new(TokioExecutor::new());
+                    let conn = builder.serve_connection_with_upgrades(TokioIo::new(stream), service);
+                    tokio::pin!(conn);
+                    tokio::select! {
+                        _ = conn.as_mut() => return,
+                        _ = stopped(&mut stop) => conn.as_mut().graceful_shutdown(),
+                    }
+                    let _ = conn.await;
+                });
+            }
+        }
+    }
+    drop(listener);
+    let _ = tokio::time::timeout(STARTING_GRACE, async {
+        while conns.join_next().await.is_some() {}
+    })
+    .await;
+    conns.shutdown().await;
 }
 
 async fn serve_on(
@@ -2055,6 +2231,114 @@ struct IndexCmdArgs {
     limit: usize,
     config: Option<PathBuf>,
     data_dir: Option<String>,
+    /// Per-batch wall-clock budget for retrying a memory-breaker rejection.
+    retry_timeout: std::time::Duration,
+}
+
+/// Default for `xerj index --retry-timeout-secs`: long enough for a memtable
+/// flush or a merge to finish and give memory back.
+const DEFAULT_INGEST_RETRY_TIMEOUT_SECS: u64 = 120;
+
+/// Retry cap for engine back-pressure (`ResourceExhausted`), unchanged from
+/// the loop this replaced.
+const INGEST_BACKPRESSURE_MAX_ATTEMPTS: u32 = 240;
+
+/// How long `xerj index` waits before resubmitting a batch the engine
+/// rejected with `err`, or `None` when the error is not transient and the
+/// batch has failed.
+///
+/// - `ResourceExhausted` is memtable back-pressure. The engine already waited
+///   on its drain condvar, so a short 5 ms pause is enough.
+/// - `CircuitBreaking` is the parent memory breaker. It stays tripped until a
+///   flush or merge frees memory, so the wait grows from 50 ms, doubling per
+///   `attempt`, up to 2 s.
+///
+/// Anything else (malformed JSON, mapping conflict, I/O) is final.
+fn ingest_backoff(err: &xerj_engine::EngineError, attempt: u32) -> Option<std::time::Duration> {
+    use std::time::Duration;
+    match err {
+        xerj_engine::EngineError::Common(xerj_common::XerjError::ResourceExhausted { .. }) => {
+            Some(Duration::from_millis(5))
+        }
+        xerj_engine::EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. }) => {
+            let ms = 50u64.saturating_mul(1u64 << attempt.min(6));
+            Some(Duration::from_millis(ms.min(2_000)))
+        }
+        _ => None,
+    }
+}
+
+/// `true` when the retry loop may sleep `delay` and resubmit: back-pressure
+/// keeps its attempt cap, the breaker gets `budget` of wall-clock waiting.
+fn ingest_retry_allowed(
+    err: &xerj_engine::EngineError,
+    attempt: u32,
+    waited: std::time::Duration,
+    delay: std::time::Duration,
+    budget: std::time::Duration,
+) -> bool {
+    match err {
+        xerj_engine::EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. }) => {
+            waited.saturating_add(delay) <= budget
+        }
+        _ => attempt < INGEST_BACKPRESSURE_MAX_ATTEMPTS,
+    }
+}
+
+/// Test hook: `XERJ_INDEX_TEST_BREAKER_REJECTIONS=K` makes the first `K`
+/// batch submissions of `xerj index` fail with the parent breaker's
+/// `CircuitBreaking` error before they reach the engine, so the retry path is
+/// exercised deterministically without depending on the host's RSS.
+static INJECTED_BREAKER_REJECTIONS: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+
+fn load_injected_breaker_rejections() {
+    let k = std::env::var("XERJ_INDEX_TEST_BREAKER_REJECTIONS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(0);
+    INJECTED_BREAKER_REJECTIONS.store(k, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn take_injected_breaker_rejection() -> Option<xerj_engine::EngineError> {
+    INJECTED_BREAKER_REJECTIONS
+        .fetch_update(
+            std::sync::atomic::Ordering::Relaxed,
+            std::sync::atomic::Ordering::Relaxed,
+            |k| k.checked_sub(1),
+        )
+        .ok()
+        .map(|_| {
+            xerj_engine::EngineError::Common(xerj_common::XerjError::circuit_breaking(
+                "[parent] injected by XERJ_INDEX_TEST_BREAKER_REJECTIONS",
+            ))
+        })
+}
+
+/// Unix-ms of the last "memory breaker tripped" WARN, shared by every ingest
+/// worker so a tripped breaker logs once per second, not once per batch.
+static LAST_BREAKER_WARN_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+fn warn_breaker_tripped_rate_limited(err: &xerj_engine::EngineError) {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let last = LAST_BREAKER_WARN_MS.load(std::sync::atomic::Ordering::Relaxed);
+    if now.saturating_sub(last) < 1_000 {
+        return;
+    }
+    if LAST_BREAKER_WARN_MS
+        .compare_exchange(
+            last,
+            now,
+            std::sync::atomic::Ordering::Relaxed,
+            std::sync::atomic::Ordering::Relaxed,
+        )
+        .is_ok()
+    {
+        warn!("memory breaker tripped, waiting for flush: {err}");
+    }
 }
 
 /// `xerj index`'s string flag value; exits 2 on a missing one (see [`flag_value`]).
@@ -2105,6 +2389,109 @@ fn check_index_file_input(path: &Path) -> Result<(), String> {
         return Err(format!("--file {} is not a regular file", path.display()));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod ingest_backoff_tests {
+    use super::{ingest_backoff, ingest_retry_allowed, INGEST_BACKPRESSURE_MAX_ATTEMPTS};
+    use std::time::Duration;
+    use xerj_common::XerjError;
+    use xerj_engine::EngineError;
+
+    fn breaker() -> EngineError {
+        EngineError::Common(XerjError::circuit_breaking("[parent] tripped"))
+    }
+
+    fn backpressure() -> EngineError {
+        EngineError::Common(XerjError::resource_exhausted("memtable full"))
+    }
+
+    #[test]
+    fn backpressure_retries_after_a_short_pause() {
+        assert_eq!(
+            ingest_backoff(&backpressure(), 0),
+            Some(Duration::from_millis(5))
+        );
+        assert_eq!(
+            ingest_backoff(&backpressure(), 100),
+            Some(Duration::from_millis(5))
+        );
+    }
+
+    #[test]
+    fn breaker_retries_with_exponential_backoff_capped_at_two_seconds() {
+        let delays: Vec<u64> = (0..10)
+            .map(|a| ingest_backoff(&breaker(), a).unwrap().as_millis() as u64)
+            .collect();
+        assert_eq!(
+            delays,
+            [50, 100, 200, 400, 800, 1600, 2000, 2000, 2000, 2000]
+        );
+        assert_eq!(
+            ingest_backoff(&breaker(), u32::MAX),
+            Some(Duration::from_secs(2))
+        );
+    }
+
+    #[test]
+    fn parse_and_mapping_errors_are_final() {
+        let parse = EngineError::Common(XerjError::invalid_document_json("expected value"));
+        assert_eq!(ingest_backoff(&parse, 0), None);
+        let mapping = EngineError::Common(XerjError::InvalidMapping {
+            reason: "failed to parse field [n] of type [long]".into(),
+        });
+        assert_eq!(ingest_backoff(&mapping, 0), None);
+        let io = EngineError::Io(std::io::Error::other("disk full"));
+        assert_eq!(ingest_backoff(&io, 0), None);
+    }
+
+    #[test]
+    fn breaker_retries_stop_at_the_time_budget() {
+        let budget = Duration::from_secs(120);
+        let d = Duration::from_secs(2);
+        assert!(ingest_retry_allowed(
+            &breaker(),
+            500,
+            Duration::from_secs(118),
+            d,
+            budget
+        ));
+        assert!(!ingest_retry_allowed(
+            &breaker(),
+            1,
+            Duration::from_millis(118_001),
+            d,
+            budget
+        ));
+        assert!(!ingest_retry_allowed(
+            &breaker(),
+            0,
+            Duration::ZERO,
+            d,
+            Duration::ZERO
+        ));
+    }
+
+    #[test]
+    fn backpressure_retries_keep_their_attempt_cap() {
+        let budget = Duration::from_secs(120);
+        let d = Duration::from_millis(5);
+        let cap = INGEST_BACKPRESSURE_MAX_ATTEMPTS;
+        assert!(ingest_retry_allowed(
+            &backpressure(),
+            cap - 1,
+            Duration::ZERO,
+            d,
+            budget
+        ));
+        assert!(!ingest_retry_allowed(
+            &backpressure(),
+            cap,
+            Duration::ZERO,
+            d,
+            budget
+        ));
+    }
 }
 
 #[cfg(test)]
@@ -2203,6 +2590,7 @@ where
     let mut limit = 0usize; // 0 = all lines
     let mut config = None;
     let mut data_dir = None;
+    let mut retry_timeout_secs = DEFAULT_INGEST_RETRY_TIMEOUT_SECS;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -2213,6 +2601,9 @@ where
             "--limit" | "-l" => limit = index_flag_count(&arg, args.next()),
             "--config" | "-c" => config = Some(PathBuf::from(index_flag_value(&arg, args.next()))),
             "--data-dir" | "-d" => data_dir = Some(index_flag_value(&arg, args.next())),
+            "--retry-timeout-secs" => {
+                retry_timeout_secs = index_flag_count(&arg, args.next()) as u64
+            }
             xerj_common::feedback::DISABLE_FLAG => {}
             "--help" | "-h" => {
                 print_index_help();
@@ -2233,6 +2624,7 @@ where
         limit,
         config,
         data_dir,
+        retry_timeout: std::time::Duration::from_secs(retry_timeout_secs),
     })
 }
 
@@ -2256,6 +2648,9 @@ fn index_help_text(feedback: bool) -> String {
          \x20\x20\x20\x20--limit,    -l <N>     Ingest only the first N lines (default: all)\n\
          \x20\x20\x20\x20--config,   -c <PATH>  Path to TOML config file\n\
          \x20\x20\x20\x20--data-dir, -d <PATH>  Override data directory\n\
+         \x20\x20\x20\x20--retry-timeout-secs <N>\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Seconds one batch may wait out the memory\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20breaker before it counts as failed (default 120)\n\
          \x20\x20\x20\x20--disable-feedback     Do not print the feedback invitation above\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(env XERJ_DISABLE_FEEDBACK=true)\n\
          \x20\x20\x20\x20--help,     -h         Show this help\n\
@@ -2489,6 +2884,8 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
 
     let _ = &sem; // keep sem in scope for name-shadowing parity; unused on sync path.
     let limit = cmd.limit;
+    let retry_timeout = cmd.retry_timeout;
+    load_injected_breaker_rejections();
     let idx_for_rayon: std::sync::Arc<xerj_engine::Index> = std::sync::Arc::clone(&index);
     let sent_for_rayon = StdArc::clone(&total_sent);
     let errs_for_rayon = StdArc::clone(&total_errs);
@@ -2510,11 +2907,12 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
                 let mut cursor = 0usize;
                 let mut current: Vec<(String, StdArc<[u8]>)> = Vec::with_capacity(batch_size);
 
-                // Synchronous submit with back-pressure retry.  The engine
-                // returns ResourceExhausted only when memtable > 3× flush
-                // threshold (after the internal Condvar wait has already
-                // let the flusher drain).  Clone the batch up-front because
-                // a successful call consumes it; retry uses a sibling clone.
+                // Synchronous submit with retry on transient rejections
+                // (`ingest_backoff`): memtable back-pressure and the parent
+                // memory breaker. A batch that exhausts its retries, or hits
+                // a final error, is counted in `errs` and makes the command
+                // exit 1. Clone the batch up-front because a successful call
+                // consumes it; retry uses a sibling clone.
                 let submit = |batch: Vec<(String, StdArc<[u8]>)>| {
                     let n = batch.len() as u64;
                     let mut retry: Vec<(String, StdArc<[u8]>)> = batch
@@ -2523,32 +2921,58 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
                         .collect();
                     let mut current_batch = Some(batch);
                     let mut attempts: u32 = 0;
+                    let mut breaker_waited = std::time::Duration::ZERO;
                     loop {
                         let b = current_batch.take().unwrap();
-                        match idx_for_rayon.index_batch_sync_raw(b) {
+                        let result = match take_injected_breaker_rejection() {
+                            Some(injected) => Err(injected),
+                            None => idx_for_rayon.index_batch_sync_raw(b),
+                        };
+                        match result {
                             Ok(_) => {
                                 sent_for_rayon.fetch_add(n, std::sync::atomic::Ordering::Relaxed);
                                 return;
                             }
-                            Err(xerj_engine::EngineError::Common(
-                                xerj_common::XerjError::ResourceExhausted { .. },
-                            )) if attempts < 240 => {
+                            Err(e) => {
+                                let backoff = ingest_backoff(&e, attempts);
+                                let delay = backoff.filter(|d| {
+                                    ingest_retry_allowed(
+                                        &e,
+                                        attempts,
+                                        breaker_waited,
+                                        *d,
+                                        retry_timeout,
+                                    )
+                                });
+                                let Some(delay) = delay else {
+                                    if backoff.is_some() {
+                                        error!(
+                                            "batch ingest error: {n} docs not indexed after {attempts} retries ({:.1}s waiting on the memory breaker): {e}",
+                                            breaker_waited.as_secs_f64()
+                                        );
+                                    } else {
+                                        error!("batch ingest error: {e}");
+                                    }
+                                    errs_for_rayon
+                                        .fetch_add(n, std::sync::atomic::Ordering::Relaxed);
+                                    return;
+                                };
+                                if matches!(
+                                    e,
+                                    xerj_engine::EngineError::Common(
+                                        xerj_common::XerjError::CircuitBreaking { .. }
+                                    )
+                                ) {
+                                    warn_breaker_tripped_rate_limited(&e);
+                                    breaker_waited += delay;
+                                }
                                 attempts += 1;
-                                // The engine's Condvar already waited up to
-                                // 50 ms; add a tiny thread::sleep to avoid
-                                // a tight busy-loop on persistent back-
-                                // pressure (flusher is clearly saturated).
-                                std::thread::sleep(std::time::Duration::from_millis(5));
+                                std::thread::sleep(delay);
                                 let reclone: Vec<(String, StdArc<[u8]>)> = retry
                                     .iter()
                                     .map(|(id, b)| (id.clone(), StdArc::clone(b)))
                                     .collect();
                                 current_batch = Some(std::mem::replace(&mut retry, reclone));
-                            }
-                            Err(e) => {
-                                error!("batch ingest error: {e}");
-                                errs_for_rayon.fetch_add(n, std::sync::atomic::Ordering::Relaxed);
-                                return;
                             }
                         }
                     }
@@ -2634,6 +3058,16 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
     println!(" batch size     : {}", batch_size);
     println!("═══════════════════════════════════════════════════════════");
 
+    if errs > 0 {
+        use std::io::Write as _;
+        let _ = std::io::stdout().flush();
+        eprintln!(
+            "error: {errs} documents were NOT indexed into [{}] (see the batch ingest errors above); exiting 1",
+            cmd.index
+        );
+        std::process::exit(1);
+    }
+
     Ok(())
 }
 
@@ -2710,6 +3144,155 @@ fn raise_nofile_limit() {
                 return; // raised
             }
         }
+    }
+}
+
+/// Point any closed standard descriptor (0, 1, 2) at `/dev/null` (#3276).
+///
+/// A node started with `2>&-` or `>&-` (or by a parent that closed them)
+/// has no fd 2. The next file the node opens (a segment, a socket, the WAL)
+/// takes the lowest free number, so every later `stderr` write would land
+/// in that file. `/dev/null` holds the slot instead.
+#[cfg(unix)]
+fn ensure_std_fds_open() {
+    for fd in 0..3 {
+        // SAFETY: `fcntl(F_GETFD)` only queries the descriptor table.
+        let closed = unsafe { libc::fcntl(fd, libc::F_GETFD) } == -1
+            && std::io::Error::last_os_error().raw_os_error() == Some(libc::EBADF);
+        if !closed {
+            continue;
+        }
+        // SAFETY: a NUL-terminated literal path; the returned descriptor is
+        // checked, moved onto `fd` with `dup2` when needed, and closed.
+        unsafe {
+            let null = libc::open(c"/dev/null".as_ptr(), libc::O_RDWR);
+            if null < 0 {
+                continue;
+            }
+            if null != fd {
+                libc::dup2(null, fd);
+                libc::close(null);
+            }
+        }
+    }
+}
+
+/// `xerj --detach …` (#3267): start this same command without `--detach` as
+/// a detached child, wait until it serves, print where it is, and return the
+/// exit code.
+///
+/// Field reports: a node started from an agent terminal got SIGTERM when the
+/// session ended (Linux; `nohup`/`setsid` worked around it), and one started
+/// with `cmd start /B` died with its shell (Windows). The child here is in
+/// its own session (Unix `setsid`) or detached from the console and, when
+/// the job allows it, from the job (Windows), with stdin closed and output
+/// in `<data_dir>/node.log` — nothing of the terminal is left to take it
+/// down. See `xerj_common::localnode::spawn_detached`.
+///
+/// The port is read from the launch record the child writes once it has
+/// bound (`node.launch.json`, matched by PID), so `--auto-port` is followed.
+fn run_detached() -> i32 {
+    use xerj_common::localnode;
+    let args: Vec<String> = std::env::args()
+        .skip(1)
+        .filter(|a| a != "--detach")
+        .collect();
+    let cli = match parse_args_from(args.clone().into_iter()) {
+        Ok(cli) => cli,
+        Err(e) => {
+            eprintln!("error: {e}. Use --help for usage.");
+            return 2;
+        }
+    };
+    let (cfg, _) = match load_config_with_data_dir_origin(&cli) {
+        Ok(loaded) => loaded,
+        Err(e) => {
+            eprintln!("error: {e:#}");
+            return 1;
+        }
+    };
+    let data_dir = PathBuf::from(&cfg.server.data_dir);
+    let created = !data_dir.exists();
+    if let Err(e) = std::fs::create_dir_all(&data_dir) {
+        eprintln!("error: cannot create data dir {}: {e}", data_dir.display());
+        return 1;
+    }
+    let data_dir = std::fs::canonicalize(&data_dir).unwrap_or(data_dir);
+    let log = data_dir.join(localnode::NODE_LOG_FILE);
+    let exe = match std::env::current_exe() {
+        Ok(exe) => exe,
+        Err(e) => {
+            eprintln!("error: cannot locate the xerj binary: {e}");
+            return 1;
+        }
+    };
+    let cwd = std::env::current_dir().unwrap_or_else(|_| data_dir.clone());
+    let mut child = match localnode::spawn_detached(&exe, &args, &cwd, &log) {
+        Ok(child) => child,
+        Err(e) => {
+            eprintln!("error: could not start {}: {e}", exe.display());
+            return 1;
+        }
+    };
+    let pid = child.id();
+    let scheme = if cfg.tls.enabled { "https" } else { "http" };
+    let host = match cfg.bind_ip() {
+        Some(ip) if ip.is_unspecified() || ip.is_loopback() => "localhost".to_string(),
+        Some(std::net::IpAddr::V6(ip)) => format!("[{ip}]"),
+        Some(ip) => ip.to_string(),
+        None => "localhost".to_string(),
+    };
+    let deadline = std::time::Instant::now() + localnode::start_timeout();
+    let mut port: Option<u16> = None;
+    loop {
+        if port.is_none() {
+            port = localnode::read_launch_record(&data_dir)
+                .filter(|record| record.pid == pid)
+                .map(|record| record.port);
+        }
+        if let Some(port) = port {
+            let url = format!("{scheme}://{host}:{port}");
+            if localnode::url_serving(&url) {
+                println!("xerj: node started in the background (pid {pid})");
+                println!("  url       {url}");
+                println!("  data dir  {}", data_dir.display());
+                if created {
+                    println!("  {}", startup_data_dir::NEW_DIRECTORY_HINT);
+                }
+                println!("  log       {}", log.display());
+                let claim = data_dir.join(xerj_console_api::bootstrap::OWNER_CLAIM_FILENAME);
+                if claim.is_file() {
+                    println!(
+                        "  console   first-launch setup link in {} (owner-only file)",
+                        claim.display()
+                    );
+                }
+                if cfg!(windows) {
+                    println!("  stop      taskkill /PID {pid}");
+                } else {
+                    println!("  stop      kill {pid}");
+                }
+                println!("  It keeps running after this terminal closes.");
+                return 0;
+            }
+        }
+        if let Ok(Some(status)) = child.try_wait() {
+            eprintln!(
+                "xerj: the node exited ({status}) before it served. Last lines of {}:\n{}",
+                log.display(),
+                localnode::log_tail(&log, 30)
+            );
+            return 1;
+        }
+        if std::time::Instant::now() >= deadline {
+            println!(
+                "xerj: node started in the background (pid {pid}) but is not serving yet; it \
+                 may still be opening a large data dir. Follow {}",
+                log.display()
+            );
+            return 0;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
     }
 }
 
@@ -3055,6 +3638,8 @@ fn main() -> Result<()> {
     // fast paths inside `parse_args`. A node that dies must say so: the
     // allocation hook, the panic hook, and SIGABRT/SIGSEGV/SIGBUS/SIGILL
     // each write a FATAL line. SIGKILL still cannot be reported.
+    #[cfg(unix)]
+    ensure_std_fds_open();
     install_fatal_reporter();
     #[cfg(unix)]
     restore_default_sigpipe();
@@ -3089,6 +3674,14 @@ fn main() -> Result<()> {
         Some(xerj_autoindex::extract::xls::WORKER_ARG)
     ) {
         std::process::exit(xerj_autoindex::extract::xls::run_worker_cli());
+    }
+
+    // `xerj --detach …` (#3267): start the node in the background, detached
+    // from this terminal, wait until it serves, print where it is, exit.
+    if !xerj_common::argv::subcommand().is_some_and(|c| is_top_level_command(&c))
+        && std::env::args().any(|a| a == "--detach")
+    {
+        std::process::exit(run_detached());
     }
 
     // `xerj mcp` — MCP stdio server (newline-delimited JSON-RPC on
@@ -3131,6 +3724,11 @@ fn main() -> Result<()> {
     if matches!(xerj_common::argv::subcommand().as_deref(), Some("sessions")) {
         let args = xerj_common::argv::args_after_subcommand();
         std::process::exit(xerj_autoindex::sessions::run_cli(&args));
+    }
+    // `xerj eval` (#1798): blocking HTTP client, no async runtime needed.
+    if matches!(xerj_common::argv::subcommand().as_deref(), Some("eval")) {
+        let args = xerj_common::argv::args_after_subcommand();
+        std::process::exit(xerj_autoindex::eval::run_cli(&args));
     }
     // Cores from the resource policy, so `XERJ_NUM_CPUS` and a container CPU
     // quota reach the async runtime the same way they reach every pool (#240).
@@ -3427,6 +4025,16 @@ mod neural_startup_tests {
 #[cfg(test)]
 mod help_text_tests {
     use super::{auth_disabled_line, embed_mode_fixed_at_ingest_warning, help_text};
+
+    /// #1798: `xerj eval` is a listed subcommand, and a flag written before
+    /// it (`xerj --url U eval …`) is hoisted behind it like the others.
+    #[test]
+    fn eval_is_a_listed_top_level_command() {
+        assert!(super::is_top_level_command("eval"));
+        let help = help_text(false);
+        assert!(help.contains("xerj eval"), "{help}");
+        assert!(help.contains("see xerj eval --help"), "{help}");
+    }
 
     /// #2368: top-level help used to call `autoindex map` "the discovered data
     /// map" and not say that a folder argument previews an unindexed folder.
@@ -3830,13 +4438,14 @@ mod decide_flag_tests {
     #[test]
     fn help_counts_the_mcp_tools_actually_served() {
         // The count is `tool_specs()`, the same list `tools/list` returns:
-        // twenty without a hub key, twenty-three with the three hub tools.
+        // twenty-two without a hub key, twenty-five with the three hub tools
+        // (`xerj_references`, #1791, is the twenty-second).
         let served = super::mcp_tool_count();
         if xerj_common::hub::hub_key_configured() {
-            assert_eq!(served, 23, "tool_specs() with a hub key: {served}");
+            assert_eq!(served, 25, "tool_specs() with a hub key: {served}");
         } else {
             assert_eq!(
-                served, 20,
+                served, 22,
                 "a no-key process must not count the hub tools it does not serve"
             );
         }
@@ -4269,6 +4878,13 @@ async fn async_main() -> Result<()> {
             .unwrap_or(1);
         std::process::exit(code);
     }
+    if matches!(argv1.as_deref(), Some("status")) {
+        // #3268: index freshness for a prefix (time, commit, changed files).
+        let code = tokio::task::spawn_blocking(xerj_autoindex::status_cli::run_status_cli)
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
+    }
     if matches!(argv1.as_deref(), Some("init")) {
         let code = tokio::task::spawn_blocking(xerj_autoindex::init::run_init_cli)
             .await
@@ -4280,6 +4896,14 @@ async fn async_main() -> Result<()> {
             .await
             .unwrap_or(1);
         std::process::exit(code);
+    }
+    if matches!(argv1.as_deref(), Some("sources"))
+        && std::env::args().nth(2).as_deref() == Some("--types")
+    {
+        // Every way to get data in, one command each (docs/SOURCES.md).
+        // Plain `xerj sources` lists the live sources connected to a node.
+        let rest: Vec<String> = std::env::args().skip(3).collect();
+        std::process::exit(xerj_autoindex::sources::run_cli(&rest));
     }
     if matches!(argv1.as_deref(), Some("autoindex")) {
         // Zero-config folder discovery + indexing over the ES-compat API.
@@ -4338,6 +4962,22 @@ async fn async_main() -> Result<()> {
         // synchronous — off the runtime like `autoindex`.
         let args: Vec<String> = xerj_common::argv::args_after_subcommand();
         let code = tokio::task::spawn_blocking(move || xerj_autoindex::xc::run_corpus_cli(&args))
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
+    }
+    if matches!(argv1.as_deref(), Some("connect")) {
+        // Live database source: register it with a running node (blocking
+        // HTTP), then follow the snapshot until the source is live.
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
+        let code = tokio::task::spawn_blocking(move || xerj_sources::cli::run_connect(&args))
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
+    }
+    if matches!(argv1.as_deref(), Some("sources")) {
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
+        let code = tokio::task::spawn_blocking(move || xerj_sources::cli::run_sources(&args))
             .await
             .unwrap_or(1);
         std::process::exit(code);
@@ -4672,6 +5312,26 @@ async fn async_main() -> Result<()> {
     cfg.server.rest_port = bound_rest_port;
     cfg.server.grpc_port = bound_grpc_port;
 
+    // #3267: record the port this node holds and how it was started, so a
+    // client that later finds the port closed can start this same node again
+    // (`xerj mcp`, `xerj search`), and a client with no XERJ_URL finds a node
+    // that is not on :9200. `--auto-port` may have moved the port, so the
+    // pointer for the bound port is published too.
+    let data_dir_path = Path::new(&cfg.server.data_dir);
+    if let Err(error) =
+        xerj_common::nodedir::publish_data_dir_for_port(bound_es_port, data_dir_path)
+    {
+        warn!("could not publish the data-dir path for port {bound_es_port}: {error}");
+    }
+    if let Err(error) = xerj_common::localnode::write_launch_record(data_dir_path, bound_es_port) {
+        warn!(
+            "could not write {}: {error}",
+            data_dir_path
+                .join(xerj_common::localnode::LAUNCH_RECORD_FILE)
+                .display()
+        );
+    }
+
     let bound = BoundAddrs {
         rest: rest_listener
             .local_addr()
@@ -4951,6 +5611,25 @@ async fn async_main() -> Result<()> {
         None
     };
 
+    // 9a-ii. Memory held before any write (#3277). The AUTO tier is sized
+    //   from RAM alone; on a small machine it chose a breaker under what the
+    //   node holds at boot (runtime, opened indices, a loaded model), and
+    //   every write was a 429. Under the AUTO tier this baseline is added to
+    //   the breaker; under an explicit cap a node already at or over it gets
+    //   one line naming both numbers and the variable to raise.
+    if let Some(governor) = xerj_engine::governor::global() {
+        let baseline = xerj_engine::governor::current_process_memory_bytes();
+        let reserved = governor.reserve_resident(
+            "the runtime, opened indices and any loaded model at boot",
+            baseline,
+        );
+        match reserved.line {
+            Some((true, line)) => warn!("{line}"),
+            Some((false, line)) => info!("{line}"),
+            None => {}
+        }
+    }
+
     // 9b. Application state
     let mut state = AppState::new(cfg.clone(), engine, metrics);
 
@@ -5060,6 +5739,11 @@ async fn async_main() -> Result<()> {
         }
         tokio::spawn(xerj_engine::wal_tap::run(tap, engine));
     }
+
+    // 9b-3. Live database sources (`xerj connect`): resume every source stored
+    //       under <data_dir>/_sources. Each runs on its own thread and resumes
+    //       from its acknowledged LSN; none exist until one is added.
+    xerj_api::sources_api::start(&state);
 
     // 9c. Routers — engine and Xerj Console are *peer* surfaces.  Each crate
     //     builds a complete Router (routes + its own auth + its own
