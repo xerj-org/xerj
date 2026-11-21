@@ -2,8 +2,8 @@
  "corpus": "rhythm-sanghi--rulegap",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how Rhythm-Sanghi/RuleGap implements it: Rhythm-Sanghi/RuleGap (TypeScript) (selected work: src/tests, src/server, src/client)",
+ "shelf": "LAW",
+ "domain": "an agent working on form-validation, playwright, policy-testing queries this for how Rhythm-Sanghi/RuleGap implements it: Local demo for checking whether a form enforces the same eligibility rules as its written policy (selected work: src/tests, src/server, src/client)",
  "repos": [
   {
    "repo": "RuleGap",

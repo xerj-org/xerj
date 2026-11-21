@@ -1,9 +1,9 @@
 {
- "corpus": "taylor-he--token-workshed-nextcore",
+ "corpus": "taylor-he--token-workshed-for-apple-sillicon",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agent, apple-silicon, local-llm queries this for how Taylor-He/token-workshed-nextcore implements it: A native SGLang AI workbench and in-app Agent for Apple Silicon, with optional remote RoboServer (selected work: native-ui, scripts)",
+ "domain": "an agent working on ai-agent, apple-silicon, local-llm queries this for how Taylor-He/token-workshed-for-Apple-Sillicon implements it: Token Workshed for Apple Silicon: a local SGLang workbench and NextCore Agent, with optional remote RoboServer (selected work: native-ui, scripts)",
  "repos": [
   {
    "repo": "token-workshed-for-Apple-Sillicon",

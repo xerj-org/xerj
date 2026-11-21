@@ -8,15 +8,15 @@
   {
    "repo": "pg_checksums",
    "url": "https://github.com/VictorNagibator/pg_checksums",
-   "sha": "913f8236e6dd9581e5b9578aa927082167c8cb0d",
-   "licence": "MIT (LICENSE file at pin 913f8236e6dd, GitHub licence API 2026-10-25)",
+   "sha": "83d7b42d4b49d33b9469f0a244b949ac966ab031",
+   "licence": "PostgreSQL (LICENSE file at pin 83d7b42d4b49, GitHub licence API 2026-11-21)",
    "review": {
-    "spdx": "MIT",
+    "spdx": "PostgreSQL",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-18T14:19Z",
     "consent_receipt": "d96052e7c5f8",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T14:19Z (receipt d96052e7c5f8); selected commit 913f8236e6dd: \"Add support for partitioned tables\". LICENSE file at pin 913f8236e6dd detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T14:19Z (receipt d96052e7c5f8); selected commit 83d7b42d4b49: \"Add support for partitioned tables\". LICENSE file at pin 83d7b42d4b49 detected as PostgreSQL by the GitHub licence API on 2026-11-21; used under that licence with attribution. Pinned to head 83d7b42d4b49 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]
