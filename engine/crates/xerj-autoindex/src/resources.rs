@@ -197,6 +197,34 @@ pub fn plan_for(
     }
 }
 
+/// Dynamic memory pressure state for worker queue throttle and backpressure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryWatermarkVerdict {
+    /// Normal operation below 75% RSS watermark.
+    Normal,
+    /// Throttled operation (75% <= RSS < 85%): AIMD worker intake delay.
+    Throttle(std::time::Duration),
+    /// Critical pressure (RSS >= 85%): Pause intake to allow GC and bulk flush.
+    Pause(std::time::Duration),
+}
+
+/// Assess current process memory against safe watermark thresholds.
+pub fn check_memory_watermark() -> MemoryWatermarkVerdict {
+    let (rss, total) = match (resource::current_rss_bytes(), resource::total_memory_bytes()) {
+        (Some(r), Some(t)) if t > 0 => (r, t),
+        _ => return MemoryWatermarkVerdict::Normal,
+    };
+
+    let usage_pct = (rss as f64) / (total as f64);
+    if usage_pct >= 0.85 {
+        MemoryWatermarkVerdict::Pause(std::time::Duration::from_millis(50))
+    } else if usage_pct >= 0.75 {
+        MemoryWatermarkVerdict::Throttle(std::time::Duration::from_millis(10))
+    } else {
+        MemoryWatermarkVerdict::Normal
+    }
+}
+
 impl Plan {
     /// One line for the run header and the `--json` summary.
     pub fn describe(&self) -> String {
@@ -320,6 +348,17 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn check_memory_watermark_smoke() {
+        // Must never panic or produce inconsistent state across platforms
+        let verdict = check_memory_watermark();
+        match verdict {
+            MemoryWatermarkVerdict::Normal => {}
+            MemoryWatermarkVerdict::Throttle(d) => assert!(d.as_millis() > 0),
+            MemoryWatermarkVerdict::Pause(d) => assert!(d.as_millis() > 0),
         }
     }
 }
