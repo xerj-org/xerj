@@ -2,8 +2,8 @@
  "corpus": "tadeuszwolfgang--trueidv2",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Rust queries this for how TadeuszWolfGang/TrueIDv2 implements it: TadeuszWolfGang/TrueIDv2 (Rust) (selected work: apps/web, sycope, integrations)",
+ "shelf": "SEC",
+ "domain": "an agent working on active-directory, dhcp, identity-correlation queries this for how TadeuszWolfGang/TrueIDv2 implements it: Open-source IP-to-user mapping and identity correlation engine for SOC/NOC teams. TrueID maps IP addresses to users and devices from RADIUS, (selected work: apps/web, sycope, integrations)",
  "repos": [
   {
    "repo": "TrueIDv2",

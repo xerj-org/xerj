@@ -2,8 +2,8 @@
  "corpus": "vk-amogh--trace",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how VK-Amogh/TRACE implements it: VK-Amogh/TRACE (Python) (selected work: src/trace_engine, tests, the project root)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ast, mcp queries this for how VK-Amogh/TRACE implements it: Local-first neuro-symbolic security verification & Attack-Path Model scanner for AI coding agents (MCP + CLI) (selected work: src/trace_engine, tests, the project root)",
  "repos": [
   {
    "repo": "TRACE",
