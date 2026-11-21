@@ -1,0 +1,23 @@
+{
+ "corpus": "cristiancmoises--deeper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how cristiancmoises/deeper implements it: A minimalist web interface for Maigret username searches (selected work: tests, deeper, the project root)",
+ "repos": [
+  {
+   "repo": "deeper",
+   "url": "https://github.com/cristiancmoises/deeper",
+   "sha": "2189c228c9e803ba69e9fb9fc42712fa69ab0ed3",
+   "licence": "MIT (LICENSE file at pin 2189c228c9e8, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T11:06Z",
+    "consent_receipt": "af21669314d5",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T11:06Z (receipt af21669314d5); selected commit 2189c228c9e8: \"Use SecuritySearch for free document searches\". LICENSE file at pin 2189c228c9e8 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

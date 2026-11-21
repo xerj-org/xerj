@@ -1,0 +1,23 @@
+{
+ "corpus": "emmanueladesina--emmanueladeshina",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on backend-engineering, platform-engineering, ai-infrastructure queries this for how EmmanuelAdesina/emmanueladeshina implements it: Production backend architectures, AI infrastructure, distributed systems, cloud security research, and platform engineering portfolio (selected work: models, remediation, tests)",
+ "repos": [
+  {
+   "repo": "emmanueladeshina",
+   "url": "https://github.com/EmmanuelAdesina/emmanueladeshina",
+   "sha": "7cb2255d17b1a3f7b5889a947b6197dd308ac8b0",
+   "licence": "MIT (LICENSE file at pin 7cb2255d17b1, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T09:05Z",
+    "consent_receipt": "d01a0d1e0d37",
+    "note": "Inclusion consented by the commit author by email at 2026-11-17T09:05Z (receipt d01a0d1e0d37); selected commit 7cb2255d17b1: \"feat: rebuild GitHub portfolio as an international-grade secure syste\u2026\". LICENSE file at pin 7cb2255d17b1 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

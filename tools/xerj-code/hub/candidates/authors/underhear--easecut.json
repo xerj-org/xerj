@@ -1,0 +1,23 @@
+{
+ "corpus": "underhear--easecut",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how UnderHear/EaseCut implements it: \u4e00\u4e2aWeb\u89c6\u9891\u7f16\u8f91\u5668\uff0c\u80fd\u591f\u5feb\u901f\u63a5\u5165\u5230\u4efb\u4f55\u9879\u76ee\u4e2d\uff0c\u652f\u6301npm\u5bfc\u5165\u3002\u5177\u5907\u8fdb\u884c\u5feb\u901f\u89c6\u9891\u7f16\u8f91\u7684\u5b8c\u5907\u529f\u80fd\u3002 (selected work: src/editor, the project root)",
+ "repos": [
+  {
+   "repo": "EaseCut",
+   "url": "https://github.com/UnderHear/EaseCut",
+   "sha": "d89b4b292c9b069e38b7526c4876d5d97961eaa7",
+   "licence": "MIT (LICENSE file at pin d89b4b292c9b, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T11:43Z",
+    "consent_receipt": "150e43690c04",
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T11:43Z (receipt 150e43690c04); selected commit d89b4b292c9b: \"\u4fee\u590d\u7f16\u8f91\u5668\u5e03\u5c40\u6296\u52a8\u4e0e\u7a84\u5c4f\u6d6e\u5c42\u906e\u6321\". LICENSE file at pin d89b4b292c9b detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

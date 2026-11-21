@@ -1,0 +1,23 @@
+{
+ "corpus": "njokinjeri--impractical-series",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how njokinjeri/impractical-series implements it: Curiosity, rendered in code (selected work: src/experiments)",
+ "repos": [
+  {
+   "repo": "impractical-series",
+   "url": "https://github.com/njokinjeri/impractical-series",
+   "sha": "ab65eda93b11b02d91191254a606fefa3aa0c7e7",
+   "licence": "MIT (LICENSE file at pin ab65eda93b11, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T05:53Z",
+    "consent_receipt": "8aa2fa917cba",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T05:53Z (receipt 8aa2fa917cba); selected commit ab65eda93b11: \"feat: add 14-donut WebGL gallery\". LICENSE file at pin ab65eda93b11 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

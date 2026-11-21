@@ -1,0 +1,34 @@
+{
+ "corpus": "dota-showcase--inventory-service",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dota2, spring-boot, spring-boot-3 queries this for how dota-showcase/inventory-service implements it: REST service to store and track changes of Dota 2 inventory items (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "inventory-service",
+   "url": "https://github.com/dota-showcase/inventory-service",
+   "sha": "992573947abd956619e0d7571d107903bfff8546",
+   "licence": "GPL-3.0 (LICENSE file at pin 992573947abd, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T21:12Z",
+    "consent_receipt": "174b07d585fe",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T21:12Z (receipt 174b07d585fe); selected commit 992573947abd: \"Feature: Inventory operation trigger type tracking\". LICENSE file at pin 992573947abd detected as GPL-3.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @dota-showcase, who has not added it."
+   },
+   "paths": [
+    "app/src/main/java/com/dotashowcase/inventoryservice/http/controller",
+    "app/src/main/java/com/dotashowcase/inventoryservice/http/request",
+    "app/src/main/java/com/dotashowcase/inventoryservice/model",
+    "app/src/main/java/com/dotashowcase/inventoryservice/service",
+    "app/src/test/java/com/dotashowcase/inventoryservice/config",
+    "app/src/test/java/com/dotashowcase/inventoryservice/http/controller",
+    "app/src/test/java/com/dotashowcase/inventoryservice/model",
+    "app/src/test/java/com/dotashowcase/inventoryservice/repository",
+    "app/src/test/java/com/dotashowcase/inventoryservice/service"
+   ]
+  }
+ ]
+}

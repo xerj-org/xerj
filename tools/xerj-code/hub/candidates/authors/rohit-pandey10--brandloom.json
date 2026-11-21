@@ -1,0 +1,23 @@
+{
+ "corpus": "rohit-pandey10--brandloom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Rohit-Pandey10/BrandLoom implements it: Rohit-Pandey10/BrandLoom (JavaScript) (selected work: client)",
+ "repos": [
+  {
+   "repo": "BrandLoom",
+   "url": "https://github.com/Rohit-Pandey10/BrandLoom",
+   "sha": "1bd622850d58e311125708322477aa8f8e631bf0",
+   "licence": "MIT (LICENSE file at pin 1bd622850d58, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T07:07Z",
+    "consent_receipt": "f4f1a2312d10",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T07:07Z (receipt f4f1a2312d10); selected commit 1bd622850d58: \"fix(design): enforce strict two-font system, clean bento spacing, and\u2026\". LICENSE file at pin 1bd622850d58 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

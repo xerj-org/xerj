@@ -1,0 +1,28 @@
+{
+ "corpus": "omatheusmesmo--vintelli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on acp, graalvm, ide queries this for how omatheusmesmo/vintelli implements it: IntelliJ-like terminal IDE for Java, built with Quarkus and TamboUI. Standalone, hosts AI coding agents via ACP; IntelliJ IDEA via MCP is op (selected work: vintelli-tui, vintelli-app)",
+ "repos": [
+  {
+   "repo": "vintelli",
+   "url": "https://github.com/omatheusmesmo/vintelli",
+   "sha": "d527acb16b84b994f4d0fecef23f57209afea67e",
+   "licence": "Apache-2.0 (LICENSE file at pin d527acb16b84, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T06:49Z",
+    "consent_receipt": "38b5d33f87e8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T06:49Z (receipt 38b5d33f87e8); selected commit d527acb16b84: \"feat(tui): highlight Javadoc tags in doc comments (#238)\". LICENSE file at pin d527acb16b84 detected as Apache-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @omatheusmesmo, who has not added it."
+   },
+   "paths": [
+    "vintelli-app/src/test/java/dev/omatheusmesmo/vintelli/web",
+    "vintelli-tui/src/main/java/dev/omatheusmesmo/vintelli/tui",
+    "vintelli-tui/src/test/java/dev/omatheusmesmo/vintelli/tui"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "tgalpha--wp-enhanced",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how tgalpha/wp-enhanced implements it: Wrapper of `wp.py`. Easy to premake, build, and deploy wwise plugins (selected work: src/wpe, the project root)",
+ "repos": [
+  {
+   "repo": "wp-enhanced",
+   "url": "https://github.com/tgalpha/wp-enhanced",
+   "sha": "052a1074a5db2621e33167b064f05044e76f5243",
+   "licence": "MIT (LICENSE file at pin 052a1074a5db, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T04:28Z",
+    "consent_receipt": "fcb822ee962c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T04:28Z (receipt fcb822ee962c); selected commit 052a1074a5db: \"Add parallel build and packaging support with progress dashboard in f\u2026\". LICENSE file at pin 052a1074a5db detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

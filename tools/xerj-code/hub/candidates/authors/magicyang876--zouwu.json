@@ -1,0 +1,23 @@
+{
+ "corpus": "magicyang876--zouwu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how Magicyang876/zouwu implements it: \u300c\u5c71\u6d77\u7ecf\u300d\u9a7a\u543e\uff1a\u4e00\u4e2a\u96f6 webview\u3001\u96f6 GPU \u7684 Windows \u684c\u9762\u6302\u4ef6(Rust) (selected work: crates/zouwu-ui, assets, crates/zouwu-platform)",
+ "repos": [
+  {
+   "repo": "zouwu",
+   "url": "https://github.com/Magicyang876/zouwu",
+   "sha": "1b8a823eb25993318b25f9fe38610ed7d868e1dd",
+   "licence": "author's permission (LICENSE at pin 1b8a823eb259: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T01:39Z",
+    "consent_receipt": "742376f6db5a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-17T01:39Z (receipt 742376f6db5a); selected commit 1b8a823eb259: \"feat(skin): \u65b0\u589e\u5b98\u65b9\u76ae\u80a4\u300c\u5251\u5723\u300d\uff08ADR-064\uff09\". LICENSE at pin 1b8a823eb259: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

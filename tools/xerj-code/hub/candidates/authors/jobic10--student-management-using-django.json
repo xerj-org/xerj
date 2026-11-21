@@ -1,0 +1,23 @@
+{
+ "corpus": "jobic10--student-management-using-django",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on student-management, attendance, staff queries this for how jobic10/student-management-using-django implements it: A Student Management System Created Using Django (selected work: main_app)",
+ "repos": [
+  {
+   "repo": "student-management-using-django",
+   "url": "https://github.com/jobic10/student-management-using-django",
+   "sha": "93354d0aa1b55c81222db79e31068d4cac472a16",
+   "licence": "MIT (LICENSE file at pin 93354d0aa1b5, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T18:40Z",
+    "consent_receipt": "a6fbb59fa4c5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T18:40Z (receipt a6fbb59fa4c5); selected commit 93354d0aa1b5: \"Fix broken access control on staff result and attendance endpoints\". LICENSE file at pin 93354d0aa1b5 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+{
+ "corpus": "xirobot-vision-team--ces",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on Python queries this for how Xirobot-Vision-Team/CES implements it: Source-bound repository analysis, reports, knowledge documentation and opt-in test review (selected work: operator, the project root)",
+ "repos": [
+  {
+   "repo": "CES",
+   "url": "https://github.com/Xirobot-Vision-Team/CES",
+   "sha": "1be0e5333959c7893bdb56ee8ea08711bd67b28e",
+   "licence": "Apache-2.0 (LICENSE file at pin 1be0e5333959, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T08:59Z",
+    "consent_receipt": "c04d8f6e29ea",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T08:59Z (receipt c04d8f6e29ea); selected commit 1be0e5333959: \"Support parent-pinned submodule source evidence (#22)\". LICENSE file at pin 1be0e5333959 detected as Apache-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Xirobot-Vision-Team, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "operator"
+   ]
+  }
+ ]
+}

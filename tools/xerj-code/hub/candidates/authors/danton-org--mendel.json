@@ -1,0 +1,28 @@
+{
+ "corpus": "danton-org--mendel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Danton-org/mendel implements it: Chat interface for Evolution API testing (selected work: src, src/ui, src/server)",
+ "repos": [
+  {
+   "repo": "mendel",
+   "url": "https://github.com/Danton-org/mendel",
+   "sha": "22561999d7b2ae18d2fc651d45b2ca8b5b0af675",
+   "licence": "Apache-2.0 (LICENSE file at pin 22561999d7b2, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T00:52Z",
+    "consent_receipt": "c1818e829a6a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T00:52Z (receipt c1818e829a6a); selected commit 22561999d7b2: \"ui, server: record poll votes in-place without inserting chat message\". LICENSE file at pin 22561999d7b2 detected as Apache-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Danton-org, who has not added it."
+   },
+   "paths": [
+    "assets/css",
+    "src",
+    "tests"
+   ]
+  }
+ ]
+}

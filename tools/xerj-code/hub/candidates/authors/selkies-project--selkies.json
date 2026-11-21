@@ -1,0 +1,30 @@
+{
+ "corpus": "selkies-project--selkies",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cloud-gaming, game-streaming, gpu queries this for how selkies-project/selkies implements it: Low-Latency Accelerated Web Remote Desktop Streaming Platform for Self-Hosting, Containers, Kubernetes, or Cloud/HPC (selected work: crates/selkies-rtc, crates/selkies)",
+ "repos": [
+  {
+   "repo": "selkies",
+   "url": "https://github.com/selkies-project/selkies",
+   "sha": "078100c4e5ec5a554900a676eb1d9b56a04922a0",
+   "licence": "MPL-2.0 (LICENSE file at pin 078100c4e5ec, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T20:47Z",
+    "consent_receipt": "84e786421f13",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T20:47Z (receipt 84e786421f13); selected commit 078100c4e5ec: \"feat(webrtc): Tell each page the public address it reached the server at\". LICENSE file at pin 078100c4e5ec detected as MPL-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @selkies-project, who has not added it."
+   },
+   "paths": [
+    "crates/selkies-rtc/src/ice",
+    "crates/selkies-rtc/src/signaling",
+    "crates/selkies/src/settings",
+    "crates/selkies/src/webrtc",
+    "docs"
+   ]
+  }
+ ]
+}

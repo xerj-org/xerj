@@ -1,0 +1,23 @@
+{
+ "corpus": "schulzoli--bc-atlas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on JavaScript queries this for how SchulzOli/BC-Atlas implements it: Turn a Microsoft Dynamics 365 Business Central AL project into readable architecture diagrams, focused dependency views, workflow traces, an (selected work: plugins, src/plugins, test)",
+ "repos": [
+  {
+   "repo": "BC-Atlas",
+   "url": "https://github.com/SchulzOli/BC-Atlas",
+   "sha": "c1d7483d4b3de6a848894761ec89ac14c90310a6",
+   "licence": "MIT (LICENSE file at pin c1d7483d4b3d, GitHub licence API 2026-11-21)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T14:44Z",
+    "consent_receipt": "b9386c7ce47a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T14:44Z (receipt b9386c7ce47a); selected commit c1d7483d4b3d: \"feat(plugins): plugin system with built-in sync plugin\". LICENSE file at pin c1d7483d4b3d detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+   }
+  }
+ ]
+}
