@@ -220,6 +220,7 @@ fn is_top_level_command(arg: &str) -> bool {
             | "corpus"
             | "hub"
             | "ask"
+            | "trace"
             | "mcp"
             | "service"
             | "__extract-pdf"
@@ -377,6 +378,8 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20xerj corpus add|index|list          the corpus lifecycle behind `xerj code`\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(see xerj corpus --help)\n\
          {ask_lines}\
+         \x20\x20\x20\x20xerj trace <session.jsonl>          list a session's hub answers with their\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20evidence receipts (see xerj trace --help)\n\
          \x20\x20\x20\x20xerj index [OPTIONS]                direct NDJSON → engine ingest (see xerj\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20index --help)\n\
          \x20\x20\x20\x20xerj brain <folder>                 index + browse in one command (see xerj\n\
@@ -5018,6 +5021,15 @@ async fn async_main() -> Result<()> {
         // HTTP + process spawn — off the runtime like `hub`.
         let args: Vec<String> = xerj_common::argv::args_after_subcommand();
         let code = tokio::task::spawn_blocking(move || xerj_hub::cli::run_ask(&args))
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
+    }
+    if matches!(argv1.as_deref(), Some("trace")) {
+        // #1789: every hub answer in an agent session file, with its evidence
+        // receipt checked. Local file reads (and `git show` with --repo).
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
+        let code = tokio::task::spawn_blocking(move || xerj_hub::trace::run_trace(&args))
             .await
             .unwrap_or(1);
         std::process::exit(code);

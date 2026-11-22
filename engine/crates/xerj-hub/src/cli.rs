@@ -1488,6 +1488,7 @@ pub const KNOWN_SUBCOMMANDS: &[&str] = &[
     "corpus",
     "hub",
     "ask",
+    "trace",
     "mcp",
 ];
 
@@ -2274,6 +2275,7 @@ mod tests {
             "corpus",
             "hub",
             "ask",
+            "trace",
             "mcp",
         ] {
             assert!(KNOWN_SUBCOMMANDS.contains(&sub), "{sub}");
