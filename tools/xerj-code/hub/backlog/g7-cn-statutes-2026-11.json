@@ -1,0 +1,42 @@
+{
+ "suite": "g7-cn-statutes-2026-11",
+ "pre_registered": "2026-11-21 (before indexing/retrieval; committed to corpus-hub first)",
+ "authoring": "BLIND from clone reads; every expect is a verbatim clause grep-verified against the clone at authoring time; no retrieval was run",
+ "corpus_pin": {
+  "repo": "corpus-cn-statutes",
+  "sha": "11ff988beb67ec1c6aa6bd70284bcc8fe8a7eadf"
+ },
+ "scope_note": "29 PRC national commercial/data/tax/audit statutes, State Council regulations, CSRC/MoF accounting rules, and SPC securities-misrepresentation provisions split into 3,204 per-article pure-text files (PRC Copyright Law Art. 5(1) public domain + CC0-1.0).",
+ "queries": [
+  {
+   "q": "2023修订公司法规定有限责任公司股东认缴出资额最长几年内缴足",
+   "hard": false,
+   "expect": "全体股东认缴的出资额由股东按照公司章程的规定自公司成立之日起五年内缴足。",
+   "expect_file": "company-law/art-0047.md"
+  },
+  {
+   "q": "证券法中信息披露存在虚假记载误导性陈述时保荐人和控股股东承担什么责任",
+   "hard": false,
+   "expect": "发行人的控股股东、实际控制人、董事、监事、高级管理人员和其他直接责任人员以及保荐人、承销的证券公司及其直接责任人员，应当与发行人承担连带赔偿责任，但是能够证明自己没有过错的除外。",
+   "expect_file": "securities-law/art-0085.md"
+  },
+  {
+   "q": "个人信息保护法对超大型互联网平台成立外部独立监督机构和社会责任报告的规定",
+   "hard": false,
+   "expect": "成立主要由外部成员组成的独立机构对个人信息保护情况进行监督",
+   "expect_file": "personal-information-protection-law/art-0058.md"
+  },
+  {
+   "q": "数据安全法中什么数据属于国家核心数据并实行更加严格的管理制度",
+   "hard": false,
+   "expect": "关系国家安全、国民经济命脉、重要民生、重大公共利益等数据属于国家核心数据，实行更加严格的管理制度。",
+   "expect_file": "data-security-law/art-0021.md"
+  },
+  {
+   "q": "最高法证券虚假陈述司法解释中被告证明价格或交易量未明显变化时如何认定重大性",
+   "hard": true,
+   "expect": "虚假陈述的实施、揭露或者更正导致相关证券的交易价格或者交易量产生明显的变化。",
+   "expect_file": "spc-securities-misrepresentation-provisions/art-0010.md"
+  }
+ ]
+}

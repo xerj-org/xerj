@@ -1,0 +1,42 @@
+{
+ "suite": "g7-clinical-trials-outcomes-2026-11",
+ "pre_registered": "2026-11-21 (before indexing/retrieval; committed to corpus-hub first)",
+ "authoring": "BLIND from clone reads; every expect is a verbatim clause grep-verified against the clone at authoring time; no retrieval was run",
+ "corpus_pin": {
+  "repo": "corpus-clinical-trials",
+  "sha": "086fc293e58a1dce13bd6848f8799bf63ceed625"
+ },
+ "scope_note": "55 table-verified quantitative clinical trial records (271 Markdown pipe tables; 0 prose-only files): 20 US NIH/NLM ClinicalTrials.gov v2 outcome tables (US-government public domain; attribution requested; non-US rights reserved; retrieved 2026-11-21) + 35 Europe PMC open-access JATS XML efficacy/diagnostic tables (CC-BY-4.0).",
+ "queries": [
+  {
+   "q": "nivolumab BMS-936558 phase 2 renal cell carcinoma progression free survival median months across 0.3 2 and 10 mg/kg arms",
+   "hard": false,
+   "expect": "| Overall | 2.63 (1.81–3.02) | 4.11 (2.86–5.39) | 4.17 (2.79–5.49) |",
+   "expect_file": "clinicaltrials-cc0/NCT01354431.md"
+  },
+  {
+   "q": "seasonal influenza mRNA-1010 vs Flublok solicited local and systemic adverse reactions participant counts up to day 7",
+   "hard": false,
+   "expect": "| Solicited Local ARs | 37 | 63 | 59 | 60 | 57 | 58 | 67 | 67 |",
+   "expect_file": "clinicaltrials-cc0/NCT05333289.md"
+  },
+  {
+   "q": "immunoassay lower limit of quantitation LLoQ and reportable range in pg/mL analytical validation table",
+   "hard": true,
+   "expect": "| Sensitivity LLoQ Reportable Range (RR) | CV < 6.4% (k × CVr) No criteria | 0.083 pg/mL 0.083–640.00 pg/mL |",
+   "expect_file": "pmc-ccby/PMC13359704.md"
+  },
+  {
+   "q": "pharmacotherapy guideline strength of recommendation and quality of evidence for semaglutide and tirzepatide in adult obesity",
+   "hard": false,
+   "expect": "| Tirzepatide should be used compared to placebo. | Strong | Moderate |",
+   "expect_file": "pmc-ccby/PMC13511285.md"
+  },
+  {
+   "q": "systematic review search terms for COVID-19 mRNA vaccine myocarditis and Guillain-Barre syndrome in adolescents",
+   "hard": false,
+   "expect": "| Intervention (COVID-19 mRNA vaccine) | COVID-19 vaccine, SARS-CoV-2 vaccine, mRNA vaccine, Pfizer-BioNTech, BNT162b2, Moderna, mRNA-1273 |",
+   "expect_file": "pmc-ccby/PMC12756901.md"
+  }
+ ]
+}
