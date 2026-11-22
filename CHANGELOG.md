@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BM25 now normalises long fields by their real length (#3007).** The
+  per-document field-length byte saturated at 1,690 tokens, so every longer
+  field was scored as if it were 1,690 tokens long while the average used the
+  true lengths, and long pages outranked the page that answered the query.
+  New segments store the length on Lucene's `SmallFloat.intToByte4` scale
+  (exact below 24 tokens, reaches 2^31). Measured on SearchTome medicine
+  (121 pages, 1,993 queries, `multi_match` on title + content, k=3): R@1
+  56.60 → 64.78, R@3 76.77 → 81.74 (paired randomization p < 0.001). BEIR
+  nDCG@10, plain `multi_match`: SciFact 0.6572 → 0.6537 (p = 0.14),
+  NFCorpus 0.3016 → 0.3020; `xerj eval` (the `xerj search` body): SciFact
+  0.6550 → 0.6552, NFCorpus 0.3058 → 0.3087 (p = 0.006). Segments written
+  before this release keep their old lengths until they are reindexed; a
+  binary older than this one refuses the new norms files instead of
+  misreading them.
+
 - **A `terms` aggregation that meets more distinct keys than
   `search.max_buckets` now fails with HTTP 400 `too_many_buckets_exception`
   instead of returning a wrong answer (#3362).** It used to keep the first
