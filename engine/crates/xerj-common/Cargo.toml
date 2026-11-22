@@ -37,6 +37,13 @@ serde_json_canonicalizer = "0.3.2"
 # `normalizer`: the keyword `asciifolding` normalizer strips the combining
 # marks of the canonical decomposition. Already in the graph via xerj-fts.
 unicode-normalization = "0.1"
+# `hub_client_cache` reads a signed `<slug>-<pin8>.hubpack.tar.zst` in memory
+# and checks its detached ed25519 signature. The same crates, at the same
+# versions, as `xerj-hub` (pack.rs) and `xerj-autoindex` (harvest/sign.rs)
+# already use, so this adds edges and no new package.
+zstd.workspace = true
+ring.workspace = true
+tar = "0.4"
 
 [dev-dependencies]
 tempfile.workspace = true

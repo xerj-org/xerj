@@ -9,12 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Hub-first stdio MCP runtime mode and bounded LRU disk cache (Refs #2760, #2769):
-  `xerj_common::hub_client_cache` detects local-node reachability within a fixed
-  startup probe budget, falls back to hub-only mode when no node is running,
-  caches verified catalogue and corpus pack artifacts on disk with deterministic
-  byte-budget LRU eviction and explicit TTL staleness warnings, and fails loudly
-  on unknown corpora or unsupported format versions.
+- Add `xerj_common::hub_client_cache`, an internal library for a hub-first MCP
+  runtime (Refs #2760, #2769). **Nothing calls it yet:** `xerj mcp` is not wired
+  to it and its behaviour is unchanged, so this entry changes no runtime
+  behaviour. The module is a verified, bounded disk cache for the signed hub
+  catalogue and real `.hubpack.tar.zst` packs (sha256 against the catalogue,
+  ed25519 signature against the hub key, `SHA256SUMS` and the pack size caps),
+  with a default budget of `DISK_BUDGET_BYTES`. A stale or damaged entry is
+  re-fetched, an index shared by several processes is updated under the
+  `cache.lock` file lock, and node-free answers (definition lookup and file
+  list) are capped at `max_hits`. The cross-process file lock moves from
+  `xerj-hub` to `xerj_common::flock` so both share it; its behaviour is
+  unchanged.
 
 ## [1.0.0-rc.105] - 2026-11-23
 

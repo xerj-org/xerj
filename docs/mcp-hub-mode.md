@@ -1,40 +1,113 @@
-# MCP Hub-Only Mode & Bounded Disk Cache (`#2760`)
+# Hub client cache library (`xerj_common::hub_client_cache`, #2760)
 
-`xerj mcp` supports a hub-first stdio runtime mode (`xerj_common::hub_client_cache`) so agent hosts (Claude Code, Cursor, Codex) can launch `xerj mcp` per session with **no running local `xerj` daemon required**, while continuing to use a local `xerj` server whenever one is reachable.
+**Status: an internal library module that nothing calls yet.** No binary uses
+it: not `xerj mcp`, not `xerj-server`. #2760 asks for more than this module:
+with no node running, `xerj mcp` should start and answer a hub question end to
+end. That wiring has not landed, and this module does not claim it. Today
+`xerj mcp` serves the `xerj_hub_*` tools through the `xerj ask` flow in
+`xerj-hub` (packs already on the machine, the automatic node).
 
-## Runtime Mode Detection (`McpRuntimeMode` & `HubFirstRouter`)
+The module is the part of #2760 that can be built and tested without a node:
+mode detection, tool routing, and a verified, bounded, cross-process-safe disk
+cache for what the hub serves.
 
-At session startup, `McpRuntimeMode::detect` probes the configured local node URL within a bounded startup budget (`DEFAULT_PROBE_BUDGET_MS = 150ms`):
+## What the cache stores: real hub packs
 
-1. **`LocalNodeReachable { base_url, probe_latency_ms }`**:
-   - Private-index tools (`xerj_search`, `xerj_def`, `xerj_map`, `xerj_memory_*`, `xerj_brain_*`, `xerj_plan`, `xerj_status`, …) route to the local node at `base_url` as before.
-   - Hub and pack tools (`xerj_hub_find`, `xerj_hub_def`, `xerj_hub_ask`, `xerj_corpus_feedback`, `xerj_field_report`) remain available.
-2. **`HubOnlyFallback { attempted_url, hub_url, notice }`**:
-   - When no local node responds within the probe budget, `xerj mcp` starts without failing, lists the hub/pack tools as available, and attaches an explicit fallback notice explaining that private-index node tools require a running local node.
-   - Calling a private-index tool while in `HubOnlyFallback` returns a loud, typed `HubModeError::LocalNodeRequired` error.
+The hub serves a signed archive, `<slug>-<pin8>.hubpack.tar.zst`, with a
+detached ed25519 signature in a sibling `.sig` (`xerj-hub` `pack.rs`).
+`CatalogueEntry.pack_sha256` is the sha256 of that archive. The cache keeps the
+archive and its signature exactly as downloaded, as
+`pack-<slug>-<pin8>.hubpack.tar.zst` and `….sig`, and the signed catalogue as
+`catalogue.json` and `catalogue.json.sig`.
 
-## Bounded LRU Disk Cache (`HubDiskCache`)
+A fetch closure returns a `SignedDownload { bytes, signature_hex }`: the bytes
+and the contents of the entry's `sig_url`. The cache never sees a URL. Every
+download, and every later read from disk, is checked in this order:
 
-`HubDiskCache` caches the signed hub catalogue and verified corpus pack artifacts on disk so repeated queries for the same corpus are served locally with zero network round-trips:
+1. the archive's sha256 against the catalogue's `pack_sha256` (and, on a disk
+   read, against the digest recorded in the index);
+2. the signature over the archive bytes against the hub key
+   (`xerj_common::hub::hub_pubkey()`: the compiled-in `HUB_PUBKEY_HEX`, or a
+   test `XERJ_HUB_PUBKEY`). With no key every operation refuses with
+   `HubModeError::NoHubKey` before anything is fetched;
+3. the archive itself: `SHA256SUMS` must cover and match `pack.json`,
+   `defs.jsonl` and `files.jsonl`, the manifest must carry a supported
+   `format_version`, and its slug and pin must match the catalogue entry.
 
-- **Layout**:
-  - `index.json`: persistent LRU metadata table (`format_version: 1`), monotonic access clock, per-corpus SHA-256 digests, `pin_sha`, byte sizes, and `fetched_at_unix` timestamps.
-  - `catalogue.json`: cached hub catalogue verified against `CATALOGUE_FORMAT_VERSION_MIN..=CATALOGUE_FORMAT_VERSION`.
-  - `pack-<slug>.json`: verified corpus pack payload (`CachedCorpusPack`) written atomically via `xerj_common::fsio::write_file_durable`.
-- **LRU Byte Budget**:
-  - Configured via `max_bytes` (`DEFAULT_MCP_CACHE_MAX_BYTES = 256 MiB`).
-  - Before writing a newly fetched corpus pack that would cause `used_bytes() + entry_bytes > max_bytes`, `HubDiskCache` deterministically evicts the least-recently-accessed entries (ordered by `(last_accessed_seq, slug)`) and removes their on-disk pack files.
-  - A single corpus entry larger than `max_bytes` is refused loudly with `HubModeError::EntryExceedsCacheBudget` without evicting existing entries.
-- **Honest Staleness Reporting (`Freshness`)**:
-  - Every cached lookup evaluates `Freshness::evaluate(fetched_at_unix, now_unix, ttl_secs)` (`DEFAULT_CACHE_TTL_SECS = 86400`).
-  - When `age_secs > ttl_secs`, the entry is reported as `Freshness::Stale { age_secs, max_age_secs }` and a warning line is appended to `Answer.warnings` and rendered output—never hidden.
+The archive is read in memory and never extracted. The decompressed stream is
+capped at 1 GiB and 100 000 entries (`pack::MAX_UNPACKED_BYTES` and
+`pack::MAX_MEMBERS`, shared with the extractor), however well it compresses.
 
-## Loud Errors on Unknown Corpus or Format Version
+The disk budget defaults to `xerj_common::hub::DISK_BUDGET_BYTES`, the same
+ceiling `xerj hub pull` prunes the pack cache to. When a new entry would exceed
+it, the least recently used entries are evicted (ordered by
+`(last_accessed_seq, slug)`) and their files removed. A pack larger than the
+whole budget is refused before it is downloaded.
 
-`HubDiskCache` and `HubFirstRouter` never return an empty result on invalid metadata or unknown targets:
+## Refresh rules
 
-- `HubModeError::InvalidCorpusSlug`: rejects empty slugs, slugs over 64 bytes, path traversal (`../`), or non-lowercase-ASCII characters before any disk or network I/O.
-- `HubModeError::UnknownCorpus`: rejects any slug not listed in the catalogue, naming the catalogue's `generated_at` timestamp.
-- `HubModeError::UnsupportedFormatVersion`: rejects any catalogue outside `CATALOGUE_FORMAT_VERSION_MIN..=CATALOGUE_FORMAT_VERSION` or pack manifest not matching `PACK_FORMAT_VERSION`.
-- `HubModeError::ExcludedCorpusLicence`: refuses to fetch or serve any corpus marked `LicenceClass::Excluded`; corpora marked `LicenceClass::ApproachOnly` attach a `licence_warning` to every returned hit.
-- `HubModeError::IntegrityMismatch`: rejects any catalogue or pack whose SHA-256 digest or 40-hex `pin_sha` does not match the expected metadata.
+- A **fresh** entry is a disk hit; `fetch` is not called.
+- A **stale** entry (`now >= fetched_at + ttl`, default 24 h), a **damaged** one
+  (unreadable, digest or signature mismatch, bad archive or format) or none at
+  all calls `fetch`. A pin rotation is picked up, and a damaged entry repairs
+  itself.
+- A stale entry that still verifies is served **only** when the fetch itself
+  fails, and the answer says so (`refresh_error`, and a warning line). A damaged
+  entry is never served.
+- Bytes that `fetch` returns but that fail the digest, signature or archive
+  checks are an error. They never fall back to an older entry.
+
+## Sharing one cache directory
+
+Each agent session starts its own process, and several can share a cache
+directory. Every read-modify-write of `index.json`, and every eviction, runs
+under the advisory file lock `cache.lock` (`xerj_common::flock`, the same lock
+the automatic node start and `xerj hub pull` take). `index.json` is re-read
+inside the lock, so one process never overwrites another's update, and an
+eviction never deletes a pack another process just indexed. The lock is held
+only for index work and file reads, never across a download. An operation that
+cannot get it within 10 s fails with `HubModeError::CacheLock`.
+
+An `index.json` that cannot be read is rebuilt and the pack files it orphaned
+are removed. One written by a newer build is an error: it is not ours to
+discard.
+
+## What a pack can answer without a node
+
+`answer_from_pack` answers from `defs.jsonl` and `files.jsonl`:
+
+- **Definition lookup** (`AnswerMode::Def`): symbols equal to the query first,
+  then those containing it, case-insensitively. An empty query is
+  `HubModeError::EmptyQuery`.
+- **File list** (`AnswerMode::Files`): per-file licence; a non-empty query keeps
+  the paths that contain it.
+- **Passage question** (`AnswerMode::How`) is refused with
+  `HubModeError::PassageSearchNeedsNode`. The passages live in the pack's
+  `snapshot/`, which only a node restores. This module does not do that.
+
+Every answer carries at most `max_hits` hits (default 50, at least 1). When more
+matched, `Answer.truncated` is set and a warning says how many.
+
+## Routing
+
+`McpRuntimeMode::detect` takes a probe closure for the local node and a budget
+(default 150 ms). `HubFirstRouter::route_tool` sends private-index tools to the
+node when it is reachable and returns `HubModeError::LocalNodeRequired` when it
+is not. The `xerj_hub_*` tools are refused with `HubModeError::NoHubKey` in a
+build with no hub key, as `xerj mcp` does not serve them then; they are also
+shown as unavailable in `list_tools`.
+
+## Loud errors
+
+Nothing here returns an empty result in place of a failure:
+`InvalidCorpusSlug`, `UnknownCorpus`, `UnsupportedFormatVersion` (catalogue,
+pack manifest, cache index), `ExcludedCorpusLicence`, `IntegrityMismatch`,
+`SignatureInvalid`, `InvalidPack`, `EntryExceedsCacheBudget`, `NoHubKey`,
+`EmptyQuery`, `PassageSearchNeedsNode`, `CacheLock`. A corpus marked
+`LicenceClass::ApproachOnly` attaches a `licence_warning` to every hit.
+
+## Not here yet
+
+- Fetching: callers pass the fetch closures; no HTTP client is wired in.
+- `xerj mcp` starting in hub-only mode and registering these tools.
+- Passage search from a pack with no node.

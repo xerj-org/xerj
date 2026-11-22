@@ -1,53 +1,88 @@
-//! Hub-first stdio MCP runtime mode and bounded LRU disk cache (#2760, epic #2769).
+//! The client/cache library for a hub-first MCP runtime (#2760, epic #2769).
 //!
-//! `xerj mcp` works as a short-lived stdio MCP server that agent hosts launch
-//! per session without requiring a running local `xerj` daemon:
+//! **Status: a library nothing calls yet.** No binary (`xerj mcp`, `xerj-server`)
+//! uses this module; wiring it into `xerj mcp` is the remaining part of #2760.
+//! What is here is the part that can be built and tested without a running node:
 //!
-//! 1. **Mode detection & routing ([`McpRuntimeMode`], [`HubFirstRouter`])**:
-//!    Probes the configured local node within a strict per-session startup
-//!    budget ([`DEFAULT_PROBE_BUDGET_MS`]). When reachable, private-index tools
-//!    (`xerj_search`, `xerj_def`, `xerj_map`, …) route to the local node while
-//!    hub tools remain available. When unreachable, `xerj mcp` falls back to
-//!    [`McpRuntimeMode::HubOnlyFallback`] with an explicit notice, lists the
-//!    hub/pack tools, and answers hub queries directly through the hub client
-//!    and disk cache.
-//! 2. **Bounded LRU disk cache ([`HubDiskCache`])**:
-//!    Caches the verified catalogue and per-corpus pack records on disk via
-//!    [`crate::fsio::write_file_durable`], enforces a configurable byte ceiling
-//!    (`max_bytes`) with deterministic least-recently-used eviction, verifies
-//!    SHA-256 content digests and 40-hex commit pins, and reports cache
-//!    staleness ([`Freshness::Fresh`] vs. [`Freshness::Stale`]) explicitly on
-//!    every response.
-//! 3. **Loud errors ([`HubModeError`])**:
-//!    Unknown corpus slugs, invalid slug syntax, excluded licences, Integrity
-//!    mismatches, and unsupported catalogue or pack `format_version` values
-//!    always return a typed error — never a silent empty result.
+//! 1. **Mode detection and routing ([`McpRuntimeMode`], [`HubFirstRouter`])**:
+//!    probe the local node within a startup budget ([`DEFAULT_PROBE_BUDGET_MS`]),
+//!    say which tools need it, and refuse `xerj_hub_*` tools in a build with no
+//!    hub key, as `xerj mcp` does today.
+//! 2. **A verified, bounded disk cache ([`HubDiskCache`])** for the hub
+//!    catalogue and for real hub packs. A pack is the signed
+//!    `<slug>-<pin8>.hubpack.tar.zst` the hub serves (format: `xerj-hub`
+//!    `pack.rs`), stored as downloaded with its detached `.sig`. Every read
+//!    re-checks the archive's sha256 against the catalogue's `pack_sha256` and
+//!    the signature against the hub key ([`crate::hub::hub_pubkey`]), then reads
+//!    `pack.json`, `defs.jsonl` and `files.jsonl` in memory under the same size
+//!    and member caps the client's extractor uses. The disk budget defaults to
+//!    [`crate::hub::DISK_BUDGET_BYTES`], the ceiling `xerj hub pull` prunes to.
+//! 3. **Cross-process safety.** Each agent session starts its own process, and
+//!    they share one cache directory. Index updates and eviction run under the
+//!    advisory file lock `cache.lock` ([`crate::flock`], the lock the node start
+//!    and `xerj hub pull` take), re-reading `index.json` inside the lock.
+//! 4. **Loud errors ([`HubModeError`])**: unknown corpus, bad slug, excluded
+//!    licence, digest or signature mismatch, unsupported format, empty query —
+//!    never a silent empty result.
+//!
+//! A stale or damaged entry is re-fetched, not served: a stale entry that still
+//! verifies is the fallback only when the fetch itself fails, and says so.
+//!
+//! What a node-free pack can answer: a definition lookup ([`AnswerMode::Def`],
+//! from `defs.jsonl`) and a file list ([`AnswerMode::Files`], from
+//! `files.jsonl`). Passage search ([`AnswerMode::How`]) needs the pack's
+//! `snapshot/` restored into a node, which this module does not do, so it is
+//! refused with [`HubModeError::PassageSearchNeedsNode`].
 
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::collections::{BTreeMap, BTreeSet};
+use std::io::Read;
+use std::path::{Component, Path, PathBuf};
+use std::time::Duration;
 
+use ring::signature::UnparsedPublicKey;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::flock::{held_by, FileLock, LockError};
 use crate::fsio::write_file_durable;
 use crate::hub::{
-    catalogue_format_supported, Answer, AnswerMode, AnsweredFrom, Catalogue, CatalogueEntry,
-    DefRecord, Hit, LicenceClass, PackManifest, CATALOGUE_FORMAT_VERSION,
-    CATALOGUE_FORMAT_VERSION_MIN, DEFAULT_HUB_URL, PACK_FORMAT_VERSION,
+    catalogue_format_supported, hub_pubkey, render, Answer, AnswerMode, AnsweredFrom, Catalogue,
+    CatalogueEntry, DefRecord, Hit, LicenceClass, PackManifest, CATALOGUE_FORMAT_VERSION,
+    CATALOGUE_FORMAT_VERSION_MIN, DEFAULT_HUB_URL, DISK_BUDGET_BYTES, NO_HUB_KEY_MESSAGE,
+    PACK_FORMAT_VERSION,
 };
 
 /// Default per-session local-node reachability probe budget in milliseconds.
 pub const DEFAULT_PROBE_BUDGET_MS: u64 = 150;
 
-/// Default disk cache budget for stdio MCP hub-only mode (256 MiB).
-pub const DEFAULT_MCP_CACHE_MAX_BYTES: u64 = 256 * 1024 * 1024;
+/// Default disk cache budget: the ceiling `xerj hub pull` keeps the pack cache
+/// under ([`DISK_BUDGET_BYTES`]).
+pub const DEFAULT_MCP_CACHE_MAX_BYTES: u64 = DISK_BUDGET_BYTES;
 
-/// Default staleness TTL in seconds before a cached corpus/catalogue is marked
-/// [`Freshness::Stale`] (24 hours).
+/// Default staleness TTL in seconds: an entry whose age reaches it is re-fetched
+/// (24 hours).
 pub const DEFAULT_CACHE_TTL_SECS: u64 = 24 * 60 * 60;
+
+/// Default cap on the hits one answer carries.
+pub const DEFAULT_MAX_HITS: usize = 50;
+
+/// How long a cache operation waits for another process to let go of
+/// `cache.lock`. The lock is held only for an index read-modify-write (never
+/// across a download), so this is long.
+pub const DEFAULT_LOCK_WAIT: Duration = Duration::from_secs(10);
 
 /// Maximum corpus slug length in bytes (matches the hub server's `valid_slug` cap).
 pub const MAX_SLUG_BYTES: usize = 64;
+
+/// Largest decompressed tar a reader accepts. The same cap `xerj-hub`'s
+/// `pack::MAX_UNPACKED_BYTES` applies, so the catalogue never offers a pack this
+/// reader refuses; an unbounded read would let a small archive expand to
+/// terabytes in memory.
+pub const MAX_UNPACKED_BYTES: u64 = 1 << 30;
+
+/// Largest number of tar entries a pack may hold (`xerj-hub`'s
+/// `pack::MAX_MEMBERS`). A zip-bomb guard.
+pub const MAX_MEMBERS: usize = 100_000;
 
 /// Canonical MCP tools served directly from the hub / without a local node.
 pub const HUB_DIRECT_TOOLS: &[&str] = &[
@@ -77,6 +112,12 @@ pub const LOCAL_NODE_TOOLS: &[&str] = &[
     "xerj_map",
     "xerj_status",
 ];
+
+/// Archive member names (fixed by the pack format).
+const PACK_JSON: &str = "pack.json";
+const SHA256SUMS: &str = "SHA256SUMS";
+const DEFS_JSONL: &str = "defs.jsonl";
+const FILES_JSONL: &str = "files.jsonl";
 
 /// Typed errors for hub-only MCP routing, format checking, and disk caching.
 ///
@@ -109,6 +150,15 @@ pub enum HubModeError {
     #[error("integrity verification failed for '{slug}': {reason}")]
     IntegrityMismatch { slug: String, reason: String },
 
+    #[error("signature verification failed for '{subject}': {reason}")]
+    SignatureInvalid { subject: String, reason: String },
+
+    #[error("{}", NO_HUB_KEY_MESSAGE)]
+    NoHubKey,
+
+    #[error("hub pack '{slug}' is not a readable .hubpack.tar.zst: {reason}")]
+    InvalidPack { slug: String, reason: String },
+
     #[error("cache entry '{slug}' ({entry_bytes} bytes) exceeds total disk cache budget ({max_bytes} bytes)")]
     EntryExceedsCacheBudget {
         slug: String,
@@ -118,6 +168,15 @@ pub enum HubModeError {
 
     #[error("tool '{tool}' requires a running local xerj node ({notice})")]
     LocalNodeRequired { tool: String, notice: String },
+
+    #[error("an empty query matches every definition: a {mode} lookup needs a symbol")]
+    EmptyQuery { mode: &'static str },
+
+    #[error("corpus '{slug}': passage questions need the pack's search index, which only a running node restores from the pack snapshot; use a definition or file-list lookup, or start a node")]
+    PassageSearchNeedsNode { slug: String },
+
+    #[error("hub cache lock {path}: {reason}")]
+    CacheLock { path: String, reason: String },
 
     #[error("hub fetch failed for '{target}': {reason}")]
     HubFetch { target: String, reason: String },
@@ -162,6 +221,57 @@ pub fn valid_sha256_hex(digest: &str) -> bool {
 /// Compute lowercase hex SHA-256 of `bytes`.
 pub fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
+}
+
+fn decode_hex_exact(hex: &str, bytes: usize, what: &str) -> Result<Vec<u8>, String> {
+    if hex.len() != bytes * 2 || !hex.is_ascii() {
+        return Err(format!("{what} must be {} hex characters", bytes * 2));
+    }
+    (0..bytes)
+        .map(|i| {
+            u8::from_str_radix(&hex[2 * i..2 * i + 2], 16).map_err(|_| format!("{what} is not hex"))
+        })
+        .collect()
+}
+
+/// Verify a detached ed25519 signature (64 raw bytes as 128 hex characters, the
+/// form the hub's `.sig` files carry) over `message` against a hex public key.
+/// The same primitive and key format `xerj-autoindex`'s `harvest::sign` uses to
+/// sign and verify a pack archive.
+pub fn verify_ed25519_hex(message: &[u8], sig_hex: &str, pubkey_hex: &str) -> Result<(), String> {
+    let sig = decode_hex_exact(sig_hex.trim(), 64, "signature")?;
+    let key = decode_hex_exact(pubkey_hex.trim(), 32, "public key")?;
+    UnparsedPublicKey::new(&ring::signature::ED25519, &key)
+        .verify(message, &sig)
+        .map_err(|_| {
+            "signature does not verify: the bytes are not from the holder of the hub key, \
+             or changed after signing"
+                .to_string()
+        })
+}
+
+/// Parse catalogue bytes, refusing a `format_version` this build cannot read
+/// before the strict parse, so a future shape is named as unsupported instead of
+/// failing on its new fields.
+fn parse_catalogue(bytes: &[u8]) -> Result<Catalogue, HubModeError> {
+    let value: serde_json::Value = serde_json::from_slice(bytes)?;
+    let version = value
+        .get("format_version")
+        .and_then(serde_json::Value::as_u64)
+        .map(|v| u32::try_from(v).unwrap_or(u32::MAX));
+    if let Some(found) = version {
+        if !catalogue_format_supported(found) {
+            return Err(HubModeError::UnsupportedFormatVersion {
+                kind: "catalogue",
+                found,
+                supported_min: CATALOGUE_FORMAT_VERSION_MIN,
+                supported_max: CATALOGUE_FORMAT_VERSION,
+            });
+        }
+    }
+    let catalogue: Catalogue = serde_json::from_value(value)?;
+    validate_catalogue_format(&catalogue)?;
+    Ok(catalogue)
 }
 
 /// Verify that a [`Catalogue`] has a supported `format_version` and valid entries.
@@ -315,17 +425,18 @@ pub struct ToolAvailability {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum Freshness {
-    /// Cached entry age is within `max_age_secs`.
+    /// Cached entry age is below `max_age_secs`.
     Fresh { age_secs: u64, max_age_secs: u64 },
-    /// Cached entry age exceeds `max_age_secs`; surfaced explicitly to callers.
+    /// Cached entry age has reached `max_age_secs`; surfaced explicitly to callers.
     Stale { age_secs: u64, max_age_secs: u64 },
 }
 
 impl Freshness {
-    /// Compute freshness from `fetched_at_unix` vs `now_unix` and `ttl_secs`.
+    /// Compute freshness from `fetched_at_unix` vs `now_unix` and `ttl_secs`: an
+    /// entry is stale once `now_unix >= fetched_at_unix + ttl_secs`.
     pub fn evaluate(fetched_at_unix: u64, now_unix: u64, ttl_secs: u64) -> Self {
         let age_secs = now_unix.saturating_sub(fetched_at_unix);
-        if age_secs <= ttl_secs {
+        if age_secs < ttl_secs {
             Self::Fresh {
                 age_secs,
                 max_age_secs: ttl_secs,
@@ -338,7 +449,7 @@ impl Freshness {
         }
     }
 
-    /// True if this artifact is past its configured TTL.
+    /// True if this artifact has reached its configured TTL.
     pub fn is_stale(&self) -> bool {
         matches!(self, Self::Stale { .. })
     }
@@ -351,8 +462,7 @@ impl Freshness {
                 age_secs,
                 max_age_secs,
             } => Some(format!(
-                "cached {subject} is stale (age {age_secs}s exceeds ttl {max_age_secs}s); \
-                 serving verified disk cache entry"
+                "cached {subject} is stale (age {age_secs}s, ttl {max_age_secs}s)"
             )),
         }
     }
@@ -362,29 +472,40 @@ impl Freshness {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CacheLookupOutcome {
-    /// Served directly from the verified on-disk cache with zero network requests.
+    /// Served directly from the verified on-disk cache with zero network requests,
+    /// or, for a stale entry whose refresh failed, with the failure reported.
     HitFromDisk,
     /// Fetched from the remote hub, verified, and persisted to the disk cache.
     FetchedAndCached,
 }
 
-/// One passage record inside a cached corpus pack.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PackPassage {
-    pub file: String,
-    pub line: u32,
-    pub kind: String,
-    pub text: String,
+/// Bytes the hub serves, with the detached signature from the entry's `sig_url`
+/// (the catalogue's `.sig`, or the pack's `<archive>.sig`): 128 hex characters.
+#[derive(Debug, Clone)]
+pub struct SignedDownload {
+    pub bytes: Vec<u8>,
+    pub signature_hex: String,
 }
 
-/// Self-contained corpus pack payload cached on disk for hub-only MCP queries.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// One line of a pack's `files.jsonl`: an indexed source file with its
+/// per-path licence (`xerj-hub`'s `PackFileEntry`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct PackFileEntry {
+    pub path: String,
+    pub lang: String,
+    pub bytes: u64,
+    pub licence: String,
+}
+
+/// The members of a verified hub pack this module reads node-free: `pack.json`,
+/// `defs.jsonl` and `files.jsonl`. The opaque `snapshot/` is checked against
+/// `SHA256SUMS` but not read into memory.
+#[derive(Debug, Clone)]
 pub struct CachedCorpusPack {
     pub manifest: PackManifest,
     pub defs: Vec<DefRecord>,
-    pub passages: Vec<PackPassage>,
+    pub files: Vec<PackFileEntry>,
 }
 
 impl CachedCorpusPack {
@@ -392,6 +513,177 @@ impl CachedCorpusPack {
     pub fn validate(&self) -> Result<(), HubModeError> {
         validate_pack_manifest_format(&self.manifest)
     }
+}
+
+/// `/`-joined relative path of a tar entry; rejects traversal and absolute paths.
+fn sanitize_archive_path(path: &Path) -> Result<String, String> {
+    let mut parts = Vec::new();
+    for comp in path.components() {
+        match comp {
+            Component::Normal(s) => parts.push(
+                s.to_str()
+                    .ok_or_else(|| "non-UTF-8 path in archive".to_string())?
+                    .to_string(),
+            ),
+            Component::CurDir => {}
+            _ => return Err(format!("unsafe path in archive: {}", path.display())),
+        }
+    }
+    if parts.is_empty() {
+        return Err("empty path in archive".to_string());
+    }
+    Ok(parts.join("/"))
+}
+
+fn parse_jsonl<T: serde::de::DeserializeOwned>(name: &str, bytes: &[u8]) -> Result<Vec<T>, String> {
+    let mut out = Vec::new();
+    for (n, line) in bytes.split(|b| *b == b'\n').enumerate() {
+        if line.iter().all(u8::is_ascii_whitespace) {
+            continue;
+        }
+        out.push(serde_json::from_slice(line).map_err(|e| format!("{name} line {}: {e}", n + 1))?);
+    }
+    Ok(out)
+}
+
+/// Read a `.hubpack.tar.zst` in memory. Nothing is extracted to disk; the
+/// decompressed stream is capped at `max_unpacked` bytes and `max_members`
+/// entries however well it compresses, every member is hashed as it streams, and
+/// `SHA256SUMS` must cover and match `pack.json`, `defs.jsonl` and `files.jsonl`.
+fn decode_pack_archive_bounded(
+    slug: &str,
+    archive: &[u8],
+    max_unpacked: u64,
+    max_members: usize,
+) -> Result<CachedCorpusPack, HubModeError> {
+    let bad = |reason: String| HubModeError::InvalidPack {
+        slug: slug.to_string(),
+        reason,
+    };
+    let decoder = zstd::stream::read::Decoder::new(archive)
+        .map_err(|e| bad(format!("zstd decompress: {e}")))?;
+    let mut tar = tar::Archive::new(decoder.take(max_unpacked.saturating_add(1)));
+    let entries = tar
+        .entries()
+        .map_err(|e| bad(format!("read tar entries: {e}")))?;
+
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let mut digests: BTreeMap<String, String> = BTreeMap::new();
+    let mut kept: BTreeMap<String, Vec<u8>> = BTreeMap::new();
+    let mut count = 0usize;
+    let mut unpacked = 0u64;
+    let mut chunk = vec![0u8; 64 * 1024];
+    for entry in entries {
+        let mut entry = entry.map_err(|e| {
+            bad(format!(
+                "tar entry unreadable (corrupt, or it decompresses to more than {max_unpacked} bytes): {e}"
+            ))
+        })?;
+        count += 1;
+        if count > max_members {
+            return Err(bad(format!(
+                "pack holds more than {max_members} entries, over the hub's per-pack cap"
+            )));
+        }
+        if !entry.header().entry_type().is_file() {
+            continue;
+        }
+        let name = entry
+            .path()
+            .map_err(|e| bad(format!("tar entry path: {e}")))
+            .and_then(|p| sanitize_archive_path(p.as_ref()).map_err(bad))?;
+        unpacked = unpacked.saturating_add(entry.size());
+        if unpacked > max_unpacked {
+            return Err(bad(format!(
+                "pack decompresses to more than {max_unpacked} bytes, over the hub's per-pack cap"
+            )));
+        }
+        if !seen.insert(name.clone()) {
+            return Err(bad(format!("duplicate archive member {name}")));
+        }
+        let keep = matches!(
+            name.as_str(),
+            PACK_JSON | SHA256SUMS | DEFS_JSONL | FILES_JSONL
+        );
+        let mut hasher = Sha256::new();
+        let mut body = Vec::new();
+        loop {
+            let n = entry
+                .read(&mut chunk)
+                .map_err(|e| bad(format!("read archive member {name}: {e}")))?;
+            if n == 0 {
+                break;
+            }
+            hasher.update(&chunk[..n]);
+            if keep {
+                body.extend_from_slice(&chunk[..n]);
+            }
+        }
+        digests.insert(name.clone(), format!("{:x}", hasher.finalize()));
+        if keep {
+            kept.insert(name, body);
+        }
+    }
+
+    let sums = kept
+        .get(SHA256SUMS)
+        .ok_or_else(|| bad(format!("{SHA256SUMS} missing from archive")))?;
+    let sums = std::str::from_utf8(sums).map_err(|_| bad(format!("{SHA256SUMS} is not UTF-8")))?;
+    let mut listed: BTreeSet<&str> = BTreeSet::new();
+    for line in sums.lines().filter(|l| !l.trim().is_empty()) {
+        let (hash, path) = line
+            .split_once("  ")
+            .ok_or_else(|| bad(format!("malformed {SHA256SUMS} line: {line:?}")))?;
+        let actual = digests
+            .get(path)
+            .ok_or_else(|| bad(format!("{SHA256SUMS} names {path}, absent from archive")))?;
+        if !actual.eq_ignore_ascii_case(hash.trim()) {
+            return Err(bad(format!("checksum mismatch for {path}")));
+        }
+        listed.insert(path);
+    }
+    for needed in [PACK_JSON, DEFS_JSONL, FILES_JSONL] {
+        if !kept.contains_key(needed) {
+            return Err(bad(format!("{needed} missing from archive")));
+        }
+        if !listed.contains(needed) {
+            return Err(bad(format!("{needed} is not covered by {SHA256SUMS}")));
+        }
+    }
+
+    // A future format is named as unsupported, not half-read.
+    let manifest_value: serde_json::Value = serde_json::from_slice(&kept[PACK_JSON])
+        .map_err(|e| bad(format!("parse {PACK_JSON}: {e}")))?;
+    if let Some(found) = manifest_value
+        .get("format_version")
+        .and_then(serde_json::Value::as_u64)
+        .map(|v| u32::try_from(v).unwrap_or(u32::MAX))
+    {
+        if found != PACK_FORMAT_VERSION {
+            return Err(HubModeError::UnsupportedFormatVersion {
+                kind: "pack_manifest",
+                found,
+                supported_min: PACK_FORMAT_VERSION,
+                supported_max: PACK_FORMAT_VERSION,
+            });
+        }
+    }
+    let manifest: PackManifest = serde_json::from_value(manifest_value)
+        .map_err(|e| bad(format!("parse {PACK_JSON}: {e}")))?;
+    let defs = parse_jsonl::<DefRecord>(DEFS_JSONL, &kept[DEFS_JSONL]).map_err(bad)?;
+    let files = parse_jsonl::<PackFileEntry>(FILES_JSONL, &kept[FILES_JSONL]).map_err(bad)?;
+    let pack = CachedCorpusPack {
+        manifest,
+        defs,
+        files,
+    };
+    pack.validate()?;
+    Ok(pack)
+}
+
+/// [`decode_pack_archive_bounded`] under the shared caps.
+fn decode_pack_archive(slug: &str, archive: &[u8]) -> Result<CachedCorpusPack, HubModeError> {
+    decode_pack_archive_bounded(slug, archive, MAX_UNPACKED_BYTES, MAX_MEMBERS)
 }
 
 /// Metadata for a single corpus entry in the on-disk LRU cache index.
@@ -403,36 +695,158 @@ pub struct DiskCacheEntryMeta {
     pub pin_date: String,
     pub licence_spdx: String,
     pub licence_class: LicenceClass,
+    /// sha256 of the archive, as the catalogue's `pack_sha256` records it.
     pub sha256: String,
+    /// Archive plus signature bytes on disk.
     pub size_bytes: u64,
     pub fetched_at_unix: u64,
     pub last_accessed_seq: u64,
     pub file_name: String,
+    pub sig_file_name: String,
 }
 
-/// Persistent LRU index manifest stored at `<cache_dir>/index.json`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CatalogueMeta {
+    sha256: String,
+    fetched_at_unix: u64,
+}
+
+/// Persistent LRU index stored at `<cache_dir>/index.json`. Shared by every
+/// process using the directory: read and written only under `cache.lock`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DiskCacheIndex {
     format_version: u32,
     access_clock: u64,
-    catalogue_fetched_at_unix: Option<u64>,
-    catalogue_sha256: Option<String>,
+    catalogue: Option<CatalogueMeta>,
     entries: BTreeMap<String, DiskCacheEntryMeta>,
 }
 
-const CACHE_INDEX_FORMAT_VERSION: u32 = 1;
+/// 2: archives and signatures as the hub serves them. Version 1 held a
+/// private JSON pack format the hub never served; such an index is rebuilt.
+const CACHE_INDEX_FORMAT_VERSION: u32 = 2;
 const CACHE_INDEX_FILE: &str = "index.json";
+const CACHE_LOCK_FILE: &str = "cache.lock";
 const CACHE_CATALOGUE_FILE: &str = "catalogue.json";
+const CACHE_CATALOGUE_SIG_FILE: &str = "catalogue.json.sig";
+const PACK_FILE_PREFIX: &str = "pack-";
 
 impl Default for DiskCacheIndex {
     fn default() -> Self {
         Self {
             format_version: CACHE_INDEX_FORMAT_VERSION,
             access_clock: 0,
-            catalogue_fetched_at_unix: None,
-            catalogue_sha256: None,
+            catalogue: None,
             entries: BTreeMap::new(),
+        }
+    }
+}
+
+impl DiskCacheIndex {
+    fn used_bytes(&self) -> u64 {
+        self.entries.values().map(|e| e.size_bytes).sum()
+    }
+
+    fn references(&self, file_name: &str) -> bool {
+        self.entries
+            .values()
+            .any(|m| m.file_name == file_name || m.sig_file_name == file_name)
+    }
+}
+
+fn plain_file_name(name: &str) -> bool {
+    !name.is_empty() && !name.contains(['/', '\\']) && name != "." && name != ".."
+}
+
+/// Read `index.json`. `Ok((index, true))` means it was unreadable (corrupt JSON,
+/// the unserved version-1 layout, an unsafe file name) and an empty index is
+/// returned to be rebuilt. An index a newer build wrote is an error: it is not
+/// ours to discard.
+fn load_index(root: &Path) -> Result<(DiskCacheIndex, bool), HubModeError> {
+    let raw = match std::fs::read(root.join(CACHE_INDEX_FILE)) {
+        Ok(raw) => raw,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Ok((DiskCacheIndex::default(), false))
+        }
+        Err(e) => return Err(e.into()),
+    };
+    let Ok(value) = serde_json::from_slice::<serde_json::Value>(&raw) else {
+        return Ok((DiskCacheIndex::default(), true));
+    };
+    let version = value
+        .get("format_version")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    if version > u64::from(CACHE_INDEX_FORMAT_VERSION) {
+        return Err(HubModeError::UnsupportedFormatVersion {
+            kind: "disk_cache_index",
+            found: u32::try_from(version).unwrap_or(u32::MAX),
+            supported_min: CACHE_INDEX_FORMAT_VERSION,
+            supported_max: CACHE_INDEX_FORMAT_VERSION,
+        });
+    }
+    if version < u64::from(CACHE_INDEX_FORMAT_VERSION) {
+        return Ok((DiskCacheIndex::default(), true));
+    }
+    match serde_json::from_value::<DiskCacheIndex>(value) {
+        Ok(index)
+            if index
+                .entries
+                .values()
+                .all(|m| plain_file_name(&m.file_name) && plain_file_name(&m.sig_file_name)) =>
+        {
+            Ok((index, false))
+        }
+        _ => Ok((DiskCacheIndex::default(), true)),
+    }
+}
+
+/// Removes pack files no index entry names: what a crash between writing a pack
+/// and recording it leaves behind, and what a discarded index orphans. Called
+/// only under the lock, which every writer holds from the file write to the
+/// index write, so it cannot delete a file about to be indexed.
+fn sweep_orphans(root: &Path, index: &DiskCacheIndex) {
+    let Ok(dir) = std::fs::read_dir(root) else {
+        return;
+    };
+    for item in dir.flatten() {
+        let name = item.file_name().to_string_lossy().into_owned();
+        if name.starts_with(PACK_FILE_PREFIX) && !index.references(&name) {
+            let _ = std::fs::remove_file(item.path());
+        }
+    }
+}
+
+fn lock_error(path: &Path, wait: Duration, error: LockError) -> HubModeError {
+    let reason = match error {
+        LockError::Timeout { holder } => format!(
+            "another xerj process held it for {}ms{}",
+            wait.as_millis(),
+            held_by(holder)
+        ),
+        LockError::Io(e) => e.to_string(),
+    };
+    HubModeError::CacheLock {
+        path: path.display().to_string(),
+        reason,
+    }
+}
+
+/// Result of an index transaction: the value, whether the index changed, and the
+/// files to delete once the new index is on disk.
+struct Tx<R> {
+    value: R,
+    dirty: bool,
+    remove_after: Vec<String>,
+}
+
+impl<R> Tx<R> {
+    fn clean(value: R) -> Self {
+        Self {
+            value,
+            dirty: false,
+            remove_after: Vec::new(),
         }
     }
 }
@@ -444,22 +858,70 @@ pub struct ResolvedCachedArtifact<T> {
     pub outcome: CacheLookupOutcome,
     pub freshness: Freshness,
     pub evicted_slugs: Vec<String>,
+    /// A stale entry was served because refreshing it failed: why.
+    pub refresh_error: Option<String>,
+    /// The entry on disk failed verification and was replaced: why.
+    pub repaired: Option<String>,
 }
 
-/// Bounded, SHA-256-verified LRU disk cache for hub catalogue and corpus packs.
+impl<T> ResolvedCachedArtifact<T> {
+    /// One warning line per condition the caller must not hide.
+    fn warnings(&self, subject: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        if let Some(stale) = self.freshness.warning_line(subject) {
+            out.push(match &self.refresh_error {
+                Some(why) => {
+                    format!("{stale}; refresh failed ({why}); serving the verified disk entry")
+                }
+                None => stale,
+            });
+        }
+        if let Some(why) = &self.repaired {
+            out.push(format!(
+                "cached {subject} failed verification ({why}) and was re-fetched"
+            ));
+        }
+        out
+    }
+}
+
+/// What the on-disk entry for a lookup turned out to be.
+enum Cached<T> {
+    /// Nothing usable is recorded, or it is for another pin.
+    Missing,
+    /// Recorded, but unreadable or failing its digest, signature or format.
+    Damaged(String),
+    /// Verified.
+    Valid { value: T, fetched_at_unix: u64 },
+}
+
+/// A refresh either completed or the fetch itself failed (the only case where a
+/// verified stale entry may be served instead).
+enum Refresh<T> {
+    Done(T),
+    FetchFailed(HubModeError),
+}
+
+/// Bounded, digest- and signature-verified LRU disk cache for the hub catalogue
+/// and corpus packs, safe to share between processes.
 #[derive(Debug)]
 pub struct HubDiskCache {
     root: PathBuf,
     max_bytes: u64,
     ttl_secs: u64,
-    index: DiskCacheIndex,
+    pubkey_hex: Option<String>,
+    lock_wait: Duration,
     disk_hits: u64,
     network_fetches: u64,
     evictions: u64,
 }
 
 impl HubDiskCache {
-    /// Open or initialize a bounded disk cache at `root`.
+    /// Open or initialise a bounded disk cache at `root`, verifying with
+    /// [`crate::hub::hub_pubkey`] (the compiled-in hub key, or a test
+    /// `XERJ_HUB_PUBKEY`). With no key every operation refuses with
+    /// [`HubModeError::NoHubKey`]. An unreadable `index.json` is rebuilt; one a
+    /// newer build wrote is an error.
     pub fn open(
         root: impl Into<PathBuf>,
         max_bytes: u64,
@@ -467,31 +929,39 @@ impl HubDiskCache {
     ) -> Result<Self, HubModeError> {
         let root = root.into();
         std::fs::create_dir_all(&root)?;
-        let index_path = root.join(CACHE_INDEX_FILE);
-        let index = if index_path.is_file() {
-            let raw = std::fs::read(&index_path)?;
-            let parsed: DiskCacheIndex = serde_json::from_slice(&raw)?;
-            if parsed.format_version != CACHE_INDEX_FORMAT_VERSION {
-                return Err(HubModeError::UnsupportedFormatVersion {
-                    kind: "disk_cache_index",
-                    found: parsed.format_version,
-                    supported_min: CACHE_INDEX_FORMAT_VERSION,
-                    supported_max: CACHE_INDEX_FORMAT_VERSION,
-                });
-            }
-            parsed
-        } else {
-            DiskCacheIndex::default()
-        };
+        load_index(&root)?;
         Ok(Self {
             root,
             max_bytes,
             ttl_secs,
-            index,
+            pubkey_hex: hub_pubkey(),
+            lock_wait: DEFAULT_LOCK_WAIT,
             disk_hits: 0,
             network_fetches: 0,
             evictions: 0,
         })
+    }
+
+    /// Verify with `pubkey_hex` instead of the process-wide hub key. `None`
+    /// makes the cache refuse everything, as a build with no key does.
+    pub fn with_pubkey_hex(mut self, pubkey_hex: Option<&str>) -> Self {
+        self.pubkey_hex = pubkey_hex.map(|k| k.trim().to_string());
+        self
+    }
+
+    /// How long an operation waits for `cache.lock` ([`DEFAULT_LOCK_WAIT`]).
+    pub fn with_lock_wait(mut self, wait: Duration) -> Self {
+        self.lock_wait = wait;
+        self
+    }
+
+    /// True when this cache has a hub key to verify with.
+    pub fn can_verify(&self) -> bool {
+        self.pubkey_hex.is_some()
+    }
+
+    fn require_key(&self) -> Result<&str, HubModeError> {
+        self.pubkey_hex.as_deref().ok_or(HubModeError::NoHubKey)
     }
 
     /// Directory backing this disk cache.
@@ -499,120 +969,437 @@ impl HubDiskCache {
         &self.root
     }
 
+    /// The lock file every process sharing this directory takes.
+    pub fn lock_path(&self) -> PathBuf {
+        self.root.join(CACHE_LOCK_FILE)
+    }
+
     /// Maximum total bytes allowed across cached corpus pack files.
     pub fn max_bytes(&self) -> u64 {
         self.max_bytes
     }
 
+    /// The index as last written. Read without the lock: writers replace the
+    /// file atomically, and this is for reporting, not for deciding anything.
+    fn snapshot(&self) -> DiskCacheIndex {
+        load_index(&self.root)
+            .map(|(index, _)| index)
+            .unwrap_or_default()
+    }
+
     /// Total bytes currently occupied by cached corpus pack files.
     pub fn used_bytes(&self) -> u64 {
-        self.index.entries.values().map(|e| e.size_bytes).sum()
+        self.snapshot().used_bytes()
     }
 
     /// Number of corpus packs currently stored in the disk cache.
     pub fn entry_count(&self) -> usize {
-        self.index.entries.len()
+        self.snapshot().entries.len()
     }
 
-    /// Measured count of lookups served from the on-disk cache.
+    /// Measured count of lookups served from the on-disk cache by this handle.
     pub fn disk_hits(&self) -> u64 {
         self.disk_hits
     }
 
-    /// Measured count of lookups that required a remote fetch.
+    /// Measured count of lookups that required a remote fetch by this handle.
     pub fn network_fetches(&self) -> u64 {
         self.network_fetches
     }
 
-    /// Total number of corpus entries evicted by the LRU policy.
+    /// Entries this handle evicted under the LRU policy.
     pub fn evictions(&self) -> u64 {
         self.evictions
     }
 
     /// Check whether `slug` is currently present in the disk cache index.
     pub fn contains_corpus(&self, slug: &str) -> bool {
-        self.index.entries.contains_key(slug)
+        self.snapshot().entries.contains_key(slug)
     }
 
     /// Retrieve metadata for `slug` if cached.
-    pub fn entry_meta(&self, slug: &str) -> Option<&DiskCacheEntryMeta> {
-        self.index.entries.get(slug)
+    pub fn entry_meta(&self, slug: &str) -> Option<DiskCacheEntryMeta> {
+        self.snapshot().entries.get(slug).cloned()
     }
 
-    fn persist_index(&self) -> Result<(), HubModeError> {
-        let bytes = serde_json::to_vec_pretty(&self.index)?;
-        write_file_durable(&self.root.join(CACHE_INDEX_FILE), &bytes)?;
-        Ok(())
+    /// Run `f` on the index under `cache.lock`, re-reading `index.json` inside
+    /// the lock so another process's update is never overwritten. The index is
+    /// written (and orphan pack files swept) when `f` changed it or it had to be
+    /// rebuilt; the files `f` asks to remove are deleted only after that write.
+    fn locked<R>(
+        &self,
+        f: impl FnOnce(&mut DiskCacheIndex) -> Result<Tx<R>, HubModeError>,
+    ) -> Result<R, HubModeError> {
+        let lock_path = self.lock_path();
+        let _guard = FileLock::acquire(&lock_path, self.lock_wait)
+            .map_err(|e| lock_error(&lock_path, self.lock_wait, e))?;
+        let (mut index, rebuilt) = load_index(&self.root)?;
+        let tx = f(&mut index)?;
+        if tx.dirty || rebuilt {
+            let bytes = serde_json::to_vec_pretty(&index)?;
+            write_file_durable(&self.root.join(CACHE_INDEX_FILE), &bytes)?;
+            for name in &tx.remove_after {
+                if plain_file_name(name) && !index.references(name) {
+                    let _ = std::fs::remove_file(self.root.join(name));
+                }
+            }
+            sweep_orphans(&self.root, &index);
+        }
+        Ok(tx.value)
     }
 
-    /// Store a verified [`Catalogue`] in the disk cache.
+    /// Verify `download` as the signed catalogue and store it, replacing any
+    /// cached one. Refuses an unverifiable key, a bad signature or an unsupported
+    /// `format_version` before anything is written.
     pub fn put_catalogue(
         &mut self,
-        catalogue: &Catalogue,
+        download: &SignedDownload,
         now_unix: u64,
-    ) -> Result<Freshness, HubModeError> {
-        validate_catalogue_format(catalogue)?;
-        let bytes = serde_json::to_vec_pretty(catalogue)?;
-        let digest = sha256_hex(&bytes);
-        write_file_durable(&self.root.join(CACHE_CATALOGUE_FILE), &bytes)?;
-        self.index.catalogue_fetched_at_unix = Some(now_unix);
-        self.index.catalogue_sha256 = Some(digest);
-        self.persist_index()?;
-        Ok(Freshness::evaluate(now_unix, now_unix, self.ttl_secs))
+    ) -> Result<Catalogue, HubModeError> {
+        let key = self.require_key()?;
+        verify_ed25519_hex(&download.bytes, &download.signature_hex, key).map_err(|reason| {
+            HubModeError::SignatureInvalid {
+                subject: "catalogue".into(),
+                reason,
+            }
+        })?;
+        let catalogue = parse_catalogue(&download.bytes)?;
+        let sha256 = sha256_hex(&download.bytes);
+        self.locked(|index| {
+            write_file_durable(&self.root.join(CACHE_CATALOGUE_FILE), &download.bytes)?;
+            write_file_durable(
+                &self.root.join(CACHE_CATALOGUE_SIG_FILE),
+                download.signature_hex.trim().as_bytes(),
+            )?;
+            index.catalogue = Some(CatalogueMeta {
+                sha256,
+                fetched_at_unix: now_unix,
+            });
+            Ok(Tx {
+                value: (),
+                dirty: true,
+                remove_after: Vec::new(),
+            })
+        })?;
+        Ok(catalogue)
     }
 
-    /// Read the cached [`Catalogue`] from disk, verifying its SHA-256 and format version,
-    /// or fetch and cache it using `fetch` on a cache miss.
+    /// The cached catalogue, if one is recorded and still verifies.
+    fn read_cached_catalogue(&self) -> Result<Cached<Catalogue>, HubModeError> {
+        let key = self.require_key()?;
+        let recorded = self.locked(|index| {
+            let Some(meta) = index.catalogue.clone() else {
+                return Ok(Tx::clean(None));
+            };
+            let read = std::fs::read(self.root.join(CACHE_CATALOGUE_FILE)).and_then(|bytes| {
+                std::fs::read_to_string(self.root.join(CACHE_CATALOGUE_SIG_FILE))
+                    .map(|sig| (bytes, sig))
+            });
+            Ok(Tx::clean(Some((meta, read.map_err(|e| e.to_string())))))
+        })?;
+        let Some((meta, read)) = recorded else {
+            return Ok(Cached::Missing);
+        };
+        let damaged = |why: String| Ok(Cached::Damaged(why));
+        let (bytes, sig) = match read {
+            Ok(pair) => pair,
+            Err(why) => return damaged(format!("cannot read the cached catalogue: {why}")),
+        };
+        let actual = sha256_hex(&bytes);
+        if actual != meta.sha256 {
+            return damaged(format!(
+                "sha256 mismatch: recorded {}, on disk {actual}",
+                meta.sha256
+            ));
+        }
+        if let Err(why) = verify_ed25519_hex(&bytes, &sig, key) {
+            return damaged(why);
+        }
+        match parse_catalogue(&bytes) {
+            Ok(value) => Ok(Cached::Valid {
+                value,
+                fetched_at_unix: meta.fetched_at_unix,
+            }),
+            Err(e) => damaged(e.to_string()),
+        }
+    }
+
+    /// Read the cached [`Catalogue`], verifying its digest, signature and format.
+    ///
+    /// A fresh entry is a disk hit and `fetch` is not called. A stale one
+    /// (`now_unix >= fetched_at + ttl`), a damaged one (unreadable, digest or
+    /// signature mismatch, bad format) or none at all calls `fetch`, so a pin
+    /// rotation is picked up and a damaged entry repairs itself. Only a stale
+    /// entry that still verifies is served when `fetch` itself fails, with
+    /// [`ResolvedCachedArtifact::refresh_error`] set. Bytes `fetch` returns that
+    /// fail verification are an error, never a fallback.
     pub fn get_or_fetch_catalogue<F>(
         &mut self,
         now_unix: u64,
         fetch: F,
     ) -> Result<ResolvedCachedArtifact<Catalogue>, HubModeError>
     where
-        F: FnOnce() -> Result<Catalogue, HubModeError>,
+        F: FnOnce() -> Result<SignedDownload, HubModeError>,
     {
-        let cat_path = self.root.join(CACHE_CATALOGUE_FILE);
-        if let (Some(fetched_at), Some(expected_sha)) = (
-            self.index.catalogue_fetched_at_unix,
-            self.index.catalogue_sha256.clone(),
-        ) {
-            if cat_path.is_file() {
-                let bytes = std::fs::read(&cat_path)?;
-                let actual_sha = sha256_hex(&bytes);
-                if actual_sha != expected_sha {
-                    return Err(HubModeError::IntegrityMismatch {
-                        slug: "catalogue".into(),
-                        reason: format!(
-                            "cached catalogue sha256 mismatch: expected {expected_sha}, got {actual_sha}"
-                        ),
+        let cached = self.read_cached_catalogue()?;
+        let (stale, repaired) = match cached {
+            Cached::Valid {
+                value,
+                fetched_at_unix,
+            } => {
+                let freshness = Freshness::evaluate(fetched_at_unix, now_unix, self.ttl_secs);
+                if !freshness.is_stale() {
+                    self.disk_hits += 1;
+                    return Ok(ResolvedCachedArtifact {
+                        value,
+                        outcome: CacheLookupOutcome::HitFromDisk,
+                        freshness,
+                        evicted_slugs: Vec::new(),
+                        refresh_error: None,
+                        repaired: None,
                     });
                 }
-                let catalogue: Catalogue = serde_json::from_slice(&bytes)?;
-                validate_catalogue_format(&catalogue)?;
-                self.disk_hits += 1;
-                return Ok(ResolvedCachedArtifact {
-                    value: catalogue,
-                    outcome: CacheLookupOutcome::HitFromDisk,
-                    freshness: Freshness::evaluate(fetched_at, now_unix, self.ttl_secs),
-                    evicted_slugs: Vec::new(),
-                });
+                (Some((value, freshness)), None)
             }
-        }
+            Cached::Damaged(why) => (None, Some(why)),
+            Cached::Missing => (None, None),
+        };
 
-        let catalogue = fetch()?;
-        let freshness = self.put_catalogue(&catalogue, now_unix)?;
+        let downloaded = match fetch() {
+            Ok(download) => download,
+            Err(error) => {
+                return match stale {
+                    Some((value, freshness)) => {
+                        self.disk_hits += 1;
+                        Ok(ResolvedCachedArtifact {
+                            value,
+                            outcome: CacheLookupOutcome::HitFromDisk,
+                            freshness,
+                            evicted_slugs: Vec::new(),
+                            refresh_error: Some(error.to_string()),
+                            repaired: None,
+                        })
+                    }
+                    None => Err(error),
+                };
+            }
+        };
+        let value = self.put_catalogue(&downloaded, now_unix)?;
         self.network_fetches += 1;
         Ok(ResolvedCachedArtifact {
-            value: catalogue,
+            value,
             outcome: CacheLookupOutcome::FetchedAndCached,
-            freshness,
+            freshness: Freshness::evaluate(now_unix, now_unix, self.ttl_secs),
             evicted_slugs: Vec::new(),
+            refresh_error: None,
+            repaired,
         })
     }
 
-    /// Resolve a corpus pack from the disk cache if present and matching `entry.pin_sha`
-    /// and `entry.pack_sha256`; otherwise fetch via `fetch_pack`, verify integrity,
-    /// enforce the LRU byte budget, and persist atomically to disk.
+    /// Read and verify the cached pack for `entry`: the file bytes are read under
+    /// the lock, the digest, signature and archive checks run outside it.
+    fn read_cached_pack(
+        &self,
+        entry: &CatalogueEntry,
+    ) -> Result<Cached<CachedCorpusPack>, HubModeError> {
+        let key = self.require_key()?;
+        let recorded = self.locked(|index| {
+            let Some(meta) = index.entries.get(&entry.slug).cloned() else {
+                return Ok(Tx::clean(None));
+            };
+            if meta.pin_sha != entry.pin_sha || meta.sha256 != entry.pack_sha256 {
+                return Ok(Tx::clean(None));
+            }
+            let read = std::fs::read(self.root.join(&meta.file_name)).and_then(|archive| {
+                std::fs::read_to_string(self.root.join(&meta.sig_file_name))
+                    .map(|sig| (archive, sig))
+            });
+            Ok(Tx::clean(Some((meta, read.map_err(|e| e.to_string())))))
+        })?;
+        let Some((meta, read)) = recorded else {
+            return Ok(Cached::Missing);
+        };
+        let damaged = |why: String| Ok(Cached::Damaged(why));
+        let (archive, sig) = match read {
+            Ok(pair) => pair,
+            Err(why) => return damaged(format!("cannot read the cached pack: {why}")),
+        };
+        let actual = sha256_hex(&archive);
+        if actual != meta.sha256 {
+            return damaged(format!(
+                "on-disk pack sha256 mismatch: expected {}, got {actual}",
+                meta.sha256
+            ));
+        }
+        if let Err(why) = verify_ed25519_hex(&archive, &sig, key) {
+            return damaged(why);
+        }
+        let pack = match decode_pack_archive(&entry.slug, &archive) {
+            Ok(pack) => pack,
+            Err(e) => return damaged(e.to_string()),
+        };
+        if pack.manifest.slug != entry.slug || pack.manifest.pin_sha != entry.pin_sha {
+            return damaged(format!(
+                "pack manifest ({}, {}) does not match catalogue ({}, {})",
+                pack.manifest.slug, pack.manifest.pin_sha, entry.slug, entry.pin_sha
+            ));
+        }
+        Ok(Cached::Valid {
+            value: pack,
+            fetched_at_unix: meta.fetched_at_unix,
+        })
+    }
+
+    /// Mark `slug` as just used, if the entry for that archive is still there.
+    fn touch(&self, slug: &str, sha256: &str) -> Result<(), HubModeError> {
+        self.locked(|index| {
+            index.access_clock += 1;
+            let seq = index.access_clock;
+            let found = match index.entries.get_mut(slug) {
+                Some(meta) if meta.sha256 == sha256 => {
+                    meta.last_accessed_seq = seq;
+                    true
+                }
+                _ => false,
+            };
+            Ok(Tx {
+                value: (),
+                dirty: found,
+                remove_after: Vec::new(),
+            })
+        })
+    }
+
+    /// Verify a downloaded pack against the catalogue entry: digest first, then
+    /// signature, then the archive's own checks and manifest.
+    fn verify_pack_download(
+        &self,
+        entry: &CatalogueEntry,
+        download: &SignedDownload,
+    ) -> Result<CachedCorpusPack, HubModeError> {
+        let key = self.require_key()?;
+        let actual = sha256_hex(&download.bytes);
+        if actual != entry.pack_sha256 {
+            return Err(HubModeError::IntegrityMismatch {
+                slug: entry.slug.clone(),
+                reason: format!(
+                    "downloaded pack sha256 mismatch: expected {}, got {actual}",
+                    entry.pack_sha256
+                ),
+            });
+        }
+        verify_ed25519_hex(&download.bytes, &download.signature_hex, key).map_err(|reason| {
+            HubModeError::SignatureInvalid {
+                subject: entry.slug.clone(),
+                reason,
+            }
+        })?;
+        let pack = decode_pack_archive(&entry.slug, &download.bytes)?;
+        if pack.manifest.slug != entry.slug || pack.manifest.pin_sha != entry.pin_sha {
+            return Err(HubModeError::IntegrityMismatch {
+                slug: entry.slug.clone(),
+                reason: format!(
+                    "downloaded manifest ({}, {}) does not match catalogue ({}, {})",
+                    pack.manifest.slug, pack.manifest.pin_sha, entry.slug, entry.pin_sha
+                ),
+            });
+        }
+        Ok(pack)
+    }
+
+    /// Fetch, verify and store the pack for `entry`, replacing any older version
+    /// of the same corpus and evicting least-recently-used entries to fit.
+    fn refresh_pack<F>(
+        &mut self,
+        entry: &CatalogueEntry,
+        now_unix: u64,
+        fetch_pack: F,
+    ) -> Result<Refresh<(CachedCorpusPack, Vec<String>)>, HubModeError>
+    where
+        F: FnOnce(&CatalogueEntry) -> Result<SignedDownload, HubModeError>,
+    {
+        let download = match fetch_pack(entry) {
+            Ok(download) => download,
+            Err(error) => return Ok(Refresh::FetchFailed(error)),
+        };
+        let pack = self.verify_pack_download(entry, &download)?;
+
+        let signature = download.signature_hex.trim().as_bytes();
+        let entry_bytes = (download.bytes.len() + signature.len()) as u64;
+        if entry_bytes > self.max_bytes {
+            return Err(HubModeError::EntryExceedsCacheBudget {
+                slug: entry.slug.clone(),
+                entry_bytes,
+                max_bytes: self.max_bytes,
+            });
+        }
+        let pin8 = &entry.pin_sha[..8];
+        let file_name = format!("{PACK_FILE_PREFIX}{}-{pin8}.hubpack.tar.zst", entry.slug);
+        let sig_file_name = format!("{file_name}.sig");
+
+        let evicted = self.locked(|index| {
+            let mut remove_after = Vec::new();
+            if let Some(old) = index.entries.remove(&entry.slug) {
+                remove_after.push(old.file_name);
+                remove_after.push(old.sig_file_name);
+            }
+            let mut evicted = Vec::new();
+            while index.used_bytes() + entry_bytes > self.max_bytes {
+                let Some(victim) = index
+                    .entries
+                    .values()
+                    .min_by_key(|m| (m.last_accessed_seq, m.slug.clone()))
+                    .map(|m| m.slug.clone())
+                else {
+                    break;
+                };
+                if let Some(removed) = index.entries.remove(&victim) {
+                    remove_after.push(removed.file_name);
+                    remove_after.push(removed.sig_file_name);
+                    evicted.push(victim);
+                }
+            }
+            write_file_durable(&self.root.join(&file_name), &download.bytes)?;
+            write_file_durable(&self.root.join(&sig_file_name), signature)?;
+            index.access_clock += 1;
+            let seq = index.access_clock;
+            index.entries.insert(
+                entry.slug.clone(),
+                DiskCacheEntryMeta {
+                    slug: entry.slug.clone(),
+                    pin_sha: entry.pin_sha.clone(),
+                    pin_date: entry.pin_date.clone(),
+                    licence_spdx: entry.licence_spdx.clone(),
+                    licence_class: entry.licence_class,
+                    sha256: entry.pack_sha256.clone(),
+                    size_bytes: entry_bytes,
+                    fetched_at_unix: now_unix,
+                    last_accessed_seq: seq,
+                    file_name: file_name.clone(),
+                    sig_file_name: sig_file_name.clone(),
+                },
+            );
+            Ok(Tx {
+                value: evicted,
+                dirty: true,
+                remove_after,
+            })
+        })?;
+        self.evictions += evicted.len() as u64;
+        self.network_fetches += 1;
+        Ok(Refresh::Done((pack, evicted)))
+    }
+
+    /// Resolve a corpus pack for `entry`: from disk when the recorded archive
+    /// matches the entry's `pin_sha` and `pack_sha256`, still verifies against
+    /// the hub key, and is fresh; otherwise via `fetch_pack`, which returns the
+    /// archive and its signature.
+    ///
+    /// The refresh rules are those of [`Self::get_or_fetch_catalogue`]: a stale
+    /// or damaged entry is re-fetched, a stale one that verifies is the fallback
+    /// only when the fetch itself fails, and downloaded bytes that fail the
+    /// digest, signature or archive checks are an error. A pack larger than the
+    /// whole budget is refused before it is downloaded.
     pub fn get_or_fetch_pack<F>(
         &mut self,
         entry: &CatalogueEntry,
@@ -620,7 +1407,7 @@ impl HubDiskCache {
         fetch_pack: F,
     ) -> Result<ResolvedCachedArtifact<CachedCorpusPack>, HubModeError>
     where
-        F: FnOnce(&CatalogueEntry) -> Result<Vec<u8>, HubModeError>,
+        F: FnOnce(&CatalogueEntry) -> Result<SignedDownload, HubModeError>,
     {
         if !valid_corpus_slug(&entry.slug) {
             return Err(HubModeError::InvalidCorpusSlug {
@@ -633,144 +1420,204 @@ impl HubDiskCache {
                 licence_spdx: entry.licence_spdx.clone(),
             });
         }
-
-        // Fast path: check disk cache if pin_sha and sha256 match the catalogue entry.
-        if let Some(meta) = self.index.entries.get(&entry.slug).cloned() {
-            let pack_path = self.root.join(&meta.file_name);
-            if meta.pin_sha == entry.pin_sha
-                && meta.sha256 == entry.pack_sha256
-                && pack_path.is_file()
-            {
-                let raw = std::fs::read(&pack_path)?;
-                let actual_sha = sha256_hex(&raw);
-                if actual_sha != meta.sha256 {
-                    return Err(HubModeError::IntegrityMismatch {
-                        slug: entry.slug.clone(),
-                        reason: format!(
-                            "on-disk pack sha256 mismatch: expected {}, got {actual_sha}",
-                            meta.sha256
-                        ),
-                    });
-                }
-                let pack: CachedCorpusPack = serde_json::from_slice(&raw)?;
-                pack.validate()?;
-                if pack.manifest.slug != entry.slug || pack.manifest.pin_sha != entry.pin_sha {
-                    return Err(HubModeError::IntegrityMismatch {
-                        slug: entry.slug.clone(),
-                        reason: format!(
-                            "pack manifest ({}, {}) does not match catalogue ({}, {})",
-                            pack.manifest.slug, pack.manifest.pin_sha, entry.slug, entry.pin_sha
-                        ),
-                    });
-                }
-
-                self.index.access_clock += 1;
-                let seq = self.index.access_clock;
-                if let Some(m) = self.index.entries.get_mut(&entry.slug) {
-                    m.last_accessed_seq = seq;
-                }
-                self.persist_index()?;
-                self.disk_hits += 1;
-
-                let freshness = Freshness::evaluate(meta.fetched_at_unix, now_unix, self.ttl_secs);
-                return Ok(ResolvedCachedArtifact {
-                    value: pack,
-                    outcome: CacheLookupOutcome::HitFromDisk,
-                    freshness,
-                    evicted_slugs: Vec::new(),
-                });
-            }
-        }
-
-        // Slow path: fetch bytes from hub, verify digest + manifest format, evict LRU, persist.
-        let raw_bytes = fetch_pack(entry)?;
-        let actual_sha = sha256_hex(&raw_bytes);
-        if actual_sha != entry.pack_sha256 {
+        self.require_key()?;
+        if !valid_pin_sha(&entry.pin_sha) || !valid_sha256_hex(&entry.pack_sha256) {
             return Err(HubModeError::IntegrityMismatch {
                 slug: entry.slug.clone(),
-                reason: format!(
-                    "downloaded pack sha256 mismatch: expected {}, got {actual_sha}",
-                    entry.pack_sha256
-                ),
+                reason: "the catalogue entry has no valid pin_sha / pack_sha256".into(),
             });
         }
-
-        let pack: CachedCorpusPack = serde_json::from_slice(&raw_bytes)?;
-        pack.validate()?;
-        if pack.manifest.slug != entry.slug || pack.manifest.pin_sha != entry.pin_sha {
-            return Err(HubModeError::IntegrityMismatch {
-                slug: entry.slug.clone(),
-                reason: format!(
-                    "downloaded manifest ({}, {}) does not match catalogue ({}, {})",
-                    pack.manifest.slug, pack.manifest.pin_sha, entry.slug, entry.pin_sha
-                ),
-            });
-        }
-
-        let entry_bytes = raw_bytes.len() as u64;
-        if entry_bytes > self.max_bytes {
+        if entry.pack_bytes > self.max_bytes {
             return Err(HubModeError::EntryExceedsCacheBudget {
                 slug: entry.slug.clone(),
-                entry_bytes,
+                entry_bytes: entry.pack_bytes,
                 max_bytes: self.max_bytes,
             });
         }
 
-        // Remove any prior cached version of the same slug before computing eviction needs.
-        if let Some(old) = self.index.entries.remove(&entry.slug) {
-            let _ = std::fs::remove_file(self.root.join(&old.file_name));
-        }
-
-        // Evict least-recently-used entries (lowest `last_accessed_seq`, tie-broken by slug)
-        // until `used_bytes() + entry_bytes <= max_bytes`.
-        let mut evicted_slugs = Vec::new();
-        while self.used_bytes() + entry_bytes > self.max_bytes {
-            let victim_slug = self
-                .index
-                .entries
-                .values()
-                .min_by_key(|m| (m.last_accessed_seq, m.slug.clone()))
-                .map(|m| m.slug.clone());
-            let Some(victim) = victim_slug else {
-                break;
-            };
-            if let Some(removed) = self.index.entries.remove(&victim) {
-                let _ = std::fs::remove_file(self.root.join(&removed.file_name));
-                evicted_slugs.push(victim);
-                self.evictions += 1;
+        let (stale, repaired) = match self.read_cached_pack(entry)? {
+            Cached::Valid {
+                value,
+                fetched_at_unix,
+            } => {
+                let freshness = Freshness::evaluate(fetched_at_unix, now_unix, self.ttl_secs);
+                if !freshness.is_stale() {
+                    self.touch(&entry.slug, &entry.pack_sha256)?;
+                    self.disk_hits += 1;
+                    return Ok(ResolvedCachedArtifact {
+                        value,
+                        outcome: CacheLookupOutcome::HitFromDisk,
+                        freshness,
+                        evicted_slugs: Vec::new(),
+                        refresh_error: None,
+                        repaired: None,
+                    });
+                }
+                (Some((value, freshness)), None)
             }
-        }
+            Cached::Damaged(why) => (None, Some(why)),
+            Cached::Missing => (None, None),
+        };
 
-        let file_name = format!("pack-{}.json", entry.slug);
-        write_file_durable(&self.root.join(&file_name), &raw_bytes)?;
-
-        self.index.access_clock += 1;
-        let seq = self.index.access_clock;
-        self.index.entries.insert(
-            entry.slug.clone(),
-            DiskCacheEntryMeta {
-                slug: entry.slug.clone(),
-                pin_sha: entry.pin_sha.clone(),
-                pin_date: entry.pin_date.clone(),
-                licence_spdx: entry.licence_spdx.clone(),
-                licence_class: entry.licence_class,
-                sha256: actual_sha,
-                size_bytes: entry_bytes,
-                fetched_at_unix: now_unix,
-                last_accessed_seq: seq,
-                file_name,
+        match self.refresh_pack(entry, now_unix, fetch_pack)? {
+            Refresh::Done((value, evicted_slugs)) => Ok(ResolvedCachedArtifact {
+                value,
+                outcome: CacheLookupOutcome::FetchedAndCached,
+                freshness: Freshness::evaluate(now_unix, now_unix, self.ttl_secs),
+                evicted_slugs,
+                refresh_error: None,
+                repaired,
+            }),
+            Refresh::FetchFailed(error) => match stale {
+                Some((value, freshness)) => {
+                    self.touch(&entry.slug, &entry.pack_sha256)?;
+                    self.disk_hits += 1;
+                    Ok(ResolvedCachedArtifact {
+                        value,
+                        outcome: CacheLookupOutcome::HitFromDisk,
+                        freshness,
+                        evicted_slugs: Vec::new(),
+                        refresh_error: Some(error.to_string()),
+                        repaired: None,
+                    })
+                }
+                None => Err(error),
             },
-        );
-        self.persist_index()?;
-        self.network_fetches += 1;
-
-        Ok(ResolvedCachedArtifact {
-            value: pack,
-            outcome: CacheLookupOutcome::FetchedAndCached,
-            freshness: Freshness::evaluate(now_unix, now_unix, self.ttl_secs),
-            evicted_slugs,
-        })
+        }
     }
+}
+
+/// What to look up in a verified pack, and how much to return.
+#[derive(Debug, Clone, Copy)]
+pub struct AnswerQuery<'a> {
+    pub query: &'a str,
+    pub mode: AnswerMode,
+    /// At most this many hits are returned (at least one). When more match,
+    /// [`PackAnswer::truncated`] is set.
+    pub max_hits: usize,
+}
+
+impl<'a> AnswerQuery<'a> {
+    /// A query capped at [`DEFAULT_MAX_HITS`].
+    pub fn new(query: &'a str, mode: AnswerMode) -> Self {
+        Self {
+            query,
+            mode,
+            max_hits: DEFAULT_MAX_HITS,
+        }
+    }
+
+    /// The same query with a different hit cap.
+    pub fn with_max_hits(mut self, max_hits: usize) -> Self {
+        self.max_hits = max_hits;
+        self
+    }
+}
+
+/// The hits [`answer_from_pack`] selected.
+#[derive(Debug, Clone)]
+pub struct PackAnswer {
+    pub hits: Vec<Hit>,
+    /// More than `max_hits` matched; `hits` holds the best `max_hits`.
+    pub truncated: bool,
+    /// How many matched before the cap.
+    pub total_matches: usize,
+}
+
+/// Answer from a verified pack with no node.
+///
+/// - A definition lookup ([`AnswerMode::Def`]) returns definitions whose symbol
+///   equals the query, exact matches first, then those that contain it,
+///   case-insensitively. An empty query is [`HubModeError::EmptyQuery`]: it
+///   would match every definition.
+/// - A file list ([`AnswerMode::Files`]) carries the per-file licence; a
+///   non-empty query keeps the paths that contain it.
+/// - A passage question ([`AnswerMode::How`]) is refused with
+///   [`HubModeError::PassageSearchNeedsNode`].
+///
+/// Output is capped at `max_hits`, with `truncated` set when it was.
+pub fn answer_from_pack(
+    pack: &CachedCorpusPack,
+    entry: &CatalogueEntry,
+    query: &AnswerQuery<'_>,
+) -> Result<PackAnswer, HubModeError> {
+    let licence_warning = match entry.licence_class {
+        LicenceClass::AdaptWithAttribution => None,
+        LicenceClass::ApproachOnly => Some(format!(
+            "approach-only licence ({}): read to understand the approach, do not copy verbatim",
+            entry.licence_spdx
+        )),
+        LicenceClass::Excluded => {
+            return Err(HubModeError::ExcludedCorpusLicence {
+                slug: entry.slug.clone(),
+                licence_spdx: entry.licence_spdx.clone(),
+            })
+        }
+    };
+    let needle = query.query.trim().to_ascii_lowercase();
+    let mut hits: Vec<Hit> = match query.mode {
+        AnswerMode::Def => {
+            if needle.is_empty() {
+                return Err(HubModeError::EmptyQuery { mode: "definition" });
+            }
+            pack.defs
+                .iter()
+                .filter_map(|d| {
+                    let symbol = d.symbol.to_ascii_lowercase();
+                    let score = if symbol == needle {
+                        2.0
+                    } else if symbol.contains(&needle) {
+                        1.0
+                    } else {
+                        return None;
+                    };
+                    Some(Hit {
+                        file: d.file.clone(),
+                        line: d.line,
+                        kind: d.kind.clone(),
+                        text: d.text.clone(),
+                        value: d.value.clone(),
+                        score,
+                        licence_warning: licence_warning.clone(),
+                    })
+                })
+                .collect()
+        }
+        AnswerMode::Files => pack
+            .files
+            .iter()
+            .filter(|f| needle.is_empty() || f.path.to_ascii_lowercase().contains(&needle))
+            .map(|f| Hit {
+                file: f.path.clone(),
+                line: 1,
+                kind: "file".to_string(),
+                text: format!("licence: {}", f.licence),
+                value: None,
+                score: 1.0,
+                licence_warning: licence_warning.clone(),
+            })
+            .collect(),
+        AnswerMode::How => {
+            return Err(HubModeError::PassageSearchNeedsNode {
+                slug: entry.slug.clone(),
+            })
+        }
+    };
+    hits.sort_by(|a, b| {
+        b.score
+            .total_cmp(&a.score)
+            .then_with(|| a.file.cmp(&b.file))
+            .then_with(|| a.line.cmp(&b.line))
+    });
+    let total_matches = hits.len();
+    let max_hits = query.max_hits.max(1);
+    let truncated = total_matches > max_hits;
+    hits.truncate(max_hits);
+    Ok(PackAnswer {
+        hits,
+        truncated,
+        total_matches,
+    })
 }
 
 /// Parameters for a hub corpus query executed by [`HubFirstRouter::query_corpus`].
@@ -781,6 +1628,34 @@ pub struct HubQueryRequest<'a> {
     pub mode: AnswerMode,
     pub age_days: u32,
     pub now_unix: u64,
+    /// Cap on the hits returned ([`DEFAULT_MAX_HITS`]).
+    pub max_hits: usize,
+}
+
+impl<'a> HubQueryRequest<'a> {
+    /// A request capped at [`DEFAULT_MAX_HITS`].
+    pub fn new(
+        slug: &'a str,
+        query: &'a str,
+        mode: AnswerMode,
+        age_days: u32,
+        now_unix: u64,
+    ) -> Self {
+        Self {
+            slug,
+            query,
+            mode,
+            age_days,
+            now_unix,
+            max_hits: DEFAULT_MAX_HITS,
+        }
+    }
+
+    /// The same request with a different hit cap.
+    pub fn with_max_hits(mut self, max_hits: usize) -> Self {
+        self.max_hits = max_hits;
+        self
+    }
 }
 
 /// Complete response from a hub-only or hybrid MCP hub query.
@@ -825,17 +1700,23 @@ impl HubFirstRouter {
 
     /// List MCP tools and their availability in the current mode.
     ///
-    /// When no local node is running, `xerj mcp` still starts and lists all hub
+    /// When no local node is running, `xerj mcp` still starts and lists the hub
     /// tools as available while marking private-index node tools with a clear
-    /// notice explaining that a local node is required.
+    /// notice explaining that a local node is required. The `xerj_hub_*` tools
+    /// are unavailable in a build with no hub key, as in `xerj mcp`.
     pub fn list_tools(&self) -> Vec<ToolAvailability> {
         let mut out = Vec::with_capacity(HUB_DIRECT_TOOLS.len() + LOCAL_NODE_TOOLS.len());
         for &tool in HUB_DIRECT_TOOLS {
+            let needs_key = tool.starts_with("xerj_hub_") && !self.cache.can_verify();
             out.push(ToolAvailability {
                 name: tool.to_string(),
-                available: true,
+                available: !needs_key,
                 routed_via: "hub_client_cache",
-                note: self.mode.fallback_notice().map(str::to_string),
+                note: if needs_key {
+                    Some(NO_HUB_KEY_MESSAGE.to_string())
+                } else {
+                    self.mode.fallback_notice().map(str::to_string)
+                },
             });
         }
         for &tool in LOCAL_NODE_TOOLS {
@@ -863,13 +1744,18 @@ impl HubFirstRouter {
 
     /// Route an MCP tool call by name.
     ///
-    /// - Hub tools (`xerj_hub_*`, `xerj_corpus_feedback`, `xerj_field_report`)
-    ///   always succeed and route to [`RouteTarget::HubClient`].
+    /// - `xerj_hub_*` tools route to [`RouteTarget::HubClient`] only when this
+    ///   build can verify hub data; with no hub key they return
+    ///   [`HubModeError::NoHubKey`], as `xerj mcp` does not serve them then.
+    /// - `xerj_corpus_feedback` and `xerj_field_report` route to the hub client.
     /// - Private-index node tools (`xerj_search`, `xerj_def`, `xerj_map`, …)
     ///   route to [`RouteTarget::LocalNode`] when a node is reachable, and
     ///   return [`HubModeError::LocalNodeRequired`] when in hub-only fallback.
     pub fn route_tool(&self, tool_name: &str) -> Result<RouteTarget, HubModeError> {
         if HUB_DIRECT_TOOLS.contains(&tool_name) {
+            if tool_name.starts_with("xerj_hub_") && !self.cache.can_verify() {
+                return Err(HubModeError::NoHubKey);
+            }
             let (hub_url, fallback_notice) = match &self.mode {
                 McpRuntimeMode::LocalNodeReachable { .. } => (DEFAULT_HUB_URL.to_string(), None),
                 McpRuntimeMode::HubOnlyFallback {
@@ -895,15 +1781,18 @@ impl HubFirstRouter {
         }
     }
 
-    /// Answer a hub question or definition lookup end-to-end using the disk cache
-    /// (fetching on first access and serving subsequent calls from disk).
+    /// Answer a hub definition or file-list question end-to-end through the
+    /// verified disk cache (fetching on first access, and when an entry is stale
+    /// or damaged; serving later calls from disk).
     ///
+    /// - Invalid corpus slugs, an empty definition query and a passage question
+    ///   fail before any I/O: [`HubModeError::InvalidCorpusSlug`],
+    ///   [`HubModeError::EmptyQuery`], [`HubModeError::PassageSearchNeedsNode`].
     /// - Unknown corpus slugs fail loudly with [`HubModeError::UnknownCorpus`].
-    /// - Invalid corpus slugs fail loudly with [`HubModeError::InvalidCorpusSlug`].
     /// - Unsupported catalogue or pack `format_version` fails loudly with
     ///   [`HubModeError::UnsupportedFormatVersion`].
-    /// - Staleness is always attached to `Answer.warnings` when `now_unix`
-    ///   exceeds `fetched_at_unix + ttl_secs`.
+    /// - A stale entry served because its refresh failed, a repaired entry and a
+    ///   truncated result each add a line to `Answer.warnings`.
     pub fn query_corpus<FCat, FPack>(
         &mut self,
         request: HubQueryRequest<'_>,
@@ -911,8 +1800,8 @@ impl HubFirstRouter {
         fetch_pack: FPack,
     ) -> Result<HubQueryResult, HubModeError>
     where
-        FCat: FnOnce() -> Result<Catalogue, HubModeError>,
-        FPack: FnOnce(&CatalogueEntry) -> Result<Vec<u8>, HubModeError>,
+        FCat: FnOnce() -> Result<SignedDownload, HubModeError>,
+        FPack: FnOnce(&CatalogueEntry) -> Result<SignedDownload, HubModeError>,
     {
         let HubQueryRequest {
             slug,
@@ -920,11 +1809,20 @@ impl HubFirstRouter {
             mode,
             age_days,
             now_unix,
+            max_hits,
         } = request;
         if !valid_corpus_slug(slug) {
             return Err(HubModeError::InvalidCorpusSlug {
                 slug: slug.to_string(),
             });
+        }
+        if mode == AnswerMode::How {
+            return Err(HubModeError::PassageSearchNeedsNode {
+                slug: slug.to_string(),
+            });
+        }
+        if mode == AnswerMode::Def && query.trim().is_empty() {
+            return Err(HubModeError::EmptyQuery { mode: "definition" });
         }
 
         let cat_resolved = self
@@ -941,98 +1839,24 @@ impl HubFirstRouter {
             })?;
 
         let pack_resolved = self.cache.get_or_fetch_pack(entry, now_unix, fetch_pack)?;
-        let pack = &pack_resolved.value;
-
-        let licence_warning = match entry.licence_class {
-            LicenceClass::AdaptWithAttribution => None,
-            LicenceClass::ApproachOnly => Some(format!(
-                "approach-only licence ({}): read to understand the approach, do not copy verbatim",
-                entry.licence_spdx
-            )),
-            LicenceClass::Excluded => {
-                return Err(HubModeError::ExcludedCorpusLicence {
-                    slug: entry.slug.clone(),
-                    licence_spdx: entry.licence_spdx.clone(),
-                });
-            }
-        };
-
-        let needle = query.trim().to_ascii_lowercase();
-        let hits: Vec<Hit> = match mode {
-            AnswerMode::Def => pack
-                .defs
-                .iter()
-                .filter(|d| {
-                    d.symbol.to_ascii_lowercase() == needle
-                        || d.symbol.to_ascii_lowercase().contains(&needle)
-                })
-                .map(|d| Hit {
-                    file: d.file.clone(),
-                    line: d.line,
-                    kind: d.kind.clone(),
-                    text: d.text.clone(),
-                    value: d.value.clone(),
-                    score: if d.symbol.eq_ignore_ascii_case(query.trim()) {
-                        2.0
-                    } else {
-                        1.0
-                    },
-                    licence_warning: licence_warning.clone(),
-                })
-                .collect(),
-            AnswerMode::How => {
-                let terms: Vec<&str> = needle
-                    .split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
-                    .filter(|t| !t.is_empty())
-                    .collect();
-                pack.passages
-                    .iter()
-                    .filter_map(|p| {
-                        let hay = format!("{} {}", p.file, p.text).to_ascii_lowercase();
-                        let matched = terms.iter().filter(|t| hay.contains(**t)).count();
-                        if matched > 0 {
-                            Some(Hit {
-                                file: p.file.clone(),
-                                line: p.line,
-                                kind: p.kind.clone(),
-                                text: p.text.clone(),
-                                value: None,
-                                score: matched as f32,
-                                licence_warning: licence_warning.clone(),
-                            })
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
-            }
-            AnswerMode::Files => pack
-                .passages
-                .iter()
-                .map(|p| Hit {
-                    file: p.file.clone(),
-                    line: p.line,
-                    kind: "file".to_string(),
-                    text: format!("{} ({})", p.file, entry.licence_spdx),
-                    value: None,
-                    score: 1.0,
-                    licence_warning: licence_warning.clone(),
-                })
-                .collect(),
-        };
+        let found = answer_from_pack(
+            &pack_resolved.value,
+            entry,
+            &AnswerQuery::new(query, mode).with_max_hits(max_hits),
+        )?;
 
         let mut warnings = Vec::new();
         if let Some(notice) = self.mode.fallback_notice() {
             warnings.push(notice.to_string());
         }
-        if let Some(cat_stale) = cat_resolved.freshness.warning_line("catalogue") {
-            warnings.push(cat_stale);
-        }
-        if let Some(pack_stale) = pack_resolved
-            .freshness
-            .warning_line(&format!("corpus '{}'", entry.slug))
-        {
-            warnings.push(pack_stale);
+        warnings.extend(cat_resolved.warnings("catalogue"));
+        warnings.extend(pack_resolved.warnings(&format!("corpus '{}'", entry.slug)));
+        if found.truncated {
+            warnings.push(format!(
+                "output truncated to the best {} of {} matches; narrow the query",
+                found.hits.len(),
+                found.total_matches
+            ));
         }
 
         let answer = Answer {
@@ -1047,11 +1871,11 @@ impl HubFirstRouter {
                 CacheLookupOutcome::FetchedAndCached => AnsweredFrom::Hosted,
             },
             mode,
-            hits,
-            truncated: false,
+            hits: found.hits,
+            truncated: found.truncated,
             warnings,
         };
-        let rendered = crate::hub::render(&answer);
+        let rendered = render(&answer);
 
         Ok(HubQueryResult {
             answer,
@@ -1065,729 +1889,4 @@ impl HubFirstRouter {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::hub::{PackIndex, PackSource, Sketch};
-    use std::cell::Cell;
-
-    fn sample_pack_bytes(
-        slug: &str,
-        pin_sha: &str,
-        licence_class: LicenceClass,
-        pad_len: usize,
-    ) -> Vec<u8> {
-        let pack = CachedCorpusPack {
-            manifest: PackManifest {
-                format_version: PACK_FORMAT_VERSION,
-                slug: slug.to_string(),
-                pin_sha: pin_sha.to_string(),
-                pin_date: "2026-11-15".to_string(),
-                built_at: "2026-11-15T10:00:00Z".to_string(),
-                builder_version: "1.0.0-rc.104".to_string(),
-                index_prefix: format!("xc-{slug}-b1"),
-                indices: vec![PackIndex {
-                    name: format!("xc-{slug}-b1-defs"),
-                    docs: 2,
-                    bytes: 512,
-                }],
-                snapshot_name: format!("snap-{slug}"),
-                licence_spdx: "BSD-2-Clause".to_string(),
-                licence_class,
-                sources: vec![PackSource {
-                    repo: format!("{slug}/{slug}"),
-                    url: format!("https://github.com/{slug}/{slug}"),
-                    sha: pin_sha.to_string(),
-                    licence: "BSD-2-Clause".to_string(),
-                }],
-                defs_count: 1,
-                files_count: 1,
-            },
-            defs: vec![DefRecord {
-                symbol: "LZ4_compress_default".to_string(),
-                kind: "function".to_string(),
-                lang: "c".to_string(),
-                file: "lib/lz4.h".to_string(),
-                line: 142,
-                text: "int LZ4_compress_default(const char* src, char* dst, int srcSize, int dstCapacity);".to_string(),
-                value: Some("142".to_string()),
-            }],
-            passages: vec![PackPassage {
-                file: "lib/lz4.c".to_string(),
-                line: 310,
-                kind: "function".to_string(),
-                text: format!(
-                    "LZ4 fast block compression implementation details {}",
-                    "x".repeat(pad_len)
-                ),
-            }],
-        };
-        serde_json::to_vec(&pack).expect("serialize sample pack")
-    }
-
-    fn sample_catalogue_entry(
-        slug: &str,
-        pin_sha: &str,
-        pack_bytes: &[u8],
-        licence_class: LicenceClass,
-    ) -> CatalogueEntry {
-        CatalogueEntry {
-            slug: slug.to_string(),
-            domain: "NET".to_string(),
-            topics: vec!["compression".to_string()],
-            ask_for: "fast block compression".to_string(),
-            upstream: format!("{slug}/{slug}"),
-            pin_sha: pin_sha.to_string(),
-            pin_date: "2026-11-15".to_string(),
-            refresh_cadence_days: 7,
-            licence_spdx: "BSD-2-Clause".to_string(),
-            licence_class,
-            pack_bytes: pack_bytes.len() as u64,
-            pack_url: format!("https://hub.xerj.org/packs/{slug}.json"),
-            pack_sha256: sha256_hex(pack_bytes),
-            sig_url: format!("https://hub.xerj.org/packs/{slug}.json.sig"),
-            dependency_names: vec![slug.to_string()],
-            quality_grade: Some("G7 5/5".to_string()),
-            term_sketch: Sketch {
-                m_bits: 64,
-                k_hashes: 3,
-                bits_base64: "AAAAAAAAAAA=".to_string(),
-            },
-        }
-    }
-
-    fn sample_catalogue(entries: Vec<CatalogueEntry>) -> Catalogue {
-        Catalogue {
-            format_version: CATALOGUE_FORMAT_VERSION,
-            generated_at: "2026-11-15T12:00:00Z".to_string(),
-            corpora: entries,
-        }
-    }
-
-    #[test]
-    fn no_node_startup_detects_hub_only_fallback_and_lists_pack_tools() {
-        let mode = McpRuntimeMode::detect(
-            "http://127.0.0.1:9200",
-            DEFAULT_HUB_URL,
-            DEFAULT_PROBE_BUDGET_MS,
-            |_url, _budget| None,
-        );
-        assert!(!mode.has_local_node());
-        assert!(mode
-            .fallback_notice()
-            .unwrap()
-            .contains("running in hub-only mode"));
-
-        let dir = tempfile::tempdir().unwrap();
-        let cache = HubDiskCache::open(
-            dir.path(),
-            DEFAULT_MCP_CACHE_MAX_BYTES,
-            DEFAULT_CACHE_TTL_SECS,
-        )
-        .unwrap();
-        let router = HubFirstRouter::new(mode, cache);
-        let tools = router.list_tools();
-
-        for hub_tool in ["xerj_hub_find", "xerj_hub_def", "xerj_hub_ask"] {
-            let t = tools
-                .iter()
-                .find(|t| t.name == hub_tool)
-                .expect("hub tool listed");
-            assert!(t.available, "{hub_tool} must be available without a node");
-            assert_eq!(t.routed_via, "hub_client_cache");
-        }
-        for node_tool in ["xerj_search", "xerj_def", "xerj_map"] {
-            let t = tools
-                .iter()
-                .find(|t| t.name == node_tool)
-                .expect("node tool listed");
-            assert!(!t.available, "{node_tool} requires a local node");
-            assert!(t
-                .note
-                .as_deref()
-                .unwrap()
-                .contains("no local xerj node reachable"));
-        }
-    }
-
-    #[test]
-    fn probe_exceeding_startup_budget_falls_back_to_hub_only() {
-        let mode = McpRuntimeMode::detect(
-            "http://localhost:9200",
-            DEFAULT_HUB_URL,
-            100,
-            |_url, _budget| Some(250),
-        );
-        assert!(!mode.has_local_node());
-        assert!(mode.fallback_notice().unwrap().contains("within 100ms"));
-    }
-
-    #[test]
-    fn end_to_end_hub_question_and_second_call_served_from_disk_cache() {
-        let pin = "0123456789abcdef0123456789abcdef01234567";
-        let pack_bytes = sample_pack_bytes("lz4", pin, LicenceClass::AdaptWithAttribution, 32);
-        let entry =
-            sample_catalogue_entry("lz4", pin, &pack_bytes, LicenceClass::AdaptWithAttribution);
-        let catalogue = sample_catalogue(vec![entry]);
-
-        let dir = tempfile::tempdir().unwrap();
-        let mode =
-            McpRuntimeMode::detect("http://127.0.0.1:9200", DEFAULT_HUB_URL, 100, |_, _| None);
-        let cache = HubDiskCache::open(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 3600).unwrap();
-        let mut router = HubFirstRouter::new(mode, cache);
-
-        let cat_fetches = Cell::new(0usize);
-        let pack_fetches = Cell::new(0usize);
-
-        // First call: fetches from hub and writes to disk cache.
-        let first = router
-            .query_corpus(
-                HubQueryRequest {
-                    slug: "lz4",
-                    query: "LZ4_compress_default",
-                    mode: AnswerMode::Def,
-                    age_days: 2,
-                    now_unix: 1_700_000_000,
-                },
-                || {
-                    cat_fetches.set(cat_fetches.get() + 1);
-                    Ok(catalogue.clone())
-                },
-                |_e| {
-                    pack_fetches.set(pack_fetches.get() + 1);
-                    Ok(pack_bytes.clone())
-                },
-            )
-            .expect("first hub query succeeds");
-
-        assert_eq!(first.cache_outcome, CacheLookupOutcome::FetchedAndCached);
-        assert_eq!(first.answer.answered_from, AnsweredFrom::Hosted);
-        assert_eq!(first.answer.hits.len(), 1);
-        assert_eq!(first.answer.hits[0].value.as_deref(), Some("142"));
-        assert!(first.rendered.contains("lib/lz4.h:142"));
-        assert_eq!(cat_fetches.get(), 1);
-        assert_eq!(pack_fetches.get(), 1);
-        assert_eq!(router.cache().disk_hits(), 0);
-        assert_eq!(router.cache().network_fetches(), 2);
-
-        // Second call for the same corpus: served from disk cache with zero network fetches.
-        let second = router
-            .query_corpus(
-                HubQueryRequest {
-                    slug: "lz4",
-                    query: "fast block compression",
-                    mode: AnswerMode::How,
-                    age_days: 2,
-                    now_unix: 1_700_000_010,
-                },
-                || panic!("catalogue must not be re-fetched on second call"),
-                |_e| panic!("pack must not be re-fetched on second call"),
-            )
-            .expect("second hub query succeeds from disk cache");
-
-        assert_eq!(second.cache_outcome, CacheLookupOutcome::HitFromDisk);
-        assert_eq!(second.answer.answered_from, AnsweredFrom::LocalPack);
-        assert_eq!(second.answer.hits.len(), 1);
-        assert!(second.rendered.contains("answered from: local pack"));
-        assert_eq!(cat_fetches.get(), 1);
-        assert_eq!(pack_fetches.get(), 1);
-        assert_eq!(router.cache().disk_hits(), 2);
-        assert_eq!(router.cache().network_fetches(), 2);
-    }
-
-    #[test]
-    fn disk_cache_persists_across_reopen_without_refetching() {
-        let pin = "abcdef0123456789abcdef0123456789abcdef01";
-        let pack_bytes = sample_pack_bytes("sqlite", pin, LicenceClass::AdaptWithAttribution, 16);
-        let entry = sample_catalogue_entry(
-            "sqlite",
-            pin,
-            &pack_bytes,
-            LicenceClass::AdaptWithAttribution,
-        );
-        let catalogue = sample_catalogue(vec![entry]);
-
-        let dir = tempfile::tempdir().unwrap();
-        {
-            let mode =
-                McpRuntimeMode::detect("http://127.0.0.1:9200", DEFAULT_HUB_URL, 50, |_, _| None);
-            let cache = HubDiskCache::open(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 3600).unwrap();
-            let mut router = HubFirstRouter::new(mode, cache);
-            let res = router
-                .query_corpus(
-                    HubQueryRequest {
-                        slug: "sqlite",
-                        query: "LZ4_compress_default",
-                        mode: AnswerMode::Def,
-                        age_days: 1,
-                        now_unix: 1_700_000_000,
-                    },
-                    || Ok(catalogue.clone()),
-                    |_| Ok(pack_bytes.clone()),
-                )
-                .unwrap();
-            assert_eq!(res.cache_outcome, CacheLookupOutcome::FetchedAndCached);
-        }
-
-        // Reopen a fresh HubDiskCache on the same directory in a new session.
-        let mode =
-            McpRuntimeMode::detect("http://127.0.0.1:9200", DEFAULT_HUB_URL, 50, |_, _| None);
-        let reopened = HubDiskCache::open(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 3600).unwrap();
-        assert!(reopened.contains_corpus("sqlite"));
-        let mut router = HubFirstRouter::new(mode, reopened);
-        let res = router
-            .query_corpus(
-                HubQueryRequest {
-                    slug: "sqlite",
-                    query: "LZ4_compress_default",
-                    mode: AnswerMode::Def,
-                    age_days: 1,
-                    now_unix: 1_700_000_100,
-                },
-                || panic!("catalogue should be read from disk after reopen"),
-                |_| panic!("pack should be read from disk after reopen"),
-            )
-            .unwrap();
-        assert_eq!(res.cache_outcome, CacheLookupOutcome::HitFromDisk);
-        assert_eq!(router.cache().disk_hits(), 2);
-        assert_eq!(router.cache().network_fetches(), 0);
-    }
-
-    #[test]
-    fn lru_disk_cache_evicts_least_recently_used_entry_when_budget_exceeded() {
-        let pin = "1111111111111111111111111111111111111111";
-        let bytes_a = sample_pack_bytes("corp-a", pin, LicenceClass::AdaptWithAttribution, 200);
-        let bytes_b = sample_pack_bytes("corp-b", pin, LicenceClass::AdaptWithAttribution, 200);
-        let bytes_c = sample_pack_bytes("corp-c", pin, LicenceClass::AdaptWithAttribution, 200);
-
-        let entry_a =
-            sample_catalogue_entry("corp-a", pin, &bytes_a, LicenceClass::AdaptWithAttribution);
-        let entry_b =
-            sample_catalogue_entry("corp-b", pin, &bytes_b, LicenceClass::AdaptWithAttribution);
-        let entry_c =
-            sample_catalogue_entry("corp-c", pin, &bytes_c, LicenceClass::AdaptWithAttribution);
-
-        // Budget fits at most two packs at once, never all three.
-        let max_bytes = bytes_a.len() as u64 + bytes_b.len() as u64 + 32;
-        assert!(bytes_a.len() as u64 + bytes_b.len() as u64 + bytes_c.len() as u64 > max_bytes);
-
-        let dir = tempfile::tempdir().unwrap();
-        let mut cache = HubDiskCache::open(dir.path(), max_bytes, 3600).unwrap();
-
-        cache
-            .get_or_fetch_pack(&entry_a, 1000, |_| Ok(bytes_a.clone()))
-            .unwrap();
-        cache
-            .get_or_fetch_pack(&entry_b, 1001, |_| Ok(bytes_b.clone()))
-            .unwrap();
-        assert_eq!(cache.entry_count(), 2);
-
-        // Touch corp-a from disk so corp-b becomes the least-recently-used entry.
-        let hit_a = cache
-            .get_or_fetch_pack(&entry_a, 1002, |_| panic!("corp-a must hit disk"))
-            .unwrap();
-        assert_eq!(hit_a.outcome, CacheLookupOutcome::HitFromDisk);
-
-        // Inserting corp-c must evict corp-b while retaining corp-a.
-        let ins_c = cache
-            .get_or_fetch_pack(&entry_c, 1003, |_| Ok(bytes_c.clone()))
-            .unwrap();
-        assert_eq!(ins_c.evicted_slugs, vec!["corp-b".to_string()]);
-        assert!(cache.contains_corpus("corp-a"));
-        assert!(!cache.contains_corpus("corp-b"));
-        assert!(cache.contains_corpus("corp-c"));
-        assert!(!dir.path().join("pack-corp-b.json").exists());
-        assert!(cache.used_bytes() <= max_bytes);
-        assert_eq!(cache.evictions(), 1);
-    }
-
-    #[test]
-    fn single_entry_exceeding_max_bytes_is_refused_without_evicting_existing() {
-        let pin = "2222222222222222222222222222222222222222";
-        let small = sample_pack_bytes("small", pin, LicenceClass::AdaptWithAttribution, 10);
-        let huge = sample_pack_bytes("huge", pin, LicenceClass::AdaptWithAttribution, 4096);
-        let entry_small =
-            sample_catalogue_entry("small", pin, &small, LicenceClass::AdaptWithAttribution);
-        let entry_huge =
-            sample_catalogue_entry("huge", pin, &huge, LicenceClass::AdaptWithAttribution);
-
-        let dir = tempfile::tempdir().unwrap();
-        let mut cache = HubDiskCache::open(dir.path(), small.len() as u64 + 100, 3600).unwrap();
-        cache
-            .get_or_fetch_pack(&entry_small, 1000, |_| Ok(small.clone()))
-            .unwrap();
-
-        let err = cache
-            .get_or_fetch_pack(&entry_huge, 1001, |_| Ok(huge.clone()))
-            .expect_err("oversized entry must fail loudly");
-        assert!(
-            matches!(err, HubModeError::EntryExceedsCacheBudget { slug, .. } if slug == "huge")
-        );
-        assert!(
-            cache.contains_corpus("small"),
-            "existing entry must remain intact"
-        );
-    }
-
-    #[test]
-    fn staleness_is_reported_honestly_in_freshness_and_answer_warnings() {
-        let pin = "3333333333333333333333333333333333333333";
-        let pack_bytes = sample_pack_bytes("zstd", pin, LicenceClass::AdaptWithAttribution, 16);
-        let entry =
-            sample_catalogue_entry("zstd", pin, &pack_bytes, LicenceClass::AdaptWithAttribution);
-        let catalogue = sample_catalogue(vec![entry]);
-
-        let dir = tempfile::tempdir().unwrap();
-        let mode =
-            McpRuntimeMode::detect("http://127.0.0.1:9200", DEFAULT_HUB_URL, 50, |_, _| None);
-        let cache = HubDiskCache::open(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 60).unwrap();
-        let mut router = HubFirstRouter::new(mode, cache);
-
-        let fresh_res = router
-            .query_corpus(
-                HubQueryRequest {
-                    slug: "zstd",
-                    query: "LZ4_compress_default",
-                    mode: AnswerMode::Def,
-                    age_days: 1,
-                    now_unix: 1_000,
-                },
-                || Ok(catalogue.clone()),
-                |_| Ok(pack_bytes.clone()),
-            )
-            .unwrap();
-        assert!(!fresh_res.freshness.is_stale());
-
-        // Query 120s later (TTL is 60s): served from disk cache, marked Stale with explicit warnings.
-        let stale_res = router
-            .query_corpus(
-                HubQueryRequest {
-                    slug: "zstd",
-                    query: "LZ4_compress_default",
-                    mode: AnswerMode::Def,
-                    age_days: 1,
-                    now_unix: 1_120,
-                },
-                || panic!("no catalogue fetch"),
-                |_| panic!("no pack fetch"),
-            )
-            .unwrap();
-        assert_eq!(stale_res.cache_outcome, CacheLookupOutcome::HitFromDisk);
-        assert_eq!(
-            stale_res.freshness,
-            Freshness::Stale {
-                age_secs: 120,
-                max_age_secs: 60
-            }
-        );
-        assert!(stale_res
-            .answer
-            .warnings
-            .iter()
-            .any(|w| w.contains("cached corpus 'zstd' is stale (age 120s exceeds ttl 60s)")));
-        assert!(stale_res
-            .rendered
-            .contains("warning: cached corpus 'zstd' is stale"));
-    }
-
-    #[test]
-    fn local_node_reachable_routes_private_index_tools_to_node_and_keeps_hub_tools() {
-        let mode = McpRuntimeMode::detect(
-            "http://127.0.0.1:9200/",
-            DEFAULT_HUB_URL,
-            DEFAULT_PROBE_BUDGET_MS,
-            |_url, _budget| Some(12),
-        );
-        assert!(mode.has_local_node());
-        assert!(mode.fallback_notice().is_none());
-
-        let dir = tempfile::tempdir().unwrap();
-        let cache = HubDiskCache::open(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 3600).unwrap();
-        let router = HubFirstRouter::new(mode, cache);
-
-        for node_tool in ["xerj_search", "xerj_def", "xerj_map", "xerj_status"] {
-            assert_eq!(
-                router.route_tool(node_tool).unwrap(),
-                RouteTarget::LocalNode {
-                    base_url: "http://127.0.0.1:9200".to_string()
-                }
-            );
-        }
-        assert_eq!(
-            router.route_tool("xerj_hub_ask").unwrap(),
-            RouteTarget::HubClient {
-                hub_url: DEFAULT_HUB_URL.to_string(),
-                fallback_notice: None,
-            }
-        );
-
-        // Conversely, in HubOnlyFallback, private-index tools return a loud error.
-        let fallback_mode =
-            McpRuntimeMode::detect("http://127.0.0.1:9200", DEFAULT_HUB_URL, 50, |_, _| None);
-        let fallback_cache =
-            HubDiskCache::open(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 3600).unwrap();
-        let fallback_router = HubFirstRouter::new(fallback_mode, fallback_cache);
-        let err = fallback_router
-            .route_tool("xerj_search")
-            .expect_err("private tool without node must error");
-        assert!(
-            matches!(err, HubModeError::LocalNodeRequired { tool, .. } if tool == "xerj_search")
-        );
-    }
-
-    #[test]
-    fn unknown_corpus_returns_loud_error_never_empty_result() {
-        let pin = "4444444444444444444444444444444444444444";
-        let pack_bytes = sample_pack_bytes("lz4", pin, LicenceClass::AdaptWithAttribution, 16);
-        let entry =
-            sample_catalogue_entry("lz4", pin, &pack_bytes, LicenceClass::AdaptWithAttribution);
-        let catalogue = sample_catalogue(vec![entry]);
-
-        let dir = tempfile::tempdir().unwrap();
-        let mode =
-            McpRuntimeMode::detect("http://127.0.0.1:9200", DEFAULT_HUB_URL, 50, |_, _| None);
-        let cache = HubDiskCache::open(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 3600).unwrap();
-        let mut router = HubFirstRouter::new(mode, cache);
-
-        let err = router
-            .query_corpus(
-                HubQueryRequest {
-                    slug: "nonexistent-corpus",
-                    query: "anything",
-                    mode: AnswerMode::How,
-                    age_days: 1,
-                    now_unix: 1_700_000_000,
-                },
-                || Ok(catalogue),
-                |_| unreachable!("pack fetch must not run for unknown corpus"),
-            )
-            .expect_err("unknown corpus must return a loud error");
-
-        assert!(matches!(
-            err,
-            HubModeError::UnknownCorpus { ref slug, .. } if slug == "nonexistent-corpus"
-        ));
-    }
-
-    #[test]
-    fn invalid_corpus_slug_is_refused_before_any_io_or_fetch() {
-        let dir = tempfile::tempdir().unwrap();
-        let mode =
-            McpRuntimeMode::detect("http://127.0.0.1:9200", DEFAULT_HUB_URL, 50, |_, _| None);
-        let cache = HubDiskCache::open(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 3600).unwrap();
-        let mut router = HubFirstRouter::new(mode, cache);
-
-        let overlong = "a".repeat(MAX_SLUG_BYTES + 1);
-        for bad_slug in [
-            "",
-            "../etc/passwd",
-            "UPPERCASE",
-            "-leading-dash",
-            "a/b",
-            overlong.as_str(),
-        ] {
-            let err = router
-                .query_corpus(
-                    HubQueryRequest {
-                        slug: bad_slug,
-                        query: "q",
-                        mode: AnswerMode::Def,
-                        age_days: 1,
-                        now_unix: 1_000,
-                    },
-                    || panic!("must not fetch catalogue for invalid slug"),
-                    |_| panic!("must not fetch pack for invalid slug"),
-                )
-                .expect_err("invalid slug must fail loudly");
-            assert!(
-                matches!(err, HubModeError::InvalidCorpusSlug { .. }),
-                "{bad_slug}"
-            );
-        }
-    }
-
-    #[test]
-    fn unsupported_catalogue_or_pack_format_version_is_refused_loudly() {
-        let pin = "5555555555555555555555555555555555555555";
-        let pack_bytes = sample_pack_bytes("lz4", pin, LicenceClass::AdaptWithAttribution, 16);
-        let entry =
-            sample_catalogue_entry("lz4", pin, &pack_bytes, LicenceClass::AdaptWithAttribution);
-
-        let dir = tempfile::tempdir().unwrap();
-        let mut cache = HubDiskCache::open(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 3600).unwrap();
-
-        // Future catalogue format_version (e.g. 99) -> loud UnsupportedFormatVersion.
-        let mut bad_cat = sample_catalogue(vec![entry.clone()]);
-        bad_cat.format_version = CATALOGUE_FORMAT_VERSION + 1;
-        let err = cache
-            .put_catalogue(&bad_cat, 1_000)
-            .expect_err("unsupported catalogue format must fail");
-        assert!(matches!(
-            err,
-            HubModeError::UnsupportedFormatVersion {
-                kind: "catalogue",
-                found,
-                ..
-            } if found == CATALOGUE_FORMAT_VERSION + 1
-        ));
-
-        // Future pack manifest format_version -> loud UnsupportedFormatVersion.
-        let mut bad_pack: CachedCorpusPack = serde_json::from_slice(&pack_bytes).unwrap();
-        bad_pack.manifest.format_version = PACK_FORMAT_VERSION + 1;
-        let bad_pack_bytes = serde_json::to_vec(&bad_pack).unwrap();
-        let bad_entry = sample_catalogue_entry(
-            "lz4",
-            pin,
-            &bad_pack_bytes,
-            LicenceClass::AdaptWithAttribution,
-        );
-        let err = cache
-            .get_or_fetch_pack(&bad_entry, 1_000, |_| Ok(bad_pack_bytes))
-            .expect_err("unsupported pack format must fail");
-        assert!(matches!(
-            err,
-            HubModeError::UnsupportedFormatVersion {
-                kind: "pack_manifest",
-                found,
-                ..
-            } if found == PACK_FORMAT_VERSION + 1
-        ));
-    }
-
-    #[test]
-    fn sha256_mismatch_and_excluded_or_approach_only_licences_are_enforced() {
-        let pin = "6666666666666666666666666666666666666666";
-        let pack_bytes = sample_pack_bytes("gpl-lib", pin, LicenceClass::ApproachOnly, 16);
-        let entry_approach =
-            sample_catalogue_entry("gpl-lib", pin, &pack_bytes, LicenceClass::ApproachOnly);
-        let entry_excluded =
-            sample_catalogue_entry("proprietary", pin, &pack_bytes, LicenceClass::Excluded);
-        let catalogue = sample_catalogue(vec![entry_approach.clone(), entry_excluded]);
-
-        let dir = tempfile::tempdir().unwrap();
-        let mode =
-            McpRuntimeMode::detect("http://127.0.0.1:9200", DEFAULT_HUB_URL, 50, |_, _| None);
-        let cache = HubDiskCache::open(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 3600).unwrap();
-        let mut router = HubFirstRouter::new(mode, cache);
-
-        // 1. Excluded corpus licence is loudly refused.
-        let excl_err = router
-            .query_corpus(
-                HubQueryRequest {
-                    slug: "proprietary",
-                    query: "LZ4_compress_default",
-                    mode: AnswerMode::Def,
-                    age_days: 1,
-                    now_unix: 1_000,
-                },
-                || Ok(catalogue.clone()),
-                |_| panic!("excluded pack must never be fetched"),
-            )
-            .expect_err("excluded corpus must fail");
-        assert!(
-            matches!(excl_err, HubModeError::ExcludedCorpusLicence { slug, .. } if slug == "proprietary")
-        );
-
-        // 2. Tampered download bytes fail SHA-256 verification before touching disk.
-        let tamper_err = router
-            .query_corpus(
-                HubQueryRequest {
-                    slug: "gpl-lib",
-                    query: "LZ4_compress_default",
-                    mode: AnswerMode::Def,
-                    age_days: 1,
-                    now_unix: 1_000,
-                },
-                || unreachable!("catalogue already cached"),
-                |_| Ok(b"tampered-bytes".to_vec()),
-            )
-            .expect_err("tampered pack must fail sha256 verification");
-        assert!(
-            matches!(tamper_err, HubModeError::IntegrityMismatch { slug, .. } if slug == "gpl-lib")
-        );
-
-        // 3. Valid ApproachOnly corpus succeeds and attaches licence_warning on every hit.
-        let approach_res = router
-            .query_corpus(
-                HubQueryRequest {
-                    slug: "gpl-lib",
-                    query: "LZ4_compress_default",
-                    mode: AnswerMode::Def,
-                    age_days: 1,
-                    now_unix: 1_000,
-                },
-                || unreachable!("catalogue already cached"),
-                |_| Ok(pack_bytes.clone()),
-            )
-            .expect("valid approach-only corpus succeeds");
-        assert_eq!(approach_res.answer.hits.len(), 1);
-        assert!(approach_res.answer.hits[0]
-            .licence_warning
-            .as_deref()
-            .unwrap()
-            .contains("approach-only licence"));
-    }
-
-    #[test]
-    fn corrupted_on_disk_pack_file_is_detected_and_refused_loudly() {
-        let pin = "7777777777777777777777777777777777777777";
-        let pack_bytes = sample_pack_bytes("brotli", pin, LicenceClass::AdaptWithAttribution, 16);
-        let entry = sample_catalogue_entry(
-            "brotli",
-            pin,
-            &pack_bytes,
-            LicenceClass::AdaptWithAttribution,
-        );
-
-        let dir = tempfile::tempdir().unwrap();
-        let mut cache = HubDiskCache::open(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 3600).unwrap();
-        cache
-            .get_or_fetch_pack(&entry, 1_000, |_| Ok(pack_bytes.clone()))
-            .unwrap();
-
-        // Corrupt the on-disk pack file after caching.
-        std::fs::write(dir.path().join("pack-brotli.json"), b"corrupted").unwrap();
-
-        let err = cache
-            .get_or_fetch_pack(&entry, 1_005, |_| {
-                panic!("must detect corruption before refetch")
-            })
-            .expect_err("corrupted on-disk pack must fail integrity check");
-        assert!(matches!(err, HubModeError::IntegrityMismatch { slug, .. } if slug == "brotli"));
-    }
-
-    #[test]
-    fn pin_sha_rotation_in_catalogue_fetches_updated_pack_and_replaces_cached_entry() {
-        let pin_v1 = "8888888888888888888888888888888888888888";
-        let pin_v2 = "9999999999999999999999999999999999999999";
-        let bytes_v1 = sample_pack_bytes("snappy", pin_v1, LicenceClass::AdaptWithAttribution, 16);
-        let bytes_v2 = sample_pack_bytes("snappy", pin_v2, LicenceClass::AdaptWithAttribution, 24);
-        let entry_v1 = sample_catalogue_entry(
-            "snappy",
-            pin_v1,
-            &bytes_v1,
-            LicenceClass::AdaptWithAttribution,
-        );
-        let entry_v2 = sample_catalogue_entry(
-            "snappy",
-            pin_v2,
-            &bytes_v2,
-            LicenceClass::AdaptWithAttribution,
-        );
-
-        let dir = tempfile::tempdir().unwrap();
-        let mut cache = HubDiskCache::open(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 3600).unwrap();
-
-        let r1 = cache
-            .get_or_fetch_pack(&entry_v1, 1_000, |_| Ok(bytes_v1.clone()))
-            .unwrap();
-        assert_eq!(r1.outcome, CacheLookupOutcome::FetchedAndCached);
-        assert_eq!(cache.entry_meta("snappy").unwrap().pin_sha, pin_v1);
-
-        let r2 = cache
-            .get_or_fetch_pack(&entry_v2, 2_000, |_| Ok(bytes_v2.clone()))
-            .unwrap();
-        assert_eq!(r2.outcome, CacheLookupOutcome::FetchedAndCached);
-        assert_eq!(cache.entry_meta("snappy").unwrap().pin_sha, pin_v2);
-        assert_eq!(cache.entry_count(), 1);
-    }
-}
+mod tests;
