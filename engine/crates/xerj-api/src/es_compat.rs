@@ -13527,6 +13527,31 @@ fn get_doc_response_hint(index: &str, doc_bytes: usize) -> Value {
     })
 }
 
+/// #3018: render the page's hits as the response `Value`, moving each
+/// `_source` in instead of deep-copying it. `json!({.. "hits": hits ..})`
+/// ran `serde_json::to_value` over every hit, which rebuilt each `_source`
+/// value by value: at size 100 with a 768-d vector in `_source` that is
+/// 76,800 numbers copied once more before the response was written. The
+/// `_source` slot is serialized as a `null` placeholder (so the key keeps its
+/// place in the derived field order) and then filled with the moved value.
+fn es_hits_into_value(hits: Vec<EsHit>) -> Value {
+    Value::Array(
+        hits.into_iter()
+            .map(|mut hit| {
+                let source = hit.source.take();
+                if source.is_some() {
+                    hit.source = Some(Value::Null);
+                }
+                let mut rendered = serde_json::to_value(&hit).unwrap_or(Value::Null);
+                if let (Some(source), Some(slot)) = (source, rendered.get_mut("_source")) {
+                    *slot = source;
+                }
+                rendered
+            })
+            .collect(),
+    )
+}
+
 fn search_response_hint(index: &str, body: &EsSearchBody, hits: &[EsHit]) -> Option<Value> {
     // Trigger on the SIZE of what we are about to return, not on whether the
     // caller projected `_source`.
@@ -13548,10 +13573,16 @@ fn search_response_hint(index: &str, body: &EsSearchBody, hits: &[EsHit]) -> Opt
         return None;
     }
 
+    // #3018: sampled, not rendered. Rendering every `_source` to a string
+    // only to learn its length formatted each float twice per response (here
+    // and again on the wire): at size 100 with a 768-d vector per hit that
+    // was 76,800 floats, ~2 ms. `json_len_sampled` is exact for objects,
+    // scalars and short arrays and extrapolates long arrays from a strided
+    // sample (the `_savings` estimator), so the reason says "about".
     let source_bytes: usize = hits
         .iter()
         .filter_map(|h| h.source.as_ref())
-        .map(|s| serde_json::to_string(s).map(|s| s.len()).unwrap_or(0))
+        .map(|s| xerj_engine::json_len_sampled(s) as usize)
         .sum();
     if source_bytes <= LARGE_RESPONSE_HINT_THRESHOLD_BYTES {
         return None;
@@ -13560,7 +13591,7 @@ fn search_response_hint(index: &str, body: &EsSearchBody, hits: &[EsHit]) -> Opt
     let mut hint = json!({
         "hints": [{
             "reason": format!(
-                "this response carried {source_bytes} bytes of `_source` across \
+                "this response carried about {source_bytes} bytes of `_source` across \
                  {hit_count} hit(s) — for code, that is usually whole files. To get \
                  only the matching function or class, add `\"fields\":[\"_passage\"]` \
                  and drop `_source`.",
@@ -13722,6 +13753,26 @@ fn index_not_found_hint(missing: &str, available: &[String]) -> Value {
 #[cfg(test)]
 mod search_response_hint_tests {
     use super::*;
+
+    /// #3018: moving `_source` into the response must render exactly what
+    /// `json!({.. "hits": hits ..})` rendered: same keys, same order, same
+    /// values, for a hit with a `_source`, one without, and one with `fields`.
+    #[test]
+    fn es_hits_into_value_renders_what_to_value_rendered() {
+        let raw = json!([
+            {"_index": "i", "_id": "1", "_score": 1.5, "_version": 3,
+             "_source": {"b": 1, "a": [0.25, -1.0, 3e-7], "z": {"y": "x"}},
+             "fields": {"f": [1]}, "matched_queries": null},
+            {"_index": "i", "_id": "2", "_score": null, "matched_queries": ["q"]},
+            {"_index": "i", "_id": "3", "_score": 0.5, "_source": null,
+             "sort": [1, "k"], "matched_queries": null},
+        ]);
+        let hits = |raw: &Value| -> Vec<EsHit> { serde_json::from_value(raw.clone()).unwrap() };
+        let old = serde_json::to_string(&json!({ "hits": hits(&raw) })).unwrap();
+        let new =
+            serde_json::to_string(&json!({ "hits": es_hits_into_value(hits(&raw)) })).unwrap();
+        assert_eq!(new, old);
+    }
     use axum::{
         body::{to_bytes, Body},
         http::Request,
@@ -22162,7 +22213,7 @@ async fn search_impl(
                 "hits": {
                     "total": -1i64,
                     "max_score": max_score,
-                    "hits": hits,
+                    "hits": es_hits_into_value(hits),
                 },
             })
         } else {
@@ -22172,7 +22223,7 @@ async fn search_impl(
                 "_shards": shards_block,
                 "hits": {
                     "max_score": max_score,
-                    "hits": hits,
+                    "hits": es_hits_into_value(hits),
                 },
             })
         }
@@ -22187,7 +22238,7 @@ async fn search_impl(
                     "relation": total_relation,
                 },
                 "max_score": max_score,
-                "hits": hits,
+                "hits": es_hits_into_value(hits),
             },
         })
     };
@@ -22208,8 +22259,8 @@ async fn search_impl(
             if let Some(obj) = response_body.as_object_mut() {
                 let mut rebuilt = serde_json::Map::with_capacity(obj.len() + 1);
                 rebuilt.insert("pit_id".to_string(), Value::String(pit_id.to_string()));
-                for (k, v) in obj.iter() {
-                    rebuilt.insert(k.clone(), v.clone());
+                for (k, v) in std::mem::take(obj) {
+                    rebuilt.insert(k, v);
                 }
                 *obj = rebuilt;
             }
@@ -22238,8 +22289,8 @@ async fn search_impl(
         if let Some(obj) = response_body.as_object_mut() {
             let mut rebuilt = serde_json::Map::with_capacity(obj.len() + 1);
             rebuilt.insert("judged".to_string(), info);
-            for (k, v) in obj.iter() {
-                rebuilt.insert(k.clone(), v.clone());
+            for (k, v) in std::mem::take(obj) {
+                rebuilt.insert(k, v);
             }
             *obj = rebuilt;
         }
@@ -22249,8 +22300,8 @@ async fn search_impl(
         if let Some(obj) = response_body.as_object_mut() {
             let mut rebuilt = serde_json::Map::with_capacity(obj.len() + 1);
             rebuilt.insert("_rerank".to_string(), info);
-            for (k, v) in obj.iter() {
-                rebuilt.insert(k.clone(), v.clone());
+            for (k, v) in std::mem::take(obj) {
+                rebuilt.insert(k, v);
             }
             *obj = rebuilt;
         }
@@ -22260,8 +22311,8 @@ async fn search_impl(
         if let Some(obj) = response_body.as_object_mut() {
             let mut rebuilt = serde_json::Map::with_capacity(obj.len() + 1);
             rebuilt.insert("_xerj".to_string(), hint);
-            for (k, v) in obj.iter() {
-                rebuilt.insert(k.clone(), v.clone());
+            for (k, v) in std::mem::take(obj) {
+                rebuilt.insert(k, v);
             }
             *obj = rebuilt;
         }
@@ -22281,9 +22332,10 @@ async fn search_impl(
     {
         if let Some(obj) = response_body.as_object_mut() {
             let mut rebuilt = serde_json::Map::with_capacity(obj.len() + 1);
-            for (k, v) in obj.iter() {
-                rebuilt.insert(k.clone(), v.clone());
-                if k == "timed_out" {
+            for (k, v) in std::mem::take(obj) {
+                let after_timed_out = k == "timed_out";
+                rebuilt.insert(k, v);
+                if after_timed_out {
                     rebuilt.insert("terminated_early".to_string(), Value::Bool(false));
                 }
             }

@@ -57,7 +57,7 @@ pub use cluster_apply::{EngineMetadataApplier, ReplicatedIndexSpec};
 pub use cluster_state::{ClusterStateBlockKind, ClusterStateBootStatus};
 pub use engine::{EmbeddingExecutionIdentity, Engine, HealthStatus, IndexInfo};
 pub use index::{
-    detect_log_format, filter_object, resolve_date_math, resolve_field_alias,
+    detect_log_format, filter_object, json_len_sampled, resolve_date_math, resolve_field_alias,
     storage_mode_from_config, EnrichTable, FieldEncodingInfo, Index, IndexResponse, IndexStats,
     LogFormat,
 };

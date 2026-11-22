@@ -41405,7 +41405,7 @@ fn cheap_element_len(value: &Value) -> Option<u64> {
 /// * The sample is strided across the whole array rather than taken from the
 ///   head, and the extrapolation truncates rather than rounds, so what bias
 ///   remains leans toward under-claiming.
-fn json_len_sampled(value: &Value) -> u64 {
+pub fn json_len_sampled(value: &Value) -> u64 {
     json_len_sampled_at(value, 0)
 }
 
