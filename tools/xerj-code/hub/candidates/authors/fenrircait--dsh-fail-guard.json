@@ -1,0 +1,23 @@
+{
+ "corpus": "fenrircait--dsh-fail-guard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deepseek-harness, dsh-plugin queries this for how FenrirCait/dsh-fail-guard implements it: DSH plugin: stop the agent after N consecutive failures on the same tool, pushing a four-part stop instruction instead of another retry (selected work: lib, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-fail-guard",
+   "url": "https://github.com/FenrirCait/dsh-fail-guard",
+   "sha": "a3d2f7d9c0df13796fd59fe4714b0a77b4cb6e82",
+   "licence": "MIT (LICENSE file at pin a3d2f7d9c0df, GitHub licence API 2026-11-22)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-22T14:32Z",
+    "consent_receipt": "f3b1c2c395cc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-22T14:32Z (receipt f3b1c2c395cc); selected commit a3d2f7d9c0df: \"feat: \u63d2\u4ef6\u8be6\u60c5\u9875\u91cc\u7684\u914d\u7f6e\u5361\uff08v0.2.0\uff09\". LICENSE file at pin a3d2f7d9c0df detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+   }
+  }
+ ]
+}

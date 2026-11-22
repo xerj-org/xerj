@@ -8,15 +8,15 @@
   {
    "repo": "violet-trace",
    "url": "https://github.com/gravion-ux/violet-trace",
-   "sha": "da147718f15c17f751bc06b7096283d7b84a41cc",
-   "licence": "MIT (LICENSE file at pin da147718f15c, GitHub licence API 2026-11-14)",
+   "sha": "d8456134faec4cb0d10af9314f4348d20eea30d5",
+   "licence": "MIT (LICENSE file at pin d8456134faec, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "5dd9e4ff12c4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 5dd9e4ff12c4); pinned to the default-branch head. LICENSE file at pin da147718f15c detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 5dd9e4ff12c4); pinned to the default-branch head. LICENSE file at pin d8456134faec detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
    }
   }
  ]

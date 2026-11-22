@@ -8,15 +8,15 @@
   {
    "repo": "kelan",
    "url": "https://github.com/Tanush-Jain/kelan",
-   "sha": "c1d95c87218ab7679b55463ce91a9766f73555e9",
-   "licence": "MIT (LICENSE file at pin c1d95c87218a, GitHub licence API 2026-11-17)",
+   "sha": "793eb6cb362345d28e9a78b7cb043663aa7e08e0",
+   "licence": "MIT (LICENSE file at pin 793eb6cb3623, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-17T17:59Z",
     "consent_receipt": "335ee5bd7c5a",
-    "note": "Inclusion consented by the commit author by email at 2026-11-17T17:59Z (receipt 335ee5bd7c5a); selected commit c1d95c87218a: \"adding dast\". LICENSE file at pin c1d95c87218a detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head c1d95c87218a (contains the selected commit): the LICENSE at the selected commit was Apache-2.0."
+    "note": "Inclusion consented by the commit author by email at 2026-11-17T17:59Z (receipt 335ee5bd7c5a); selected commit 793eb6cb3623: \"adding dast\". LICENSE file at pin 793eb6cb3623 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head 793eb6cb3623 (contains the selected commit): the LICENSE at the selected commit was Apache-2.0."
    }
   }
  ]

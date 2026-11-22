@@ -8,15 +8,15 @@
   {
    "repo": "aura",
    "url": "https://github.com/FahadBinHussain/aura",
-   "sha": "70f007e557f62e37b489f4d1522f8bea426b8c4a",
-   "licence": "MIT (LICENSE file at pin 70f007e557f6, GitHub licence API 2026-11-22)",
+   "sha": "ce950a7ef1643b795f9fe72d5d584f7fdba8d52f",
+   "licence": "MIT (LICENSE file at pin ce950a7ef164, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:34Z",
     "consent_receipt": "cb89c65cfa24",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt cb89c65cfa24); pinned to the default-branch head. LICENSE file at pin 70f007e557f6 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt cb89c65cfa24); pinned to the default-branch head. LICENSE file at pin ce950a7ef164 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
    }
   }
  ]

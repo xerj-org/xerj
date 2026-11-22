@@ -2,8 +2,8 @@
  "corpus": "polyxml--polyxml",
  "cloned_at": null,
  "status": "draft",
- "shelf": "NET",
- "domain": "an agent working on cpp20, data-binding, ffi queries this for how polyxml/PolyXML implements it: XSD-to-code compiler and streaming XML runtime for Rust, Python, Go, C++, Java, TypeScript, and C# (selected work: crates/polyxml-core)",
+ "shelf": "API",
+ "domain": "an agent working on cpp20, data-binding, golang queries this for how polyxml/PolyXML implements it: XSD-to-code compiler and streaming XML runtime for Rust, Python, Go, C++, Java, TypeScript, and C# (selected work: crates/polyxml-core)",
  "repos": [
   {
    "repo": "PolyXML",

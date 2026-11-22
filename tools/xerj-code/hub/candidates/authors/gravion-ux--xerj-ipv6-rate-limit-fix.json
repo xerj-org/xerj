@@ -8,15 +8,15 @@
   {
    "repo": "xerj-ipv6-rate-limit-fix",
    "url": "https://github.com/gravion-ux/xerj-ipv6-rate-limit-fix",
-   "sha": "11192eef35f598145c4df7c86c02e4ab314213b2",
-   "licence": "MIT (LICENSE file at pin 11192eef35f5, GitHub licence API 2026-11-04)",
+   "sha": "082cc1c5fbf33bebd308e14e2716c521b2a6e898",
+   "licence": "MIT (LICENSE file at pin 082cc1c5fbf3, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "935bdc2fa81f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 935bdc2fa81f); pinned to the default-branch head. LICENSE file at pin 11192eef35f5 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 935bdc2fa81f); pinned to the default-branch head. LICENSE file at pin 082cc1c5fbf3 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
    }
   }
  ]
