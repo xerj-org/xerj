@@ -105,6 +105,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   answers 429 at 4,014 MB; at 5 GiB both complete, peak 4,192 MB before and
   3,484-4,620 MB after.
 
+- **A `_forcemerge` that is still merging no longer gets a 429 (#3414).**
+  The 429 from #2917 counted every pass in which one batch stopped at the
+  memory limit, even when the same pass merged other batches. A large index
+  that merged part of its batches per pass got a 429 on its third pass, half
+  merged. Only passes in a row that merge nothing now count towards it.
+
 - **Every node a client starts now leads its own session (#3267).** The hub's
   pack node, background `xerj hub pull`s and the server `xerj brain` boots
   were only put in their own process group, so they stayed in the
