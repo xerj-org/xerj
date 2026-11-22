@@ -9,28 +9,16 @@
 #![cfg(unix)]
 
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-/// A base port whose three ports (ES, REST, gRPC) are free right now.
+/// A free (P, P+1, P+2) triple: es/rest/grpc for the booted node. See
+/// `xerj_common::loopback_test::free_port_triple` for why bases come from
+/// below the ephemeral range (`XERJ_TEST_PORT_BASE` confines them).
 fn free_port_triple() -> u16 {
-    for _ in 0..200 {
-        let probe = TcpListener::bind("127.0.0.1:0").unwrap();
-        let base = probe.local_addr().unwrap().port();
-        drop(probe);
-        if base > 65_000 {
-            continue;
-        }
-        let held: Vec<_> = (0..3)
-            .filter_map(|off| TcpListener::bind(("127.0.0.1", base + off)).ok())
-            .collect();
-        if held.len() == 3 {
-            return base;
-        }
-    }
-    panic!("no free port triple");
+    xerj_common::loopback_test::free_port_triple().release()
 }
 
 fn write_config(dir: &Path) -> PathBuf {

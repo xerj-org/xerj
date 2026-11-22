@@ -40,6 +40,127 @@ pub fn bind_failure(e: &io::Error) -> String {
     }
 }
 
+/// Three consecutive loopback ports (`base`, `base + 1`, `base + 2`), all held
+/// by this value until it is released or dropped. A booted node takes them as
+/// ES-compat, native REST and gRPC (`--port base`).
+pub struct PortTriple {
+    base: u16,
+    _held: [std::net::TcpListener; 3],
+}
+
+impl PortTriple {
+    /// The first of the three ports.
+    pub fn base(&self) -> u16 {
+        self.base
+    }
+
+    /// Frees the three ports for the child that must bind them, and returns
+    /// the base. Call it as late as possible, right before the spawn.
+    pub fn release(self) -> u16 {
+        self.base
+    }
+}
+
+/// Holds three consecutive free loopback ports; see [`PortTriple`].
+///
+/// Bases come from below the kernel's ephemeral range, not from `bind(:0)`.
+/// The old helpers drew a base from `:0` and probed `base + 1` and `base + 2`,
+/// and at load 40 all 64 or 200 tries failed ("no free port triple"): Linux
+/// hands `bind(:0)` ports of one parity and gives `connect()` the other, so
+/// under parallel tests `base + 1` is usually a client socket or its
+/// TIME_WAIT. Below the ephemeral range no outgoing connection ever takes a
+/// port, so neither the probe nor the gap between release and the child's
+/// bind can lose it to one. Within the process no base is handed out twice.
+///
+/// `XERJ_TEST_PORT_BASE=N` confines bases to `N..=N+97` on a shared machine.
+/// Otherwise it falls back to `bind(:0)` bases only when the host's ephemeral
+/// range leaves no room below it. The search stops after 30 s, which on a healthy host is
+/// never reached: each try is three non-blocking binds.
+pub fn free_port_triple() -> PortTriple {
+    use std::hash::{BuildHasher, Hasher};
+    use std::sync::Mutex;
+    static GIVEN: Mutex<Vec<u16>> = Mutex::new(Vec::new());
+
+    let range = std::env::var("XERJ_TEST_PORT_BASE")
+        .ok()
+        .and_then(|b| b.parse::<u16>().ok())
+        .filter(|b| (1025..=u16::MAX - 100).contains(b))
+        .map(|b| (b, b + 97))
+        .or_else(below_ephemeral_range);
+    let seed = std::collections::hash_map::RandomState::new();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    let mut last_err = None;
+    for attempt in 0u64.. {
+        if std::time::Instant::now() > deadline {
+            break;
+        }
+        let base = match range {
+            Some((lo, hi)) => {
+                let mut h = seed.build_hasher();
+                h.write_u64(attempt);
+                lo + (h.finish() % u64::from(hi - lo + 1)) as u16
+            }
+            None => {
+                let probe = expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
+                let p = probe.local_addr().map(|a| a.port()).unwrap_or(0);
+                if !(1025..=u16::MAX - 2).contains(&p) {
+                    continue;
+                }
+                p
+            }
+        };
+        {
+            let given = GIVEN.lock().unwrap_or_else(|e| e.into_inner());
+            if given.iter().any(|g| g.abs_diff(base) < 3) {
+                continue;
+            }
+        }
+        let bind = |p: u16| std::net::TcpListener::bind(("127.0.0.1", p));
+        match (bind(base), bind(base + 1), bind(base + 2)) {
+            (Ok(a), Ok(b), Ok(c)) => {
+                GIVEN.lock().unwrap_or_else(|e| e.into_inner()).push(base);
+                return PortTriple {
+                    base,
+                    _held: [a, b, c],
+                };
+            }
+            (a, b, c) => {
+                for r in [a, b, c] {
+                    if let Err(e) = r {
+                        if matches!(
+                            e.kind(),
+                            io::ErrorKind::PermissionDenied | io::ErrorKind::AddrNotAvailable
+                        ) {
+                            panic!("{}", bind_failure(&e));
+                        }
+                        last_err = Some(e);
+                    }
+                }
+            }
+        }
+    }
+    panic!(
+        "no free port triple in 30 s (range {range:?}, last error {last_err:?}): every \
+         candidate base had one of its three ports taken"
+    );
+}
+
+/// `[10000, ephemeral_low - 3]`, where bases are safe from `connect()`.
+/// `None` when the host's ephemeral range starts too low to leave room.
+fn below_ephemeral_range() -> Option<(u16, u16)> {
+    const LOW: u16 = 10_000;
+    // Linux default; macOS and Windows start theirs at 49152, so 32768 is
+    // below the ephemeral range there too.
+    let mut ephemeral_low: u16 = 32_768;
+    if let Ok(text) = std::fs::read_to_string("/proc/sys/net/ipv4/ip_local_port_range") {
+        if let Some(first) = text.split_whitespace().next().and_then(|s| s.parse().ok()) {
+            ephemeral_low = first;
+        }
+    }
+    let hi = ephemeral_low.checked_sub(3)?;
+    (hi >= LOW + 1_000).then_some((LOW, hi))
+}
+
 /// Fails the test, naming the fix, unless `addr` (a loopback address other
 /// than 127.0.0.1, such as 127.0.0.2) is usable on this host. Linux routes all
 /// of 127.0.0.0/8 to loopback; stock macOS configures only 127.0.0.1, and a
@@ -109,6 +230,39 @@ mod tests {
         assert!(!denied.contains("ifconfig"), "{denied}");
         let other = alias_failure(addr, &io::Error::from(io::ErrorKind::Other));
         assert!(!other.contains("ifconfig"), "{other}");
+    }
+
+    #[test]
+    fn a_port_triple_is_held_until_released_and_never_handed_out_twice() {
+        let a = free_port_triple();
+        let b = free_port_triple();
+        assert!(
+            a.base().abs_diff(b.base()) >= 3,
+            "{} {}",
+            a.base(),
+            b.base()
+        );
+        for p in a.base()..=a.base() + 2 {
+            assert!(
+                std::net::TcpListener::bind(("127.0.0.1", p)).is_err(),
+                "{p} is not held"
+            );
+        }
+        if let (Err(_), Some((lo, hi))) = (
+            std::env::var("XERJ_TEST_PORT_BASE"),
+            below_ephemeral_range(),
+        ) {
+            assert!(
+                (lo..=hi).contains(&a.base()),
+                "{} not in {lo}..={hi}",
+                a.base()
+            );
+        }
+        let base = a.release();
+        for p in base..=base + 2 {
+            expect_loopback(std::net::TcpListener::bind(("127.0.0.1", p)));
+        }
+        drop(b);
     }
 
     #[test]

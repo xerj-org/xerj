@@ -6,7 +6,6 @@
 #![cfg(unix)]
 
 use std::fs;
-use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
@@ -28,33 +27,11 @@ fn write_fixture(dir: &Path) {
     .unwrap();
 }
 
-/// A free (P, P+1, P+2) triple. `XERJ_TEST_PORT_BASE` confines the search to
-/// `base..base+100` on a shared machine; otherwise the OS picks.
+/// A free (P, P+1, P+2) triple: es/rest/grpc for the booted node. See
+/// `xerj_common::loopback_test::free_port_triple` for why bases come from
+/// below the ephemeral range (`XERJ_TEST_PORT_BASE` confines them).
 fn free_port_triple() -> u16 {
-    let candidates: Vec<u16> = match std::env::var("XERJ_TEST_PORT_BASE")
-        .ok()
-        .and_then(|b| b.parse::<u16>().ok())
-    {
-        Some(base) => (base..base.saturating_add(98)).collect(),
-        None => (0..64)
-            .map(|_| {
-                let probe = xerj_common::loopback_test::expect_loopback(TcpListener::bind((
-                    "127.0.0.1",
-                    0,
-                )));
-                probe.local_addr().unwrap().port()
-            })
-            .collect(),
-    };
-    for p in candidates {
-        if !(1025..=u16::MAX - 2).contains(&p) {
-            continue;
-        }
-        if (p..=p + 2).all(|q| TcpListener::bind(("127.0.0.1", q)).is_ok()) {
-            return p;
-        }
-    }
-    panic!("no free port triple found");
+    xerj_common::loopback_test::free_port_triple().release()
 }
 
 /// Kills the node `xerj ask` booted, via its pid file.
