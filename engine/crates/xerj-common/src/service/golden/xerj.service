@@ -1,0 +1,16 @@
+# Written by `xerj service install`. Re-run it to change the flags;
+# remove it with `xerj service uninstall`.
+# xerj-data-dir=/home/u/xerj-data
+[Unit]
+Description=XERJ search node
+
+[Service]
+Type=simple
+ExecStart=/opt/xerj/bin/xerj --insecure --port 9280 --data-dir /home/u/xerj-data
+WorkingDirectory=/home/u/xerj-data
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target

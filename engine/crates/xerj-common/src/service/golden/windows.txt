@@ -1,0 +1,15 @@
+xerj service: Windows has no per-user service manager that xerj drives yet.
+Nothing was installed. To start this node at every logon, run these in cmd
+(an elevated prompt if schtasks says "Access is denied"):
+
+  schtasks /Create /TN xerj-node /SC ONLOGON /RL LIMITED /F /TR "\"C:\Program Files\xerj\xerj.exe\" --detach --insecure --data-dir \"C:\Users\u\xerj data\""
+  schtasks /Run /TN xerj-node
+
+Check it:   schtasks /Query /TN xerj-node
+Remove it:  schtasks /Delete /TN xerj-node /F   (then stop the node: taskkill /PID <pid>)
+The node logs to C:\Users\u\xerj data\node.log.
+
+sc.exe: `sc.exe create` only registers programs that answer the Windows Service
+Control Manager. xerj does not, so a service made with sc.exe directly is stopped
+after about 30 s (error 1053). Run xerj under a service wrapper if you need a
+boot-time Windows service, or use the logon task above.

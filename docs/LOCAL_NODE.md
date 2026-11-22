@@ -73,8 +73,10 @@ with it. The detached child keeps running.
 - **Logout and reboot.** Being detached from a terminal does not protect the
   node from a whole-login kill (systemd `KillUserProcesses=yes`, a container
   or CI job tearing down its cgroup) or from a reboot. A service manager is
-  the answer there (systemd `--user`, launchd, a Windows scheduled task).
-  `xerj service install` is not built yet.
+  the answer there: `xerj service install` writes a systemd `--user` unit
+  (Linux) or a launchd agent (macOS) and starts it; on Windows it prints the
+  Task Scheduler command instead. See `xerj service --help` and
+  [the CLI reference](https://xerj.org/docs/cli#service).
 - **Windows**: the spawn code compiles for `x86_64-pc-windows-msvc`, but no
   test runs it on Windows.
 - **A node stopped with SIGSTOP or Ctrl-Z** in its own terminal still
