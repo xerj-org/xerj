@@ -8,15 +8,15 @@
   {
    "repo": "local-slm-eval-kit",
    "url": "https://github.com/gravion-ux/local-slm-eval-kit",
-   "sha": "052e01dc74ebdf6aad100fbfc6965ae920e57a6e",
-   "licence": "MIT (LICENSE file at pin 052e01dc74eb, GitHub licence API 2026-11-04)",
+   "sha": "4d492816882bd94aebdc5d007e40f25bc90b4c79",
+   "licence": "MIT (LICENSE file at pin 4d492816882b, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "f16a60abab36",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt f16a60abab36); pinned to the default-branch head. LICENSE file at pin 052e01dc74eb detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt f16a60abab36); pinned to the default-branch head. LICENSE file at pin 4d492816882b detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
    }
   }
  ]

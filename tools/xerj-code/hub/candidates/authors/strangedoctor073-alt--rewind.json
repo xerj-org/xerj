@@ -8,15 +8,15 @@
   {
    "repo": "Rewind",
    "url": "https://github.com/strangedoctor073-alt/Rewind",
-   "sha": "ee8033a8ed812232e685c011dfa2afae3b37555a",
-   "licence": "MIT (LICENSE file at pin ee8033a8ed81, GitHub licence API 2026-10-29)",
+   "sha": "6dbcb8b87ec8024a914d3f2fb99f5e6728363765",
+   "licence": "MIT (LICENSE file at pin 6dbcb8b87ec8, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T10:14Z",
     "consent_receipt": "f7362bc49d97",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:14Z (receipt f7362bc49d97); pinned to the default-branch head. LICENSE file at pin ee8033a8ed81 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:14Z (receipt f7362bc49d97); pinned to the default-branch head. LICENSE file at pin 6dbcb8b87ec8 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
    }
   }
  ]

@@ -1,9 +1,9 @@
 {
- "corpus": "cristiansteib--multiversectl",
+ "corpus": "multiversectl--multiversectl",
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on cli, developer-tools, docker queries this for how cristiansteib/multiversectl implements it: Run several complete universes of a multi-repository project side by side on one machine (selected work: internal/adapters, internal/app)",
+ "domain": "an agent working on cli, developer-tools, docker queries this for how multiversectl/multiversectl implements it: Run several complete universes of a multi-repository project side by side on one machine (selected work: internal/adapters, internal/app)",
  "repos": [
   {
    "repo": "multiversectl",

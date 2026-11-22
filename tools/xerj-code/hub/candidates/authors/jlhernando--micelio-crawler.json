@@ -2,8 +2,8 @@
  "corpus": "jlhernando--micelio-crawler",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Go queries this for how jlhernando/micelio-crawler implements it: Enterprise-grade SEO crawler built in Go. Single-binary CLI and web dashboard for technical SEO audits, content analysis, and internal link  (selected work: internal/server, internal/crawler, dashboard)",
+ "shelf": "AI",
+ "domain": "an agent working on crawler, golang, internal-linking queries this for how jlhernando/micelio-crawler implements it: Open-source SEO crawler with a local web dashboard, JavaScript rendering, internal link maps, server log analysis and an MCP server for AI a (selected work: internal/server, internal/crawler, dashboard)",
  "repos": [
   {
    "repo": "micelio-crawler",

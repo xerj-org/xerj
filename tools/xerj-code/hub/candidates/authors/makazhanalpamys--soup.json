@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on python, fine-tuning, gguf queries this for how MakazhanAlpamys/Soup implements it: Fine-tune LLMs from one YAML. Layer streaming trains an 8B model on a 4 GB laptop GPU (selected work: benchmarks, tests)",
+ "domain": "an agent working on python, fine-tuning, gguf queries this for how MakazhanAlpamys/Soup implements it: Fine-tune LLMs from one YAML. Layer streaming trains an 8B model on a 4 GB laptop GPU (selected work: tests, src/soup_cli)",
  "repos": [
   {
    "repo": "Soup",
    "url": "https://github.com/MakazhanAlpamys/Soup",
-   "sha": "fc11b0224d75dd0f71d81716d3bfabc0adcc23d3",
-   "licence": "Apache-2.0 (LICENSE file at pin fc11b0224d75, GitHub licence API 2026-11-11)",
+   "sha": "ba71a6d264af33d5aff4309a1fbaa6e783f47e11",
+   "licence": "Apache-2.0 (LICENSE file at pin ba71a6d264af, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-10T14:58Z",
-    "consent_receipt": "3fcf7990e403",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:58Z (receipt 3fcf7990e403); selected commit fc11b0224d75: \"Measure checkpointed NF4 projections and recycled-buffer gradients (#\u2026\". LICENSE file at pin fc11b0224d75 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @MakazhanAlpamys, who has not added it."
+    "at": "2026-10-06T18:53Z",
+    "consent_receipt": "c36a02fb1fb6",
+    "note": "Inclusion consented by the commit author by email at 2026-10-06T18:53Z (receipt c36a02fb1fb6); selected commit ba71a6d264af: \"fix(diagnose): decouple forgetting probe from training dataset rows (\u2026\". LICENSE file at pin ba71a6d264af detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @MakazhanAlpamys, who has not added it."
    },
    "paths": [
     "benchmarks",
