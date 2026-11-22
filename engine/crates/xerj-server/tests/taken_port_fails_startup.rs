@@ -26,43 +26,27 @@ use std::net::TcpListener;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-/// The foreign process that already owns the ES-compat port, plus two more
-/// free ports for the listeners the node must still get.
+/// Three foreign listeners this test owns for its whole lifetime, bound on
+/// `:0` and **never released**: the port numbers are read off listeners the
+/// test still holds, so nothing else on the machine can take one mid-test.
 ///
-/// The squatter is bound on `:0` and **never released** — the port number is
-/// read off a listener this test still holds. Deriving it the other way round
-/// (pick a free port, drop it, re-bind it) is what the first version did, and
-/// it lost the race constantly: the two `#[test]`s in this file run on
-/// separate threads, both drew from the same just-released ephemeral pool, and
-/// whichever re-bound second got `AddrInUse` from the *other test* rather than
-/// from the node under test.
+/// A taken-port test needs only the listeners *before* the taken one to be
+/// bindable by the child. `main.rs` binds ES-compat, then native REST, then
+/// gRPC, and stops at the first failure, so every port after the taken one is
+/// never bound and can be one of these held listeners too. `Config::validate`
+/// requires the three ports to differ, which holding them at once guarantees.
 ///
-/// `rest` and `grpc` still go through hold-then-release, which is unavoidable
-/// — the child has to be the one to bind them. `Config::validate` requires all
-/// three to differ, which holding them simultaneously guarantees.
-fn squatter_and_two_free_ports() -> (TcpListener, u16, u16) {
-    let squatter = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
-    let held: Vec<TcpListener> = (0..2)
-        .map(|_| xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0")))
-        .collect();
-    let p: Vec<u16> = held
-        .iter()
-        .map(|l| l.local_addr().unwrap().port())
-        .collect();
-    (squatter, p[0], p[1])
+/// The earlier version released the ports the child had to bind (pick a free
+/// port, drop it, hand it over). On a loaded machine another test's `:0` bind
+/// took one in between, and the native-REST test failed with
+/// "ES-compat: bind ...: Address already in use" (2 of 7 runs at load 10-14).
+fn three_held_ports() -> [TcpListener; 3] {
+    let bind = || xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
+    [bind(), bind(), bind()]
 }
 
-/// Three distinct free ports for the control, which needs every one of them to
-/// still be free when the child starts.
-fn three_free_ports() -> (u16, u16, u16) {
-    let held: Vec<TcpListener> = (0..3)
-        .map(|_| xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0")))
-        .collect();
-    let p: Vec<u16> = held
-        .iter()
-        .map(|l| l.local_addr().unwrap().port())
-        .collect();
-    (p[0], p[1], p[2])
+fn port_of(listener: &TcpListener) -> u16 {
+    listener.local_addr().unwrap().port()
 }
 
 /// TOML-safe rendering of a temp path.
@@ -94,12 +78,19 @@ struct Outcome {
     stderr: String,
 }
 
-/// Spawn the real binary and watch it for `wait` seconds.
+/// Spawn the real binary and watch it until it exits, until two seconds after
+/// `ready` (when given) appears on its stdout, or for at most `wait`.
 ///
-/// Returns as soon as it exits. A binary that is still running when the window
-/// closes is reported as `exited: false` with whatever it has written so far —
-/// the pre-fix behaviour every test here is written against.
-fn run(config_body: &str, dir: &std::path::Path, wait: Duration) -> Outcome {
+/// A binary that is still running when it returns is reported as
+/// `exited: false` with whatever it has written so far — the pre-fix
+/// behaviour every taken-port test here is written against. The pipes are
+/// drained as the child writes, so a chatty child can never block on a full
+/// pipe, and `ready` lets the control return the moment the node has started
+/// instead of after a fixed window that a slow start on a loaded host
+/// overruns (the old 20 s window failed 30 of 30 runs at load 40-60).
+fn run(config_body: &str, dir: &std::path::Path, wait: Duration, ready: Option<&str>) -> Outcome {
+    use std::sync::{Arc, Mutex};
+
     let config_path = dir.join("xerj.toml");
     std::fs::write(&config_path, config_body).unwrap();
 
@@ -112,54 +103,59 @@ fn run(config_body: &str, dir: &std::path::Path, wait: Duration) -> Outcome {
         .spawn()
         .expect("spawn xerj");
 
-    let deadline = Instant::now() + wait;
+    fn drain(
+        mut pipe: impl Read + Send + 'static,
+    ) -> (Arc<Mutex<String>>, std::thread::JoinHandle<()>) {
+        let text = Arc::new(Mutex::new(String::new()));
+        let sink = Arc::clone(&text);
+        let reader = std::thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            while let Ok(n) = pipe.read(&mut buf) {
+                if n == 0 {
+                    break;
+                }
+                sink.lock()
+                    .unwrap()
+                    .push_str(&String::from_utf8_lossy(&buf[..n]));
+            }
+        });
+        (text, reader)
+    }
+    let (stdout, out_reader) = drain(child.stdout.take().expect("stdout piped"));
+    let (stderr, err_reader) = drain(child.stderr.take().expect("stderr piped"));
+
+    let mut deadline = Instant::now() + wait;
+    let mut started = false;
     let mut exited = false;
     let mut success = false;
     loop {
-        match child.try_wait().expect("poll child") {
-            Some(status) => {
-                exited = true;
-                success = status.success();
-                break;
-            }
-            None if Instant::now() > deadline => {
-                // Read the pipes BEFORE killing: the child holds the write
-                // ends, and on a kill we still want everything it printed.
-                break;
-            }
-            None => std::thread::sleep(Duration::from_millis(100)),
+        if let Some(status) = child.try_wait().expect("poll child") {
+            exited = true;
+            success = status.success();
+            break;
         }
+        if !started && ready.is_some_and(|needle| stdout.lock().unwrap().contains(needle)) {
+            // Started. Keep watching a moment so a node that dies right
+            // after its banner is still caught; a healthy one never exits,
+            // so this window cannot fail on a slow host.
+            started = true;
+            deadline = Instant::now() + Duration::from_secs(2);
+        }
+        if Instant::now() > deadline {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
     }
-
-    let mut stdout = String::new();
-    let mut stderr = String::new();
-    if exited {
-        child
-            .stdout
-            .take()
-            .expect("stdout piped")
-            .read_to_string(&mut stdout)
-            .expect("read child stdout");
-        child
-            .stderr
-            .take()
-            .expect("stderr piped")
-            .read_to_string(&mut stderr)
-            .expect("read child stderr");
-    } else {
+    if !exited {
         child.kill().ok();
         child.wait().ok();
-        // The pipes are drained after the kill so `read_to_string` sees EOF.
-        child
-            .stdout
-            .take()
-            .map(|mut s| s.read_to_string(&mut stdout));
-        child
-            .stderr
-            .take()
-            .map(|mut s| s.read_to_string(&mut stderr));
     }
+    // The child is gone, so both pipes reach EOF and the readers end.
+    out_reader.join().ok();
+    err_reader.join().ok();
 
+    let stdout = stdout.lock().unwrap().clone();
+    let stderr = stderr.lock().unwrap().clone();
     Outcome {
         exited,
         success,
@@ -174,14 +170,16 @@ fn run(config_body: &str, dir: &std::path::Path, wait: Duration) -> Outcome {
 fn a_taken_es_compat_port_ends_the_process() {
     let dir = tempfile::tempdir().unwrap();
     // A foreign process — in the field, another XERJ node, a Docker publish,
-    // or a real Elasticsearch — already holds it, for the whole test.
-    let (squatter, rest, grpc) = squatter_and_two_free_ports();
-    let es = squatter.local_addr().unwrap().port();
+    // or a real Elasticsearch — already holds it, for the whole test. ES-compat
+    // is bound first, so REST and gRPC are never reached and stay held too.
+    let held = three_held_ports();
+    let (es, rest, grpc) = (port_of(&held[0]), port_of(&held[1]), port_of(&held[2]));
 
     let out = run(
         &config_for(dir.path(), rest, grpc, es),
         dir.path(),
         Duration::from_secs(60),
+        None,
     );
 
     assert!(
@@ -216,7 +214,7 @@ fn a_taken_es_compat_port_ends_the_process() {
         out.stderr
     );
 
-    drop(squatter);
+    drop(held);
 }
 
 /// #1723 / #1738: the field reports hit a taken *native REST* port (8080), and
@@ -227,13 +225,17 @@ fn a_taken_es_compat_port_ends_the_process() {
 #[test]
 fn a_taken_native_rest_port_says_how_to_move_it() {
     let dir = tempfile::tempdir().unwrap();
-    let (squatter, es, grpc) = squatter_and_two_free_ports();
-    let rest = squatter.local_addr().unwrap().port();
+    // ES-compat is bound before native REST and must succeed: port 0 has the
+    // kernel assign it at the child's own bind, so no other process can hold
+    // it first. gRPC comes after native REST and is never reached.
+    let held = three_held_ports();
+    let (es, rest, grpc) = (0, port_of(&held[0]), port_of(&held[1]));
 
     let out = run(
         &config_for(dir.path(), rest, grpc, es),
         dir.path(),
         Duration::from_secs(60),
+        None,
     );
 
     assert!(
@@ -255,7 +257,7 @@ fn a_taken_native_rest_port_says_how_to_move_it() {
         );
     }
 
-    drop(squatter);
+    drop(held);
 }
 
 /// The banner is the lie the user acts on, so it gets its own assertion:
@@ -263,13 +265,14 @@ fn a_taken_native_rest_port_says_how_to_move_it() {
 #[test]
 fn no_success_banner_is_printed_when_a_port_is_taken() {
     let dir = tempfile::tempdir().unwrap();
-    let (squatter, rest, grpc) = squatter_and_two_free_ports();
-    let es = squatter.local_addr().unwrap().port();
+    let held = three_held_ports();
+    let (es, rest, grpc) = (port_of(&held[0]), port_of(&held[1]), port_of(&held[2]));
 
     let out = run(
         &config_for(dir.path(), rest, grpc, es),
         dir.path(),
         Duration::from_secs(60),
+        None,
     );
 
     for claim in ["Started in", "Xerj Console UI", "Data dir"] {
@@ -288,29 +291,34 @@ fn no_success_banner_is_printed_when_a_port_is_taken() {
         out.stdout
     );
 
-    drop(squatter);
+    drop(held);
 }
 
 /// Control. With every port free the same invocation must start and stay up —
 /// otherwise the two assertions above would pass against a binary that simply
 /// never starts, which is not the fix.
 ///
-/// Retried, unlike the other two: the three ports have to be released before
-/// the child can bind them, so on a busy machine an unrelated process can take
-/// one in between and the node would then be *correctly* refusing to start.
-/// Three losses in a row is not that race any more.
+/// The only test here that must release ports for the child, so they come
+/// from below the ephemeral range, where no other test's `:0` bind or
+/// `connect()` can take one in between (`free_port_triple`). Still retried:
+/// an explicit bind by an unrelated process would make the node *correctly*
+/// refuse to start, and three losses in a row is not that race any more.
 #[test]
 fn with_the_ports_free_it_starts_and_stays_up() {
     let dir = tempfile::tempdir().unwrap();
     let mut out = None;
     let mut es = 0;
     for _ in 0..3 {
-        let (rest, grpc, port) = three_free_ports();
+        let port = xerj_common::loopback_test::free_port_triple().release();
+        let (rest, grpc) = (port + 1, port + 2);
         es = port;
         let attempt = run(
             &config_for(dir.path(), rest, grpc, es),
             dir.path(),
-            Duration::from_secs(20),
+            // A hang guard, not a budget: `ready` ends the wait once the
+            // node has started.
+            Duration::from_secs(300),
+            Some("Started in"),
         );
         let lost_a_port = attempt.exited && attempt.stderr.contains("Address already in use");
         out = Some(attempt);
