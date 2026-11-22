@@ -121,6 +121,31 @@ async fn an_msearch_path_index_counts_as_naming_one() {
     assert_refused("/test/_msearch", status, &got, 1);
 }
 
+/// ES reads a header's `indices` key the same as `index`.
+#[tokio::test]
+async fn an_msearch_header_indices_key_names_an_index() {
+    let (app, _dir, id) = seeded().await;
+    let body = format!("{{\"indices\":[\"test\"]}}\n{{\"pit\":{{\"id\":\"{id}\"}}}}\n");
+    let (status, got) = send(&app, "/_msearch", "application/x-ndjson", &body).await;
+    assert_refused("/_msearch", status, &got, 1);
+}
+
+/// A header `index` replaces the path index, and an empty one names
+/// nothing, so the PIT item runs over the PIT's indices.
+#[tokio::test]
+async fn an_empty_header_index_overrides_the_path_index() {
+    let (app, _dir, id) = seeded().await;
+    for header in ["{\"index\":[]}", "{\"index\":\"\"}"] {
+        let body = format!("{header}\n{{\"pit\":{{\"id\":\"{id}\"}}}}\n");
+        let (status, got) = send(&app, "/test/_msearch", "application/x-ndjson", &body).await;
+        assert_eq!(status, StatusCode::OK, "{header}: {got}");
+        assert_eq!(
+            got["responses"][0]["hits"]["total"]["value"], 4,
+            "{header}: {got}"
+        );
+    }
+}
+
 /// `POST /{index}/_search` with a PIT is refused the same way.
 #[tokio::test]
 async fn a_search_whose_path_names_an_index_is_refused() {
