@@ -126,7 +126,6 @@ use axum::response::{IntoResponse, Response};
 use axum::Router;
 use axum_server::tls_rustls::RustlsConfig;
 use tokio::net::TcpListener;
-use tokio::signal;
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -173,6 +172,7 @@ mod grpc;
 mod grpc_hub;
 mod ingest_memory_trace;
 mod share;
+mod shutdown;
 mod startup_data_dir;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -194,6 +194,7 @@ struct CliArgs {
     compat_version: Option<String>,
     decide_mode: Option<String>,
     decide_model_dir: Option<String>,
+    shutdown_timeout: Option<String>,
 }
 
 /// Subcommands dispatched before the server-flag parser. A flag written
@@ -277,6 +278,7 @@ where
     let mut compat_version = None;
     let mut decide_mode = None;
     let mut decide_model_dir = None;
+    let mut shutdown_timeout = None;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -310,6 +312,11 @@ where
             "--compat-version" => compat_version = Some(flag_value(&arg, args.next())?),
             "--decide-mode" => decide_mode = Some(flag_value(&arg, args.next())?),
             "--decide-model-dir" => decide_model_dir = Some(flag_value(&arg, args.next())?),
+            "--shutdown-timeout" => {
+                let v = flag_value(&arg, args.next())?;
+                shutdown::parse_timeout_secs(&v).map_err(|e| format!("{arg}: {e}"))?;
+                shutdown_timeout = Some(v);
+            }
             // Read out of band by `xerj_common::feedback` (which scans the
             // whole argument list, so its position never matters); accepted
             // here only so it is not an "unknown argument".
@@ -346,6 +353,7 @@ where
         compat_version,
         decide_mode,
         decide_model_dir,
+        shutdown_timeout,
     })
 }
 
@@ -493,6 +501,9 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20process, use <data-dir>-2, -3, ... The banner prints the\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20ports actually bound. Off by default. Env: XERJ_AUTO_PORT\n\
          \x20\x20\x20\x20--no-auto-port         Fail at startup if a port is taken (the default).\n\
+         \x20\x20\x20\x20--shutdown-timeout <SECS>  Most seconds from the first SIGINT/SIGTERM to exit\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(1..3600, default 30). A second signal exits at once.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Both fsync the WAL first. Env: XERJ_SHUTDOWN_TIMEOUT_SECS\n\
          \x20\x20\x20\x20--disable-feedback     Do not print the feedback invitation above. Honoured in any\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20position, including after --help. Env:\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20XERJ_DISABLE_FEEDBACK=true\n\
@@ -555,6 +566,7 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20XERJ_DISABLE_FEEDBACK  true/false — same as --disable-feedback, for callers that\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20cannot change the command line (CI, containers, agents)\n\
          \x20\x20\x20\x20XERJ_CONFIG      Config file path\n\
+         \x20\x20\x20\x20XERJ_SHUTDOWN_TIMEOUT_SECS  same as --shutdown-timeout (default 30)\n\
          \x20\x20\x20\x20XERJ_EMBED_MODE  Embedding backend (lexical|neural|proxy|auto|onnx-experimental)\n\
          \x20\x20\x20\x20XERJ_ONNX_MODEL  FP32 ONNX model path\n\
          \x20\x20\x20\x20XERJ_ONNX_TOKENIZER matching tokenizer.json path\n\
@@ -1407,38 +1419,6 @@ fn init_tracing(logging: &xerj_common::config::LoggingConfig) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Graceful shutdown
-// ─────────────────────────────────────────────────────────────────────────────
-
-async fn shutdown_signal() {
-    let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
-    };
-
-    #[cfg(unix)]
-    let sigterm = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("failed to install SIGTERM handler")
-            .recv()
-            .await;
-    };
-
-    #[cfg(not(unix))]
-    let sigterm = std::future::pending::<()>();
-
-    // Awaited once, from `async_main`. The listeners wait on `ShutdownPhase`
-    // instead, so they do not close their ports before the final flush. Log
-    // the banner only once.
-    static SHUTDOWN_LOGGED: std::sync::Once = std::sync::Once::new();
-    tokio::select! {
-        _ = ctrl_c  => { SHUTDOWN_LOGGED.call_once(|| info!("SIGINT received — shutting down")); }
-        _ = sigterm => { SHUTDOWN_LOGGED.call_once(|| info!("SIGTERM received — shutting down")); }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Periodic background flush
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2158,7 +2138,7 @@ async fn serve_on(
             // signal itself is what let a concurrent wipe remove segments the
             // flush was still writing.
             wait_for_phase(release, |phase| phase == ShutdownPhase::Released).await;
-            shutdown_handle.graceful_shutdown(Some(std::time::Duration::from_secs(10)));
+            shutdown_handle.graceful_shutdown(Some(shutdown::listener_grace()));
         });
 
         info!("{name} listening on {addr} (TLS)");
@@ -2190,7 +2170,7 @@ async fn serve_on(
     // never drains, so shutdown would hang the process until SIGKILL.
     // Mirror the TLS path's 10 s grace: once the flush releases the port,
     // give drainers 10 s, then force the listener down.
-    let (drain_tx, drain_rx) = tokio::sync::oneshot::channel::<()>();
+    let (drain_tx, drain_rx) = tokio::sync::oneshot::channel::<std::time::Duration>();
     let serve = axum::serve(
         listener,
         router.into_make_service_with_connect_info::<SocketAddr>(),
@@ -2198,7 +2178,7 @@ async fn serve_on(
     .tcp_nodelay(true)
     .with_graceful_shutdown(async move {
         wait_for_phase(release, |phase| phase == ShutdownPhase::Released).await;
-        let _ = drain_tx.send(());
+        let _ = drain_tx.send(shutdown::listener_grace());
     });
     // `with_graceful_shutdown` yields an `IntoFuture`, not a `Future`; the
     // select arm polls `&mut serve`, so turn it into a concrete future first.
@@ -2206,11 +2186,12 @@ async fn serve_on(
     tokio::pin!(serve);
     tokio::select! {
         r = &mut serve => r.with_context(|| format!("{name} serve error"))?,
-        _ = async {
-            let _ = drain_rx.await;
-            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+        grace = async {
+            let grace = drain_rx.await.unwrap_or(std::time::Duration::from_secs(10));
+            tokio::time::sleep(grace).await;
+            grace
         } => {
-            warn!("{name}: in-flight connections did not drain within 10s of the shutdown flush; forcing shutdown");
+            warn!("{name}: in-flight connections did not drain within {grace:.1?} of the shutdown flush; forcing shutdown");
         }
     }
 
@@ -2757,6 +2738,7 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
         // play; the fields exist only because CliArgs is shared.
         decide_mode: None,
         decide_model_dir: None,
+        shutdown_timeout: None,
     };
     let mut cfg = load_config(&fake_cli)?;
     // Tracing after config so the [logging] format applies (RC4-W4 item 6).
@@ -3666,6 +3648,9 @@ fn main() -> Result<()> {
         &std::env::args().skip(1).collect::<Vec<_>>(),
         is_top_level_command,
     ));
+    if !xerj_common::argv::subcommand().is_some_and(|c| is_top_level_command(&c)) {
+        shutdown::restore_default_dispositions();
+    }
 
     // The isolated legacy-`.xls` BIFF reader. calamine 0.26.1 panics on crafted
     // records (short `Lbl`/`ExternSheet`) and the release profile is
@@ -3763,12 +3748,9 @@ fn main() -> Result<()> {
     run_to_exit(rt, async_main())
 }
 
-/// How long exit waits for blocking jobs still running after `async_main`
-/// returns ("Goodbye" has been logged and the final flush is done).
-const RUNTIME_SHUTDOWN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
-
 /// Drive the server future to completion, then tear the runtime down without
-/// waiting more than [`RUNTIME_SHUTDOWN_TIMEOUT`] for blocking jobs.
+/// waiting more than [`shutdown::runtime_teardown`] (5 s, less when the
+/// shutdown budget has less left) for blocking jobs.
 ///
 /// Dropping a `Runtime` joins its blocking pool with no time limit. After
 /// SIGTERM the one job left there is usually a background merge, detached by
@@ -3785,7 +3767,7 @@ const RUNTIME_SHUTDOWN_TIMEOUT: std::time::Duration = std::time::Duration::from_
 /// engine is already built to recover from.
 fn run_to_exit<F: std::future::Future>(rt: tokio::runtime::Runtime, fut: F) -> F::Output {
     let out = rt.block_on(fut);
-    rt.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
+    rt.shutdown_timeout(shutdown::runtime_teardown());
     out
 }
 
@@ -4515,6 +4497,25 @@ mod decide_flag_tests {
     }
 
     #[test]
+    fn shutdown_timeout_flag_parses_and_rejects_bad_values() {
+        let args = parse_args_from(argv(&["--shutdown-timeout", "45", "--insecure"])).unwrap();
+        assert_eq!(args.shutdown_timeout.as_deref(), Some("45"));
+        assert!(args.insecure);
+        assert_eq!(parse_args_from(argv(&[])).unwrap().shutdown_timeout, None);
+        for bad in [
+            &["--shutdown-timeout"][..],
+            &["--shutdown-timeout", "0"],
+            &["--shutdown-timeout", "x"],
+        ] {
+            let err = parse_args_from(argv(bad)).expect_err("rejected");
+            assert!(err.contains("--shutdown-timeout"), "{err}");
+        }
+        let help = help_text(false);
+        assert!(help.contains("--shutdown-timeout"), "{help}");
+        assert!(help.contains("XERJ_SHUTDOWN_TIMEOUT_SECS"), "{help}");
+    }
+
+    #[test]
     fn help_documents_both_decide_flags_and_their_env_names() {
         let help = help_text(true);
         assert!(
@@ -5050,6 +5051,18 @@ async fn async_main() -> Result<()> {
 
     // 3. Tracing
     init_tracing(&cfg.logging);
+
+    let shutdown_budget = shutdown::resolve_timeout(
+        args.shutdown_timeout.as_deref(),
+        std::env::var(shutdown::SHUTDOWN_TIMEOUT_ENV)
+            .ok()
+            .as_deref(),
+    )
+    .unwrap_or_else(|e| {
+        eprintln!("error: {e}. Use --help for usage.");
+        std::process::exit(2);
+    });
+    let mut shutdown_request = shutdown::install(shutdown_budget);
 
     info!("xerj v{} starting", env!("CARGO_PKG_VERSION"));
     warn_dormant_overrides(&cfg);
@@ -5903,24 +5916,39 @@ async fn async_main() -> Result<()> {
     // 14. Park until the signal, or until a listener task returns on its own
     // (a transport error). Do not join the HTTP listeners here: they are what
     // keeps the port bound through the flush below.
+    let (mut rest_done, mut es_done, mut grpc_done) = (false, false, false);
     tokio::select! {
-        _ = shutdown_signal() => {}
-        _ = &mut rest => {}
-        _ = &mut es => {}
-        _ = &mut grpc => {}
+        _ = shutdown_request.requested() => {}
+        _ = &mut rest => rest_done = true,
+        _ = &mut es => es_done = true,
+        _ = &mut grpc => grpc_done = true,
     }
 
+    let plan = shutdown::plan().unwrap_or(shutdown::ShutdownPlan {
+        started: std::time::Instant::now(),
+        budget: shutdown_budget,
+    });
     drain.begin();
     // gRPC stops accepting now. HTTP keeps the socket and answers 503.
     let _ = phase_tx.send(ShutdownPhase::Draining);
-    let _ = grpc.await;
+    let in_flight_deadline = tokio::time::Instant::from_std(plan.in_flight_deadline());
+    if !grpc_done
+        && tokio::time::timeout_at(in_flight_deadline, &mut grpc)
+            .await
+            .is_err()
+    {
+        warn!("gRPC calls still open at the in-flight deadline; closing them");
+        grpc.abort();
+    }
 
-    let drain_deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-    while drain.in_flight() > 0 && std::time::Instant::now() < drain_deadline {
+    while drain.in_flight() > 0 && tokio::time::Instant::now() < in_flight_deadline {
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     }
     if drain.in_flight() > 0 {
-        warn!("in-flight HTTP requests did not finish within 10s of shutdown; flushing anyway");
+        warn!(
+            "in-flight HTTP requests did not finish within {:.1?} of shutdown; flushing anyway",
+            plan.in_flight_deadline() - plan.started
+        );
     }
 
     // Stop the periodic flusher BEFORE the final synchronous flush so its
@@ -5957,18 +5985,24 @@ async fn async_main() -> Result<()> {
         // Bounded (#1635): a wedged memtable flush must not re-hang shutdown.
         // Docs live in the WAL and replay on the next boot, so a skipped
         // final flush is non-destructive.
-        let flush_budget = std::time::Duration::from_secs(10);
+        let flush_budget = plan
+            .flush_deadline()
+            .saturating_duration_since(flush_started);
         match tokio::time::timeout(flush_budget, state.engine.flush_all_force()).await {
             Ok(()) => info!("final flush complete in {:.0?}", flush_started.elapsed()),
             Err(_) => warn!(
-                "final flush exceeded {flush_budget:?}; exiting anyway (WAL replays on next boot)"
+                "final flush exceeded {flush_budget:.1?}; exiting anyway (WAL replays on next boot)"
             ),
         }
     }
 
     let _ = phase_tx.send(ShutdownPhase::Released);
-    let _ = rest.await;
-    let _ = es.await;
+    if !rest_done {
+        let _ = rest.await;
+    }
+    if !es_done {
+        let _ = es.await;
+    }
 
     info!("xerj v{} stopped. Goodbye.", env!("CARGO_PKG_VERSION"));
     Ok(())

@@ -346,6 +346,80 @@ impl WalFsyncScheduler {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct SyncNowReport {
+    pub synced: usize,
+    pub left: usize,
+}
+
+/// Drain and fsync every shard waiting for its batched fsync now, on the
+/// calling thread, for a process about to `_exit` (#3418). Starts no fsync
+/// after `deadline`; unfinished shards stay queued.
+pub fn sync_pending_now(deadline: Instant) -> SyncNowReport {
+    let sched = scheduler();
+    let pending: Vec<Entry> = {
+        let mut st = sched.lock_state();
+        std::mem::take(&mut st.queue).into_vec()
+    };
+    let mut report = SyncNowReport::default();
+    let mut requeue = Vec::new();
+    for entry in pending {
+        if Instant::now() >= deadline {
+            requeue.push(entry);
+            continue;
+        }
+        let Some(shard) = entry.handle.target.upgrade() else {
+            continue;
+        };
+        let mut guard = loop {
+            match shard.try_lock() {
+                Ok(g) => break Some(g),
+                Err(std::sync::TryLockError::Poisoned(p)) => break Some(p.into_inner()),
+                Err(std::sync::TryLockError::WouldBlock) => {
+                    if Instant::now() >= deadline {
+                        break None;
+                    }
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            }
+        };
+        let Some(writer) = guard.as_mut() else {
+            requeue.push(entry);
+            continue;
+        };
+        entry.handle.armed.store(false, Ordering::Release);
+        let prepared = writer.begin_unlocked_sync();
+        drop(guard);
+        let result = match prepared {
+            Ok(None) => Ok(()),
+            Ok(Some(file)) => file.sync_all().map_err(crate::StorageError::from),
+            Err(e) => Err(e),
+        };
+        match result {
+            Ok(()) => {
+                sched.synced.fetch_add(1, Ordering::Relaxed);
+                report.synced += 1;
+            }
+            Err(e) => {
+                warn!("WAL fsync before exit failed: {e}");
+                shard
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .mark_unsynced();
+                report.left += 1;
+            }
+        }
+    }
+    report.left += requeue.len();
+    if !requeue.is_empty() {
+        let mut st = sched.lock_state();
+        st.queue.extend(requeue);
+        drop(st);
+        sched.wake.notify_all();
+    }
+    report
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -422,6 +496,67 @@ mod tests {
             !shard.lock().unwrap().is_dirty(),
             "batched write was never fsynced"
         );
+    }
+
+    static SYNC_NOW_TESTS: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn sync_pending_now_fsyncs_before_the_batch_deadline() {
+        let _serial = SYNC_NOW_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("now");
+        std::fs::create_dir_all(&dir).unwrap();
+        let shard = open_writer(&dir, 600_000);
+        shard
+            .lock()
+            .unwrap()
+            .append(&WalEntry::Index {
+                doc_id: "d1".into(),
+                source: serde_json::json!({"a": 1}),
+            })
+            .unwrap();
+        assert!(shard.lock().unwrap().is_dirty());
+        let before = synced_count();
+        let report = sync_pending_now(Instant::now() + Duration::from_secs(5));
+        assert!(report.synced >= 1, "{report:?}");
+        assert!(synced_count() > before);
+        assert!(
+            !shard.lock().unwrap().is_dirty(),
+            "the 10-minute batch window must not delay an exit fsync"
+        );
+    }
+
+    #[test]
+    fn sync_pending_now_skips_a_held_shard_and_keeps_it_queued() {
+        let _serial = SYNC_NOW_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("held");
+        std::fs::create_dir_all(&dir).unwrap();
+        let shard = open_writer(&dir, 600_000);
+        shard
+            .lock()
+            .unwrap()
+            .append(&WalEntry::Index {
+                doc_id: "d1".into(),
+                source: serde_json::json!({"a": 1}),
+            })
+            .unwrap();
+        let guard = shard.lock().unwrap();
+        let t0 = Instant::now();
+        let report =
+            std::thread::spawn(|| sync_pending_now(Instant::now() + Duration::from_millis(200)))
+                .join()
+                .unwrap();
+        assert!(
+            t0.elapsed() < Duration::from_secs(5),
+            "waited on a held shard"
+        );
+        assert!(report.left >= 1, "{report:?}");
+        drop(guard);
+        assert!(shard.lock().unwrap().is_dirty());
+        let report = sync_pending_now(Instant::now() + Duration::from_secs(5));
+        assert!(report.synced >= 1, "{report:?}");
+        assert!(!shard.lock().unwrap().is_dirty());
     }
 
     /// Many dirty shards share the one bounded pool.

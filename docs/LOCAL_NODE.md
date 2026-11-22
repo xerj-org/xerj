@@ -68,6 +68,18 @@ terminal session (SIGSTOP), then hangs it up and kills it (SIGHUP, SIGTERM,
 SIGKILL to its process group). A child started the normal way stops and dies
 with it. The detached child keeps running.
 
+## Stopping it
+
+One SIGINT (Ctrl-C) or SIGTERM starts a graceful stop: new requests get 503,
+in-flight requests and gRPC calls get up to a third of the budget (at most
+10 s), memtables are flushed to segments, then the ports close. The whole
+stop takes at most `--shutdown-timeout` seconds (env
+`XERJ_SHUTDOWN_TIMEOUT_SECS`, default 30, range 1-3600). When the budget runs
+out the node exits anyway. A second signal exits at once. Both forced exits
+fsync the WAL first, so acknowledged writes replay on the next start; the exit
+code is 130 for SIGINT and 143 for SIGTERM. A signal sent while the node is
+still starting is acted on too, also within the budget (#3418).
+
 ## Limits
 
 - **Logout and reboot.** Being detached from a terminal does not protect the
