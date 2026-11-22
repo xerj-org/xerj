@@ -1,0 +1,312 @@
+{
+  "source": "landing/docs/agents/schemas/mcp-tools.json",
+  "serialisation": "compact JSON per tool object, UTF-8",
+  "tokenizers": {
+    "o200k_base": "tiktoken 0.14.0 o200k_base",
+    "cl100k_base": "tiktoken 0.14.0 cl100k_base"
+  },
+  "catalogs": {
+    "with_hub_key": {
+      "total": {
+        "tools": 25,
+        "bytes": 68595,
+        "o200k_base": 15863,
+        "cl100k_base": 15857
+      },
+      "per_tool": [
+        {
+          "name": "xerj_def",
+          "bytes": 3610,
+          "o200k_base": 813,
+          "cl100k_base": 818
+        },
+        {
+          "name": "xerj_references",
+          "bytes": 2397,
+          "o200k_base": 565,
+          "cl100k_base": 564
+        },
+        {
+          "name": "xerj_batch_search",
+          "bytes": 3835,
+          "o200k_base": 850,
+          "cl100k_base": 854
+        },
+        {
+          "name": "xerj_search",
+          "bytes": 10642,
+          "o200k_base": 2519,
+          "cl100k_base": 2529
+        },
+        {
+          "name": "xerj_semantic_search",
+          "bytes": 2668,
+          "o200k_base": 600,
+          "cl100k_base": 602
+        },
+        {
+          "name": "xerj_vector_search",
+          "bytes": 2725,
+          "o200k_base": 622,
+          "cl100k_base": 621
+        },
+        {
+          "name": "xerj_hybrid_search",
+          "bytes": 7490,
+          "o200k_base": 1776,
+          "cl100k_base": 1775
+        },
+        {
+          "name": "xerj_memory_store",
+          "bytes": 964,
+          "o200k_base": 211,
+          "cl100k_base": 211
+        },
+        {
+          "name": "xerj_memory_recall",
+          "bytes": 3705,
+          "o200k_base": 859,
+          "cl100k_base": 854
+        },
+        {
+          "name": "xerj_brain_ego",
+          "bytes": 1881,
+          "o200k_base": 450,
+          "cl100k_base": 447
+        },
+        {
+          "name": "xerj_brain_link",
+          "bytes": 1724,
+          "o200k_base": 406,
+          "cl100k_base": 402
+        },
+        {
+          "name": "xerj_brain_unlink",
+          "bytes": 934,
+          "o200k_base": 209,
+          "cl100k_base": 210
+        },
+        {
+          "name": "xerj_brain_overview",
+          "bytes": 886,
+          "o200k_base": 203,
+          "cl100k_base": 204
+        },
+        {
+          "name": "xerj_map",
+          "bytes": 3457,
+          "o200k_base": 807,
+          "cl100k_base": 813
+        },
+        {
+          "name": "xerj_index_budget",
+          "bytes": 1859,
+          "o200k_base": 410,
+          "cl100k_base": 414
+        },
+        {
+          "name": "xerj_autoindex_remove",
+          "bytes": 1721,
+          "o200k_base": 379,
+          "cl100k_base": 382
+        },
+        {
+          "name": "xerj_status",
+          "bytes": 722,
+          "o200k_base": 153,
+          "cl100k_base": 155
+        },
+        {
+          "name": "xerj_sources",
+          "bytes": 2519,
+          "o200k_base": 558,
+          "cl100k_base": 552
+        },
+        {
+          "name": "xerj_code_search",
+          "bytes": 3412,
+          "o200k_base": 783,
+          "cl100k_base": 778
+        },
+        {
+          "name": "xerj_plan",
+          "bytes": 1680,
+          "o200k_base": 388,
+          "cl100k_base": 390
+        },
+        {
+          "name": "xerj_field_report",
+          "bytes": 2551,
+          "o200k_base": 607,
+          "cl100k_base": 612
+        },
+        {
+          "name": "xerj_corpus_feedback",
+          "bytes": 2753,
+          "o200k_base": 668,
+          "cl100k_base": 667
+        },
+        {
+          "name": "xerj_hub_find",
+          "bytes": 1230,
+          "o200k_base": 279,
+          "cl100k_base": 283
+        },
+        {
+          "name": "xerj_hub_def",
+          "bytes": 1340,
+          "o200k_base": 317,
+          "cl100k_base": 315
+        },
+        {
+          "name": "xerj_hub_ask",
+          "bytes": 1864,
+          "o200k_base": 430,
+          "cl100k_base": 425
+        }
+      ]
+    },
+    "no_hub_key": {
+      "total": {
+        "tools": 22,
+        "bytes": 64158,
+        "o200k_base": 14837,
+        "cl100k_base": 14837
+      },
+      "per_tool": [
+        {
+          "name": "xerj_def",
+          "bytes": 3610,
+          "o200k_base": 813,
+          "cl100k_base": 818
+        },
+        {
+          "name": "xerj_references",
+          "bytes": 2397,
+          "o200k_base": 565,
+          "cl100k_base": 564
+        },
+        {
+          "name": "xerj_batch_search",
+          "bytes": 3835,
+          "o200k_base": 850,
+          "cl100k_base": 854
+        },
+        {
+          "name": "xerj_search",
+          "bytes": 10642,
+          "o200k_base": 2519,
+          "cl100k_base": 2529
+        },
+        {
+          "name": "xerj_semantic_search",
+          "bytes": 2668,
+          "o200k_base": 600,
+          "cl100k_base": 602
+        },
+        {
+          "name": "xerj_vector_search",
+          "bytes": 2725,
+          "o200k_base": 622,
+          "cl100k_base": 621
+        },
+        {
+          "name": "xerj_hybrid_search",
+          "bytes": 7490,
+          "o200k_base": 1776,
+          "cl100k_base": 1775
+        },
+        {
+          "name": "xerj_memory_store",
+          "bytes": 964,
+          "o200k_base": 211,
+          "cl100k_base": 211
+        },
+        {
+          "name": "xerj_memory_recall",
+          "bytes": 3705,
+          "o200k_base": 859,
+          "cl100k_base": 854
+        },
+        {
+          "name": "xerj_brain_ego",
+          "bytes": 1881,
+          "o200k_base": 450,
+          "cl100k_base": 447
+        },
+        {
+          "name": "xerj_brain_link",
+          "bytes": 1724,
+          "o200k_base": 406,
+          "cl100k_base": 402
+        },
+        {
+          "name": "xerj_brain_unlink",
+          "bytes": 934,
+          "o200k_base": 209,
+          "cl100k_base": 210
+        },
+        {
+          "name": "xerj_brain_overview",
+          "bytes": 886,
+          "o200k_base": 203,
+          "cl100k_base": 204
+        },
+        {
+          "name": "xerj_map",
+          "bytes": 3457,
+          "o200k_base": 807,
+          "cl100k_base": 813
+        },
+        {
+          "name": "xerj_index_budget",
+          "bytes": 1859,
+          "o200k_base": 410,
+          "cl100k_base": 414
+        },
+        {
+          "name": "xerj_autoindex_remove",
+          "bytes": 1721,
+          "o200k_base": 379,
+          "cl100k_base": 382
+        },
+        {
+          "name": "xerj_status",
+          "bytes": 722,
+          "o200k_base": 153,
+          "cl100k_base": 155
+        },
+        {
+          "name": "xerj_sources",
+          "bytes": 2519,
+          "o200k_base": 558,
+          "cl100k_base": 552
+        },
+        {
+          "name": "xerj_code_search",
+          "bytes": 3412,
+          "o200k_base": 783,
+          "cl100k_base": 778
+        },
+        {
+          "name": "xerj_plan",
+          "bytes": 1680,
+          "o200k_base": 388,
+          "cl100k_base": 390
+        },
+        {
+          "name": "xerj_field_report",
+          "bytes": 2551,
+          "o200k_base": 607,
+          "cl100k_base": 612
+        },
+        {
+          "name": "xerj_corpus_feedback",
+          "bytes": 2753,
+          "o200k_base": 668,
+          "cl100k_base": 667
+        }
+      ]
+    }
+  }
+}

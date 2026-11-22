@@ -148,6 +148,14 @@ any engine setting.
 honest report states the corpus composition next to the ratio. The gate in
 `demo/agent-gate/` refuses to print a ratio without it.
 
+## The fixed cost: the MCP tool list
+
+Before the first call, an MCP client loads XERJ's whole `tools/list` answer
+into context: 68,595 bytes for the 25 tools served with a hub key, about
+15.9k tokens (tiktoken `o200k_base`; Claude's tokenizer is not public, so
+this is an estimate). It is paid once per session. Method, per-tool table and
+the drift test: [`benchmarks/mcp-catalog-size/`](../benchmarks/mcp-catalog-size/README.md).
+
 ## What to measure, and how (for this and future playbooks)
 
 The rules below are enforced in code by `demo/agent-gate/gate.py`. Reuse them
