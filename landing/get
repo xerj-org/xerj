@@ -352,10 +352,35 @@ mkdir -p "$dir" 2>/dev/null || die "cannot create install dir: $dir"
 # copy that Ctrl-C or ENOSPC could otherwise tear mid-write).
 dest="${dir}/${bin}"
 tmpdest="${dir}/.${bin}.tmp.$$"
-if cp "$src" "$tmpdest" && mv -f "$tmpdest" "$dest"; then
+# On Git Bash / MSYS / Cygwin an MCP client keeps `xerj mcp` running, and
+# Windows refuses to overwrite a running xerj.exe; it does allow renaming it
+# (#3379). A replace that failed that way left xerj.exe.old-* files; remove
+# the ones nothing holds any more.
+if [ "$bin" = "xerj.exe" ]; then
+  for old in "${dir}/${bin}".old-*; do
+    if [ -e "$old" ]; then rm -f "$old" 2>/dev/null || true; fi
+  done
+fi
+if [ -f "$dest" ] && cmp -s "$src" "$dest"; then
+  ok "already up to date: ${BOLD}${dest}${RST} is the verified ${tag} binary, nothing to replace"
+elif cp "$src" "$tmpdest" && mv -f "$tmpdest" "$dest" 2>/dev/null; then
   ok "installed ${BOLD}${dest}${RST}"
+elif [ "$bin" = "xerj.exe" ] && [ -f "$tmpdest" ] && [ -f "$dest" ] \
+  && aside="${dest}.old-$$" && mv -f "$dest" "$aside" 2>/dev/null; then
+  if mv -f "$tmpdest" "$dest"; then
+    ok "installed ${BOLD}${dest}${RST}"
+    say "  xerj.exe was running (an MCP client keeps 'xerj mcp' alive). It keeps the old version until it exits:"
+    say "  restart your MCP client (or the running xerj) to use ${tag}. The old file is removed on the next install run."
+  else
+    mv -f "$aside" "$dest" 2>/dev/null
+    rm -f "$tmpdest"
+    die "failed to install to $dest"
+  fi
 else
   rm -f "$tmpdest"
+  if [ "$bin" = "xerj.exe" ]; then
+    die "failed to install to $dest — if xerj is running, stop it (taskkill //IM xerj.exe //F) and re-run this installer"
+  fi
   die "failed to install to $dest"
 fi
 
