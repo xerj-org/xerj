@@ -1442,6 +1442,8 @@ fn config_in(home: &Path, args: &[String]) -> i32 {
 
 const ASK_USAGE: &str = "usage: xerj ask \"<question>\" [options]
        xerj \"<question>\"            (the same, when the question contains a space)
+       xerj ask <folder> \"<question>\" index a local folder, then answer from it
+                                     (xerj ask ./notes --help for its options)
 
 Answers from a hub corpus - pulling its pre-indexed pack the first time - and
 always names the corpus, the pinned revision and the licence.
