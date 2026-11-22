@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on educational, library-management, open-source queries this for how dtr-kalfer/burauenbiblio implements it: Modified Openbiblio to support PHP8.3.36 with added features (selected work: catalog)",
+ "domain": "an agent working on educational, library-management, open-source queries this for how dtr-kalfer/burauenbiblio implements it: Modified Openbiblio to support PHP8.3.37 with added features (selected work: catalog)",
  "repos": [
   {
    "repo": "burauenbiblio",

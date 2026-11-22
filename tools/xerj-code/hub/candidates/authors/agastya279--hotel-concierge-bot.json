@@ -1,0 +1,23 @@
+{
+ "corpus": "agastya279--hotel-concierge-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, chatbot, chatbot-api queries this for how agastya279/Hotel-Concierge-Bot implements it: A full-stack AI concierge for SEED Resort. Guests can ask Aria for help in a polished, streaming chat experience\u2014without an account\u2014or sign ",
+ "repos": [
+  {
+   "repo": "Hotel-Concierge-Bot",
+   "url": "https://github.com/agastya279/Hotel-Concierge-Bot",
+   "sha": "95ee8b528b1dfaac2031aab9819f88b092dda5b9",
+   "licence": "author's permission (LICENSE at pin 95ee8b528b1d: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-22T09:34Z",
+    "consent_receipt": "5ee108a2724e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-22T09:34Z (receipt 5ee108a2724e); pinned to the default-branch head. LICENSE at pin 95ee8b528b1d: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}
