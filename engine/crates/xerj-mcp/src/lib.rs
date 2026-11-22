@@ -141,8 +141,10 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// How to start the node `xerj mcp` proxies to. The flags are the local-dev
 /// start in llms.txt ("Start here", step 1), the README, and the `xerj mcp`
-/// CLI reference. Printed when a loopback node cannot be auto-started (#3267).
-const START_LOCAL_NODE: &str = "xerj --insecure --data-dir ~/xerj-data";
+/// CLI reference, plus `--detach`: an agent runs this from a tool call, and a
+/// foreground node dies with that call's shell (#3267). Printed when a
+/// loopback node cannot be auto-started.
+const START_LOCAL_NODE: &str = "xerj --detach --insecure --data-dir ~/xerj-data";
 
 /// Shared per-process state: the HTTP client + where to proxy to.
 /// The MCP client's `clientInfo` (name, version) from `initialize`: the agent
@@ -4547,7 +4549,7 @@ mod tests {
         );
         assert!(msg.contains("xerj mcp does not start a node"), "{msg}");
         assert!(
-            msg.contains("\n  xerj --insecure --data-dir ~/xerj-data\n"),
+            msg.contains("\n  xerj --detach --insecure --data-dir ~/xerj-data\n"),
             "{msg}"
         );
         assert!(msg.contains("Connection refused (os error 111)"), "{msg}");
@@ -4602,7 +4604,7 @@ mod tests {
             "{text}"
         );
         assert!(
-            text.contains("xerj --insecure --data-dir ~/xerj-data"),
+            text.contains("xerj --detach --insecure --data-dir ~/xerj-data"),
             "{text}"
         );
         assert!(text.contains("xerj mcp does not start a node"), "{text}");
