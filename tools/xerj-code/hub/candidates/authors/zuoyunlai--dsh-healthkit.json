@@ -8,15 +8,15 @@
   {
    "repo": "dsh-healthkit",
    "url": "https://github.com/zuoyunlai/dsh-healthkit",
-   "sha": "2fcaf481f9cf2ca9ace17838311af09ff6bcadc9",
-   "licence": "MIT (LICENSE file at pin 2fcaf481f9cf, GitHub licence API 2026-11-22)",
+   "sha": "e5c3b6c6104134e9183ffa514e350b99421e1304",
+   "licence": "MIT (LICENSE file at pin e5c3b6c61041, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-21T04:34Z",
     "consent_receipt": "87091ac4cc6e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-21T04:34Z (receipt 87091ac4cc6e); pinned to the default-branch head. LICENSE file at pin 2fcaf481f9cf detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-21T04:34Z (receipt 87091ac4cc6e); pinned to the default-branch head. LICENSE file at pin e5c3b6c61041 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
    }
   }
  ]

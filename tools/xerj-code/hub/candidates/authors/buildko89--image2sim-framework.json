@@ -8,15 +8,15 @@
   {
    "repo": "image2sim-framework",
    "url": "https://github.com/buildko89/image2sim-framework",
-   "sha": "c1cfedb0d639263a77e27c1f156327ac4e88a03c",
-   "licence": "MIT (LICENSE file at pin c1cfedb0d639, GitHub licence API 2026-11-21)",
+   "sha": "e5100bda3674fc7e10a727393b7610eb90118c30",
+   "licence": "MIT (LICENSE file at pin e5100bda3674, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-19T16:44Z",
     "consent_receipt": "16975cd7308e",
-    "note": "Inclusion consented by the commit author by email at 2026-11-19T16:44Z (receipt 16975cd7308e); selected commit c1cfedb0d639: \"feat(usd): OpenUSD SSoT \u30d1\u30a4\u30d7\u30e9\u30a4\u30f3\uff08Phase 1\u301c4\uff09\u306e\u5b9f\u88c5\u3068\u30c9\u30ed\u30fc\u30f3\u5b9f\u6a5f\u5f62\u72b6\u6574\u5408\". LICENSE file at pin c1cfedb0d639 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution. Pinned to head c1cfedb0d639 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T16:44Z (receipt 16975cd7308e); selected commit e5100bda3674: \"feat(usd): OpenUSD SSoT \u30d1\u30a4\u30d7\u30e9\u30a4\u30f3\uff08Phase 1\u301c4\uff09\u306e\u5b9f\u88c5\u3068\u30c9\u30ed\u30fc\u30f3\u5b9f\u6a5f\u5f62\u72b6\u6574\u5408\". LICENSE file at pin e5100bda3674 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head e5100bda3674 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
