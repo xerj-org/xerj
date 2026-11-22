@@ -703,29 +703,32 @@ fn boot_server(data_dir: &Path, es_port: u16) -> Result<BootedServer> {
     .with_context(|| format!("write {}", config_path.display()))?;
 
     let log_path = data_dir.join("server.log");
-    let log = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_path)
-        .with_context(|| format!("open {}", log_path.display()))?;
-    let log_err = log.try_clone()?;
+    let open_log = || {
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+    };
+    // Fail on an unopenable log with the path in the message, before spawning.
+    open_log().with_context(|| format!("open {}", log_path.display()))?;
 
     let exe = std::env::current_exe().context("locate the xerj binary")?;
-    let mut command = Command::new(exe);
-    command
-        .arg("--config")
-        .arg(&config_path)
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(log))
-        .stderr(Stdio::from(log_err));
-    // Detach: its own process group, so the server outlives this command and
-    // never receives our Ctrl-C.
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.process_group(0);
-    }
-    let child = command.spawn().context("spawn the xerj server")?;
+    // Detached (#3267): its own session on Unix, a detached process on
+    // Windows, so the server outlives this command and the terminal it ran
+    // in, and never receives our Ctrl-C.
+    let child = xerj_common::localnode::spawn_detached_with(|| {
+        let log = open_log()?;
+        let log_err = log.try_clone()?;
+        let mut command = Command::new(&exe);
+        command
+            .arg("--config")
+            .arg(&config_path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::from(log))
+            .stderr(Stdio::from(log_err));
+        Ok(command)
+    })
+    .context("spawn the xerj server")?;
     let pid = child.id();
     // Best effort — the pid file is a convenience for `kill $(cat …)`.
     let _ =

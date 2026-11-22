@@ -52,6 +52,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Every node a client starts now leads its own session (#3267).** The hub's
+  pack node, background `xerj hub pull`s and the server `xerj brain` boots
+  were only put in their own process group, so they stayed in the
+  terminal's session and could still get SIGHUP (with SIGCONT, once their
+  group was orphaned) when that terminal closed. They now use the same
+  `setsid` spawn as `xerj --detach` and MCP/CLI auto-start: no controlling
+  terminal, stdin closed, output to a log. On Windows they also leave the
+  parent's job when it allows that. When auto-start is off, the MCP
+  "start one with" hint now prints `xerj --detach --insecure --data-dir
+  ~/xerj-data`. A foreground node started from an agent's tool call dies
+  with that call's shell. Flag names are unchanged. The behaviour is
+  written up in [docs/LOCAL_NODE.md](docs/LOCAL_NODE.md).
+
+- **An MCP or CLI call no longer waits 120 s for a node that is shutting
+  down (#3267).** After SIGTERM a node closes its port and then flushes, for
+  ~11 s in one run. An auto-start in that window found `node.lock` held by a
+  live pid and waited for that pid to answer. It never would, so the wait ran
+  the full 120 s and the call failed. The client now starts the node as soon
+  as the old pid exits. A lock holder stopped with SIGSTOP is reported at
+  once with `kill -CONT <pid>`. Unit test: 60.08 s timeout before, 1.5 s
+  after.
+
 - **`profile: true` requests always run fresh again (#3315, #3020).** Since
   #3315 a repeated identical profile request was answered from the
   whole-response cache, with the first run's timings. Profile requests now

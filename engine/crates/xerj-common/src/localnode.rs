@@ -354,21 +354,79 @@ pub fn spawn_detached(
             .append(true)
             .open(log)
     };
-    let command = |out: std::fs::File, err: std::fs::File| {
+    spawn_detached_with(|| {
+        let out = open_log()?;
+        let err = out.try_clone()?;
         let mut cmd = Command::new(exe);
         cmd.args(args)
             .current_dir(cwd)
             .stdin(Stdio::null())
             .stdout(Stdio::from(out))
             .stderr(Stdio::from(err));
-        cmd
-    };
+        Ok(cmd)
+    })
+}
+
+/// Spawn the command `make` builds, detached the same way as
+/// [`spawn_detached`], for a caller that sets up its own arguments, stdio and
+/// environment (the hub's node and background pulls, `xerj brain`'s server).
+///
+/// `make` may be called twice: on Windows a job that forbids breakaway
+/// refuses the first spawn, and the retry needs fresh stdio handles. The
+/// caller is responsible for not leaving stdin attached to a terminal
+/// (`Stdio::null()`) and for sending output somewhere that outlives it.
+pub fn spawn_detached_with(
+    mut make: impl FnMut() -> std::io::Result<Command>,
+) -> std::io::Result<Child> {
+    let mut cmd = make()?;
+    detach(&mut cmd, true);
+    #[cfg(windows)]
+    {
+        match cmd.spawn() {
+            Ok(child) => Ok(child),
+            Err(_) => {
+                let mut cmd = make()?;
+                detach(&mut cmd, false);
+                cmd.spawn()
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        cmd.spawn()
+    }
+}
+
+/// Windows creation flags for a detached node: no console, its own process
+/// group (so a console Ctrl-C/Ctrl-Break does not reach it), and, when
+/// `breakaway`, out of the parent's job object.
+pub const fn windows_detach_flags(breakaway: bool) -> u32 {
+    const DETACHED_PROCESS: u32 = 0x0000_0008;
+    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+    const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
+    let base = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP;
+    if breakaway {
+        base | CREATE_BREAKAWAY_FROM_JOB
+    } else {
+        base
+    }
+}
+
+/// Mark `cmd` to start detached from this process's terminal and session.
+///
+/// Unix: `setsid()` between fork and exec. The child leads a new session and
+/// a new process group (sid = pgid = its pid) and has no controlling
+/// terminal, so the SIGHUP a closing terminal sends, a shell's `kill -- -pgid`
+/// of its job, and a Ctrl-C or Ctrl-Z in the parent's terminal all miss it.
+/// `process_group(0)` alone is not enough: the child would still be in the
+/// terminal's session and get SIGHUP+SIGCONT when its group is orphaned.
+///
+/// Windows: [`windows_detach_flags`].
+#[allow(unused_variables)]
+pub fn detach(cmd: &mut Command, breakaway: bool) {
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
-        let out = open_log()?;
-        let err = out.try_clone()?;
-        let mut cmd = command(out, err);
         // SAFETY: `setsid` is async-signal-safe and touches no Rust state.
         unsafe {
             cmd.pre_exec(|| {
@@ -378,35 +436,11 @@ pub fn spawn_detached(
                 Ok(())
             });
         }
-        cmd.spawn()
     }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        const DETACHED_PROCESS: u32 = 0x0000_0008;
-        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-        const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
-        let base = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP;
-        let out = open_log()?;
-        let err = out.try_clone()?;
-        let mut cmd = command(out, err);
-        cmd.creation_flags(base | CREATE_BREAKAWAY_FROM_JOB);
-        match cmd.spawn() {
-            Ok(child) => Ok(child),
-            Err(_) => {
-                let out = open_log()?;
-                let err = out.try_clone()?;
-                let mut cmd = command(out, err);
-                cmd.creation_flags(base);
-                cmd.spawn()
-            }
-        }
-    }
-    #[cfg(not(any(unix, windows)))]
-    {
-        let out = open_log()?;
-        let err = out.try_clone()?;
-        command(out, err).spawn()
+        cmd.creation_flags(windows_detach_flags(breakaway));
     }
 }
 
@@ -493,27 +527,33 @@ fn start_for_url_in(
 
     // A live holder of node.lock is a node still opening its indices (or one
     // listening elsewhere). A second node on the same dir would only fail on
-    // the lock, so wait for this one instead.
+    // the lock, so wait for this one instead. A holder that is shutting down
+    // (it closed its port after SIGTERM and is flushing) exits without ever
+    // answering; when it is gone, start the node here instead of waiting out
+    // the whole timeout (#3267: this blocked a session for 120 s).
     if let Some(pid) =
         nodedir::lock_pid(&data_dir).filter(|pid| nodedir::pid_state(*pid) == PidState::Alive)
     {
-        wait_serving(
+        let waited = wait_serving(
             &host,
             port,
             tls,
             None,
+            Some(pid),
             &data_dir,
             &log,
             started_at + timeout,
         )?;
-        return Ok(Started {
-            pid,
-            data_dir,
-            log,
-            port,
-            spawned: false,
-            waited: started_at.elapsed(),
-        });
+        if waited == Waited::Serving {
+            return Ok(Started {
+                pid,
+                data_dir,
+                log,
+                port,
+                spawned: false,
+                waited: started_at.elapsed(),
+            });
+        }
     }
 
     let record = read_launch_record(&data_dir);
@@ -531,12 +571,20 @@ fn start_for_url_in(
         port,
         tls,
         Some(&mut child),
+        None,
         &data_dir,
         &log,
         started_at + timeout,
     );
     reap_in_background(child);
-    waited?;
+    if waited? == Waited::HolderGone {
+        return Err(format!(
+            "the node that started at the same time exited before it answered on port \
+             {port}. Last lines of {}:\n{}",
+            log.display(),
+            log_tail(&log, 20)
+        ));
+    }
     Ok(Started {
         pid,
         data_dir,
@@ -558,37 +606,84 @@ fn reap_in_background(mut child: Child) {
         });
 }
 
-/// Poll until the node serves, the child dies, or the deadline passes.
+/// How [`wait_serving`] ended without an error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Waited {
+    /// The node answers.
+    Serving,
+    /// The process being waited for (not a child of ours) exited without
+    /// answering, and nothing else is starting.
+    HolderGone,
+}
+
+/// `true` when `pid` is stopped (SIGSTOP, or Ctrl-Z in its terminal): it
+/// holds the lock and may hold the port, but answers nothing until resumed.
+#[cfg(target_os = "linux")]
+fn pid_stopped(pid: u32) -> bool {
+    std::fs::read_to_string(format!("/proc/{pid}/stat"))
+        .ok()
+        .and_then(|text| {
+            let rest = text.get(text.rfind(')')? + 2..)?;
+            rest.chars().next()
+        })
+        .is_some_and(|state| state == 'T')
+}
+
+#[cfg(not(target_os = "linux"))]
+fn pid_stopped(_pid: u32) -> bool {
+    false
+}
+
+/// Poll until the node serves, the child dies, the holder dies, or the
+/// deadline passes.
 ///
-/// A child that exits is not the end when another live process holds the
-/// data dir's lock: two clients raced, and the other one's node is the one
-/// that will answer.
+/// `child` is a node this call spawned; `holder` is a live process already
+/// holding the data dir's lock. A child that exits is not the end when
+/// another live process holds the lock: two clients raced, and the other
+/// one's node is the one that will answer, so it becomes the holder. A
+/// holder that exits without answering ends the wait with
+/// [`Waited::HolderGone`]; a stopped holder ends it with an error that says
+/// how to resume it.
+#[allow(clippy::too_many_arguments)]
 fn wait_serving(
     host: &str,
     port: u16,
     tls: bool,
     mut child: Option<&mut Child>,
+    mut holder: Option<u32>,
     data_dir: &Path,
     log: &Path,
     deadline: Instant,
-) -> Result<(), String> {
+) -> Result<Waited, String> {
     loop {
         if node_serving(host, port, tls) {
-            return Ok(());
+            return Ok(Waited::Serving);
         }
         if let Some(c) = child.as_deref_mut() {
             if let Ok(Some(status)) = c.try_wait() {
-                let other_alive = nodedir::lock_pid(data_dir)
-                    .is_some_and(|pid| pid != c.id() && nodedir::pid_state(pid) == PidState::Alive);
-                if !other_alive {
+                let other = nodedir::lock_pid(data_dir)
+                    .filter(|pid| *pid != c.id() && nodedir::pid_state(*pid) == PidState::Alive);
+                let Some(other) = other else {
                     return Err(format!(
                         "the node exited ({status}) before it answered on port {port}. \
                          Last lines of {}:\n{}",
                         log.display(),
                         log_tail(log, 20)
                     ));
-                }
+                };
                 child = None;
+                holder = Some(other);
+            }
+        }
+        if let Some(pid) = holder {
+            if nodedir::pid_state(pid) == PidState::Dead {
+                return Ok(Waited::HolderGone);
+            }
+            if pid_stopped(pid) {
+                return Err(format!(
+                    "the node on this data dir (pid {pid}) is stopped (SIGSTOP or Ctrl-Z in its \
+                     terminal), so it answers nothing. Resume it with: kill -CONT {pid}"
+                ));
             }
         }
         if Instant::now() >= deadline {
@@ -861,6 +956,87 @@ mod tests {
         assert!(err.contains("--port 9283"), "{err}");
     }
 
+    /// A fake `xerj` that fails to boot, so a spawn shows up as an "exited"
+    /// error carrying its arguments.
+    #[cfg(unix)]
+    fn failing_xerj(dir: &Path) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+        let script = dir.join("fake-xerj.sh");
+        std::fs::write(&script, "#!/bin/sh\necho \"boot failed: $*\"\nexit 3\n").unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        script
+    }
+
+    /// #3267 (seen end to end): the node was sent SIGTERM, closed its port,
+    /// and spent ~11 s flushing before it exited. An MCP call in that window
+    /// found the lock held by a live pid, waited for it, and kept waiting
+    /// after it exited: 120 s, then an error. Once the holder is gone the
+    /// node is started here.
+    #[cfg(unix)]
+    #[test]
+    fn a_lock_holder_that_exits_without_answering_is_replaced() {
+        let home = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        pointer(home.path(), 28483, data.path(), 0);
+        let mut holder = Command::new("/bin/sh")
+            .args(["-c", "sleep 1"])
+            .spawn()
+            .unwrap();
+        std::fs::write(data.path().join("node.lock"), holder.id().to_string()).unwrap();
+        let reaper = std::thread::spawn(move || holder.wait());
+        let script = failing_xerj(data.path());
+        let started = Instant::now();
+        let err = start_for_url_in(
+            home.path(),
+            "http://127.0.0.1:28483",
+            &script,
+            Duration::from_secs(60),
+        )
+        .unwrap_err();
+        let took = started.elapsed();
+        reaper.join().unwrap().unwrap();
+        assert!(err.contains("boot failed: --insecure --data-dir"), "{err}");
+        assert!(
+            took < Duration::from_secs(30),
+            "waited {took:?} for a holder that had exited"
+        );
+    }
+
+    /// A lock holder stopped with SIGSTOP answers nothing; the wait ends at
+    /// once with how to resume it instead of running out the timeout.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_stopped_lock_holder_is_reported_not_waited_out() {
+        let home = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        pointer(home.path(), 28484, data.path(), 0);
+        let mut holder = Command::new("/bin/sh")
+            .args(["-c", "exec sleep 60"])
+            .spawn()
+            .unwrap();
+        let pid = holder.id();
+        std::fs::write(data.path().join("node.lock"), pid.to_string()).unwrap();
+        // SAFETY: signalling the child this test spawned.
+        unsafe {
+            libc::kill(pid as i32, libc::SIGSTOP);
+        }
+        assert!(wait_for(|| pid_stopped(pid)));
+        let script = failing_xerj(data.path());
+        let started = Instant::now();
+        let err = start_for_url_in(
+            home.path(),
+            "http://127.0.0.1:28484",
+            &script,
+            Duration::from_secs(60),
+        )
+        .unwrap_err();
+        let took = started.elapsed();
+        let _ = holder.kill();
+        let _ = holder.wait();
+        assert!(err.contains(&format!("kill -CONT {pid}")), "{err}");
+        assert!(took < Duration::from_secs(30), "waited {took:?}");
+    }
+
     /// The detached child is in its own session: no controlling terminal and
     /// not in this process's group, so the group signal a shell or harness
     /// sends when it ends does not reach it.
@@ -888,6 +1064,229 @@ mod tests {
             vec![pid, pid],
             "sid and pgid should be the child's pid: {text}"
         );
+    }
+
+    #[test]
+    fn windows_flags_detach_from_console_group_and_job() {
+        assert_eq!(windows_detach_flags(false), 0x0000_0208);
+        assert_eq!(windows_detach_flags(true), 0x0100_0208);
+    }
+
+    /// `(state, session id, tty_nr)` from `/proc/<pid>/stat`, or `None` once
+    /// the process is gone.
+    #[cfg(target_os = "linux")]
+    fn proc_stat(pid: u32) -> Option<(char, i64, i64)> {
+        let text = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+        let rest = &text[text.rfind(')')? + 2..];
+        let f: Vec<&str> = rest.split_whitespace().collect();
+        Some((
+            f.first()?.chars().next()?,
+            f.get(3)?.parse().ok()?,
+            f.get(4)?.parse().ok()?,
+        ))
+    }
+
+    /// A zombie (exited, waiting for a reaper) counts as gone.
+    #[cfg(target_os = "linux")]
+    fn running(pid: u32) -> bool {
+        proc_stat(pid).is_some_and(|(state, _, _)| state != 'Z' && state != 'X')
+    }
+
+    #[cfg(target_os = "linux")]
+    fn signal_group(pgid: u32, sig: libc::c_int) {
+        // SAFETY: a negative pid signals the process group the test created.
+        unsafe {
+            libc::kill(-(pgid as i32), sig);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    fn wait_for(what: impl Fn() -> bool) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < deadline {
+            if what() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        what()
+    }
+
+    const HELPER_ENV: &str = "XERJ_TEST_DETACH_HELPER_OUT";
+
+    /// Not a test on its own: when [`HELPER_ENV`] is set it plays the agent
+    /// terminal of [`a_detached_child_outlives_its_terminal_session`]. It
+    /// starts one child the normal way and one with [`spawn_detached`],
+    /// writes both PIDs, and blocks until it is killed.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn detach_helper_terminal() {
+        let Ok(out) = std::env::var(HELPER_ENV) else {
+            return;
+        };
+        let out = PathBuf::from(out);
+        let sleep = || vec!["-c".to_string(), "exec sleep 120".to_string()];
+        let mut plain = Command::new("/bin/sh")
+            .args(sleep())
+            .stdin(Stdio::null())
+            .spawn()
+            .unwrap();
+        let mut detached = spawn_detached(
+            Path::new("/bin/sh"),
+            &sleep(),
+            out.parent().unwrap(),
+            &out.with_extension("log"),
+        )
+        .unwrap();
+        let tmp = out.with_extension("tmp");
+        std::fs::write(&tmp, format!("{} {}\n", plain.id(), detached.id())).unwrap();
+        std::fs::rename(&tmp, &out).unwrap();
+        // The test kills this process long before the sleep ends; the waits
+        // only matter if it is run by hand.
+        std::thread::sleep(Duration::from_secs(120));
+        let _ = plain.wait();
+        let _ = detached.kill();
+        let _ = detached.wait();
+    }
+
+    /// #3267: the agent terminal a node was started from is stopped
+    /// (SIGSTOP; SIGTSTP is discarded for this orphaned stand-in group), then
+    /// closed (SIGHUP), then its process group is killed (SIGTERM, SIGKILL),
+    /// the way a shell or an agent harness ends a session. A child
+    /// started the normal way is stopped and then killed with it; the
+    /// detached child is never stopped and keeps running.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_detached_child_outlives_its_terminal_session() {
+        use std::os::unix::process::CommandExt;
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("pids");
+        let mut terminal = Command::new(std::env::current_exe().unwrap());
+        terminal
+            .args([
+                "--exact",
+                "localnode::tests::detach_helper_terminal",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(HELPER_ENV, &out)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null());
+        // The stand-in terminal gets its own session, so the group signals
+        // below reach it and its children, never this test runner.
+        // SAFETY: `setsid` is async-signal-safe.
+        unsafe {
+            terminal.pre_exec(|| {
+                libc::setsid();
+                Ok(())
+            });
+        }
+        let mut terminal = terminal.spawn().unwrap();
+        let session = terminal.id();
+        assert!(
+            wait_for(|| out.is_file()),
+            "the helper never wrote its pids"
+        );
+        let pids: Vec<u32> = std::fs::read_to_string(&out)
+            .unwrap()
+            .split_whitespace()
+            .map(|p| p.parse().unwrap())
+            .collect();
+        let (plain, detached) = (pids[0], pids[1]);
+        // SAFETY: both PIDs are children the helper started for this test.
+        let cleanup = |pid: u32| unsafe {
+            libc::kill(pid as i32, libc::SIGKILL);
+        };
+
+        let (_, plain_sid, _) = proc_stat(plain).unwrap();
+        let (_, detached_sid, detached_tty) = proc_stat(detached).unwrap();
+        assert_eq!(plain_sid, session as i64, "control child is in the session");
+        assert_eq!(
+            detached_sid, detached as i64,
+            "detached child leads its own"
+        );
+        assert_eq!(
+            detached_tty, 0,
+            "detached child has no controlling terminal"
+        );
+
+        signal_group(session, libc::SIGSTOP);
+        assert!(
+            wait_for(|| proc_stat(plain).is_some_and(|(s, _, _)| s == 'T')),
+            "control child should stop with its terminal"
+        );
+        assert!(
+            proc_stat(detached).is_some_and(|(s, _, _)| s != 'T'),
+            "the detached child must not stop with its terminal"
+        );
+
+        for sig in [libc::SIGHUP, libc::SIGCONT, libc::SIGTERM, libc::SIGKILL] {
+            signal_group(session, sig);
+        }
+        let _ = terminal.wait();
+        let plain_gone = wait_for(|| !running(plain));
+        let detached_alive = running(detached);
+        cleanup(plain);
+        cleanup(detached);
+        assert!(plain_gone, "control child should die with its session");
+        assert!(
+            detached_alive,
+            "the detached child must survive its terminal session ending"
+        );
+    }
+
+    /// stdin is `/dev/null` and both output streams are the log: no pipe or
+    /// terminal of the parent is left open in the child (a closed pipe would
+    /// SIGPIPE it, a hung-up terminal would SIGHUP or EIO it).
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_detached_child_holds_no_stdio_of_its_parent() {
+        let dir = tempfile::tempdir().unwrap();
+        let log = dir.path().join("node.log");
+        let mut child = spawn_detached(
+            Path::new("/bin/sh"),
+            &[
+                "-c".into(),
+                "for fd in 0 1 2; do readlink /proc/$$/fd/$fd; done".into(),
+            ],
+            dir.path(),
+            &log,
+        )
+        .unwrap();
+        child.wait().unwrap();
+        let text = std::fs::read_to_string(&log).unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        let log = std::fs::canonicalize(&log).unwrap();
+        let log = log.to_str().unwrap();
+        assert_eq!(lines, vec!["/dev/null", log, log], "{text}");
+    }
+
+    /// A caller that builds its own command gets the same session, and the
+    /// builder is called once on Unix.
+    #[cfg(unix)]
+    #[test]
+    fn spawn_detached_with_starts_a_new_session() {
+        let dir = tempfile::tempdir().unwrap();
+        let log = dir.path().join("out.log");
+        let mut calls = 0;
+        let mut child = spawn_detached_with(|| {
+            calls += 1;
+            let mut cmd = Command::new("/bin/sh");
+            cmd.args(["-c", "ps -o sid= -p $$"])
+                .stdin(Stdio::null())
+                .stdout(Stdio::from(std::fs::File::create(&log)?));
+            Ok(cmd)
+        })
+        .unwrap();
+        let pid = child.id();
+        child.wait().unwrap();
+        assert_eq!(calls, 1);
+        let sid: u32 = std::fs::read_to_string(&log)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        assert_eq!(sid, pid);
     }
 
     #[test]

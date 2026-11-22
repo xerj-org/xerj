@@ -1646,7 +1646,7 @@ mod tests {
             "{text}"
         );
         assert!(
-            text.contains("xerj --insecure --data-dir ~/xerj-data"),
+            text.contains("xerj --detach --insecure --data-dir ~/xerj-data"),
             "{text}"
         );
         assert!(text.contains("xerj mcp does not start a node"), "{text}");
