@@ -40627,47 +40627,68 @@ pub async fn forcemerge(
     // the caller's read phase), then drives merge passes until the segment
     // count converges to the target. Long-running is fine — callers wait;
     // bound each index with a generous 30-minute request timeout.
+    //
+    // #2917 — a dropped client does NOT cancel the merge. That is the
+    // Elasticsearch contract: its force-merge task is not cancellable
+    // (`TransportForceMergeAction` asserts the task is not a
+    // `CancellableTask`) and the REST action does not tie it to the
+    // channel, so the merge continues in the background after a
+    // disconnect and a second `_forcemerge` on the same index waits for it.
+    // The merge used to run inside this handler's future: a disconnect (or
+    // the request timeout) dropped it between batches, leaving any batch
+    // already encoded on the merge pool unpublished. It now runs on its own
+    // task; the handler only waits for it. Memory is bounded inside
+    // `force_merge` (circuit_breaking_exception, 429), not by the client.
     let target = params.max_num_segments.unwrap_or(1);
-    let mut merged_batches_total: usize = 0;
-    let mut segments_total: usize = 0;
-    for (_, idx) in &handles {
-        match tokio::time::timeout(
-            std::time::Duration::from_secs(30 * 60),
-            idx.force_merge(target),
-        )
-        .await
-        {
-            Ok(Ok(total)) => {
-                merged_batches_total += total;
-                segments_total += idx.store_snapshot().segments.len();
-            }
-            Ok(Err(e)) => {
-                return (
-                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": {"type": "force_merge_failed", "reason": e.to_string()}
-                    })),
-                )
-                    .into_response()
-            }
-            Err(_) => {
-                return (
-                    axum::http::StatusCode::SERVICE_UNAVAILABLE,
-                    Json(json!({
-                        "error": {"type": "force_merge_timeout", "reason": "forcemerge did not complete within 30 minutes"}
-                    })),
-                )
-                    .into_response()
-            }
+    let work = tokio::spawn(async move {
+        let mut merged_batches_total: usize = 0;
+        let mut segments_total: usize = 0;
+        for (_, idx) in &handles {
+            let total = idx.force_merge(target).await?;
+            merged_batches_total += total;
+            segments_total += idx.store_snapshot().segments.len();
         }
+        Ok::<_, xerj_engine::EngineError>((handles.len(), merged_batches_total, segments_total))
+    });
+    let deadline = std::time::Duration::from_secs(30 * 60);
+    match tokio::time::timeout(deadline, work).await {
+        Ok(Ok(Ok((n, merged_batches_total, segments_total)))) => {
+            let n = n as u32;
+            Json(json!({
+                "_shards": { "total": n, "successful": n, "failed": 0 },
+                "merged_batches": merged_batches_total,
+                "segments": segments_total,
+            }))
+            .into_response()
+        }
+        Ok(Ok(Err(xerj_engine::EngineError::Common(
+            e @ xerj_common::XerjError::CircuitBreaking { .. },
+        )))) => ApiError::new(e).into_response(),
+        Ok(Ok(Err(e))) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": {"type": "force_merge_failed", "reason": e.to_string()}
+            })),
+        )
+            .into_response(),
+        Ok(Err(join_error)) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": {"type": "force_merge_failed", "reason": join_error.to_string()}
+            })),
+        )
+            .into_response(),
+        Err(_) => (
+            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "error": {
+                    "type": "force_merge_timeout",
+                    "reason": "forcemerge did not complete within 30 minutes; it keeps running in the background"
+                }
+            })),
+        )
+            .into_response(),
     }
-    let n = handles.len() as u32;
-    Json(json!({
-        "_shards": { "total": n, "successful": n, "failed": 0 },
-        "merged_batches": merged_batches_total,
-        "segments": segments_total,
-    }))
-    .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

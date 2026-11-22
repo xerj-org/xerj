@@ -168,8 +168,13 @@ pub fn merge_reservation_bytes(planned_input_bytes: u64, on_disk_bytes: u64) -> 
 /// * `watermark == 0` (breaker off) or `observed_rss == 0` (no probe):
 ///   start.
 /// * No merge in flight anywhere in the process:
-///   * a `forced` merge (`_forcemerge`) starts, engaged or not; it is a
-///     deliberate operator request and it waits on its own;
+///   * a `forced` merge (`_forcemerge`) starts unless the breaker is
+///     engaged (#2917). Its reservation estimate is not checked: on a
+///     vector index it is several times what the batch really allocates,
+///     so checking it would refuse every forcemerge. The cap is held by
+///     the live checks instead ([`forced_merge_must_yield`] and the
+///     output-write check). An engaged breaker is waited out by
+///     `Index::force_merge`, bounded, and then refused with a 429;
 ///   * a background merge does not start while the breaker is engaged;
 ///   * otherwise a background merge starts only if its reservation fits:
 ///     `observed_rss + request` stays under the watermark. This is the
@@ -202,7 +207,7 @@ pub fn decide_merge_admission(
     }
     if in_flight == 0 {
         if forced {
-            return true;
+            return !breaker_engaged;
         }
         if breaker_engaged {
             return false;
@@ -264,6 +269,47 @@ pub fn pressure_cap_for_headroom(
 /// stops a batch.
 pub fn merge_must_yield(rss: u64, limit: u64, breaker_engaged: bool, forced: bool) -> bool {
     !forced && breaker_engaged && limit > 0 && rss > 0 && rss >= limit
+}
+
+/// Whether an in-flight `_forcemerge` batch must stop (#2917).
+///
+/// A forced batch used to be exempt from every memory rule. On the
+/// reporter's 59 GB node (8 GiB auto cap) one forcemerge of a 730 MB
+/// vector index took RSS from 3.0 GB to 10.4 GB, 2.4 GB past the cap,
+/// while the breaker drained caches every 2 s and the node stopped
+/// answering.
+///
+/// A forced batch is an operator request, so it is not stopped at the
+/// merge-pool ceiling the way a background batch is: it may use the read
+/// reserve and run while the breaker drains caches. It stops when RSS
+/// reaches the process `limit` itself. A stopped batch commits nothing and
+/// keeps its inputs, like a yielded background batch, and
+/// `Index::force_merge` reports a `circuit_breaking_exception` (429) after
+/// its retries instead of letting the process grow past the cap.
+/// `limit == 0` or `rss == 0` (unknown) never stops a batch.
+pub fn forced_merge_must_yield(rss: u64, limit: u64) -> bool {
+    limit > 0 && rss > 0 && rss >= limit
+}
+
+/// Peak bytes of decoding one merge input's stored section, per byte of its
+/// decoded rows (#2917): every column's decompressed text plus the
+/// reassembled rows, then the rows plus their `Box<RawValue>` copies.
+pub const MERGE_INPUT_DECODE_NUMERATOR: u64 = 2;
+
+/// Whether a `_forcemerge` batch must stop before it decodes an input whose
+/// stored rows are at most `decoded_bytes` (#2917).
+///
+/// The decode is one call, between two yield checkpoints. On the 84,600-doc
+/// vector repro at a 4,096 MB cap the final batch's decode of a 47,394-doc
+/// input took RSS from 3,480 MB to 4,189 MB inside one 100 ms sample, past
+/// the limit, before the next checkpoint could stop it. The decode is
+/// charged at [`MERGE_INPUT_DECODE_NUMERATOR`] x its rows against the
+/// process `limit`, the same line [`forced_merge_must_yield`] uses. `0`
+/// for `limit` or `rss` (unknown) never stops a batch.
+pub fn forced_merge_decode_must_yield(rss: u64, limit: u64, decoded_bytes: u64) -> bool {
+    limit > 0
+        && rss > 0
+        && rss.saturating_add(decoded_bytes.saturating_mul(MERGE_INPUT_DECODE_NUMERATOR)) >= limit
 }
 
 /// Docs between two governor yield checks inside a merge batch's survivor
@@ -426,8 +472,13 @@ pub fn merge_write_limit_after(
     input_bytes: u64,
     yield_streak: u64,
 ) -> u64 {
-    if !forced
-        && limit > ceiling
+    // #2917: a forced write is checked against the hard line, not the
+    // merge-pool ceiling: `_forcemerge` may use the read reserve, but its
+    // write may not end past the watermark.
+    if forced {
+        return limit.max(ceiling);
+    }
+    if limit > ceiling
         && yield_streak >= MERGE_YIELD_STREAK_LIMIT
         && input_bytes > 0
         && input_bytes <= MERGE_YIELD_STREAK_MAX_INPUT_BYTES
@@ -494,6 +545,36 @@ pub fn merge_write_phase_bytes(json_bytes: u64, fts_bytes: u64) -> u64 {
         .max(fts_bytes.saturating_mul(MERGE_WRITE_FTS_NUMERATOR))
 }
 
+/// Multiplier on the array/object part of a `_forcemerge` batch's merged
+/// stored JSON for its output-write step (#2917).
+///
+/// [`MERGE_WRITE_JSON_NUMERATOR`] (6) was measured when the stored encode
+/// parsed every document into a `serde_json::Value` tree. Since #3266 and
+/// #3395 array/object columns (a `dense_vector` in `_source`) stay row text
+/// and large ones stream into zstd, and the "never worse" check no longer
+/// holds a whole-input LZ4 copy (#2917). Measured on 40,000 rows of a
+/// 1024-d vector plus text (437 MB of JSON, 86% of it vector arrays) the
+/// long-effort encode peaked 411 MB over its input (0.94x), scalar text
+/// included. On 40,000 text-only rows (352 MB) it peaked 1,115 MB (3.2x),
+/// and the whole forcemerge write step about 6x, which the scalar part
+/// keeps. A single figure cannot serve both: at 6x the 730 MB vector index
+/// from #2917 is refused on the 8 GiB cap it fits under, at 3x a text index
+/// is under-charged.
+pub const MERGE_FORCED_WRITE_ROW_TEXT_NUMERATOR: u64 = 1;
+
+/// [`merge_write_phase_bytes`] for a `_forcemerge` batch (#2917): the
+/// `row_text_bytes` of `json_bytes` whose `_source` values are arrays or
+/// objects are charged at [`MERGE_FORCED_WRITE_ROW_TEXT_NUMERATOR`], the
+/// rest at [`MERGE_WRITE_JSON_NUMERATOR`]. `row_text_bytes` above
+/// `json_bytes` is clamped.
+pub fn forced_merge_write_phase_bytes(json_bytes: u64, row_text_bytes: u64, fts_bytes: u64) -> u64 {
+    let row_text = row_text_bytes.min(json_bytes);
+    row_text
+        .saturating_mul(MERGE_FORCED_WRITE_ROW_TEXT_NUMERATOR)
+        .saturating_add((json_bytes - row_text).saturating_mul(MERGE_WRITE_JSON_NUMERATOR))
+        .max(fts_bytes.saturating_mul(MERGE_WRITE_FTS_NUMERATOR))
+}
+
 /// Whether a merge batch may run its output-write step (#2427).
 ///
 /// The step comes after the last yield checkpoint, and once it starts it
@@ -505,21 +586,18 @@ pub fn merge_write_phase_bytes(json_bytes: u64, fts_bytes: u64) -> u64 {
 /// at the watermark). A refused batch yields like any other: no output,
 /// inputs kept, and later batches narrowed.
 ///
+/// A `forced` batch (`_forcemerge`) is checked like any other (#2917); its
+/// `limit` is [`merge_write_hard_line`] (see [`merge_write_limit_after`])
+/// and its `extra` is [`forced_merge_write_phase_bytes`].
+///
 /// These always run:
-/// * `forced` batches (`_forcemerge`), which are never stopped;
 /// * `exempt` batches. This is for the #2468 rule: once a background
 ///   batch has been allowed to run to completion after a streak of yields
 ///   with nothing merged, refusing its write would bring back the stall
 ///   that rule exists to break;
 /// * batches where the limit or RSS is unknown (`0`).
-pub fn decide_merge_write(
-    observed_rss: u64,
-    limit: u64,
-    extra: u64,
-    forced: bool,
-    exempt: bool,
-) -> bool {
-    if forced || exempt || limit == 0 || observed_rss == 0 {
+pub fn decide_merge_write(observed_rss: u64, limit: u64, extra: u64, exempt: bool) -> bool {
+    if exempt || limit == 0 || observed_rss == 0 {
         return true;
     }
     observed_rss.saturating_add(extra) < limit
@@ -545,29 +623,11 @@ mod tests {
         let line = merge_write_limit_after(ceiling, hard, false, small, at);
         assert_eq!(line, watermark);
         // Gate f: 2,517 MB + 408 MB ends above the watermark — refused.
-        assert!(!decide_merge_write(
-            2517 * MIB,
-            line,
-            408 * MIB,
-            false,
-            false
-        ));
+        assert!(!decide_merge_write(2517 * MIB, line, 408 * MIB, false));
         // A write that ends under the watermark still runs, above the
         // ceiling: the #2468 starvation relief is kept.
-        assert!(decide_merge_write(
-            2517 * MIB,
-            line,
-            300 * MIB,
-            false,
-            false
-        ));
-        assert!(!decide_merge_write(
-            2517 * MIB,
-            ceiling,
-            300 * MIB,
-            false,
-            false
-        ));
+        assert!(decide_merge_write(2517 * MIB, line, 300 * MIB, false));
+        assert!(!decide_merge_write(2517 * MIB, ceiling, 300 * MIB, false));
         // Unconfigured inputs keep the other side.
         assert_eq!(merge_write_hard_line(limit, 0), limit);
         assert_eq!(merge_write_hard_line(0, watermark), 0);
@@ -602,10 +662,13 @@ mod tests {
             merge_write_limit_after(ceiling, limit, false, 0, at),
             ceiling
         );
+        // #2917: a forced write uses the hard line at any streak.
         assert_eq!(
             merge_write_limit_after(ceiling, limit, true, small, at),
-            ceiling
+            limit
         );
+        assert_eq!(merge_write_limit_after(ceiling, limit, true, 0, 0), limit);
+        assert_eq!(merge_write_limit_after(ceiling, 0, true, 0, 0), ceiling);
         // Never below the ceiling.
         assert_eq!(
             merge_write_limit_after(ceiling, 0, false, small, at),
@@ -614,9 +677,9 @@ mod tests {
         // The gate-f case: rss 2,517 MB plus a 408 MB write fits under the
         // hard limit but not under the ceiling.
         let (rss, extra) = (2517 * MIB, 408 * MIB);
-        assert!(!decide_merge_write(rss, ceiling, extra, false, false));
+        assert!(!decide_merge_write(rss, ceiling, extra, false));
         let line = merge_write_limit_after(ceiling, limit, false, small, at);
-        assert!(decide_merge_write(rss, line, extra, false, false));
+        assert!(decide_merge_write(rss, line, extra, false));
     }
 
     #[test]
@@ -1103,14 +1166,25 @@ mod tests {
             false,
             false
         ));
-        // A forced merge may run alone while engaged, but not beside another.
-        assert!(decide_merge_admission(
+        // #2917: a forced merge waits for the drain too, alone or not.
+        assert!(!decide_merge_admission(
             wm,
             2_900 * MIB,
             0,
             0,
             true,
             8 * MIB,
+            true,
+            false
+        ));
+        // Not engaged, alone: it starts whatever its reservation estimate.
+        assert!(decide_merge_admission(
+            wm,
+            2_800 * MIB,
+            0,
+            0,
+            false,
+            64 * 1024 * MIB,
             true,
             false
         ));
@@ -1187,30 +1261,98 @@ mod tests {
         let rss = 2900 * MIB;
         let extra = merge_write_phase_bytes(300 * MIB, 50 * MIB);
         assert!(rss + extra > 4400 * MIB);
-        assert!(!decide_merge_write(rss, limit, extra, false, false));
+        assert!(!decide_merge_write(rss, limit, extra, false));
         // Exactly reaching the limit is refused, just under is allowed.
-        assert!(!decide_merge_write(rss, limit, limit - rss, false, false));
-        assert!(decide_merge_write(
-            rss,
-            limit,
-            limit - rss - 1,
-            false,
-            false
-        ));
+        assert!(!decide_merge_write(rss, limit, limit - rss, false));
+        assert!(decide_merge_write(rss, limit, limit - rss - 1, false));
         // A small write with headroom runs, whatever the breaker state.
-        assert!(decide_merge_write(
-            1000 * MIB,
+        assert!(decide_merge_write(1000 * MIB, limit, 600 * MIB, false));
+        // A #2468 streak-exempt batch, or unknown limit/RSS: runs. A
+        // `_forcemerge` write has no bypass any more (#2917).
+        assert!(decide_merge_write(rss, limit, extra, true));
+        assert!(decide_merge_write(rss, 0, extra, false));
+        assert!(decide_merge_write(0, limit, extra, false));
+        // Saturates instead of wrapping past the limit.
+        assert!(!decide_merge_write(rss, limit, u64::MAX, false));
+    }
+
+    /// #2917: a forced batch stops at the process limit, not at the
+    /// merge-pool ceiling and not on the breaker alone.
+    #[test]
+    fn a_forced_batch_stops_at_the_process_limit() {
+        const MIB: u64 = 1024 * 1024;
+        let limit = 8192 * MIB;
+        assert!(!forced_merge_must_yield(7_800 * MIB, limit));
+        assert!(forced_merge_must_yield(limit, limit));
+        assert!(forced_merge_must_yield(10_400 * MIB, limit));
+        assert!(!forced_merge_must_yield(10_400 * MIB, 0));
+        assert!(!forced_merge_must_yield(0, limit));
+    }
+
+    /// #2917: the 4 GiB repro's final input decode (3,480 MB RSS, about
+    /// 540 MB of rows) is refused before it starts; a small one runs.
+    #[test]
+    fn a_forced_input_decode_that_would_reach_the_limit_stops_first() {
+        const MIB: u64 = 1024 * 1024;
+        let limit = 4096 * MIB;
+        assert!(forced_merge_decode_must_yield(
+            3_480 * MIB,
             limit,
-            600 * MIB,
-            false,
+            540 * MIB
+        ));
+        assert!(!forced_merge_decode_must_yield(
+            2_400 * MIB,
+            limit,
+            540 * MIB
+        ));
+        assert!(forced_merge_decode_must_yield(limit, limit, 0));
+        assert!(!forced_merge_decode_must_yield(3_480 * MIB, 0, 540 * MIB));
+        assert!(!forced_merge_decode_must_yield(0, limit, 540 * MIB));
+        assert!(forced_merge_decode_must_yield(1, limit, u64::MAX));
+    }
+
+    /// #2917: the forced write charge splits row text from scalar JSON.
+    #[test]
+    fn the_forced_write_phase_charges_row_text_and_scalars_apart() {
+        const MIB: u64 = 1024 * 1024;
+        // All scalar: the background figure.
+        assert_eq!(
+            forced_merge_write_phase_bytes(352 * MIB, 0, 0),
+            merge_write_phase_bytes(352 * MIB, 0)
+        );
+        // All row text.
+        assert_eq!(
+            forced_merge_write_phase_bytes(500 * MIB, 500 * MIB, 0),
+            500 * MIB * MERGE_FORCED_WRITE_ROW_TEXT_NUMERATOR
+        );
+        // Clamped, and the FTS term still wins when larger.
+        assert_eq!(
+            forced_merge_write_phase_bytes(10 * MIB, 50 * MIB, 0),
+            10 * MIB * MERGE_FORCED_WRITE_ROW_TEXT_NUMERATOR
+        );
+        assert_eq!(
+            forced_merge_write_phase_bytes(10 * MIB, 0, 100 * MIB),
+            100 * MIB * MERGE_WRITE_FTS_NUMERATOR
+        );
+        assert_eq!(forced_merge_write_phase_bytes(u64::MAX, 0, 0), u64::MAX);
+        // The #2917 shape on its 8 GiB auto cap (watermark 95%): about
+        // 5.7 GB held at the write, 924 MB of merged JSON, 86% vector rows.
+        // The split charge fits under the watermark; the all-scalar 6x
+        // figure would refuse a merge that fits.
+        let watermark = 8192 * MIB * 95 / 100;
+        let held = 5_700 * MIB;
+        let (json, rows) = (924 * MIB, 924 * MIB * 86 / 100);
+        assert!(decide_merge_write(
+            held,
+            watermark,
+            forced_merge_write_phase_bytes(json, rows, 0),
             false
         ));
-        // `_forcemerge`, a #2468 streak-exempt batch, or unknown limit/RSS: runs.
-        assert!(decide_merge_write(rss, limit, extra, true, false));
-        assert!(decide_merge_write(rss, limit, extra, false, true));
-        assert!(decide_merge_write(rss, 0, extra, false, false));
-        assert!(decide_merge_write(0, limit, extra, false, false));
-        // Saturates instead of wrapping past the limit.
-        assert!(!decide_merge_write(rss, limit, u64::MAX, false, false));
+        assert!(!decide_merge_write(
+            held,
+            watermark,
+            merge_write_phase_bytes(json, 0),
+            false
+        ));
     }
 }

@@ -269,6 +269,36 @@ fn parsed_row(cell: Cell<'_>) -> Option<Value> {
     }
 }
 
+/// Bytes of `_source` values in `stored_docs_json` that are arrays or
+/// objects (#2917): the part of the input [`encode`] keeps as row text
+/// instead of parsing into `Value`s. Scalar rows of a mixed column are not
+/// counted, so the figure errs low. `None` when the input is not a JSON
+/// array of objects this reader handles.
+pub(super) fn row_text_bytes(stored_docs_json: &[u8]) -> Option<u64> {
+    use rayon::prelude::*;
+
+    let docs: Vec<LazyDoc<'_>> = serde_json::from_slice(stored_docs_json).ok()?;
+    docs.par_iter()
+        .map(|doc| {
+            let Some(raw) = doc.source else {
+                return Some(0);
+            };
+            let text = raw.get();
+            if first_byte(text) != Some(b'{') {
+                return Some(0);
+            }
+            let Fields(pairs) = serde_json::from_str(text).ok()?;
+            Some(
+                pairs
+                    .iter()
+                    .filter(|(_, value)| matches!(first_byte(value.get()), Some(b'[' | b'{')))
+                    .map(|(_, value)| value.get().len() as u64)
+                    .sum::<u64>(),
+            )
+        })
+        .try_reduce(|| 0, |a, b| Some(a + b))
+}
+
 /// Encode `stored_docs_json` like the tree build in
 /// [`super::encode_stored_v2_at_level`], or `None` when this reader does not
 /// handle its shape (see the module docs).
@@ -390,6 +420,22 @@ mod tests {
 
     fn stored_array(docs: &[Value]) -> Vec<u8> {
         serde_json::to_vec(&Value::Array(docs.to_vec())).unwrap()
+    }
+
+    /// #2917: the forcemerge write charge counts array/object values only.
+    #[test]
+    fn row_text_bytes_counts_array_and_object_values_2917() {
+        let docs = vec![
+            json!({"_id": "a", "_seq_no": 1, "_source": {"t": "hello", "v": [1, 2], "o": {"k": 1}}}),
+            json!({"_id": "b", "_seq_no": 2, "_source": {"t": "x", "n": 5}}),
+            json!({"_id": "c", "_seq_no": 3}),
+        ];
+        let json = stored_array(&docs);
+        let expected = ("[1,2]".len() + r#"{"k":1}"#.len()) as u64;
+        assert_eq!(super::row_text_bytes(&json), Some(expected));
+        assert_eq!(super::row_text_bytes(b"[]"), Some(0));
+        assert_eq!(super::row_text_bytes(b"not json"), None);
+        assert_eq!(super::row_text_bytes(b"[1,2]"), None);
     }
 
     fn vector(i: usize, dims: usize) -> Value {
