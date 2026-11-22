@@ -5702,6 +5702,29 @@ fn unnamed_inner_hits_refusal() -> Response {
     )
 }
 
+/// A point-in-time search takes its indices from the PIT, so ES 8.13 refuses
+/// one that also names an index while it validates the request, before the
+/// PIT id is looked up or any search runs.
+const PIT_WITH_INDICES: &str =
+    "[indices] cannot be used with point in time. Do not specify any index with point in time.";
+
+/// Whether an `_msearch` item names an index. The `/{index}/_msearch` path
+/// index is every item's default; an `index` or `indices` key in the header
+/// replaces it (ES accepts both keys, each a string or an array), and an
+/// empty one names nothing.
+fn msearch_item_names_index(header: &Value, path_names_index: bool) -> bool {
+    let from_header = ["index", "indices"]
+        .iter()
+        .filter_map(|key| header.get(*key).filter(|v| !v.is_null()))
+        .map(|names| match names {
+            Value::String(s) => !s.is_empty(),
+            Value::Array(list) => !list.is_empty(),
+            _ => true,
+        })
+        .reduce(|a, b| a || b);
+    from_header.unwrap_or(path_names_index)
+}
+
 /// Body extractor for `_search` that layers ES 8.13.4's deny-unknown-key
 /// behaviour on top of `OptionalJson<EsSearchBody>` (item 4a): a bogus
 /// top-level key is rejected with the exact ES `parsing_exception` instead of
@@ -12260,14 +12283,9 @@ pub async fn search_all(
     principal: crate::auth::Principal,
     body: EsSearchJson,
 ) -> impl IntoResponse {
-    search(
-        State(state),
-        Path("*".to_string()),
-        Query(params),
-        principal,
-        body,
-    )
-    .await
+    // `/_search` names no index, so a PIT search runs; `/*/_search` names
+    // one and is refused in `search`. Both search `*` otherwise.
+    search_any(state, "*".to_string(), params, principal, body).await
 }
 
 /// Bounded top-level query-type label for the `query_latency_by_type`
@@ -15300,7 +15318,9 @@ mod unknown_field_refusal_tests {
 
 /// `POST /{index}/_search`.
 ///
-/// Thin wrapper over [`search_impl`] that installs the Painless fault sink for
+/// Refuses a point-in-time search, since the path names an index
+/// ([`PIT_WITH_INDICES`]), then runs [`search_any`], the thin wrapper over
+/// [`search_impl`] that installs the Painless fault sink for
 /// every script this handler evaluates *itself* — `script_fields` and
 /// `runtime_mappings` emit-scripts run during response assembly, outside the
 /// spawned search task, so they are not covered by the engine-side capture in
@@ -15317,6 +15337,21 @@ pub async fn search(
     // literal `"anonymous"` for every search, authenticated or not, so the one
     // audited data-path operation was unattributable. The principal is threaded
     // through to `search_impl` for that entry and nothing else.
+    principal: crate::auth::Principal,
+    body: EsSearchJson,
+) -> Response {
+    if body.0.as_ref().is_some_and(|b| b.pit.is_some()) {
+        return action_request_validation_error(&[PIT_WITH_INDICES.to_string()]);
+    }
+    search_any(state, index, params, principal, body).await
+}
+
+/// The search behind `/_search` and `/{index}/_search`, after the checks
+/// that depend on whether the path named an index.
+async fn search_any(
+    state: AppState,
+    index: String,
+    params: EsSearchQueryParams,
     principal: crate::auth::Principal,
     body: EsSearchJson,
 ) -> Response {
@@ -33905,6 +33940,10 @@ async fn msearch_impl(
     // ES parses every item body before it runs any of them, and a value
     // `SearchSourceBuilder` refuses fails the whole request
     // (`MultiSearchRequest#readMultiLineFormat` catches nothing).
+    // Then ES validates every item, and one that names an index beside a
+    // PIT (in its header, or through the `/{index}/_msearch` path) fails
+    // the whole request with every such item's error.
+    let mut pit_errors: Vec<String> = Vec::new();
     for pair in lines.chunks(2) {
         let [header, body] = pair else { break };
         if header.trim().is_empty() {
@@ -33917,7 +33956,16 @@ async fn msearch_impl(
             if collapse_has_unnamed_inner_hits(item.get("collapse")) {
                 return unnamed_inner_hits_refusal();
             }
+            if item.get("pit").is_some_and(|p| !p.is_null()) {
+                let header = serde_json::from_str::<Value>(header.trim()).unwrap_or(Value::Null);
+                if msearch_item_names_index(&header, default_index.is_some()) {
+                    pit_errors.push(PIT_WITH_INDICES.to_string());
+                }
+            }
         }
+    }
+    if !pit_errors.is_empty() {
+        return action_request_validation_error(&pit_errors);
     }
 
     let mut i = 0;
