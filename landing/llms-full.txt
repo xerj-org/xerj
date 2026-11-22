@@ -2,7 +2,7 @@
 
 XERJ: the search engine for AI agents. A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.
 
-Last updated: 2026-11-21 (MCP tool counts synced to 25 on main, `xerj mcp --http` added; hub section run on v1.0.0-rc.97). When this file and the binary disagree, the binary wins:
+Last updated: 2026-11-22 (/_facts and `xerj_facts_ask` marked release-binaries-only; MCP tool counts synced to 25 on main, `xerj mcp --http` added; hub section run on v1.0.0-rc.97). When this file and the binary disagree, the binary wins:
 `xerj --help` and `xerj <command> --help` outrank this file and every page it links.
 
 > XERJ is the unified search engine for AI, written in Rust: connect it, run
@@ -875,8 +875,10 @@ Other memory endpoints:
   DELETE /_memory/{namespace}/{id}     → forget one entry: { "id","namespace","forgotten":bool }
   DELETE /_memory/{namespace}          → drop the whole namespace: { "namespace","dropped":bool }
 
-Facts and XERJ Query-1 (/_facts) — OFF BY DEFAULT, rc.101+:
-  Served only on a node started with `--facts-model-dir <DIR>` (`XERJ_FACTS_MODEL_DIR` is the env
+Facts and XERJ Query-1 (/_facts) — RELEASE BINARIES ONLY, OFF BY DEFAULT, rc.101+:
+  Not in the public build: release binaries come from a private tree with the proprietary model
+  crates, so a node built from this repository's source has no /_facts route, no
+  `--facts-model-dir` flag and no `xerj_facts_ask` tool. In a release binary, served only on a node started with `--facts-model-dir <DIR>` (`XERJ_FACTS_MODEL_DIR` is the env
   equivalent; bundle via `curl -fsSL https://xerj.org/get | sh -s -- --with-model`). Without the
   flag every /_facts path is 404 `xerj_query_not_enabled`. Which to use: `_search` for keyword and
   text lookups over indexed documents; /_facts for a single-fact question over records you wrote as
@@ -1298,7 +1300,7 @@ Agent memory (see §3.5–3.6):
   POST/GET/DELETE /_memory/{namespace}
   POST     /_memory/{namespace}/_recall
   DELETE   /_memory/{namespace}/{id}
-  GET/POST /_facts, /_facts/{ns}/_bulk, /_facts/{ns}/_ask, /_facts/{ns}/_lookup   (only with --facts-model-dir; else 404 xerj_query_not_enabled)
+  GET/POST /_facts, /_facts/{ns}/_bulk, /_facts/{ns}/_ask, /_facts/{ns}/_lookup   (release binaries only, with --facts-model-dir; else 404 xerj_query_not_enabled)
 
 Share links (`xerj share`, §4 — read-only guest access to named indices):
   POST     /_share                        admin key only. {index: "a"|["a","b"], brain?,

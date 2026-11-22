@@ -200,7 +200,9 @@
     (ARITHMETIC at list prices).
   </p>
   <p class="lead">
-    It is off by default. A node becomes a XERJ Query-1 node when you start it
+    It is in the release binaries only, not in the public build: a node built
+    from the repository's source has no <code>/_facts</code> route. In a release
+    binary it is off by default. A node becomes a XERJ Query-1 node when you start it
     with <code>xerj --facts-model-dir &lt;DIR&gt;</code>. Without the flag,
     rc.101 serves no <code>/_facts</code> route and the same MCP tools as rc.100,
     but its storage format changed: the first write moves a data folder to

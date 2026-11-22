@@ -20,7 +20,7 @@ built and are not in a released binary yet; they say what to do today instead.
 | Any JSON, any Elasticsearch client | `POST /<index>/_bulk` | Elasticsearch 8.x compatible bulk and index API. You shape the documents. |
 | Vectors you already have | `PUT /<index> dense_vector mapping, then POST /<index>/_bulk` | Export from Pinecone, Qdrant, Weaviate, Chroma or pgvector and post the vectors with their payload. kNN and hybrid queries then work. Dimensions must match the mapping. |
 | Agent memory | `xerj memory / MCP xerj_memory_* tools` | Store, recall and forget notes for agents. Recall is lexical today. |
-| Facts for XERJ Query-1 | `POST /_facts/<ns>/_bulk` | Needs a node started with `xerj --facts-model-dir <DIR>`. Give each subject a `subject_id`; counting needs it. See [FACTS_API.md](FACTS_API.md). |
+| Facts for XERJ Query-1 | `POST /_facts/<ns>/_bulk` | Needs a release binary started with `xerj --facts-model-dir <DIR>` (not in the public build: a node built from this source has no `/_facts` route). Give each subject a `subject_id`; counting needs it. See [FACTS_API.md](FACTS_API.md). |
 | Hub corpus packs | `xerj hub` | Signed record packs from the corpus hub. |
 
 Verify any folder run:

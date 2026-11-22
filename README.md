@@ -73,6 +73,11 @@ and no GPU.
 Retrieval quality (R@k, nDCG@k) on BEIR, on SearchTome and on our 160-question test, the latency split and every data
 set: [benchmarks/query-1-2026-11](./benchmarks/query-1-2026-11/README.md).
 
+**Release binaries only, not in the public build.** XERJ Query-1, `/_facts`, `--facts-model-dir` and the
+`xerj_facts_ask` MCP tool are in the published release binaries (rc.101 and later), which are built from a private tree
+that adds the proprietary model crates. This repository's source does not contain them: a node built from `main` has no
+`/_facts` route, no `--facts-model-dir` flag and no `xerj_facts_ask` tool.
+
 The model is off by default; without the flag there is no `/_facts` route and the MCP tool list is unchanged. rc.101
 upgrades the data directory to format 4 on first write, and rc.100 cannot open it again. What it does not do yet,
 measured: sums and totals (a sum question can come back as a member count), and large fact sets (on a 95,000-fact
@@ -408,8 +413,10 @@ Measurements and how to reproduce them:
 
 ## Ask over your own facts
 
-XERJ ships **XERJ Query-1**, a model that answers questions over facts you give it.
-It is off by default; start a node with `--facts-model-dir <DIR>` to turn it on.
+XERJ release binaries ship **XERJ Query-1**, a model that answers questions over facts you give it.
+It is not in the public build: a node built from this repository's source has no `/_facts`
+route (the model crates are proprietary and ship only in release binaries). It is off
+by default; start a node with `--facts-model-dir <DIR>` to turn it on.
 Write documents and facts to a namespace, then ask in plain language. The engine
 returns a checked answer: lookups carry the facts they used and the program that
 produced them; counts carry a program hash and a second-model agreement check, but
@@ -632,7 +639,7 @@ the other direction: it hosts an MCP endpoint other agents connect to, and its s
 their servers from the harness underneath. Grok Bot has no documented local stdio registration; the
 Grok CLI does, which is the `grok` row above.
 
-On main, 25 tools are exposed when Hub tools are enabled, and 22 in a build with no hub key; `--facts-model-dir` adds `xerj_facts_ask`. The rc.104 release serves 24, because `xerj_references` arrived after it; the rc.101 release has 23 and 24, because `xerj_sources` arrives in rc.102. Twelve are thin proxies over an endpoint XERJ already serves:
+On main, 25 tools are exposed when Hub tools are enabled, and 22 in a build with no hub key; in a release binary, `--facts-model-dir` adds `xerj_facts_ask` (a build from this source has no such flag or tool). The rc.104 release serves 24, because `xerj_references` arrived after it; the rc.101 release has 23 and 24, because `xerj_sources` arrives in rc.102. Twelve are thin proxies over an endpoint XERJ already serves:
 
 | Tool | What it does |
 |---|---|
@@ -864,10 +871,10 @@ limits each one does not lift:
   when an operator configures them; the page lists every outbound connection a node can
   open), it needs an operator-configured provider key, and
   its ranking quality with the real model is not verified.
-- [The `/_facts` API](./docs/FACTS_API.md) — request/response for writing facts
-  and asking questions: the raw-versus-verified split (`final_status`/
-  `final_answer`), the counting cascade, the revision/phase note, and the error
-  set.
+- [The `/_facts` API](./docs/FACTS_API.md) (release binaries only, not in the
+  public build) — request/response for writing facts and asking questions: the
+  raw-versus-verified split (`final_status`/`final_answer`), the counting cascade,
+  the revision/phase note, and the error set.
 - [Get the model and serve it](./docs/MODEL_QUICKSTART.md) — install, obtain the
   bundle, start the node with `--facts-model-dir`, write a fact, ask, and verify,
   one step at a time.

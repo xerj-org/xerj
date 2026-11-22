@@ -1,13 +1,21 @@
 # The `/_facts` API: asking a question and reading a verified answer
 
+> **Release binaries only, not in the public build.** `/_facts`, `--facts-model-dir`
+> and the `xerj_facts_ask` MCP tool are in the published release binaries (rc.101
+> and later), which are built from a private tree that adds the proprietary model
+> crates (`xerj-infer`, `xerj-serve`, `xerj-exec`). This repository's source does
+> not contain them: a node built from `main` has no `/_facts` route, no
+> `--facts-model-dir` flag and no `xerj_facts_ask` tool. Everything below describes
+> the release binaries.
+
 The capabilities overview, one verified example per capability:
 [XERJ_QUERY_1.md](./XERJ_QUERY_1.md). This page is the contract.
 
 What this file is: the request/response reference for the `/_facts` endpoints —
 the facts store, the exact executor, and the learned compiler the engine serves.
 Last updated: 2026-11-05 (rc.101). If this document and the engine
-disagree, the engine wins (`engine/crates/xerj-api/src/facts_api.rs` and
-`engine/crates/xerj-serve/`); the [CHANGELOG](../CHANGELOG.md) carries the
+disagree, the release binary wins (its facts handler and `xerj-serve` are
+not in this repository); the [CHANGELOG](../CHANGELOG.md) carries the
 release summary. Companion docs: [MODEL_BUNDLE.md](./MODEL_BUNDLE.md) (what the
 model directory is and how roles are served) and
 [MODEL_QUICKSTART.md](./MODEL_QUICKSTART.md) (get the model and serve it).
