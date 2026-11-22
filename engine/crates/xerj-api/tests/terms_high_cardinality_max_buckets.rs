@@ -235,8 +235,8 @@ async fn max_buckets_counts_returned_buckets_not_distinct_keys() {
         assert_eq!(rows[0]["key"], "hot", "{indices} + sub-agg");
         assert_eq!(rows[0]["doc_count"], HOT as u64 + 5, "{indices} + sub-agg");
         assert_eq!(
-            rows[0]["c"]["value"].as_f64(),
-            Some((HOT + 5) as f64),
+            rows[0]["c"]["value"].as_u64(),
+            Some(HOT as u64 + 5),
             "{indices} + sub-agg"
         );
 

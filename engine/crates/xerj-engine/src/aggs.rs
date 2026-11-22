@@ -11187,10 +11187,9 @@ fn run_geotile_grid(
             let n = 2i64.pow(precision);
             let max = n - 1;
             let key = format!("{}/{}/{}", precision, x.clamp(0, max), y.clamp(0, max));
-            // Bucket cap: skip new keys past the limit; existing keys still grow.
-            if bucket_map.contains_key(&key) || bucket_map.len() < bucket_cap {
-                bucket_map.entry(key).or_default().push(i);
-            }
+            // Every tile counts toward the top-N: the bucket cap applies to the
+            // buckets returned after the `size` cut, below.
+            bucket_map.entry(key).or_default().push(i);
         }
     }
 
@@ -11206,6 +11205,13 @@ fn run_geotile_grid(
     if n > 0 && n < sorted.len() {
         sorted.select_nth_unstable_by(n, cmp);
         sorted.truncate(n);
+    }
+    // `search.max_buckets` counts the buckets returned after the `size` cut,
+    // as ES's final geogrid reduce does. A `shard_size` below `size` is raised
+    // to `size`, so one index returns min(size, cells). Past the cap this is a
+    // 400 too_many_buckets, never silent truncation.
+    if sorted.len() > bucket_cap {
+        return too_many_buckets_error(bucket_cap);
     }
     sorted.sort_by(cmp);
 
@@ -11318,9 +11324,7 @@ fn run_geohash_grid(
                 continue;
             }
             let hash = encode_geohash(lat, lon, precision);
-            if bucket_map.contains_key(&hash) || bucket_map.len() < bucket_cap {
-                bucket_map.entry(hash).or_default().push(i);
-            }
+            bucket_map.entry(hash).or_default().push(i);
         }
     }
 
@@ -11337,6 +11341,13 @@ fn run_geohash_grid(
     if n > 0 && n < sorted.len() {
         sorted.select_nth_unstable_by(n, cmp);
         sorted.truncate(n);
+    }
+    // `search.max_buckets` counts the buckets returned after the `size` cut,
+    // as ES's final geogrid reduce does. A `shard_size` below `size` is raised
+    // to `size`, so one index returns min(size, cells). Past the cap this is a
+    // 400 too_many_buckets, never silent truncation.
+    if sorted.len() > bucket_cap {
+        return too_many_buckets_error(bucket_cap);
     }
     sorted.sort_by(cmp);
 
@@ -16019,6 +16030,75 @@ mod tests {
             Some(5),
             "a span exactly at the cap must still be served, got {ok}"
         );
+    }
+
+    /// geotile_grid and geohash_grid apply `max_buckets` to the buckets they
+    /// return after the `size` cut, like terms (#3389). Before, the map stopped
+    /// taking new cells at the cap and dropped the rest without a word: a
+    /// default-size request over more cells than the cap came back as a 200
+    /// holding the first `cap` cells in doc order.
+    #[test]
+    fn geogrid_bucket_cap_counts_returned_buckets_not_cells() {
+        let mut docs: Vec<Value> = (0..100)
+            .map(|_| json!({ "g": { "lat": 10.0, "lon": 10.0 } }))
+            .collect();
+        docs.extend((0..20).map(|i| {
+            json!({ "g": { "lat": -80.0 + f64::from(i) * 8.0, "lon": -170.0 + f64::from(i) * 17.0 } })
+        }));
+        docs.rotate_left(50);
+        for (kind, precision) in [("geotile_grid", 8), ("geohash_grid", 5)] {
+            let agg = |size: Option<u64>| {
+                let mut p = json!({ "field": "g", "precision": precision });
+                if let Some(size) = size {
+                    p["size"] = json!(size);
+                }
+                json!({ "t": { kind: p } })
+            };
+            let run = |size: Option<u64>, cap: usize| {
+                run_aggs_with_limits(&agg(size), &docs, &docs, AggLimits { max_buckets: cap })
+            };
+            let assert_cap_error = |r: &Value, cap: usize, label: &str| {
+                assert!(r["t"].get("buckets").is_none(), "{kind} {label}: {r}");
+                assert_eq!(
+                    r["t"]["__error_status__"],
+                    json!(400),
+                    "{kind} {label}: {r}"
+                );
+                let err = r["t"]["error"].as_str().unwrap_or_default();
+                assert!(
+                    err.contains("Trying to create too many buckets")
+                        && err.contains(&format!("[{cap}]")),
+                    "{kind} {label}: expected too_many_buckets naming [{cap}], got {r}"
+                );
+            };
+
+            for cap in [3, 10, 21] {
+                let r = run(Some(3), cap);
+                let rows = r["t"]["buckets"].as_array().cloned().unwrap_or_default();
+                assert_eq!(rows.len(), 3, "{kind} size 3 cap {cap}: {r}");
+                assert_eq!(rows[0]["doc_count"], 100, "{kind} cap {cap}: {r}");
+                assert!(rows[1..].iter().all(|b| b["doc_count"] == 1), "{kind}: {r}");
+            }
+
+            assert_cap_error(&run(None, 20), 20, "default size, 21 cells, cap 20");
+            assert_cap_error(&run(Some(15), 10), 10, "size 15, cap 10");
+            let r = run(None, 21);
+            assert_eq!(
+                r["t"]["buckets"].as_array().map(Vec::len),
+                Some(21),
+                "{kind}: all 21 cells at cap 21: {r}"
+            );
+            let total: u64 = r["t"]["buckets"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|b| b["doc_count"].as_u64())
+                .sum();
+            assert_eq!(
+                total, 120,
+                "{kind}: every doc lands in a returned cell: {r}"
+            );
+        }
     }
 
     /// #3362: `max_buckets` limits the buckets a terms agg RETURNS, not the
