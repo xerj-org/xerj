@@ -1,9 +1,9 @@
 {
- "corpus": "npavii--codesys-mcp-server",
+ "corpus": "npavii--codesys-mcp",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how NPavii/codesys-mcp-server implements it: MCP server for CODESYS V3 PLC development: project automation (POUs, build, libraries, alarms, online read/write/force) + CODESYS docs searc (selected work: bridge, the project root)",
+ "domain": "an agent working on Python queries this for how NPavii/codesys-mcp implements it: MCP server for CODESYS V3 PLC development: project automation (POUs, build, libraries, alarms, online read/write/force) + CODESYS docs searc (selected work: bridge, the project root)",
  "repos": [
   {
    "repo": "codesys-mcp-server",
