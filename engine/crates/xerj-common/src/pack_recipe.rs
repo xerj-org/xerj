@@ -9,10 +9,16 @@
 //!   `description`, `inputSchema`) with no Rust changes.
 //! - Invalid recipes fail at build/test time with a precise [`RecipeError`].
 //! - Execution performs corpus selection, redistribution licence checks,
-//!   input-bound filtering, deterministic ranking and clustering, output JSON
-//!   Schema validation, and deterministic post-checks (citation completeness,
-//!   banned-phrase / anti-slop refusal, token ceiling, and mandatory notices),
-//!   sealing the result with an RFC 8785 (JCS) SHA-256 receipt.
+//!   input-bound filtering, study-type grading with a `GradeRule` receipt,
+//!   deterministic ranking, theme/chapter grouping, an evidence floor that
+//!   refuses instead of padding, output JSON Schema validation, and
+//!   deterministic post-checks (citation completeness, banned-phrase /
+//!   anti-slop refusal, a token ceiling measured on the RFC 8785 bytes of the
+//!   output, and mandatory notices), sealing the result with an RFC 8785 (JCS)
+//!   SHA-256 receipt.
+//! - `builtin_recipes()` are `write.outline`, `write.section`, `bio.outline`
+//!   and `bio.evidence`. `cyber.target_surface` is a sample until the Cyber pack
+//!   (#2767) lands ([`sample_recipes`]).
 
 use crate::cyber_scope::{InputOrigin, ScopeError, ScopeGuard, WorkOrder};
 use crate::hub::LicenceClass;
@@ -20,11 +26,14 @@ use crate::hub_evidence::{sha256, PinnedCitation};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 pub const RECIPE_FORMAT_VERSION: &str = "xerj-recipe/v1";
 pub const RECIPE_REPORT_VERSION: &str = "xerj-recipe-execution/v1";
 const MAX_REPORT_BYTES: usize = 4 * 1024 * 1024;
+/// A `max_token_budget` check target meaning the whole output object.
+const WHOLE_OUTPUT: &str = "$";
 
 #[derive(Debug, thiserror::Error)]
 pub enum RecipeError {
@@ -43,6 +52,12 @@ pub enum RecipeError {
         recipe: String,
         matched: usize,
         min_hits: usize,
+    },
+    #[error("recipe `{recipe}` cannot grade record `{record_id}`: {reason}")]
+    InvalidEvidence {
+        recipe: String,
+        record_id: String,
+        reason: String,
     },
     #[error("recipe `{recipe}` output failed schema validation: {reason}")]
     OutputSchemaViolation { recipe: String, reason: String },
@@ -74,6 +89,14 @@ pub struct PackRecipe {
     #[serde(default)]
     pub filters: Vec<FilterStep>,
     pub ranking: RankingStep,
+    /// Group the selected items into chapters by `ranking.cluster_by`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grouping: Option<GroupingStep>,
+    /// Grade each selected item by study type and separate clinical evidence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grading: Option<GradingStep>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub partitions: Vec<PartitionStep>,
     pub output_schema: OutputSchemaSpec,
     #[serde(default)]
     pub checks: Vec<CheckStep>,
@@ -92,6 +115,10 @@ pub struct RecipeHeader {
     pub requires_scope: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub static_notice: Option<String>,
+    /// A sample: shows the format for a pack whose tools are not served yet.
+    /// [`builtin_recipes`] excludes it and its MCP description says so.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub sample: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -131,8 +158,26 @@ pub struct CorpusSelection {
     pub optional: Vec<String>,
     #[serde(default = "default_true")]
     pub require_redistribution_licence: bool,
+    /// Minimum candidate hits that pass the filters.
     #[serde(default = "default_one")]
     pub min_hits: usize,
+    /// Minimum evidence items the output must carry after ranking, the
+    /// per-cluster cap and `top_k`. Fewer is a refusal
+    /// ([`RecipeError::InsufficientEvidence`]), never padding.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_evidence_hits: Option<usize>,
+    /// The same floor chosen by an enum input (`length = "standard"` needs 3).
+    /// The larger of the two floors applies.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_evidence_hits_by_input: Option<InputTable>,
+}
+
+/// A number chosen by the value of a required enum input.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InputTable {
+    pub input: String,
+    pub values: BTreeMap<String, usize>,
 }
 
 fn default_true() -> bool {
@@ -140,6 +185,174 @@ fn default_true() -> bool {
 }
 fn default_one() -> usize {
     1
+}
+
+/// Output chapters: the selected items grouped by `ranking.cluster_by` (the hit
+/// field, or the derived `theme_key`: the first four alphanumeric tokens of the
+/// excerpt, then the title, short tokens and digits kept).
+///
+/// Items sharing a key stay in one chapter. With a chapter count (`chapters`,
+/// or `chapters_from_input`), boundaries fall between keys as close to an even
+/// split as the keys allow, and only fewer keys than chapters splits one (the
+/// largest first), so no chapter is empty or padded. With no count, every
+/// distinct key is one chapter.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GroupingStep {
+    /// Array output property that receives the chapters.
+    pub output_field: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chapters: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chapters_from_input: Option<InputTable>,
+}
+
+/// An output array of the items whose member `field` satisfies `op` `value`.
+/// The items stay in `items` too.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PartitionStep {
+    pub output_field: String,
+    pub field: String,
+    pub op: FilterOp,
+    pub value: String,
+    /// The first (best-ranked) match is part of the mandatory core: a
+    /// `fit_by_dropping` token check never drops it.
+    #[serde(default)]
+    pub protect_first: bool,
+}
+
+/// Study design, as a hit's `study_type` field spells it (snake_case). Each is
+/// its own design with its own rule; none is an alias of another.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StudyType {
+    MetaAnalysis,
+    SystematicReview,
+    RandomizedControlledTrial,
+    CohortStudy,
+    CaseControl,
+    CaseReport,
+    Preclinical,
+    InVitro,
+    ExpertOpinion,
+}
+
+impl StudyType {
+    pub const ALL: [StudyType; 9] = [
+        Self::MetaAnalysis,
+        Self::SystematicReview,
+        Self::RandomizedControlledTrial,
+        Self::CohortStudy,
+        Self::CaseControl,
+        Self::CaseReport,
+        Self::Preclinical,
+        Self::InVitro,
+        Self::ExpertOpinion,
+    ];
+
+    pub fn slug(self) -> &'static str {
+        match self {
+            Self::MetaAnalysis => "meta_analysis",
+            Self::SystematicReview => "systematic_review",
+            Self::RandomizedControlledTrial => "randomized_controlled_trial",
+            Self::CohortStudy => "cohort_study",
+            Self::CaseControl => "case_control",
+            Self::CaseReport => "case_report",
+            Self::Preclinical => "preclinical",
+            Self::InVitro => "in_vitro",
+            Self::ExpertOpinion => "expert_opinion",
+        }
+    }
+
+    fn parse(raw: &str) -> Option<Self> {
+        let raw = raw.trim().to_ascii_lowercase();
+        Self::ALL.into_iter().find(|t| t.slug() == raw)
+    }
+}
+
+/// Evidence tier, strongest first. `Level5` is the floor: preclinical, in-vitro,
+/// expert opinion, and any study that is not human clinical evidence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum EvidenceTier {
+    #[serde(rename = "level_1a")]
+    Level1A,
+    #[serde(rename = "level_1b")]
+    Level1B,
+    #[serde(rename = "level_2a")]
+    Level2A,
+    #[serde(rename = "level_2b")]
+    Level2B,
+    #[serde(rename = "level_3")]
+    Level3,
+    #[serde(rename = "level_4")]
+    Level4,
+    #[serde(rename = "level_5")]
+    Level5,
+}
+
+impl EvidenceTier {
+    pub fn slug(self) -> &'static str {
+        match self {
+            Self::Level1A => "level_1a",
+            Self::Level1B => "level_1b",
+            Self::Level2A => "level_2a",
+            Self::Level2B => "level_2b",
+            Self::Level3 => "level_3",
+            Self::Level4 => "level_4",
+            Self::Level5 => "level_5",
+        }
+    }
+}
+
+/// One row of the study-type grading table. Rows are tried in order; the first
+/// whose study type matches and whose flags hold grades the item.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GradeRuleSpec {
+    pub id: String,
+    pub study_type: StudyType,
+    /// At least one of these hit flags is true (`"true"`) when listed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub any_flags: Vec<String>,
+    /// Every one of these hit flags is true when listed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub all_flags: Vec<String>,
+    pub tier: EvidenceTier,
+    pub rationale: String,
+}
+
+/// Study-type grading with a receipt, and the clinical / non-clinical split.
+///
+/// Each selected item gets `study_type`, `evidence_tier`, `human_clinical` and a
+/// `grade_rule` (`rule_id`, `study_type`, `tier`, `matched_signals`, `metadata`,
+/// `rationale`). A study whose `human_field` is not `"true"` is capped at
+/// `Level5` under `non_human_rule_id`, whatever its design; the receipt names
+/// the rule it would otherwise have met. Items that are human clinical evidence
+/// (`human_clinical` and a tier above `Level5`) fill `clinical_field`; every
+/// other item fills `non_clinical_field`. When there is no clinical item,
+/// `abstention` is written to `abstention_field`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GradingStep {
+    pub study_type_field: String,
+    pub human_field: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub flag_fields: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direction_field: Option<String>,
+    pub non_human_rule_id: String,
+    pub non_human_rationale: String,
+    pub clinical_field: String,
+    pub non_clinical_field: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contradictory_field: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub highest_clinical_tier_field: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub abstention_field: Option<String>,
+    pub abstention: String,
+    pub rules: Vec<GradeRuleSpec>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -215,11 +428,25 @@ pub enum CheckKind {
 pub struct CheckStep {
     pub id: String,
     pub kind: CheckKind,
+    /// The output property to check. `"$"` is the whole output object, which is
+    /// what a consumer receives (a `max_token_budget` check only).
     pub target_field: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub phrases: Vec<String>,
+    /// `max_token_budget`: the ceiling, in tokens of the target's RFC 8785 JSON
+    /// bytes divided by four, rounded up.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<usize>,
+    /// `max_token_budget`: take the ceiling from this integer input, which must
+    /// also be a declared integer output property (the output echoes it).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_tokens_from_input: Option<String>,
+    /// `max_token_budget`: instead of failing, drop the lowest-ranked item that
+    /// is not part of the mandatory core (the first item, or the first match of
+    /// each `protect_first` partition) until the output fits. Still over
+    /// budget with only the core left is a failure.
+    #[serde(default)]
+    pub fit_by_dropping: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_substring: Option<String>,
 }
@@ -328,6 +555,47 @@ impl PackRecipe {
         if self.corpora.min_hits == 0 {
             return bad("corpora.min_hits must be at least 1".to_string());
         }
+        if self.corpora.min_evidence_hits == Some(0) {
+            return bad("corpora.min_evidence_hits must be at least 1".to_string());
+        }
+        // A table keyed by an enum input needs a row for every value, each >= 1.
+        let table_problem = |table: &InputTable, what: &str| -> Option<String> {
+            let Some(field) = self.inputs.iter().find(|i| i.name == table.input) else {
+                return Some(format!("{what} references unknown input {:?}", table.input));
+            };
+            if field.kind != FieldKind::String || field.enum_values.is_empty() || !field.required {
+                return Some(format!(
+                    "{what} input {:?} must be a required string input with enum_values",
+                    table.input
+                ));
+            }
+            for value in &field.enum_values {
+                match table.values.get(value) {
+                    Some(n) if *n >= 1 => {}
+                    _ => {
+                        return Some(format!(
+                            "{what} has no positive entry for {:?} = {value:?}",
+                            table.input
+                        ))
+                    }
+                }
+            }
+            table
+                .values
+                .keys()
+                .find(|k| !field.enum_values.contains(k))
+                .map(|k| {
+                    format!(
+                        "{what} lists {k:?}, which is not a value of {:?}",
+                        table.input
+                    )
+                })
+        };
+        if let Some(table) = &self.corpora.min_evidence_hits_by_input {
+            if let Some(why) = table_problem(table, "corpora.min_evidence_hits_by_input") {
+                return bad(why);
+            }
+        }
 
         for f in &self.filters {
             if !valid_ident(&f.field, 64) {
@@ -383,10 +651,13 @@ impl PackRecipe {
             if !check_ids.insert(&chk.id) {
                 return bad(format!("duplicate check id {:?}", chk.id));
             }
-            if !self
-                .output_schema
-                .properties
-                .contains_key(&chk.target_field)
+            let whole_output =
+                chk.target_field == WHOLE_OUTPUT && chk.kind == CheckKind::MaxTokenBudget;
+            if !whole_output
+                && !self
+                    .output_schema
+                    .properties
+                    .contains_key(&chk.target_field)
             {
                 return bad(format!(
                     "check {:?} targets undeclared output property {:?}",
@@ -400,12 +671,31 @@ impl PackRecipe {
                         chk.id
                     ));
                 }
-                CheckKind::MaxTokenBudget if chk.max_tokens.unwrap_or(0) == 0 => {
-                    return bad(format!(
-                        "check {:?} (max_token_budget) must set a positive max_tokens",
-                        chk.id
-                    ));
-                }
+                CheckKind::MaxTokenBudget => match (chk.max_tokens, &chk.max_tokens_from_input) {
+                    (Some(n), None) if n > 0 => {}
+                    (None, Some(input)) => {
+                        let integer_input = self.inputs.iter().any(|i| {
+                            &i.name == input && i.kind == FieldKind::Integer && i.required
+                        });
+                        let echoed = self
+                            .output_schema
+                            .properties
+                            .get(input)
+                            .is_some_and(|p| p.kind == FieldKind::Integer);
+                        if !integer_input || !echoed {
+                            return bad(format!(
+                                    "check {:?} (max_token_budget) max_tokens_from_input {input:?} must be a required integer input that is also a declared integer output property",
+                                    chk.id
+                                ));
+                        }
+                    }
+                    _ => {
+                        return bad(format!(
+                                "check {:?} (max_token_budget) must set exactly one of a positive max_tokens or max_tokens_from_input",
+                                chk.id
+                            ));
+                    }
+                },
                 CheckKind::RequireNotice
                     if chk
                         .expected_substring
@@ -420,6 +710,110 @@ impl PackRecipe {
                     ));
                 }
                 _ => {}
+            }
+            if chk.fit_by_dropping && chk.kind != CheckKind::MaxTokenBudget {
+                return bad(format!(
+                    "check {:?} sets fit_by_dropping, which only a max_token_budget check has",
+                    chk.id
+                ));
+            }
+        }
+
+        let declared = |name: &str, kind: FieldKind| {
+            self.output_schema.properties.get(name).is_some_and(|p| {
+                p.kind == kind || (kind == FieldKind::Array && p.kind == FieldKind::StringArray)
+            })
+        };
+        if let Some(grouping) = &self.grouping {
+            if self.ranking.cluster_by.is_none() {
+                return bad("grouping groups by ranking.cluster_by, which is not set".to_string());
+            }
+            if !declared(&grouping.output_field, FieldKind::Array) {
+                return bad(format!(
+                    "grouping.output_field {:?} must be a declared array output property",
+                    grouping.output_field
+                ));
+            }
+            match (&grouping.chapters, &grouping.chapters_from_input) {
+                (Some(0), _) => return bad("grouping.chapters must be at least 1".to_string()),
+                (Some(_), Some(_)) => {
+                    return bad("grouping sets both chapters and chapters_from_input".to_string())
+                }
+                (None, Some(table)) => {
+                    if let Some(why) = table_problem(table, "grouping.chapters_from_input") {
+                        return bad(why);
+                    }
+                }
+                _ => {}
+            }
+        }
+        for part in &self.partitions {
+            if !declared(&part.output_field, FieldKind::Array) || !valid_ident(&part.field, 64) {
+                return bad(format!(
+                    "partition {:?} must name a declared array output property and a valid item member",
+                    part.output_field
+                ));
+            }
+        }
+        if let Some(grading) = &self.grading {
+            let fields_ok = valid_ident(&grading.study_type_field, 64)
+                && valid_ident(&grading.human_field, 64)
+                && grading.flag_fields.iter().all(|f| valid_ident(f, 64))
+                && grading
+                    .direction_field
+                    .as_deref()
+                    .is_none_or(|f| valid_ident(f, 64));
+            if !fields_ok {
+                return bad("grading names an invalid hit field".to_string());
+            }
+            let arrays_ok = declared(&grading.clinical_field, FieldKind::Array)
+                && declared(&grading.non_clinical_field, FieldKind::Array)
+                && grading
+                    .contradictory_field
+                    .as_deref()
+                    .is_none_or(|f| declared(f, FieldKind::Array));
+            let strings_ok = grading
+                .abstention_field
+                .as_deref()
+                .is_none_or(|f| declared(f, FieldKind::String))
+                && grading
+                    .highest_clinical_tier_field
+                    .as_deref()
+                    .is_none_or(|f| declared(f, FieldKind::String));
+            if !arrays_ok || !strings_ok || grading.abstention.trim().is_empty() {
+                return bad("grading output fields must be declared output properties of the right kind, with a non-empty abstention".to_string());
+            }
+            if grading.rules.is_empty() || grading.non_human_rule_id.trim().is_empty() {
+                return bad("grading needs rules and a non_human_rule_id".to_string());
+            }
+            let mut rule_ids = HashSet::new();
+            for rule in &grading.rules {
+                if rule.id.trim().is_empty() || !rule_ids.insert(rule.id.as_str()) {
+                    return bad(format!(
+                        "grading rule id {:?} is empty or duplicated",
+                        rule.id
+                    ));
+                }
+                if rule
+                    .any_flags
+                    .iter()
+                    .chain(&rule.all_flags)
+                    .any(|f| !grading.flag_fields.contains(f))
+                {
+                    return bad(format!(
+                        "grading rule {:?} uses a flag that is not in flag_fields",
+                        rule.id
+                    ));
+                }
+            }
+            if let Some(missing) = StudyType::ALL
+                .into_iter()
+                .find(|t| grading.rules.iter().all(|r| r.study_type != *t))
+            {
+                return bad(format!(
+                    "grading rules have no row for study type {:?}",
+                    missing.slug()
+                ));
             }
         }
         Ok(())
@@ -470,9 +864,17 @@ impl PackRecipe {
                 req.push(Value::String(inp.name.clone()));
             }
         }
+        let description = if self.recipe.sample {
+            format!(
+                "[SAMPLE recipe, not a served tool] {}",
+                self.recipe.description
+            )
+        } else {
+            self.recipe.description.clone()
+        };
         json!({
             "name": self.mcp_name(),
-            "description": self.recipe.description,
+            "description": description,
             "inputSchema": {
                 "type": "object",
                 "properties": props,
@@ -669,6 +1071,41 @@ impl PackRecipe {
         Ok(())
     }
 
+    /// The ceiling of a `max_token_budget` check: its `max_tokens`, or the
+    /// integer input it names, which the output echoes.
+    fn token_ceiling(&self, chk: &CheckStep, output: &Map<String, Value>) -> Result<usize> {
+        match &chk.max_tokens_from_input {
+            Some(input) => output
+                .get(input)
+                .and_then(Value::as_u64)
+                .and_then(|n| usize::try_from(n).ok())
+                .ok_or_else(|| RecipeError::CheckFailed {
+                    recipe: self.recipe.name.clone(),
+                    check_id: chk.id.clone(),
+                    reason: format!("output has no integer budget {input:?}"),
+                }),
+            None => Ok(chk.max_tokens.unwrap_or(1)),
+        }
+    }
+
+    /// The evidence floor for these arguments: the larger of the static
+    /// `min_evidence_hits` and the row of `min_evidence_hits_by_input` the
+    /// argument selects.
+    fn evidence_floor(&self, args: &Map<String, Value>) -> usize {
+        let by_input = self
+            .corpora
+            .min_evidence_hits_by_input
+            .as_ref()
+            .and_then(|t| {
+                args.get(&t.input)
+                    .and_then(Value::as_str)
+                    .and_then(|v| t.values.get(v))
+            })
+            .copied()
+            .unwrap_or(0);
+        self.corpora.min_evidence_hits.unwrap_or(0).max(by_input)
+    }
+
     /// Run all deterministic `[[checks]]` on a schema-valid output object.
     pub fn run_checks(&self, output: &Value) -> Result<Vec<CheckOutcome>> {
         let obj = output
@@ -748,16 +1185,14 @@ impl PackRecipe {
                     });
                 }
                 CheckKind::MaxTokenBudget => {
-                    let max_t = chk.max_tokens.unwrap_or(1);
-                    let serialized = serde_json::to_string(val)?;
-                    // Deterministic token estimate (~4 UTF-8 bytes per token, rounded up).
-                    let est_tokens = serialized.len().div_ceil(4);
+                    let max_t = self.token_ceiling(chk, obj)?;
+                    let est_tokens = measured_tokens(output, &chk.target_field)?;
                     if est_tokens > max_t {
                         return Err(RecipeError::CheckFailed {
                             recipe: self.recipe.name.clone(),
                             check_id: chk.id.clone(),
                             reason: format!(
-                                "field {:?} estimated at {est_tokens} tokens (max {max_t})",
+                                "field {:?} measures {est_tokens} tokens (max {max_t})",
                                 chk.target_field
                             ),
                         });
@@ -765,7 +1200,7 @@ impl PackRecipe {
                     outcomes.push(CheckOutcome {
                         check_id: chk.id.clone(),
                         passed: true,
-                        detail: format!("estimated {est_tokens} tokens <= {max_t}"),
+                        detail: format!("measured {est_tokens} tokens <= {max_t}"),
                     });
                 }
                 CheckKind::RequireNotice => {
@@ -934,86 +1369,97 @@ impl RecipeRunner {
             });
         }
 
+        // Grade every candidate first when the recipe grades: the computed tier,
+        // not a caller-supplied rank, orders `study_grade_asc`.
+        let mut candidates: Vec<Candidate<'_>> = Vec::with_capacity(filtered.len());
+        for hit in filtered {
+            let grade = match &recipe.grading {
+                Some(step) => Some(grade_hit(recipe, step, hit)?),
+                None => None,
+            };
+            candidates.push(Candidate { hit, grade });
+        }
+
         // Deterministic ranking
-        filtered.sort_by(|a, b| {
-            let primary = match recipe.ranking.strategy {
-                RankingStrategy::ScoreDesc => b
+        candidates.sort_by(|a, b| {
+            let (a_hit, b_hit) = (a.hit, b.hit);
+            let by_score = || {
+                b_hit
                     .score
-                    .partial_cmp(&a.score)
-                    .unwrap_or(std::cmp::Ordering::Equal),
-                RankingStrategy::RecencyDesc => b.published_date.cmp(&a.published_date),
-                RankingStrategy::StudyGradeAsc => a
-                    .study_grade_rank
-                    .unwrap_or(99)
-                    .cmp(&b.study_grade_rank.unwrap_or(99))
-                    .then_with(|| {
-                        b.score
-                            .partial_cmp(&a.score)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    }),
+                    .partial_cmp(&a_hit.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            };
+            let primary = match recipe.ranking.strategy {
+                RankingStrategy::ScoreDesc => by_score(),
+                RankingStrategy::RecencyDesc => b_hit.published_date.cmp(&a_hit.published_date),
+                RankingStrategy::StudyGradeAsc => match (&a.grade, &b.grade) {
+                    (Some(ga), Some(gb)) => ga.tier.cmp(&gb.tier),
+                    _ => a_hit
+                        .study_grade_rank
+                        .unwrap_or(99)
+                        .cmp(&b_hit.study_grade_rank.unwrap_or(99)),
+                }
+                .then_with(by_score),
             };
             primary
-                .then_with(|| a.corpus.cmp(&b.corpus))
-                .then_with(|| a.record_id.cmp(&b.record_id))
+                .then_with(|| a_hit.corpus.cmp(&b_hit.corpus))
+                .then_with(|| a_hit.record_id.cmp(&b_hit.record_id))
         });
 
         // Optional per-cluster cap + top_k truncation
-        let mut selected: Vec<&RecipeCorpusHit> = Vec::new();
+        let mut selected: Vec<Candidate<'_>> = Vec::new();
         let mut cluster_counts: HashMap<String, usize> = HashMap::new();
-        for hit in filtered {
+        for candidate in candidates {
             if selected.len() >= recipe.ranking.top_k {
                 break;
             }
             if let (Some(cfield), Some(max_c)) =
                 (&recipe.ranking.cluster_by, recipe.ranking.max_per_cluster)
             {
-                let key = hit_field(hit, cfield).unwrap_or("default").to_string();
+                let key = hit_field(candidate.hit, cfield)
+                    .map(Cow::into_owned)
+                    .unwrap_or_else(|| "default".to_string());
                 let count = cluster_counts.entry(key).or_insert(0);
                 if *count >= max_c {
                     continue;
                 }
                 *count += 1;
             }
-            selected.push(hit);
+            selected.push(candidate);
         }
 
-        let items_json: Vec<Value> = selected
+        // The evidence floor counts what the output will carry. Fewer is a
+        // refusal, not a padded structure.
+        let floor = recipe.evidence_floor(&valid_args);
+        if selected.len() < floor {
+            return Err(RecipeError::InsufficientEvidence {
+                recipe: recipe.recipe.name.clone(),
+                matched: selected.len(),
+                min_hits: floor,
+            });
+        }
+
+        let mut output = assemble_output(recipe, &valid_args, &selected)?;
+        // A `fit_by_dropping` budget removes the lowest-ranked items outside the
+        // mandatory core until the output, as a consumer receives it, fits.
+        for chk in recipe
+            .checks
             .iter()
-            .map(|h| {
-                let mut m = Map::new();
-                m.insert("corpus".into(), json!(h.corpus));
-                m.insert("record_id".into(), json!(h.record_id));
-                m.insert("title".into(), json!(h.title));
-                m.insert("excerpt".into(), json!(h.excerpt));
-                m.insert("pin_sha".into(), json!(h.pin_sha));
-                m.insert("fetched_at".into(), json!(h.fetched_at));
-                if let Some(cluster_k) = &recipe.ranking.cluster_by {
-                    if let Some(cv) = hit_field(h, cluster_k) {
-                        m.insert("cluster".into(), json!(cv));
-                    }
-                }
-                for (fk, fv) in &h.fields {
-                    if !m.contains_key(fk) {
-                        m.insert(fk.clone(), json!(fv));
-                    }
-                }
-                Value::Object(m)
-            })
-            .collect();
-
-        let mut out_map = Map::new();
-        out_map.insert("recipe".into(), json!(recipe.recipe.name));
-        out_map.insert("pack".into(), json!(recipe.recipe.pack));
-        out_map.insert("items".into(), Value::Array(items_json));
-        if let Some(notice) = &recipe.recipe.static_notice {
-            out_map.insert("notice".into(), json!(notice));
-        }
-        for (k, v) in &valid_args {
-            if recipe.output_schema.properties.contains_key(k) && !out_map.contains_key(k) {
-                out_map.insert(k.clone(), v.clone());
+            .filter(|c| c.kind == CheckKind::MaxTokenBudget && c.fit_by_dropping)
+        {
+            let Value::Object(first) = &output else {
+                break;
+            };
+            let ceiling = recipe.token_ceiling(chk, first)?;
+            while measured_tokens(&output, &chk.target_field)? > ceiling {
+                let kept = mandatory_core(recipe, &selected);
+                let Some(drop_at) = (0..selected.len()).rev().find(|i| !kept.contains(i)) else {
+                    break;
+                };
+                selected.remove(drop_at);
+                output = assemble_output(recipe, &valid_args, &selected)?;
             }
         }
-        let output = Value::Object(out_map);
 
         recipe.validate_output(&output)?;
         let checks = recipe.run_checks(&output)?;
@@ -1081,14 +1527,51 @@ impl RecipeExecutionReport {
     }
 }
 
-fn hit_field<'a>(hit: &'a RecipeCorpusHit, field: &str) -> Option<&'a str> {
+/// The first four alphanumeric tokens of the excerpt, then the title,
+/// lower-cased: the derived `theme_key` a hit is grouped under when a recipe
+/// clusters by it. Short tokens and digits are kept, so "theme 1" and "theme 2"
+/// are different themes.
+fn theme_key(hit: &RecipeCorpusHit) -> String {
+    hit.excerpt
+        .split(|c: char| !c.is_alphanumeric())
+        .chain(hit.title.split(|c: char| !c.is_alphanumeric()))
+        .filter(|word| !word.is_empty())
+        .map(str::to_ascii_lowercase)
+        .take(4)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn hit_field<'a>(hit: &'a RecipeCorpusHit, field: &str) -> Option<Cow<'a, str>> {
     match field {
-        "corpus" => Some(&hit.corpus),
-        "record_id" => Some(&hit.record_id),
-        "title" => Some(&hit.title),
-        "excerpt" => Some(&hit.excerpt),
-        "published_date" => Some(&hit.published_date),
-        _ => hit.fields.get(field).map(String::as_str),
+        "corpus" => Some(Cow::Borrowed(hit.corpus.as_str())),
+        "record_id" => Some(Cow::Borrowed(hit.record_id.as_str())),
+        "title" => Some(Cow::Borrowed(hit.title.as_str())),
+        "excerpt" => Some(Cow::Borrowed(hit.excerpt.as_str())),
+        "published_date" => Some(Cow::Borrowed(hit.published_date.as_str())),
+        "theme_key" => Some(
+            hit.fields
+                .get("theme_key")
+                .map(|v| Cow::Borrowed(v.as_str()))
+                .unwrap_or_else(|| Cow::Owned(theme_key(hit))),
+        ),
+        _ => hit.fields.get(field).map(|v| Cow::Borrowed(v.as_str())),
+    }
+}
+
+fn op_matches(op: FilterOp, actual: &str, target: &str) -> bool {
+    match op {
+        FilterOp::Equals => actual.eq_ignore_ascii_case(target),
+        FilterOp::NotEquals => !actual.eq_ignore_ascii_case(target),
+        FilterOp::Contains => actual
+            .to_ascii_lowercase()
+            .contains(&target.to_ascii_lowercase()),
+        FilterOp::Prefix => actual
+            .to_ascii_lowercase()
+            .starts_with(&target.to_ascii_lowercase()),
+        FilterOp::In => target
+            .split(',')
+            .any(|part| actual.eq_ignore_ascii_case(part.trim())),
     }
 }
 
@@ -1111,24 +1594,407 @@ fn matches_filters(
         let Some(actual) = hit_field(hit, &f.field) else {
             return false;
         };
-        let ok = match f.op {
-            FilterOp::Equals => actual.eq_ignore_ascii_case(target_val),
-            FilterOp::NotEquals => !actual.eq_ignore_ascii_case(target_val),
-            FilterOp::Contains => actual
-                .to_ascii_lowercase()
-                .contains(&target_val.to_ascii_lowercase()),
-            FilterOp::Prefix => actual
-                .to_ascii_lowercase()
-                .starts_with(&target_val.to_ascii_lowercase()),
-            FilterOp::In => target_val
-                .split(',')
-                .any(|part| actual.eq_ignore_ascii_case(part.trim())),
-        };
-        if !ok {
+        if !op_matches(f.op, &actual, target_val) {
             return false;
         }
     }
     true
+}
+
+/// A candidate hit and, when the recipe grades, its grade.
+struct Candidate<'a> {
+    hit: &'a RecipeCorpusHit,
+    grade: Option<Graded>,
+}
+
+struct Graded {
+    study_type: StudyType,
+    tier: EvidenceTier,
+    human: bool,
+    /// The `GradeRule` receipt as it appears on the item.
+    rule: Value,
+    direction: Option<String>,
+}
+
+impl Graded {
+    /// Human clinical evidence: a human study graded above the `Level5` floor.
+    fn clinical(&self) -> bool {
+        self.human && self.tier < EvidenceTier::Level5
+    }
+
+    fn adverse(&self) -> bool {
+        matches!(
+            self.direction.as_deref(),
+            Some("contradictory") | Some("adverse")
+        )
+    }
+}
+
+fn grade_hit(recipe: &PackRecipe, step: &GradingStep, hit: &RecipeCorpusHit) -> Result<Graded> {
+    let bad = |reason: String| RecipeError::InvalidEvidence {
+        recipe: recipe.recipe.name.clone(),
+        record_id: hit.record_id.clone(),
+        reason,
+    };
+    let raw = hit_field(hit, &step.study_type_field)
+        .ok_or_else(|| bad(format!("no {:?} field", step.study_type_field)))?;
+    let study_type =
+        StudyType::parse(&raw).ok_or_else(|| bad(format!("unknown study type {raw:?}")))?;
+    let flag =
+        |name: &str| hit_field(hit, name).is_some_and(|v| v.trim().eq_ignore_ascii_case("true"));
+    let human = flag(&step.human_field);
+    let direction = step
+        .direction_field
+        .as_deref()
+        .and_then(|f| hit_field(hit, f))
+        .map(|d| d.trim().to_ascii_lowercase());
+    let spec = step
+        .rules
+        .iter()
+        .find(|r| {
+            r.study_type == study_type
+                && (r.any_flags.is_empty() || r.any_flags.iter().any(|f| flag(f)))
+                && r.all_flags.iter().all(|f| flag(f))
+        })
+        .ok_or_else(|| {
+            bad(format!(
+                "no grading rule for study type {:?}",
+                study_type.slug()
+            ))
+        })?;
+
+    let mut signals = vec![format!("study_type:{}", study_type.slug())];
+    for name in spec.any_flags.iter().chain(&spec.all_flags) {
+        let signal = format!("flag:{name}");
+        if flag(name) && !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    let (mut rule_id, mut tier, mut rationale) =
+        (spec.id.clone(), spec.tier, spec.rationale.clone());
+    // Only human clinical evidence is graded above the floor. A synthesis of
+    // animal studies is capped, under its own rule, and the receipt names the
+    // rule it would otherwise have met.
+    if !human && tier < EvidenceTier::Level5 {
+        signals.push(format!("scope:non-human-capped-from:{}", spec.id));
+        rule_id = step.non_human_rule_id.clone();
+        tier = EvidenceTier::Level5;
+        rationale = step.non_human_rationale.clone();
+    }
+    let mut metadata = BTreeMap::new();
+    metadata.insert(step.human_field.clone(), human.to_string());
+    for name in &step.flag_fields {
+        metadata.insert(name.clone(), flag(name).to_string());
+    }
+    if let Some(d) = &direction {
+        metadata.insert("finding_direction".to_string(), d.clone());
+    }
+    Ok(Graded {
+        study_type,
+        tier,
+        human,
+        rule: json!({
+            "rule_id": rule_id,
+            "study_type": study_type.slug(),
+            "tier": tier.slug(),
+            "matched_signals": signals,
+            "metadata": metadata,
+            "rationale": rationale,
+        }),
+        direction,
+    })
+}
+
+/// The item objects, one per selected candidate, in ranking order.
+fn build_items(recipe: &PackRecipe, selected: &[Candidate<'_>]) -> Vec<Map<String, Value>> {
+    selected
+        .iter()
+        .map(|candidate| {
+            let h = candidate.hit;
+            let mut m = Map::new();
+            m.insert("corpus".into(), json!(h.corpus));
+            m.insert("record_id".into(), json!(h.record_id));
+            m.insert("title".into(), json!(h.title));
+            m.insert("excerpt".into(), json!(h.excerpt));
+            m.insert("pin_sha".into(), json!(h.pin_sha));
+            m.insert("fetched_at".into(), json!(h.fetched_at));
+            if let Some(cluster_k) = &recipe.ranking.cluster_by {
+                if let Some(cv) = hit_field(h, cluster_k) {
+                    m.insert("cluster".into(), json!(cv));
+                }
+            }
+            for (fk, fv) in &h.fields {
+                if !m.contains_key(fk) {
+                    m.insert(fk.clone(), json!(fv));
+                }
+            }
+            if let Some(g) = &candidate.grade {
+                m.insert("study_type".into(), json!(g.study_type.slug()));
+                m.insert("evidence_tier".into(), json!(g.tier.slug()));
+                m.insert("human_clinical".into(), json!(g.human));
+                m.insert("grade_rule".into(), g.rule.clone());
+                if let Some(d) = &g.direction {
+                    m.insert("finding_direction".into(), json!(d));
+                }
+            }
+            m
+        })
+        .collect()
+}
+
+/// Items a `fit_by_dropping` budget never drops: the first match of each
+/// `protect_first` partition, or the top-ranked item when none is declared.
+fn mandatory_core(recipe: &PackRecipe, selected: &[Candidate<'_>]) -> HashSet<usize> {
+    let items = build_items(recipe, selected);
+    let mut core = HashSet::new();
+    let mut declared = false;
+    for part in recipe.partitions.iter().filter(|p| p.protect_first) {
+        declared = true;
+        if let Some(first) = items.iter().position(|m| {
+            op_matches(
+                part.op,
+                m.get(&part.field).and_then(Value::as_str).unwrap_or(""),
+                &part.value,
+            )
+        }) {
+            core.insert(first);
+        }
+    }
+    if !declared && !items.is_empty() {
+        core.insert(0);
+    }
+    core
+}
+
+/// Chapter boundaries over `keys`, the group key of each item in sorted order:
+/// `count + 1` indices (`0` first, `keys.len()` last). A key's items stay
+/// together and boundaries fall between keys, as close to an even split as the
+/// keys allow; only fewer keys than chapters splits one (the largest first).
+/// The caller has checked `keys.len() >= count`.
+fn chapter_bounds(keys: &[String], count: usize) -> Vec<usize> {
+    let total = keys.len();
+    let mut cuts: Vec<usize> = (1..total).filter(|&i| keys[i] != keys[i - 1]).collect();
+    while cuts.len() + 1 < count {
+        let mut bounds = vec![0];
+        bounds.extend(&cuts);
+        bounds.push(total);
+        let (start, len) =
+            bounds
+                .windows(2)
+                .map(|w| (w[0], w[1] - w[0]))
+                .fold(
+                    (0, 0),
+                    |best, next| if next.1 > best.1 { next } else { best },
+                );
+        let cut = start + len / 2;
+        let at = cuts.partition_point(|&c| c < cut);
+        cuts.insert(at, cut);
+    }
+    let mut bounds = vec![0];
+    let mut next_candidate = 0;
+    for k in 1..count {
+        let target = (total * k).div_ceil(count);
+        let last_allowed = cuts.len() - (count - k);
+        let best = (next_candidate..=last_allowed)
+            .min_by_key(|&j| (cuts[j].abs_diff(target), j))
+            .unwrap_or(next_candidate);
+        bounds.push(cuts[best]);
+        next_candidate = best + 1;
+    }
+    bounds.push(total);
+    bounds
+}
+
+/// The item indices of each chapter, or `None` when more chapters are asked for
+/// than there are items.
+fn plan_chapters(keys: &[String], count: Option<usize>) -> Option<Vec<Vec<usize>>> {
+    if keys.is_empty() {
+        return Some(Vec::new());
+    }
+    let mut order: Vec<usize> = (0..keys.len()).collect();
+    order.sort_by(|&a, &b| keys[a].cmp(&keys[b]).then(a.cmp(&b)));
+    let sorted: Vec<String> = order.iter().map(|&i| keys[i].clone()).collect();
+    let bounds = match count {
+        Some(0) => return None,
+        Some(n) if n > keys.len() => return None,
+        Some(n) => chapter_bounds(&sorted, n),
+        None => {
+            let mut b = vec![0];
+            b.extend((1..sorted.len()).filter(|&i| sorted[i] != sorted[i - 1]));
+            b.push(sorted.len());
+            b
+        }
+    };
+    Some(
+        bounds
+            .windows(2)
+            .map(|w| order[w[0]..w[1]].to_vec())
+            .collect(),
+    )
+}
+
+/// Tokens of one output value: one per four bytes of its RFC 8785 JSON,
+/// rounded up. `"$"` is the whole output, which is what a consumer receives.
+fn measured_tokens(output: &Value, target: &str) -> Result<usize> {
+    let val = if target == WHOLE_OUTPUT {
+        output
+    } else {
+        output.get(target).unwrap_or(&Value::Null)
+    };
+    Ok(serde_json_canonicalizer::to_vec(val)?.len().div_ceil(4))
+}
+
+/// The recipe's output object for these selected candidates: items, chapters,
+/// partitions and the graded sections. A pure function of its inputs, so a
+/// `fit_by_dropping` budget can re-assemble it with fewer items.
+fn assemble_output(
+    recipe: &PackRecipe,
+    args: &Map<String, Value>,
+    selected: &[Candidate<'_>],
+) -> Result<Value> {
+    let mut items = build_items(recipe, selected);
+
+    let mut chapters_json: Option<Vec<Value>> = None;
+    if let (Some(group), Some(by)) = (&recipe.grouping, recipe.ranking.cluster_by.as_deref()) {
+        let keys: Vec<String> = selected
+            .iter()
+            .map(|c| {
+                hit_field(c.hit, by)
+                    .map(Cow::into_owned)
+                    .unwrap_or_else(|| "default".to_string())
+            })
+            .collect();
+        let count = group.chapters.or_else(|| {
+            group.chapters_from_input.as_ref().and_then(|t| {
+                args.get(&t.input)
+                    .and_then(Value::as_str)
+                    .and_then(|v| t.values.get(v))
+                    .copied()
+            })
+        });
+        let plan =
+            plan_chapters(&keys, count).ok_or_else(|| RecipeError::InsufficientEvidence {
+                recipe: recipe.recipe.name.clone(),
+                matched: keys.len(),
+                min_hits: count.unwrap_or(1),
+            })?;
+        let mut chapters = Vec::with_capacity(plan.len());
+        for (n, members) in plan.iter().enumerate() {
+            let chapter_id = format!("chapter-{:02}", n + 1);
+            let mut group_keys: Vec<&str> = Vec::new();
+            for &i in members {
+                if !group_keys.contains(&keys[i].as_str()) {
+                    group_keys.push(keys[i].as_str());
+                }
+                items[i].insert("chapter_id".into(), json!(chapter_id));
+            }
+            let title = match group_keys.as_slice() {
+                [only] if !only.is_empty() => (*only).to_string(),
+                [first, rest @ ..] if !first.is_empty() => {
+                    format!("{first} (+{} more)", rest.len())
+                }
+                _ => format!("chapter {}", n + 1),
+            };
+            let mut chapter = Map::new();
+            chapter.insert("chapter_id".into(), json!(chapter_id));
+            chapter.insert("title".into(), json!(title));
+            chapter.insert("group_keys".into(), json!(group_keys));
+            chapter.insert(
+                "record_ids".into(),
+                json!(members
+                    .iter()
+                    .map(|&i| selected[i].hit.record_id.as_str())
+                    .collect::<Vec<_>>()),
+            );
+            if let Some(step) = &recipe.grading {
+                let clinical =
+                    |i: &usize| selected[*i].grade.as_ref().is_some_and(Graded::clinical);
+                let ids = |keep: bool| -> Vec<&str> {
+                    members
+                        .iter()
+                        .filter(|i| clinical(i) == keep)
+                        .map(|&i| selected[i].hit.record_id.as_str())
+                        .collect()
+                };
+                let (clinical_ids, other_ids) = (ids(true), ids(false));
+                if clinical_ids.is_empty() {
+                    chapter.insert("abstention".into(), json!(step.abstention));
+                }
+                chapter.insert("clinical_record_ids".into(), json!(clinical_ids));
+                chapter.insert("preclinical_record_ids".into(), json!(other_ids));
+            }
+            chapters.push(Value::Object(chapter));
+        }
+        chapters_json = Some(chapters);
+    }
+
+    let mut out_map = Map::new();
+    out_map.insert("recipe".into(), json!(recipe.recipe.name));
+    out_map.insert("pack".into(), json!(recipe.recipe.pack));
+    if let Some(notice) = &recipe.recipe.static_notice {
+        out_map.insert("notice".into(), json!(notice));
+    }
+    for (k, v) in args {
+        if recipe.output_schema.properties.contains_key(k) && !out_map.contains_key(k) {
+            out_map.insert(k.clone(), v.clone());
+        }
+    }
+    if let (Some(group), Some(chapters)) = (&recipe.grouping, chapters_json) {
+        out_map.insert(group.output_field.clone(), Value::Array(chapters));
+    }
+    for part in &recipe.partitions {
+        let members: Vec<Value> = items
+            .iter()
+            .filter(|m| {
+                op_matches(
+                    part.op,
+                    m.get(&part.field).and_then(Value::as_str).unwrap_or(""),
+                    &part.value,
+                )
+            })
+            .map(|m| Value::Object(m.clone()))
+            .collect();
+        out_map.insert(part.output_field.clone(), Value::Array(members));
+    }
+    if let Some(step) = &recipe.grading {
+        let pick = |keep: &dyn Fn(&Graded) -> bool| -> Vec<Value> {
+            selected
+                .iter()
+                .zip(&items)
+                .filter(|(c, _)| c.grade.as_ref().is_some_and(keep))
+                .map(|(_, m)| Value::Object(m.clone()))
+                .collect()
+        };
+        let clinical = pick(&|g| g.clinical());
+        out_map.insert(
+            step.non_clinical_field.clone(),
+            Value::Array(pick(&|g| !g.clinical())),
+        );
+        if let Some(field) = &step.contradictory_field {
+            out_map.insert(field.clone(), Value::Array(pick(&|g| g.adverse())));
+        }
+        if let Some(field) = &step.highest_clinical_tier_field {
+            let best = selected
+                .iter()
+                .filter_map(|c| c.grade.as_ref().filter(|g| g.clinical()))
+                .map(|g| g.tier)
+                .min();
+            if let Some(tier) = best {
+                out_map.insert(field.clone(), json!(tier.slug()));
+            }
+        }
+        if clinical.is_empty() {
+            if let Some(field) = &step.abstention_field {
+                out_map.insert(field.clone(), json!(step.abstention));
+            }
+        }
+        out_map.insert(step.clinical_field.clone(), Value::Array(clinical));
+    }
+    out_map.insert(
+        "items".into(),
+        Value::Array(items.into_iter().map(Value::Object).collect()),
+    );
+    Ok(Value::Object(out_map))
 }
 
 fn valid_slug(s: &str, max_len: usize) -> bool {
@@ -1145,14 +2011,105 @@ fn valid_ident(s: &str, max_len: usize) -> bool {
         && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
-/// Embedded sample TOML recipe for the Writing pack (`write.outline`).
+/// The study-type grading table `bio.evidence` and `bio.outline` share, as a
+/// literal so `concat!` can join it into each recipe.
+macro_rules! bio_grading_toml {
+    () => {
+        r#"
+[grading]
+study_type_field = "study_type"
+human_field = "human_clinical"
+flag_fields = ["multicenter", "prospective", "well_powered"]
+direction_field = "finding_direction"
+non_human_rule_id = "bio.grade.non-human-cap.v1"
+non_human_rationale = "Study not of human clinical evidence (for example a meta-analysis of animal studies); capped at level_5"
+clinical_field = "clinical_evidence"
+non_clinical_field = "preclinical_evidence"
+contradictory_field = "contradictory_findings"
+highest_clinical_tier_field = "highest_clinical_tier"
+abstention_field = "abstention"
+abstention = "No qualifying human clinical evidence is available; no clinical efficacy claim is made."
+
+[[grading.rules]]
+id = "bio.grade.meta-analysis.v1"
+study_type = "meta_analysis"
+tier = "level_1a"
+rationale = "Quantitative meta-analysis across controlled studies"
+
+[[grading.rules]]
+id = "bio.grade.systematic-review.v1"
+study_type = "systematic_review"
+tier = "level_1a"
+rationale = "Systematic review with explicit inclusion criteria"
+
+[[grading.rules]]
+id = "bio.grade.rct-powered.v1"
+study_type = "randomized_controlled_trial"
+any_flags = ["multicenter", "well_powered"]
+tier = "level_1b"
+rationale = "Multicenter or adequately powered randomized controlled trial"
+
+[[grading.rules]]
+id = "bio.grade.rct-single.v1"
+study_type = "randomized_controlled_trial"
+tier = "level_2a"
+rationale = "Single-center or exploratory randomized controlled trial"
+
+[[grading.rules]]
+id = "bio.grade.prospective-cohort.v1"
+study_type = "cohort_study"
+all_flags = ["prospective", "well_powered"]
+tier = "level_2a"
+rationale = "Prospective, adequately powered observational cohort study"
+
+[[grading.rules]]
+id = "bio.grade.cohort.v1"
+study_type = "cohort_study"
+tier = "level_2b"
+rationale = "Observational cohort study"
+
+[[grading.rules]]
+id = "bio.grade.case-control.v1"
+study_type = "case_control"
+tier = "level_3"
+rationale = "Retrospective case-control study"
+
+[[grading.rules]]
+id = "bio.grade.case-report.v1"
+study_type = "case_report"
+tier = "level_4"
+rationale = "Case report or uncontrolled case series"
+
+[[grading.rules]]
+id = "bio.grade.preclinical.v1"
+study_type = "preclinical"
+tier = "level_5"
+rationale = "Preclinical animal model study; non-clinical evidence"
+
+[[grading.rules]]
+id = "bio.grade.in-vitro.v1"
+study_type = "in_vitro"
+tier = "level_5"
+rationale = "In-vitro bench or mechanistic assay; non-clinical evidence"
+
+[[grading.rules]]
+id = "bio.grade.expert-opinion.v1"
+study_type = "expert_opinion"
+tier = "level_5"
+rationale = "Expert opinion or narrative review without primary data; non-clinical evidence"
+"#
+    };
+}
+
+/// `write.outline`: group cited evidence by theme into 1, 3 or 5 chapters, and
+/// refuse rather than pad when there are fewer sources than chapters.
 pub const BUILTIN_WRITE_OUTLINE_RECIPE_TOML: &str = r#"
 [recipe]
 format_version = "xerj-recipe/v1"
 pack = "writing"
 name = "write.outline"
 mcp_tool_name = "xerj_write_outline"
-description = "Cluster hub evidence into cited chapter items for an outline."
+description = "Group cited hub evidence by theme into a chapter outline. Refuses, instead of padding, when there are fewer cited sources than chapters."
 requires_scope = false
 
 [[inputs]]
@@ -1166,15 +2123,30 @@ max_len = 256
 [[inputs]]
 name = "audience"
 kind = "string"
-required = false
+required = true
 description = "Target audience level."
 enum_values = ["general", "technical", "executive"]
+
+[[inputs]]
+name = "length"
+kind = "string"
+required = true
+description = "Outline length: 1, 3 or 5 chapters."
+enum_values = ["brief", "standard", "comprehensive"]
 
 [corpora]
 required = ["agentic-security-ietf-corpus"]
 optional = []
 require_redistribution_licence = true
 min_hits = 1
+
+[corpora.min_evidence_hits_by_input]
+input = "length"
+
+[corpora.min_evidence_hits_by_input.values]
+brief = 1
+standard = 3
+comprehensive = 5
 
 [[filters]]
 field = "excerpt"
@@ -1183,12 +2155,22 @@ from_input = "topic"
 
 [ranking]
 strategy = "score_desc"
-top_k = 10
-cluster_by = "chapter"
-max_per_cluster = 3
+top_k = 40
+cluster_by = "theme_key"
+
+[grouping]
+output_field = "chapters"
+
+[grouping.chapters_from_input]
+input = "length"
+
+[grouping.chapters_from_input.values]
+brief = 1
+standard = 3
+comprehensive = 5
 
 [output_schema]
-required_fields = ["recipe", "pack", "topic", "items"]
+required_fields = ["recipe", "pack", "topic", "audience", "length", "chapters", "items"]
 
 [output_schema.properties.recipe]
 kind = "string"
@@ -1204,12 +2186,21 @@ non_empty = true
 
 [output_schema.properties.audience]
 kind = "string"
-non_empty = false
+non_empty = true
+
+[output_schema.properties.length]
+kind = "string"
+non_empty = true
+
+[output_schema.properties.chapters]
+kind = "array"
+non_empty = true
+item_required_fields = ["chapter_id", "title", "record_ids"]
 
 [output_schema.properties.items]
 kind = "array"
 non_empty = true
-item_required_fields = ["corpus", "record_id", "title", "excerpt", "pin_sha", "fetched_at"]
+item_required_fields = ["corpus", "record_id", "title", "excerpt", "pin_sha", "fetched_at", "chapter_id"]
 
 [[checks]]
 id = "citations-present"
@@ -1225,20 +2216,148 @@ phrases = ["TODO", "TBD", "as an AI language model"]
 [[checks]]
 id = "token-budget"
 kind = "max_token_budget"
-target_field = "items"
-max_tokens = 4096
+target_field = "$"
+max_tokens = 16384
 "#;
 
-/// Embedded sample TOML recipe for the Bio pack (`bio.evidence`).
-pub const BUILTIN_BIO_EVIDENCE_RECIPE_TOML: &str = r#"
+/// `write.section`: one chapter's cited facts and counterpoints, bounded in
+/// tokens measured on the serialized packet.
+pub const BUILTIN_WRITE_SECTION_RECIPE_TOML: &str = r#"
+[recipe]
+format_version = "xerj-recipe/v1"
+pack = "writing"
+name = "write.section"
+mcp_tool_name = "xerj_write_section"
+description = "Resolve one outline chapter into cited facts and counterpoints, within a token budget measured on the serialized packet."
+requires_scope = false
+static_notice = "Ground every factual sentence in the cited sources. Cite each claim with [source:<record_id>] and keep its provenance. Present counterpoints as scope limits, never as omitted evidence."
+
+[[inputs]]
+name = "outline_id"
+kind = "string"
+required = true
+description = "The outline the chapter belongs to."
+min_len = 8
+max_len = 64
+
+[[inputs]]
+name = "chapter"
+kind = "string"
+required = true
+description = "Chapter id (chapter-01) to resolve."
+min_len = 1
+max_len = 128
+
+[[inputs]]
+name = "token_budget"
+kind = "integer"
+required = true
+description = "Ceiling for the whole serialized packet, in tokens (RFC 8785 JSON bytes divided by four, rounded up)."
+
+[corpora]
+required = ["agentic-security-ietf-corpus"]
+optional = []
+require_redistribution_licence = true
+min_hits = 1
+min_evidence_hits = 1
+
+[[filters]]
+field = "outline_id"
+op = "equals"
+from_input = "outline_id"
+
+[[filters]]
+field = "chapter"
+op = "equals"
+from_input = "chapter"
+
+[ranking]
+strategy = "score_desc"
+top_k = 60
+
+[[partitions]]
+output_field = "facts"
+field = "stance"
+op = "not_equals"
+value = "counterpoint"
+protect_first = true
+
+[[partitions]]
+output_field = "counterpoints"
+field = "stance"
+op = "equals"
+value = "counterpoint"
+protect_first = true
+
+[output_schema]
+required_fields = ["recipe", "pack", "outline_id", "chapter", "token_budget", "notice", "items", "facts", "counterpoints"]
+
+[output_schema.properties.recipe]
+kind = "string"
+non_empty = true
+
+[output_schema.properties.pack]
+kind = "string"
+non_empty = true
+
+[output_schema.properties.outline_id]
+kind = "string"
+non_empty = true
+
+[output_schema.properties.chapter]
+kind = "string"
+non_empty = true
+
+[output_schema.properties.token_budget]
+kind = "integer"
+
+[output_schema.properties.notice]
+kind = "string"
+non_empty = true
+
+[output_schema.properties.items]
+kind = "array"
+non_empty = true
+item_required_fields = ["corpus", "record_id", "title", "excerpt", "pin_sha", "fetched_at"]
+
+[output_schema.properties.facts]
+kind = "array"
+
+[output_schema.properties.counterpoints]
+kind = "array"
+
+[[checks]]
+id = "citations-present"
+kind = "require_citations"
+target_field = "items"
+
+[[checks]]
+id = "no-slop"
+kind = "forbid_phrases"
+target_field = "items"
+phrases = ["TODO", "TBD", "as an AI language model"]
+
+[[checks]]
+id = "token-budget"
+kind = "max_token_budget"
+target_field = "$"
+max_tokens_from_input = "token_budget"
+fit_by_dropping = true
+"#;
+
+/// `bio.evidence`: study-type grading with a receipt per item, the clinical /
+/// non-clinical split, contradictory findings, and the not-medical-advice
+/// notice.
+pub const BUILTIN_BIO_EVIDENCE_RECIPE_TOML: &str = concat!(
+    r#"
 [recipe]
 format_version = "xerj-recipe/v1"
 pack = "bio"
 name = "bio.evidence"
 mcp_tool_name = "xerj_bio_evidence"
-description = "Grade biomedical corpus evidence by study type with redistribution and non-medical-advice guards."
+description = "Grade biomedical corpus evidence by study type, separate human clinical evidence from the rest, and surface contradictory findings. Literature synthesis only."
 requires_scope = false
-static_notice = "Literature synthesis from cited corpora only; not medical advice or clinical diagnosis."
+static_notice = "Literature synthesis from cited corpora only. This is not medical advice and is not a clinical diagnosis; consult appropriately qualified clinicians."
 
 [[inputs]]
 name = "condition"
@@ -1253,6 +2372,7 @@ required = ["open-biomed-trials"]
 optional = []
 require_redistribution_licence = true
 min_hits = 1
+min_evidence_hits = 1
 
 [[filters]]
 field = "excerpt"
@@ -1262,9 +2382,11 @@ from_input = "condition"
 [ranking]
 strategy = "study_grade_asc"
 top_k = 10
-
+"#,
+    bio_grading_toml!(),
+    r#"
 [output_schema]
-required_fields = ["recipe", "pack", "condition", "notice", "items"]
+required_fields = ["recipe", "pack", "condition", "notice", "items", "clinical_evidence", "preclinical_evidence", "contradictory_findings"]
 
 [output_schema.properties.recipe]
 kind = "string"
@@ -1285,7 +2407,22 @@ non_empty = true
 [output_schema.properties.items]
 kind = "array"
 non_empty = true
-item_required_fields = ["corpus", "record_id", "title", "excerpt", "pin_sha", "fetched_at", "study_type", "evidence_grade"]
+item_required_fields = ["corpus", "record_id", "title", "excerpt", "pin_sha", "fetched_at", "study_type", "evidence_tier", "grade_rule"]
+
+[output_schema.properties.clinical_evidence]
+kind = "array"
+
+[output_schema.properties.preclinical_evidence]
+kind = "array"
+
+[output_schema.properties.contradictory_findings]
+kind = "array"
+
+[output_schema.properties.highest_clinical_tier]
+kind = "string"
+
+[output_schema.properties.abstention]
+kind = "string"
 
 [[checks]]
 id = "citations-present"
@@ -1293,14 +2430,143 @@ kind = "require_citations"
 target_field = "items"
 
 [[checks]]
+id = "notice-literature-synthesis"
+kind = "require_notice"
+target_field = "notice"
+expected_substring = "Literature synthesis"
+
+[[checks]]
 id = "medical-disclaimer"
 kind = "require_notice"
 target_field = "notice"
 expected_substring = "not medical advice"
-"#;
 
-/// Embedded sample TOML recipe for the Cyber pack (`cyber.target_surface`).
-pub const BUILTIN_CYBER_SURFACE_RECIPE_TOML: &str = r#"
+[[checks]]
+id = "notice-clinical-diagnosis"
+kind = "require_notice"
+target_field = "notice"
+expected_substring = "clinical diagnosis"
+"#
+);
+
+/// `bio.outline`: `bio.evidence` grading, grouped into the chapters the caller's
+/// records name (the hit field `chapter`), each with its own clinical /
+/// non-clinical split and abstention.
+pub const BUILTIN_BIO_OUTLINE_RECIPE_TOML: &str = concat!(
+    r#"
+[recipe]
+format_version = "xerj-recipe/v1"
+pack = "bio"
+name = "bio.outline"
+mcp_tool_name = "xerj_bio_outline"
+description = "Outline a biomedical topic into chapters of graded, cited evidence, each separating human clinical evidence from the rest. Literature synthesis only."
+requires_scope = false
+static_notice = "Literature synthesis from cited corpora only. This is not medical advice and is not a clinical diagnosis; consult appropriately qualified clinicians."
+
+[[inputs]]
+name = "topic"
+kind = "string"
+required = true
+description = "Research question or topic to outline."
+min_len = 2
+max_len = 256
+
+[corpora]
+required = ["open-biomed-trials"]
+optional = []
+require_redistribution_licence = true
+min_hits = 1
+min_evidence_hits = 1
+
+[[filters]]
+field = "excerpt"
+op = "contains"
+from_input = "topic"
+
+[ranking]
+strategy = "study_grade_asc"
+top_k = 40
+cluster_by = "chapter"
+
+[grouping]
+output_field = "chapters"
+"#,
+    bio_grading_toml!(),
+    r#"
+[output_schema]
+required_fields = ["recipe", "pack", "topic", "notice", "chapters", "items", "clinical_evidence", "preclinical_evidence", "contradictory_findings"]
+
+[output_schema.properties.recipe]
+kind = "string"
+non_empty = true
+
+[output_schema.properties.pack]
+kind = "string"
+non_empty = true
+
+[output_schema.properties.topic]
+kind = "string"
+non_empty = true
+
+[output_schema.properties.notice]
+kind = "string"
+non_empty = true
+
+[output_schema.properties.chapters]
+kind = "array"
+non_empty = true
+item_required_fields = ["chapter_id", "title", "record_ids", "clinical_record_ids", "preclinical_record_ids"]
+
+[output_schema.properties.items]
+kind = "array"
+non_empty = true
+item_required_fields = ["corpus", "record_id", "title", "excerpt", "pin_sha", "fetched_at", "study_type", "evidence_tier", "grade_rule", "chapter_id"]
+
+[output_schema.properties.clinical_evidence]
+kind = "array"
+
+[output_schema.properties.preclinical_evidence]
+kind = "array"
+
+[output_schema.properties.contradictory_findings]
+kind = "array"
+
+[output_schema.properties.highest_clinical_tier]
+kind = "string"
+
+[output_schema.properties.abstention]
+kind = "string"
+
+[[checks]]
+id = "citations-present"
+kind = "require_citations"
+target_field = "items"
+
+[[checks]]
+id = "notice-literature-synthesis"
+kind = "require_notice"
+target_field = "notice"
+expected_substring = "Literature synthesis"
+
+[[checks]]
+id = "medical-disclaimer"
+kind = "require_notice"
+target_field = "notice"
+expected_substring = "not medical advice"
+
+[[checks]]
+id = "notice-clinical-diagnosis"
+kind = "require_notice"
+target_field = "notice"
+expected_substring = "clinical diagnosis"
+"#
+);
+
+/// A SAMPLE recipe for the Cyber pack (`cyber.target_surface`). The cyber pack
+/// (#2767) is not on main, so this tool does not exist: the recipe shows the
+/// format (a `requires_scope` recipe under a `ScopeGuard`) and is excluded from
+/// [`builtin_recipes`]. [`sample_recipes`] returns it.
+pub const SAMPLE_CYBER_SURFACE_RECIPE_TOML: &str = r#"
 [recipe]
 format_version = "xerj-recipe/v1"
 pack = "cyber"
@@ -1308,6 +2574,7 @@ name = "cyber.target_surface"
 mcp_tool_name = "xerj_cyber_target_surface"
 description = "Match authorized target surface patterns from vulnerability corpora under a ScopeGuard."
 requires_scope = true
+sample = true
 
 [[inputs]]
 name = "target"
@@ -1371,13 +2638,25 @@ kind = "require_citations"
 target_field = "items"
 "#;
 
-/// Load and validate all built-in TOML pack recipes embedded in the binary.
+/// Load and validate the built-in pack recipes: `write.outline`,
+/// `write.section`, `bio.outline` and `bio.evidence`. Sample recipes
+/// ([`sample_recipes`]) are not included.
 pub fn builtin_recipes() -> Result<Vec<PackRecipe>> {
     Ok(vec![
         PackRecipe::from_toml_str(BUILTIN_WRITE_OUTLINE_RECIPE_TOML)?,
+        PackRecipe::from_toml_str(BUILTIN_WRITE_SECTION_RECIPE_TOML)?,
+        PackRecipe::from_toml_str(BUILTIN_BIO_OUTLINE_RECIPE_TOML)?,
         PackRecipe::from_toml_str(BUILTIN_BIO_EVIDENCE_RECIPE_TOML)?,
-        PackRecipe::from_toml_str(BUILTIN_CYBER_SURFACE_RECIPE_TOML)?,
     ])
+}
+
+/// Sample recipes for packs whose tools are not served yet
+/// (`cyber.target_surface`, until #2767 lands). Their MCP descriptions say so,
+/// and nothing should register them in `tools/list`.
+pub fn sample_recipes() -> Result<Vec<PackRecipe>> {
+    Ok(vec![PackRecipe::from_toml_str(
+        SAMPLE_CYBER_SURFACE_RECIPE_TOML,
+    )?])
 }
 
 #[cfg(test)]
@@ -1385,114 +2664,147 @@ mod tests {
     use super::*;
     use chrono::TimeZone;
 
-    fn sample_hits() -> Vec<RecipeCorpusHit> {
-        vec![
-            RecipeCorpusHit {
-                corpus: "agentic-security-ietf-corpus".into(),
-                licence_class: LicenceClass::AdaptWithAttribution,
-                record_id: "draft-durga-trace-00".into(),
-                title: "TRACE verification receipt format".into(),
-                excerpt:
-                    "Zero-trust agentic control planes bind every tool action to a signed receipt."
-                        .into(),
-                score: 0.96,
-                published_date: "2026-11-01".into(),
-                study_grade_rank: None,
-                pin_sha: "a".repeat(40),
-                fetched_at: "2026-11-05".into(),
-                fields: BTreeMap::from([("chapter".into(), "1-architecture".into())]),
-                pinned_citation: None,
-            },
-            RecipeCorpusHit {
-                corpus: "open-biomed-trials".into(),
-                licence_class: LicenceClass::AdaptWithAttribution,
-                record_id: "NCT-2026-001".into(),
-                title: "Multi-center randomized trial of metabolic intervention".into(),
-                excerpt: "Randomized double-blind cohort evaluating glycemic response.".into(),
-                score: 0.91,
-                published_date: "2026-10-15".into(),
-                study_grade_rank: Some(1),
-                pin_sha: "b".repeat(40),
-                fetched_at: "2026-11-05".into(),
-                fields: BTreeMap::from([
-                    ("study_type".into(), "randomized_controlled_trial".into()),
-                    ("evidence_grade".into(), "grade_a".into()),
-                ]),
-                pinned_citation: None,
-            },
-            RecipeCorpusHit {
-                corpus: "rust-vulns".into(),
-                licence_class: LicenceClass::AdaptWithAttribution,
-                record_id: "RUSTSEC-2026-0099".into(),
-                title: "Redirect host allowlist bypass in HTTP client".into(),
-                excerpt: "Unchecked 302 redirect reaches internal metadata endpoint.".into(),
-                score: 0.94,
-                published_date: "2026-11-02".into(),
-                study_grade_rank: None,
-                pin_sha: "c".repeat(40),
-                fetched_at: "2026-11-05".into(),
-                fields: BTreeMap::from([("cwe".into(), "CWE-918".into())]),
-                pinned_citation: None,
-            },
+    const IETF: &str = "agentic-security-ietf-corpus";
+    const BIOMED: &str = "open-biomed-trials";
+
+    fn now() -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 11, 10, 12, 0, 0).unwrap()
+    }
+
+    fn hit(
+        corpus: &str,
+        record_id: &str,
+        title: &str,
+        excerpt: &str,
+        score: f64,
+        fields: &[(&str, &str)],
+    ) -> RecipeCorpusHit {
+        RecipeCorpusHit {
+            corpus: corpus.into(),
+            licence_class: LicenceClass::AdaptWithAttribution,
+            record_id: record_id.into(),
+            title: title.into(),
+            excerpt: excerpt.into(),
+            score,
+            published_date: "2026-11-01".into(),
+            study_grade_rank: None,
+            pin_sha: "a".repeat(40),
+            fetched_at: "2026-11-05".into(),
+            fields: fields
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            pinned_citation: None,
+        }
+    }
+
+    fn recipe(toml: &str) -> PackRecipe {
+        PackRecipe::from_toml_str(toml).unwrap()
+    }
+
+    fn run(
+        recipe: &PackRecipe,
+        args: Value,
+        hits: &[RecipeCorpusHit],
+    ) -> Result<RecipeExecutionReport> {
+        RecipeRunner::execute(
+            recipe,
+            &args,
+            hits,
+            None,
+            InputOrigin::AuthorizedControlPlane,
+            now(),
+        )
+    }
+
+    fn ids(value: &Value) -> Vec<String> {
+        value
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v["record_id"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    fn outline_hits() -> Vec<RecipeCorpusHit> {
+        [
+            (
+                "r1",
+                "Agentic control planes bind every tool action to a receipt.",
+                0.95,
+            ),
+            (
+                "r2",
+                "Agentic control planes bind actions to an identity.",
+                0.94,
+            ),
+            ("r3", "Agentic rule 1 limits delegation depth.", 0.93),
+            ("r4", "Agentic rule 2 limits delegation depth.", 0.92),
+            ("r5", "Agentic receipts are signed and verifiable.", 0.91),
         ]
+        .into_iter()
+        .map(|(id, excerpt, score)| hit(IETF, id, "Draft", excerpt, score, &[]))
+        .collect()
     }
 
     #[test]
-    fn builtin_recipes_parse_export_mcp_tools_and_execute_end_to_end() {
+    fn builtin_recipes_are_the_four_served_tools_and_the_cyber_sample_is_marked() {
         let recipes = builtin_recipes().unwrap();
-        assert_eq!(recipes.len(), 3);
+        let names: Vec<_> = recipes.iter().map(|r| r.recipe.name.as_str()).collect();
+        assert_eq!(
+            names,
+            [
+                "write.outline",
+                "write.section",
+                "bio.outline",
+                "bio.evidence"
+            ]
+        );
+        let tools: Vec<Value> = recipes.iter().map(PackRecipe::to_mcp_tool_spec).collect();
+        let tool_names: Vec<_> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
+        assert_eq!(
+            tool_names,
+            [
+                "xerj_write_outline",
+                "xerj_write_section",
+                "xerj_bio_outline",
+                "xerj_bio_evidence"
+            ]
+        );
+        assert!(recipes.iter().all(|r| !r.recipe.sample));
+        assert!(tools
+            .iter()
+            .all(|t| !t["description"].as_str().unwrap().contains("SAMPLE")));
 
-        let mcp_specs: Vec<Value> = recipes.iter().map(PackRecipe::to_mcp_tool_spec).collect();
-        assert_eq!(mcp_specs[0]["name"], "xerj_write_outline");
-        assert_eq!(mcp_specs[1]["name"], "xerj_bio_evidence");
-        assert_eq!(mcp_specs[2]["name"], "xerj_cyber_target_surface");
-
-        let hits = sample_hits();
-        let now = Utc.with_ymd_and_hms(2026, 11, 10, 12, 0, 0).unwrap();
-
-        // 1. Execute write.outline
-        let write_rep = RecipeRunner::execute(
-            &recipes[0],
-            &json!({"topic": "agentic", "audience": "technical"}),
-            &hits,
-            None,
-            InputOrigin::AuthorizedControlPlane,
-            now,
-        )
-        .unwrap();
-        let jcs = write_rep.to_jcs(&recipes[0]).unwrap();
-        assert!(!jcs.is_empty());
-        assert_eq!(write_rep.checks.len(), 3);
-
-        // 2. Execute bio.evidence
-        let bio_rep = RecipeRunner::execute(
-            &recipes[1],
-            &json!({"condition": "glycemic"}),
-            &hits,
-            None,
-            InputOrigin::AuthorizedControlPlane,
-            now,
-        )
-        .unwrap();
-        assert!(bio_rep.output["notice"]
+        let samples = sample_recipes().unwrap();
+        assert_eq!(samples.len(), 1);
+        assert_eq!(samples[0].recipe.name, "cyber.target_surface");
+        assert!(samples[0].recipe.sample);
+        assert!(samples[0].to_mcp_tool_spec()["description"]
             .as_str()
             .unwrap()
-            .contains("not medical advice"));
-        bio_rep.verify(&recipes[1]).unwrap();
+            .starts_with("[SAMPLE recipe, not a served tool]"));
+        assert!(recipes
+            .iter()
+            .all(|r| r.recipe.name != samples[0].recipe.name));
+    }
 
-        // 3. Execute cyber.target_surface: requires ScopeGuard
+    #[test]
+    fn the_cyber_sample_still_runs_under_a_scope_guard() {
+        let sample = &sample_recipes().unwrap()[0];
+        let hits = [hit(
+            "rust-vulns",
+            "RUSTSEC-2026-0099",
+            "Redirect host allowlist bypass",
+            "Unchecked 302 redirect reaches internal metadata endpoint.",
+            0.94,
+            &[("cwe", "CWE-918")],
+        )];
+        let args = json!({"target": "api.example.com", "cwe": "CWE-918"});
         assert!(matches!(
-            RecipeRunner::execute(
-                &recipes[2],
-                &json!({"target": "api.example.com", "cwe": "CWE-918"}),
-                &hits,
-                None,
-                InputOrigin::AuthorizedControlPlane,
-                now,
-            ),
+            run(sample, args.clone(), &hits),
             Err(RecipeError::ScopeRequired { .. })
         ));
-
         let guard = ScopeGuard::from_work_order(
             Some(WorkOrder {
                 id: "wo-recipe-1".into(),
@@ -1504,85 +2816,553 @@ mod tests {
             InputOrigin::AuthorizedControlPlane,
         )
         .unwrap();
-
-        let cyber_rep = RecipeRunner::execute(
-            &recipes[2],
-            &json!({"target": "api.example.com", "cwe": "CWE-918"}),
+        let report = RecipeRunner::execute(
+            sample,
+            &args,
             &hits,
             Some(&guard),
             InputOrigin::AuthorizedControlPlane,
-            now,
+            now(),
         )
         .unwrap();
-        assert!(cyber_rep.scope.is_some());
-        cyber_rep.verify(&recipes[2]).unwrap();
+        assert!(report.scope.is_some());
+        report.verify(sample).unwrap();
+    }
+
+    /// Short tokens and digits are part of the theme key, so two records that
+    /// differ only by a number are different themes.
+    #[test]
+    fn the_derived_theme_key_keeps_short_tokens_and_digits() {
+        let one = hit(IETF, "a", "T", "Rule 1 of the set.", 1.0, &[]);
+        let two = hit(IETF, "b", "T", "Rule 2 of the set.", 1.0, &[]);
+        assert_eq!(theme_key(&one), "rule 1 of the");
+        assert_ne!(theme_key(&one), theme_key(&two));
+        assert_eq!(
+            hit_field(&one, "theme_key").unwrap().as_ref(),
+            "rule 1 of the"
+        );
+        let explicit = hit(IETF, "c", "T", "x", 1.0, &[("theme_key", "given")]);
+        assert_eq!(hit_field(&explicit, "theme_key").unwrap().as_ref(), "given");
+    }
+
+    #[test]
+    fn write_outline_groups_by_theme_keeps_themes_whole_and_refuses_to_pad() {
+        let outline = recipe(BUILTIN_WRITE_OUTLINE_RECIPE_TOML);
+        let args =
+            |length: &str| json!({"topic": "agentic", "audience": "technical", "length": length});
+
+        let standard = run(&outline, args("standard"), &outline_hits()).unwrap();
+        standard.verify(&outline).unwrap();
+        let chapters = standard.output["chapters"].as_array().unwrap();
+        assert_eq!(chapters.len(), 3);
+        // Both "control planes" records share a theme and a chapter; the "rule
+        // 1" and "rule 2" records are different themes.
+        let chapter_of = |id: &str| {
+            standard.output["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|i| i["record_id"] == id)
+                .unwrap()["chapter_id"]
+                .clone()
+        };
+        assert_eq!(chapter_of("r1"), chapter_of("r2"));
+        assert_ne!(chapter_of("r3"), chapter_of("r4"));
+        let mut all: Vec<String> = chapters
+            .iter()
+            .flat_map(|c| c["record_ids"].as_array().unwrap().iter())
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
+        all.sort();
+        assert_eq!(
+            all,
+            ["r1", "r2", "r3", "r4", "r5"],
+            "every record in one chapter"
+        );
+
+        let brief = run(&outline, args("brief"), &outline_hits()).unwrap();
+        assert_eq!(brief.output["chapters"].as_array().unwrap().len(), 1);
+
+        // Fewer cited sources than chapters: a refusal, not padded chapters.
+        let err = run(&outline, args("comprehensive"), &outline_hits()[..4]).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                RecipeError::InsufficientEvidence {
+                    matched: 4,
+                    min_hits: 5,
+                    ..
+                }
+            ),
+            "{err}"
+        );
+        let err = run(&outline, args("standard"), &outline_hits()[..2]).unwrap_err();
+        assert!(matches!(
+            err,
+            RecipeError::InsufficientEvidence {
+                matched: 2,
+                min_hits: 3,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn a_theme_is_split_only_when_there_are_fewer_themes_than_chapters() {
+        let one_theme: Vec<String> = vec!["same".to_string(); 5];
+        let plan = plan_chapters(&one_theme, Some(5)).unwrap();
+        assert!(plan.iter().all(|c| c.len() == 1));
+        let mixed: Vec<String> = ["a", "a", "a", "a", "b"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let plan = plan_chapters(&mixed, Some(3)).unwrap();
+        assert_eq!(plan.len(), 3);
+        assert!(plan.iter().all(|c| !c.is_empty()));
+        assert_eq!(plan.iter().map(Vec::len).sum::<usize>(), 5);
+        assert!(plan_chapters(&mixed, Some(6)).is_none());
+        // With no count, every key is a chapter.
+        let by_key = plan_chapters(&mixed, None).unwrap();
+        assert_eq!(by_key.iter().map(Vec::len).collect::<Vec<_>>(), [4, 1]);
+    }
+
+    fn section_hits() -> Vec<RecipeCorpusHit> {
+        let mut hits: Vec<RecipeCorpusHit> = (0..6)
+            .map(|n| {
+                hit(
+                    IETF,
+                    &format!("support-{n}"),
+                    "Draft",
+                    &format!("Supporting evidence number {n} about bounded delegation."),
+                    0.9 - f64::from(n) / 100.0,
+                    &[
+                        ("outline_id", "outline-0123abcd"),
+                        ("chapter", "chapter-01"),
+                        ("stance", "supporting"),
+                    ],
+                )
+            })
+            .collect();
+        for (n, score) in [(0, 0.5), (1, 0.4)] {
+            hits.push(hit(
+                IETF,
+                &format!("counter-{n}"),
+                "Draft",
+                &format!("A limit {n} on bounded delegation."),
+                score,
+                &[
+                    ("outline_id", "outline-0123abcd"),
+                    ("chapter", "chapter-01"),
+                    ("stance", "counterpoint"),
+                ],
+            ));
+        }
+        // Another chapter and another outline: filtered out.
+        hits.push(hit(
+            IETF,
+            "other-chapter",
+            "Draft",
+            "Elsewhere.",
+            0.99,
+            &[
+                ("outline_id", "outline-0123abcd"),
+                ("chapter", "chapter-02"),
+                ("stance", "supporting"),
+            ],
+        ));
+        hits.push(hit(
+            IETF,
+            "other-outline",
+            "Draft",
+            "Elsewhere.",
+            0.99,
+            &[
+                ("outline_id", "outline-ffff0000"),
+                ("chapter", "chapter-01"),
+                ("stance", "supporting"),
+            ],
+        ));
+        hits
+    }
+
+    fn section(budget: u64) -> Result<RecipeExecutionReport> {
+        run(
+            &recipe(BUILTIN_WRITE_SECTION_RECIPE_TOML),
+            json!({"outline_id": "outline-0123abcd", "chapter": "chapter-01", "token_budget": budget}),
+            &section_hits(),
+        )
+    }
+
+    /// The budget is measured on the serialized output, and the lowest-ranked
+    /// items go first: the mandatory core (the best fact and the best
+    /// counterpoint) is never dropped.
+    #[test]
+    fn write_section_fits_its_token_budget_on_the_serialized_packet() {
+        let section_recipe = recipe(BUILTIN_WRITE_SECTION_RECIPE_TOML);
+        let full = section(1_000_000).unwrap();
+        full.verify(&section_recipe).unwrap();
+        assert_eq!(
+            ids(&full.output["items"]).len(),
+            8,
+            "other chapter and outline filtered"
+        );
+        assert_eq!(ids(&full.output["facts"]).len(), 6);
+        assert_eq!(
+            ids(&full.output["counterpoints"]),
+            ["counter-0", "counter-1"]
+        );
+        let full_tokens = measured_tokens(&full.output, "$").unwrap();
+
+        // The smallest budget that still succeeds holds only the core.
+        let (mut lo, mut hi) = (1u64, 1_000_000u64);
+        while lo < hi {
+            let mid = (lo + hi) / 2;
+            if section(mid).is_ok() {
+                hi = mid;
+            } else {
+                lo = mid + 1;
+            }
+        }
+        let core = section(lo).unwrap();
+        assert_eq!(ids(&core.output["facts"]), ["support-0"]);
+        assert_eq!(ids(&core.output["counterpoints"]), ["counter-0"]);
+        assert!(measured_tokens(&core.output, "$").unwrap() <= usize::try_from(lo).unwrap());
+        let err = section(lo - 1).unwrap_err();
+        assert!(matches!(err, RecipeError::CheckFailed { .. }), "{err}");
+
+        let middle = u64::try_from(full_tokens).unwrap() * 3 / 4;
+        let partial = section(middle).unwrap();
+        let kept = ids(&partial.output["items"]).len();
+        assert!((2..8).contains(&kept), "{kept}");
+        assert!(measured_tokens(&partial.output, "$").unwrap() <= usize::try_from(middle).unwrap());
+        // Dropped from the tail: what is kept is the best-ranked prefix.
+        assert_eq!(ids(&partial.output["facts"])[0], "support-0");
+        partial.verify(&section_recipe).unwrap();
+        let weaker = section_recipe.run_checks(&full.output).unwrap();
+        assert_eq!(weaker.last().unwrap().check_id, "token-budget");
+    }
+
+    #[test]
+    fn a_counterpoint_only_chapter_lists_each_source_once() {
+        let only: Vec<RecipeCorpusHit> = section_hits()
+            .into_iter()
+            .filter(|h| h.record_id.starts_with("counter-"))
+            .collect();
+        let report = run(
+            &recipe(BUILTIN_WRITE_SECTION_RECIPE_TOML),
+            json!({"outline_id": "outline-0123abcd", "chapter": "chapter-01", "token_budget": 1_000_000}),
+            &only,
+        )
+        .unwrap();
+        assert!(report.output["facts"].as_array().unwrap().is_empty());
+        assert_eq!(
+            ids(&report.output["counterpoints"]),
+            ["counter-0", "counter-1"]
+        );
+        let mut seen: Vec<String> = ids(&report.output["facts"]);
+        seen.extend(ids(&report.output["counterpoints"]));
+        let unique: HashSet<_> = seen.iter().collect();
+        assert_eq!(unique.len(), seen.len(), "no source in two partitions");
+    }
+
+    fn trial(
+        id: &str,
+        study_type: &str,
+        human: &str,
+        extra: &[(&str, &str)],
+        score: f64,
+    ) -> RecipeCorpusHit {
+        let mut fields = vec![("study_type", study_type), ("human_clinical", human)];
+        fields.extend_from_slice(extra);
+        hit(
+            BIOMED,
+            id,
+            "Study",
+            &format!("A glycemic response study ({id})."),
+            score,
+            &fields,
+        )
+    }
+
+    fn bio_hits() -> Vec<RecipeCorpusHit> {
+        vec![
+            trial("h-meta", "meta_analysis", "true", &[], 0.5),
+            trial(
+                "h-rct",
+                "randomized_controlled_trial",
+                "true",
+                &[("multicenter", "true"), ("finding_direction", "adverse")],
+                0.9,
+            ),
+            trial("h-animal-meta", "meta_analysis", "false", &[], 0.99),
+            trial("h-opinion", "expert_opinion", "true", &[], 0.8),
+            trial("h-bench", "in_vitro", "false", &[], 0.7),
+        ]
+    }
+
+    fn graded<'a>(items: &'a Value, id: &str) -> &'a Value {
+        items
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|i| i["record_id"] == id)
+            .unwrap()
+    }
+
+    #[test]
+    fn bio_evidence_grades_with_a_receipt_and_never_ranks_a_non_human_study_above_level_5() {
+        let bio = recipe(BUILTIN_BIO_EVIDENCE_RECIPE_TOML);
+        let report = run(&bio, json!({"condition": "glycemic"}), &bio_hits()).unwrap();
+        report.verify(&bio).unwrap();
+        let out = &report.output;
+
+        // Tier order, not score order: the strongest design first.
+        assert_eq!(ids(&out["clinical_evidence"]), ["h-meta", "h-rct"]);
+        assert_eq!(out["highest_clinical_tier"], "level_1a");
+        assert_eq!(
+            ids(&out["preclinical_evidence"]).len(),
+            3,
+            "{}",
+            out["preclinical_evidence"]
+        );
+        assert!(out.get("abstention").is_none());
+        assert_eq!(ids(&out["contradictory_findings"]), ["h-rct"]);
+
+        // The receipt on each item.
+        let meta = graded(&out["items"], "h-meta");
+        assert_eq!(meta["grade_rule"]["rule_id"], "bio.grade.meta-analysis.v1");
+        assert_eq!(meta["evidence_tier"], "level_1a");
+        let rct = graded(&out["items"], "h-rct");
+        assert_eq!(rct["grade_rule"]["rule_id"], "bio.grade.rct-powered.v1");
+        assert_eq!(rct["grade_rule"]["tier"], "level_1b");
+        assert_eq!(rct["grade_rule"]["metadata"]["multicenter"], "true");
+
+        // A meta-analysis of animal studies is capped, under its own rule, and
+        // the receipt names the rule it would otherwise have met.
+        let animal = graded(&out["items"], "h-animal-meta");
+        assert_eq!(animal["evidence_tier"], "level_5");
+        assert_eq!(
+            animal["grade_rule"]["rule_id"],
+            "bio.grade.non-human-cap.v1"
+        );
+        assert!(animal["grade_rule"]["matched_signals"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s == "scope:non-human-capped-from:bio.grade.meta-analysis.v1"));
+        assert!(ids(&out["preclinical_evidence"]).contains(&"h-animal-meta".to_string()));
+
+        // Expert opinion has its own rule and is never clinical evidence, even
+        // for human subjects.
+        let opinion = graded(&out["items"], "h-opinion");
+        assert_eq!(
+            opinion["grade_rule"]["rule_id"],
+            "bio.grade.expert-opinion.v1"
+        );
+        assert_eq!(opinion["evidence_tier"], "level_5");
+        assert!(ids(&out["preclinical_evidence"]).contains(&"h-opinion".to_string()));
+        assert!(out["notice"]
+            .as_str()
+            .unwrap()
+            .contains("not medical advice"));
+    }
+
+    #[test]
+    fn bio_evidence_abstains_without_human_clinical_evidence_and_rejects_unknown_designs() {
+        let bio = recipe(BUILTIN_BIO_EVIDENCE_RECIPE_TOML);
+        let only_non_clinical: Vec<_> = bio_hits()
+            .into_iter()
+            .filter(|h| ["h-animal-meta", "h-opinion", "h-bench"].contains(&h.record_id.as_str()))
+            .collect();
+        let report = run(&bio, json!({"condition": "glycemic"}), &only_non_clinical).unwrap();
+        assert!(report.output["clinical_evidence"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+        assert!(report.output["abstention"]
+            .as_str()
+            .unwrap()
+            .contains("no clinical efficacy claim"));
+        assert!(report.output.get("highest_clinical_tier").is_none());
+
+        // `expert-opinion-or-review` is not a study type: no alias maps it to
+        // another design.
+        for bad in [
+            "expert-opinion-or-review",
+            "preclinical-or-in-vitro",
+            "mystery",
+        ] {
+            let hits = [trial("h-bad", bad, "true", &[], 0.9)];
+            let err = run(&bio, json!({"condition": "glycemic"}), &hits).unwrap_err();
+            assert!(
+                matches!(err, RecipeError::InvalidEvidence { .. }),
+                "{bad}: {err}"
+            );
+        }
+        let missing = [hit(
+            BIOMED,
+            "h-none",
+            "Study",
+            "A glycemic study.",
+            0.9,
+            &[],
+        )];
+        assert!(matches!(
+            run(&bio, json!({"condition": "glycemic"}), &missing),
+            Err(RecipeError::InvalidEvidence { .. })
+        ));
+    }
+
+    #[test]
+    fn bio_outline_groups_by_chapter_and_separates_clinical_evidence_in_each() {
+        let outline = recipe(BUILTIN_BIO_OUTLINE_RECIPE_TOML);
+        let with_chapter = |mut h: RecipeCorpusHit, chapter: &str| {
+            h.fields.insert("chapter".into(), chapter.into());
+            h
+        };
+        let hits = vec![
+            with_chapter(
+                trial("c-meta", "meta_analysis", "true", &[], 0.9),
+                "1 human evidence",
+            ),
+            with_chapter(
+                trial("c-animal", "preclinical", "false", &[], 0.8),
+                "2 animal evidence",
+            ),
+            with_chapter(
+                trial("c-bench", "in_vitro", "false", &[], 0.7),
+                "2 animal evidence",
+            ),
+        ];
+        let report = run(&outline, json!({"topic": "glycemic"}), &hits).unwrap();
+        report.verify(&outline).unwrap();
+        let chapters = report.output["chapters"].as_array().unwrap();
+        assert_eq!(chapters.len(), 2);
+        assert_eq!(chapters[0]["title"], "1 human evidence");
+        assert_eq!(chapters[0]["clinical_record_ids"], json!(["c-meta"]));
+        assert!(chapters[0].get("abstention").is_none());
+        assert_eq!(chapters[1]["clinical_record_ids"], json!([]));
+        assert!(chapters[1]["abstention"]
+            .as_str()
+            .unwrap()
+            .contains("No qualifying"));
+        assert_eq!(
+            chapters[1]["preclinical_record_ids"],
+            json!(["c-animal", "c-bench"])
+        );
+        assert!(graded(&report.output["items"], "c-meta")["chapter_id"] == "chapter-01");
+    }
+
+    #[test]
+    fn a_max_token_budget_is_measured_on_jcs_bytes_not_a_loose_estimate() {
+        let outline = recipe(BUILTIN_WRITE_OUTLINE_RECIPE_TOML);
+        let args = json!({"topic": "agentic", "audience": "technical", "length": "brief"});
+        let report = run(&outline, args.clone(), &outline_hits()).unwrap();
+        let bytes = serde_json_canonicalizer::to_vec(&report.output).unwrap();
+        let measured = bytes.len().div_ceil(4);
+        assert_eq!(measured_tokens(&report.output, "$").unwrap(), measured);
+        let detail = &report.checks.last().unwrap().detail;
+        assert_eq!(detail, &format!("measured {measured} tokens <= 16384"));
+
+        // One token under what the output measures fails, naming the figure.
+        let mut tight = outline.clone();
+        tight.checks.last_mut().unwrap().max_tokens = Some(measured - 1);
+        let err = run(&tight, args, &outline_hits()).unwrap_err();
+        match err {
+            RecipeError::CheckFailed { reason, .. } => {
+                assert!(
+                    reason.contains(&format!("measures {measured} tokens")),
+                    "{reason}"
+                )
+            }
+            other => panic!("{other}"),
+        }
     }
 
     #[test]
     fn invalid_recipes_fail_with_precise_errors() {
-        // Bad format_version
-        let bad_ver = BUILTIN_WRITE_OUTLINE_RECIPE_TOML.replace("xerj-recipe/v1", "v0");
-        assert!(PackRecipe::from_toml_str(&bad_ver)
-            .unwrap_err()
-            .to_string()
-            .contains("format_version"));
-
-        // Filter referencing non-existent input
-        let bad_filter = BUILTIN_WRITE_OUTLINE_RECIPE_TOML
-            .replace("from_input = \"topic\"", "from_input = \"ghost\"");
-        assert!(PackRecipe::from_toml_str(&bad_filter)
-            .unwrap_err()
-            .to_string()
-            .contains("unknown input"));
-
-        // Undeclared required output field
-        let bad_schema = BUILTIN_WRITE_OUTLINE_RECIPE_TOML.replace(
-            "required_fields = [\"recipe\", \"pack\", \"topic\", \"items\"]",
-            "required_fields = [\"recipe\", \"missing_field\"]",
+        let expect = |toml: String, needle: &str| {
+            let err = PackRecipe::from_toml_str(&toml).unwrap_err().to_string();
+            assert!(err.contains(needle), "{needle}: {err}");
+        };
+        let outline = BUILTIN_WRITE_OUTLINE_RECIPE_TOML;
+        expect(outline.replace("xerj-recipe/v1", "v0"), "format_version");
+        expect(
+            outline.replace("from_input = \"topic\"", "from_input = \"ghost\""),
+            "unknown input",
         );
-        assert!(PackRecipe::from_toml_str(&bad_schema)
-            .unwrap_err()
-            .to_string()
-            .contains("undeclared property"));
+        expect(
+            outline.replace(
+                "required_fields = [\"recipe\", \"pack\", \"topic\", \"audience\", \"length\", \"chapters\", \"items\"]",
+                "required_fields = [\"recipe\", \"missing_field\"]",
+            ),
+            "undeclared property",
+        );
+        // A floor table needs a positive row for every enum value.
+        expect(
+            outline.replace(
+                "comprehensive = 5\n\n[[filters]]",
+                "comprehensive = 0\n\n[[filters]]",
+            ),
+            "no positive entry",
+        );
+        expect(
+            outline.replacen("standard = 3", "standard = 3\nextra = 9", 1),
+            "not a value of",
+        );
+        // The grading table must cover every study type, expert opinion included.
+        expect(
+            BUILTIN_BIO_EVIDENCE_RECIPE_TOML.replace(
+                "study_type = \"expert_opinion\"",
+                "study_type = \"in_vitro\"",
+            ),
+            "no row for study type \"expert_opinion\"",
+        );
+        // Grouping groups by `ranking.cluster_by`.
+        expect(
+            outline.replace("cluster_by = \"theme_key\"\n", ""),
+            "cluster_by",
+        );
+        // A budget from an input must be a required integer the output echoes.
+        expect(
+            BUILTIN_WRITE_SECTION_RECIPE_TOML.replace(
+                "max_tokens_from_input = \"token_budget\"",
+                "max_tokens_from_input = \"chapter\"",
+            ),
+            "max_tokens_from_input",
+        );
+        expect(
+            outline.replace(
+                "phrases = [\"TODO\", \"TBD\", \"as an AI language model\"]",
+                "phrases = [\"TODO\"]\nfit_by_dropping = true",
+            ),
+            "fit_by_dropping",
+        );
     }
 
     #[test]
     fn output_schema_and_deterministic_checks_reject_invalid_outputs_and_excluded_corpora() {
-        let recipe = PackRecipe::from_toml_str(BUILTIN_WRITE_OUTLINE_RECIPE_TOML).unwrap();
-        let now = Utc.with_ymd_and_hms(2026, 11, 10, 12, 0, 0).unwrap();
+        let outline = recipe(BUILTIN_WRITE_OUTLINE_RECIPE_TOML);
+        let args = json!({"topic": "agentic", "audience": "technical", "length": "brief"});
 
         // Excluded corpus licence -> refused
-        let mut excluded_hits = sample_hits();
-        excluded_hits[0].licence_class = LicenceClass::Excluded;
+        let mut excluded = outline_hits();
+        excluded[0].licence_class = LicenceClass::Excluded;
         assert!(matches!(
-            RecipeRunner::execute(
-                &recipe,
-                &json!({"topic": "agentic"}),
-                &excluded_hits,
-                None,
-                InputOrigin::AuthorizedControlPlane,
-                now,
-            ),
+            run(&outline, args.clone(), &excluded),
             Err(RecipeError::ExcludedCorpusLicence { .. })
         ));
 
-        // Banned slop phrase in excerpt -> refused by `no-slop` check
-        let mut slop_hits = sample_hits();
-        slop_hits[0].excerpt = "Zero-trust agentic control plane TODO fill later".into();
+        // Banned slop phrase in an excerpt -> refused by the `no-slop` check
+        let mut slop = outline_hits();
+        slop[0].excerpt = "Agentic control plane TODO fill later".into();
         assert!(matches!(
-            RecipeRunner::execute(
-                &recipe,
-                &json!({"topic": "agentic"}),
-                &slop_hits,
-                None,
-                InputOrigin::AuthorizedControlPlane,
-                now,
-            ),
+            run(&outline, args, &slop),
             Err(RecipeError::CheckFailed { .. })
         ));
 
         // Direct schema validation rejects missing required fields
-        assert!(recipe
+        assert!(outline
             .validate_output(&json!({"recipe": "write.outline"}))
             .is_err());
     }

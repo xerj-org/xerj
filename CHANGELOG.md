@@ -10,13 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Declarative TOML pack recipe format (`xerj-recipe/v1`) and deterministic Rust
-  executor in `xerj_common::pack_recipe` (Refs #2762, #2769): embeds built-in
-  Writing (`write.outline`), Bio (`bio.evidence`) and Cyber
-  (`cyber.target_surface`) recipes, projects recipes into MCP `tools/list`
-  schemas (`to_mcp_tool_spec`), enforces `LicenceClass` redistribution and
-  `ScopeGuard` gates, validates output JSON against the recipe's declared
-  schema, runs deterministic citation/anti-slop/token/notice checks, and seals
-  reports with an RFC 8785 SHA-256 receipt.
+  executor in `xerj_common::pack_recipe` (Refs #2762, #2769). Built-in recipes:
+  `write.outline`, `write.section`, `bio.outline` and `bio.evidence`;
+  `cyber.target_surface` is a **sample** (`recipe.sample = true`) until #2767
+  lands and is not in `builtin_recipes()`. The runner projects recipes into MCP
+  `tools/list` schemas (`to_mcp_tool_spec`), enforces `LicenceClass`
+  redistribution and `ScopeGuard` gates, validates output JSON against the
+  recipe's declared schema, runs deterministic citation/anti-slop/token/notice
+  checks, and seals reports with an RFC 8785 SHA-256 receipt. Runner features
+  for the pack recipes: a `max_token_budget` measured on the RFC 8785 bytes of
+  the output (optionally dropping the lowest-ranked items to fit),
+  `min_evidence_hits` refusal instead of padding, `cluster_by` chapter grouping,
+  and study-type grading with a `GradeRule` receipt (including `expert_opinion`,
+  and `Level5` for any study that is not human clinical) with a
+  clinical / non-clinical split. Nothing in `xerj-mcp` registers or dispatches
+  recipes yet.
 
 ## [1.0.0-rc.105] - 2026-11-23
 
