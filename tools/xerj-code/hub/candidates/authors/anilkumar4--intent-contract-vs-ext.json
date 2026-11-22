@@ -1,0 +1,23 @@
+{
+ "corpus": "anilkumar4--intent-contract-vs-ext",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on TypeScript queries this for how anilkumar4/intent-contract-vs-ext implements it: Intent Contract captures a local Git tree as a task baseline and detects changes that violate a contract in .intent/*.yaml. It reports chang (selected work: src/config, src/ui, test)",
+ "repos": [
+  {
+   "repo": "intent-contract-vs-ext",
+   "url": "https://github.com/anilkumar4/intent-contract-vs-ext",
+   "sha": "649db7a7736396640cecc4455d9ad99162309b8d",
+   "licence": "MIT (LICENSE file at pin 649db7a77363, GitHub licence API 2026-11-22)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-21T14:46Z",
+    "consent_receipt": "d7f48c09ba8e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-21T14:46Z (receipt d7f48c09ba8e); selected commit 649db7a77363: \"feat(ux,sync): deliver Phase 5 (Ambient In-Editor CodeLens, Agent Pro\u2026\". LICENSE file at pin 649db7a77363 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+   }
+  }
+ ]
+}

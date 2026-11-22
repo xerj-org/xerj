@@ -8,15 +8,15 @@
   {
    "repo": "flaxon",
    "url": "https://github.com/aldanedev-create/flaxon",
-   "sha": "9e7aab8ffc8e2222c314fb9c0bc33d8e41fba1a0",
-   "licence": "author's permission (LICENSE at pin 9e7aab8ffc8e: NOASSERTION; repository: NOASSERTION)",
+   "sha": "7fcf2935d0a39cb483b8492515309f533ac40de5",
+   "licence": "author's permission (LICENSE at pin 7fcf2935d0a3: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T08:40Z",
     "consent_receipt": "4452ee0e78a9",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T08:40Z (receipt 4452ee0e78a9); pinned to the default-branch head. LICENSE at pin 9e7aab8ffc8e: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T08:40Z (receipt 4452ee0e78a9); pinned to the default-branch head. LICENSE at pin 7fcf2935d0a3: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]
