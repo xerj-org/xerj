@@ -28241,11 +28241,18 @@ impl Index {
         // matching via the per-segment ghost bitmaps). Only a non-empty
         // memtable — rows with no doc-values columns — keeps the brute path.
         let scored_fast_ready: bool = scored_plan.is_some() && self.memtable.doc_count() == 0;
-        let shortcut_count: Option<u64> = if scored_fast_ready {
+        let mut shortcut_count: Option<u64> = if scored_fast_ready {
             None
         } else {
-            self.try_shortcut_count(query, &snap, is_match_all, mem_matches_known, &dmq_schema)
-                .await
+            self.try_shortcut_count(
+                query,
+                &snap,
+                is_match_all,
+                mem_matches_known,
+                &dmq_schema,
+                count_only,
+            )
+            .await
         };
 
         // Whether this query resolves to an FTS (inverted-index) search.  The
@@ -28497,6 +28504,35 @@ impl Index {
                     total_count = total;
                     scored_fast_applied = true;
                     scored_from_applied = from_applied;
+                }
+            }
+        }
+        // #3412: `scored_columnar` bails on a segment with no column for its
+        // field — always the case for a keyword field that went multi-valued —
+        // and the shortcut count was skipped above because it was expected to
+        // run. A count-only request then decoded every segment just to tally a
+        // number the FTS dictionary already holds. Only the term shape that
+        // oracle covers is re-probed, and only for count-only requests (see
+        // the `fts_keyword_oracle` parameter for why a page may not use it).
+        if count_only && scored_fast_ready && !scored_fast_applied && shortcut_count.is_none() {
+            let peeled = match query {
+                QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
+                    query.as_ref()
+                }
+                other => other,
+            };
+            if let QueryNode::Term { field, value, .. } = peeled {
+                if keyword_fts_term_oracle(&dmq_schema, field, value).is_some() {
+                    shortcut_count = self
+                        .try_shortcut_count(
+                            query,
+                            &snap,
+                            is_match_all,
+                            mem_matches_known,
+                            &dmq_schema,
+                            true,
+                        )
+                        .await;
                 }
             }
         }
@@ -29992,12 +30028,26 @@ impl Index {
                             // the pre-flush hit set — see
                             // `field_is_analyzed_text`).
                             None if field_is_analyzed_text(&dmq_schema, field) => None,
-                            None => self.build_term_prefilter_cached(
-                                &segments_dir,
-                                &seg_id,
-                                field,
-                                std::slice::from_ref(value),
-                            ),
+                            None => self
+                                .build_term_prefilter_cached(
+                                    &segments_dir,
+                                    &seg_id,
+                                    field,
+                                    std::slice::from_ref(value),
+                                )
+                                .or_else(|| {
+                                    // #3412: a multi-valued keyword field has
+                                    // no column in this segment; its FTS
+                                    // dictionary answers instead of a full
+                                    // stored decode + parse.
+                                    let term = keyword_fts_term_oracle(&dmq_schema, field, value)?;
+                                    self.build_keyword_term_fts_prefilter(
+                                        &segments_dir,
+                                        &seg_id,
+                                        field,
+                                        term,
+                                    )
+                                }),
                         }
                     } else if let QueryNode::Terms { field, values, .. } = query {
                         // Same field-sort narrowing as the Term arm (the
@@ -30028,6 +30078,35 @@ impl Index {
                                 field,
                                 values,
                             ),
+                        }
+                    } else if let QueryNode::Constant { query: inner, .. } = query {
+                        // #3412: `constant_score { filter: { term } }` matches
+                        // exactly what its inner `term` matches, so the same
+                        // exact position set applies (the score is the
+                        // constant, whatever the inner term would score).
+                        // Before, only a BARE `term` got a prefilter and this
+                        // common ES spelling parsed every stored doc.
+                        match inner.as_ref() {
+                            QueryNode::Term { field, value, .. }
+                                if !field_is_analyzed_text(&dmq_schema, field) =>
+                            {
+                                self.build_term_prefilter_cached(
+                                    &segments_dir,
+                                    &seg_id,
+                                    field,
+                                    std::slice::from_ref(value),
+                                )
+                                .or_else(|| {
+                                    let term = keyword_fts_term_oracle(&dmq_schema, field, value)?;
+                                    self.build_keyword_term_fts_prefilter(
+                                        &segments_dir,
+                                        &seg_id,
+                                        field,
+                                        term,
+                                    )
+                                })
+                            }
+                            _ => None,
                         }
                     } else if let QueryNode::Ids { values } = query {
                         // Resolve primary keys to stored positions via the
@@ -30435,7 +30514,20 @@ impl Index {
                                 // the decompressed section can be cached for
                                 // the next query (subject to the budget).
                                 let mut offsets: Vec<(u32, u32)> = Vec::new();
-                                let want_cache = sorted_candidates_path
+                                // #3412: an UNSORTED pre-filtered scan that is
+                                // not count-authoritative walks the whole
+                                // section anyway (no F1b early stop), so the
+                                // offsets cost nothing extra here. Caching them
+                                // sends the next pre-filtered query on this
+                                // segment to `hydrate_prefiltered_unsorted`
+                                // (random access to its matches) instead of
+                                // brace-walking the decoded section again:
+                                // 496 segments x ~1.4 MB walked per query was
+                                // most of a warm 417 ms `term` hit.
+                                let prefiltered_full_walk = pre_filter.is_some()
+                                    && sort_topk.is_none()
+                                    && !count_authoritative;
+                                let want_cache = (sorted_candidates_path || prefiltered_full_walk)
                                     && !projected
                                     && stored_bytes.len() <= u32::MAX as usize
                                     && !self.stored_slices_cache.contains_key(seg_id.as_str());
@@ -34169,6 +34261,16 @@ impl Index {
         is_match_all: bool,
         mem_matches_known: Option<u64>,
         schema: &Schema,
+        // #3412: may a column-less multi-valued keyword segment be counted
+        // from its FTS dictionary? Only for a count-only request. The count is
+        // exact, but on a size>0 request a shortcut count also switches the
+        // stored scan to F1's bounded mode, which skips segments whose docs
+        // all arrived after the worst kept hit — valid only when every match
+        // scores the same. The scan's `term` score is `1 + ln(1 + tf)` over
+        // the query's tokens in EVERY array element (`match_term_frequency`),
+        // so on an array field a later doc can outscore an earlier one and
+        // the bounded page would differ from the full one.
+        fts_keyword_oracle: bool,
     ) -> Option<u64> {
         // Unwrap wrapper queries so constant_score and boosted
         // queries benefit from the same fast paths.
@@ -34979,6 +35081,25 @@ impl Index {
 
             if served_by_dv {
                 continue;
+            }
+
+            // #3412: the one column-less shape whose term dictionary IS the
+            // scan's oracle — a declared keyword field that went multi-valued
+            // in this segment (no column by design), docs-only keyword
+            // side-car, non-numeric string value. See
+            // `keyword_fts_term_oracle` for why each other shape declines;
+            // the #362 abandon below still covers them all.
+            if let Some(term) = fts_keyword_oracle
+                .then(|| keyword_fts_term_oracle(schema, field, value))
+                .flatten()
+            {
+                if let Some(reader) =
+                    self.keyword_fts_reader_without_column(&segments_dir, &meta.id, field)
+                {
+                    let df = reader.term_doc_freq(field, term).unwrap_or(0);
+                    seg_matches = seg_matches.saturating_add(u64::from(df));
+                    continue;
+                }
             }
 
             // No doc-values column for this field in this segment: ABANDON
@@ -37833,6 +37954,67 @@ impl Index {
             // No ordinals to enumerate. A full scan stays correct.
             Column::Presence(_) => None,
         }
+    }
+
+    /// This segment's FTS reader for `field`, only when the field has NO
+    /// doc-values column here and its side-car is a docs-only keyword
+    /// dictionary — the case [`keyword_fts_term_oracle`] covers. A segment
+    /// with a column keeps the column paths (they are exact and cheaper); a
+    /// segment whose side-car is missing, degraded (#2349) or positional
+    /// returns `None` and the caller keeps the stored scan.
+    fn keyword_fts_reader_without_column(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        field: &str,
+    ) -> Option<Resident<Arc<FtsIndexReader>>> {
+        if let Some(cols) = self.dv_columns_for(segments_dir, segment_id) {
+            if cols.get(field).is_some() {
+                return None;
+            }
+        }
+        let reader = self.fts_reader_for(segments_dir, segment_id, &[field])?;
+        if reader.field_stats(field).is_none() || reader.field_has_positions(field) {
+            return None;
+        }
+        Some(reader)
+    }
+
+    /// Doc-position pre-filter for a top-level `term` on a multi-valued
+    /// keyword field, from the segment's FTS term dictionary (#3412).
+    ///
+    /// Same contract as [`Self::build_term_prefilter_cached`]: `Some(∅)` when
+    /// the term is absent (the segment is skipped without opening its stored
+    /// section), `Some(set)` with the COMPLETE match set when selective, and
+    /// `None` when the dictionary cannot answer or the set is too large to
+    /// help. Postings doc ids are stored positions (flush and merge assign FTS
+    /// doc ids in stored-section order — see `postings_union_expand`).
+    fn build_keyword_term_fts_prefilter(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        field: &str,
+        term: &str,
+    ) -> Option<Arc<PrefilterSet>> {
+        const TERM_PREFILTER_CAP: usize = 65_536;
+        let reader = self.keyword_fts_reader_without_column(segments_dir, segment_id, field)?;
+        let Some(tp) = reader.lookup_term(field, term) else {
+            return Some(Arc::new(PrefilterSet::from_vec(Vec::new())));
+        };
+        if tp.doc_frequency as usize > TERM_PREFILTER_CAP {
+            return None;
+        }
+        let mut postings = reader.postings_reader(field, &tp)?;
+        let mut positions: Vec<u32> = Vec::with_capacity(tp.doc_frequency as usize);
+        while let Some(p) = postings.next() {
+            positions.push(p.doc_id);
+        }
+        if positions.len() != tp.doc_frequency as usize {
+            // A short or corrupt posting list would drop matches: let the
+            // stored scan answer instead.
+            return None;
+        }
+        Some(Arc::new(PrefilterSet::from_vec(positions)))
     }
 
     /// Lazily-built, cached `_id → stored-position` index for a segment.
@@ -50569,6 +50751,56 @@ pub(crate) fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a 
 fn field_is_analyzed_text(schema: &Schema, field: &str) -> bool {
     declared_field(schema, field)
         .is_some_and(|f| matches!(f.field_type, FieldType::Text) && f.options.indexed)
+}
+
+/// The term a top-level `term` leaf looks up in a segment's FTS term
+/// dictionary, when that dictionary answers exactly what the stored scan
+/// (`doc_matches_query_typed` → `json_scalar_equal`) answers. `None` means
+/// "do not use the dictionary for this leaf".
+///
+/// Why it exists: a keyword field that holds an ARRAY in any document of a
+/// segment ships no doc-values column there (`build_doc_value_columns`'s
+/// `multi_valued` rule — a one-slot column would lie). Every term fast path
+/// keyed on the column then falls back to decoding and parsing the whole
+/// stored section, segment after segment. On an autoindex index whose
+/// `headings` field is an array this made a `term` 28-30 s over 493
+/// segments (#3412). The field's FTS side-car still holds every element as
+/// one whole-value term (`build_fts_field_configs` gives every non-text field
+/// the `keyword` analyzer; `extract_field_values` adds one value per array
+/// element), which is the oracle tantivy uses for the same query: look the
+/// term up in the segment's term dictionary, skip the segment when it is
+/// absent, else read that one posting list
+/// (`tantivy/src/query/term_query/term_weight.rs:179-200`, MIT).
+///
+/// The dictionary is exact against the scan only where both compare the same
+/// strings, so this declines:
+/// - a dotted field (object sub-field or `.keyword` multi-field: resolved
+///   through `_source`, and an `ignore_above` multi-field may not index long
+///   values);
+/// - any field not declared `keyword` (a `text` dictionary holds analysed
+///   tokens — the #362 trap; numeric/boolean/ip compare by value, not text);
+/// - a non-string query value, and a string that parses as a number (the scan
+///   matches `"5"` against a stored `5.0`, whose dictionary term is `"5.0"`);
+/// - a value with `/` (the scan expands a CIDR; #786);
+/// - the empty string (never indexed as a term).
+///
+/// The per-segment caller adds one more guard: the field's side-car must be
+/// docs-only (`!field_has_positions`), i.e. written with the keyword analyzer.
+fn keyword_fts_term_oracle<'a>(schema: &Schema, field: &str, value: &'a Value) -> Option<&'a str> {
+    if field.contains('.') {
+        return None;
+    }
+    let declared = declared_field(schema, field)?;
+    if !matches!(declared.field_type, FieldType::Keyword) || declared.name != field {
+        return None;
+    }
+    let Value::String(s) = value else {
+        return None;
+    };
+    if s.is_empty() || s.contains('/') || s.trim().parse::<f64>().is_ok() {
+        return None;
+    }
+    Some(s.as_str())
 }
 
 /// Does `q` contain a `match` leaf for declared doc-values-only text?
@@ -71905,5 +72137,272 @@ mod sqs_wildcard_fields_2427_tests {
         .await;
         assert_eq!(total_multi, 200);
         assert!(fts > 0 && scans == 0, "fts={fts} stored_scans={scans}");
+    }
+}
+
+#[cfg(test)]
+mod multi_valued_keyword_term_3412_tests {
+    use super::*;
+    use serde_json::json;
+
+    const HEADS: [&str; 6] = [
+        "Install",
+        "Usage notes",
+        "raft leader election",
+        "FAQ",
+        "Install guide",
+        "true",
+    ];
+
+    /// Doc `i`'s `headings`: an array of 1-3 headings (so every segment
+    /// ships NO doc-values column for the field), absent on every 7th doc.
+    fn headings_for(i: usize) -> Option<Vec<&'static str>> {
+        if i.is_multiple_of(7) {
+            return None;
+        }
+        let n = 1 + i % 3;
+        let mut out: Vec<&'static str> = Vec::new();
+        for k in 0..n {
+            let h = HEADS[(i + 2 * k) % HEADS.len()];
+            if !out.contains(&h) {
+                out.push(h);
+            }
+        }
+        Some(out)
+    }
+
+    async fn multi_segment_index(
+        name: &str,
+    ) -> (tempfile::TempDir, crate::Engine, Arc<Index>, usize) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("headings", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        engine.create_index(name, schema).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        let mut n = 0usize;
+        for _round in 0..4 {
+            for _ in 0..60 {
+                let mut doc = json!({ "body": format!("section body {n}") });
+                if let Some(h) = headings_for(n) {
+                    doc["headings"] = json!(h);
+                }
+                idx.index_document(Some(format!("d{n:04}")), doc)
+                    .await
+                    .unwrap();
+                n += 1;
+            }
+            idx.flush().await.unwrap();
+        }
+        (dir, engine, idx, n)
+    }
+
+    fn expected_ids(n: usize, term: &str) -> Vec<String> {
+        (0..n)
+            .filter(|&i| headings_for(i).is_some_and(|h| h.contains(&term)))
+            .map(|i| format!("d{i:04}"))
+            .collect()
+    }
+
+    /// The page the stored scan returns: `(score DESC, seq ASC)`, where the
+    /// scan's `term` score grows with how many of the query's tokens appear
+    /// across ALL array elements (`match_term_frequency`) — "Install" scores
+    /// higher on `["Install", "Install guide"]` than on `["Install"]`.
+    fn expected_page(n: usize, term: &str) -> Vec<String> {
+        let q: Vec<String> = term.split_whitespace().map(str::to_lowercase).collect();
+        let tf = |h: &[&str]| -> usize {
+            h.iter()
+                .map(|e| {
+                    let lc = e.to_lowercase();
+                    let toks: Vec<&str> = lc.split(|c: char| !c.is_alphanumeric()).collect();
+                    q.iter()
+                        .map(|t| toks.iter().filter(|x| **x == t.as_str()).count())
+                        .sum::<usize>()
+                })
+                .sum()
+        };
+        let mut hits: Vec<(usize, usize)> = (0..n)
+            .filter_map(|i| {
+                let h = headings_for(i)?;
+                h.contains(&term).then(|| (tf(&h), i))
+            })
+            .collect();
+        hits.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        hits.into_iter().map(|(_, i)| format!("d{i:04}")).collect()
+    }
+
+    /// The segment dictionary answers exactly what the stored scan answers:
+    /// an absent term is `Some(∅)` (segment skipped, nothing decoded) and a
+    /// present term is the complete set of matching stored positions.
+    #[tokio::test]
+    async fn fts_dictionary_prefilter_is_exact_per_segment() {
+        let (_dir, _engine, idx, n) = multi_segment_index("mvk3412a").await;
+        let snap = idx.store.snapshot();
+        assert!(snap.segments.len() > 1, "{} segments", snap.segments.len());
+        let segments_dir = idx.data_dir.join("segments");
+        let mut present_total = 0usize;
+        for meta in snap.segments.iter() {
+            let has_column = idx
+                .dv_columns_for(&segments_dir, &meta.id)
+                .is_some_and(|c| c.get("headings").is_some());
+            assert!(!has_column, "a multi-valued keyword field ships no column");
+            let miss = idx
+                .build_keyword_term_fts_prefilter(&segments_dir, &meta.id, "headings", "nope")
+                .expect("dictionary answers an absent term");
+            assert!(miss.is_empty());
+            let hit = idx
+                .build_keyword_term_fts_prefilter(&segments_dir, &meta.id, "headings", "FAQ")
+                .expect("dictionary answers a present term");
+            present_total += hit.set.len();
+        }
+        assert_eq!(present_total, expected_ids(n, "FAQ").len());
+    }
+
+    /// `_search` totals and pages (`size` 0 / 5 / 1000) are what the stored
+    /// scan produced before — hits, misses, a boolean-spelled value, and a
+    /// case variant — and the count shortcut now resolves the shape instead
+    /// of abandoning to the counting scan.
+    #[tokio::test]
+    async fn term_on_multi_valued_keyword_matches_the_scan() {
+        let (_dir, _engine, idx, n) = multi_segment_index("mvk3412b").await;
+        for term in [
+            "Install",
+            "raft leader election",
+            "FAQ",
+            "true",
+            "nope",
+            "install",
+        ] {
+            let want = expected_ids(n, term);
+            for size in [0usize, 5, 1000] {
+                let req = xerj_query::parse_request(&json!({
+                    "size": size,
+                    "track_total_hits": true,
+                    "query": {"term": {"headings": term}}
+                }))
+                .unwrap();
+                let res = idx.search(&req).await.unwrap();
+                assert_eq!(
+                    res.total.value as usize,
+                    want.len(),
+                    "term={term:?} size={size}"
+                );
+                let got: Vec<&str> = res.hits.iter().map(|h| h.id.as_str()).collect();
+                let page = expected_page(n, term);
+                let want_page: Vec<&str> = page.iter().take(size).map(|s| s.as_str()).collect();
+                assert_eq!(got, want_page, "term={term:?} size={size}");
+
+                // `constant_score` wrapping the same term: same match set,
+                // every score the constant, so the page is arrival order.
+                let req = xerj_query::parse_request(&json!({
+                    "size": size,
+                    "track_total_hits": true,
+                    "query": {"constant_score": {"filter": {"term": {"headings": term}}}}
+                }))
+                .unwrap();
+                let res = idx.search(&req).await.unwrap();
+                assert_eq!(
+                    res.total.value as usize,
+                    want.len(),
+                    "constant_score term={term:?} size={size}"
+                );
+                let got: Vec<&str> = res.hits.iter().map(|h| h.id.as_str()).collect();
+                let want_page: Vec<&str> = want.iter().take(size).map(|s| s.as_str()).collect();
+                assert_eq!(got, want_page, "constant_score term={term:?} size={size}");
+            }
+            let schema = idx.schema().await;
+            let q = QueryNode::Term {
+                field: "headings".into(),
+                value: json!(term),
+                boost: None,
+            };
+            let snap = idx.store.snapshot();
+            let count = idx
+                .try_shortcut_count(&q, &snap, false, None, &schema, true)
+                .await;
+            assert_eq!(count, Some(want.len() as u64), "term={term:?}");
+            // A page request must not get it: F1 would bound the scan, and
+            // array scores are not tied (see `fts_keyword_oracle`).
+            let page_count = idx
+                .try_shortcut_count(&q, &snap, false, None, &schema, false)
+                .await;
+            assert_eq!(page_count, None, "term={term:?}");
+        }
+    }
+
+    #[test]
+    fn oracle_declines_shapes_the_dictionary_cannot_answer() {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("tags", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("n", FieldType::Long))
+            .unwrap();
+        let ok = json!("red");
+        assert_eq!(keyword_fts_term_oracle(&schema, "tags", &ok), Some("red"));
+        for (field, value) in [
+            ("tags", json!("42")),
+            ("tags", json!("4.5e3")),
+            ("tags", json!("10.0.0.0/8")),
+            ("tags", json!("")),
+            ("tags", json!(42)),
+            ("tags", json!(true)),
+            ("body", json!("red")),
+            ("n", json!("red")),
+            ("tags.keyword", json!("red")),
+            ("unmapped", json!("red")),
+        ] {
+            assert_eq!(
+                keyword_fts_term_oracle(&schema, field, &value),
+                None,
+                "{field}={value}"
+            );
+        }
+    }
+
+    /// A numeric-looking value stays on the stored scan, which matches `"42"`
+    /// against a stored number as well as the literal string.
+    #[tokio::test]
+    async fn numeric_string_term_keeps_the_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("tags", FieldType::Keyword))
+            .unwrap();
+        engine.create_index("mvk3412c", schema).unwrap();
+        let idx = engine.get_index("mvk3412c").unwrap();
+        idx.index_document(Some("a".into()), json!({"tags": ["x", "y"]}))
+            .await
+            .unwrap();
+        idx.index_document(Some("b".into()), json!({"tags": ["42", "z"]}))
+            .await
+            .unwrap();
+        idx.flush().await.unwrap();
+        let req = xerj_query::parse_request(&json!({
+            "size": 10,
+            "track_total_hits": true,
+            "query": {"term": {"tags": "42"}}
+        }))
+        .unwrap();
+        let res = idx.search(&req).await.unwrap();
+        let ids: Vec<&str> = res.hits.iter().map(|h| h.id.as_str()).collect();
+        assert_eq!(ids, vec!["b"]);
+        assert_eq!(res.total.value, 1);
+        let schema = idx.schema().await;
+        assert!(keyword_fts_term_oracle(&schema, "tags", &json!("42")).is_none());
     }
 }
