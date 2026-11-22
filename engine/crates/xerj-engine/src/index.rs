@@ -5189,6 +5189,7 @@ mod flush_publication_recovery_tests {
             .unwrap();
 
         let (held_tx, held_rx) = std::sync::mpsc::channel::<()>();
+        let gate = Arc::clone(&index.finalize_gate);
         let holder = std::thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -5196,10 +5197,7 @@ mod flush_publication_recovery_tests {
                 .unwrap();
             rt.block_on(async {
                 let permits = crate::pools::sizing().flush_finalize as u32;
-                let _held = crate::flush_finalize_gate()
-                    .acquire_many(permits)
-                    .await
-                    .unwrap();
+                let _held = gate.acquire_many(permits).await.unwrap();
                 held_tx.send(()).unwrap();
                 std::thread::sleep(std::time::Duration::from_millis(200));
             });
@@ -5213,10 +5211,65 @@ mod flush_publication_recovery_tests {
         holder.join().unwrap();
     }
 
+    /// #3324: the finalize gate belongs to a data dir, not to the process.
+    /// One engine holding every permit of its own gate (a wedged or very slow
+    /// finalize) must not stall a flush in another engine in the same
+    /// process, as one shared gate did for every test in a test binary.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_held_finalize_gate_does_not_stall_another_engine() {
+        let engine_at = |dir: &tempfile::TempDir| {
+            let mut config = Config::default();
+            config.server.data_dir = dir.path().to_string_lossy().into_owned();
+            crate::Engine::new(config).unwrap()
+        };
+        let (dir_a, dir_b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let (engine_a, engine_b) = (engine_at(&dir_a), engine_at(&dir_b));
+        engine_a.create_index("gate-a", Schema::empty()).unwrap();
+        engine_a.create_index("gate-a2", Schema::empty()).unwrap();
+        engine_b.create_index("gate-b", Schema::empty()).unwrap();
+        let a = engine_a.get_index("gate-a").unwrap();
+        let a2 = engine_a.get_index("gate-a2").unwrap();
+        let b = engine_b.get_index("gate-b").unwrap();
+        assert!(
+            Arc::ptr_eq(&a.finalize_gate, &a2.finalize_gate),
+            "indices of one engine share one gate"
+        );
+        assert!(
+            !Arc::ptr_eq(&a.finalize_gate, &b.finalize_gate),
+            "two engines on two data dirs have two gates"
+        );
+        for idx in [&a, &b] {
+            idx.abort_background_tasks();
+            idx.index_document(Some("d".into()), json!({"body": "gate"}))
+                .await
+                .unwrap();
+        }
+        let permits = crate::pools::sizing().flush_finalize as u32;
+        let held = a.finalize_gate.acquire_many(permits).await.unwrap();
+        b.flush_admit_timeout_ms.store(100, Ordering::Relaxed);
+        tokio::time::timeout(std::time::Duration::from_secs(30), b.flush())
+            .await
+            .expect("flush of the other engine must not hang")
+            .expect("engine B must flush while engine A holds its whole gate");
+        assert_eq!(b.memtable.doc_count(), 0);
+        a.flush_admit_timeout_ms.store(100, Ordering::Relaxed);
+        let err = a
+            .flush()
+            .await
+            .expect_err("engine A's own flush still waits on its held gate");
+        assert!(err.to_string().contains("finalize gate"), "{err}");
+        drop(held);
+        a.flush_admit_timeout_ms.store(30_000, Ordering::Relaxed);
+        a.flush()
+            .await
+            .expect("engine A flushes once its gate is free");
+        assert_eq!(a.memtable.doc_count(), 0);
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn a_flush_that_never_finishes_fails_that_index_and_the_run_continues() {
         // #1635 — `finalize-refresh` sat at items=0 with no error because
-        // `flush_finalize_gate().acquire()` (and the per-index flush
+        // the finalize-gate `acquire()` (and the per-index flush
         // semaphore) waited forever, and one stuck index blocked the refresh
         // of every later index. Hold every finalize-gate permit — a flush
         // that took one and never returned — and require the waiting index
@@ -5248,12 +5301,13 @@ mod flush_publication_recovery_tests {
         stuck.flush_admit_timeout_ms.store(100, Ordering::Relaxed);
 
         let permits_n = crate::pools::sizing().flush_finalize as u32;
-        let held = crate::flush_finalize_gate()
+        let held = stuck
+            .finalize_gate
             .acquire_many(permits_n)
             .await
             .expect("the test must be able to hold the finalize gate");
         assert_eq!(
-            crate::flush_finalize_gate().available_permits(),
+            stuck.finalize_gate.available_permits(),
             0,
             "the simulated flush must be holding every finalize permit"
         );
@@ -12119,10 +12173,14 @@ pub struct Index {
     flush_sema: Arc<tokio::sync::Semaphore>,
 
     /// Milliseconds a shard flush may wait for `flush_sema` or the
-    /// process-global finalize gate before failing. The wait is before the
+    /// data-dir finalize gate before failing. The wait is before the
     /// memtable freeze (#1635). Production sets this once from
     /// `engine.flush_admit_timeout_secs`; tests shrink it.
     flush_admit_timeout_ms: AtomicU64,
+    /// The finalize gate of this index's data dir (#3324,
+    /// [`crate::flush_finalize_gate_for`]): shared by every index of one
+    /// engine, separate from other engines in the same process.
+    finalize_gate: Arc<tokio::sync::Semaphore>,
     /// Milliseconds `flush` / `refresh` waits for one index before returning
     /// an error that names the index. The publish coordinator is detached,
     /// not aborted (#1015, #1635).
@@ -12918,6 +12976,7 @@ impl Index {
                 config.engine.ingest_shards.max(4),
             )),
             flush_admit_timeout_ms: AtomicU64::new(flush_admit_ms),
+            finalize_gate: crate::flush_finalize_gate_for(data_dir),
             flush_timeout_ms: AtomicU64::new(flush_budget_ms),
             merge_in_progress: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_config: config.merge.clone(),
@@ -13403,6 +13462,7 @@ impl Index {
                 config.engine.ingest_shards.max(4),
             )),
             flush_admit_timeout_ms: AtomicU64::new(flush_admit_ms),
+            finalize_gate: crate::flush_finalize_gate_for(data_dir),
             flush_timeout_ms: AtomicU64::new(flush_budget_ms),
             merge_in_progress: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_config: config.merge.clone(),
@@ -15252,6 +15312,7 @@ impl Index {
         let index_name = self.name.as_str().to_string();
         let admit_timeout =
             std::time::Duration::from_millis(self.flush_admit_timeout_ms.load(Ordering::Relaxed));
+        let finalize_gate = Arc::clone(&self.finalize_gate);
         rt.spawn(async move {
             let on_drained = move || {
                 if let Ok(mut guard) = permit_cell_cb.lock() {
@@ -15274,6 +15335,7 @@ impl Index {
                 warm_caches,
                 index_name,
                 admit_timeout,
+                finalize_gate,
                 #[cfg(test)]
                 None,
             )
@@ -15622,7 +15684,7 @@ impl Index {
         // `refresh()` returns with zero unflushed documents.
         //
         // #2929 — the shards drain CONCURRENTLY, as `flush()` already does
-        // (M5.15); the process-global finalize gate still bounds how many
+        // (M5.15); the data-dir finalize gate still bounds how many
         // build at once, and #2427's working-set reservation still charges
         // each build before its freeze. Bulk routes every document to its
         // own shard, so a 5-document catalog bulk lands on 5 shards and its
@@ -15637,7 +15699,7 @@ impl Index {
         let mut out_of_budget = false;
         for shard_idx in 0..n_shards {
             // #1226 — skip empty shards (same reasoning as `flush()`): a
-            // no-op shard finalize still acquires the process-global
+            // no-op shard finalize still acquires the data-dir
             // `flush_finalize_gate`, so an empty shard would make this
             // refresh wait behind unrelated indices' ingest flushes for
             // nothing. Bound the work to the shards actually holding
@@ -15669,6 +15731,7 @@ impl Index {
                 self.publish_warm_caches(),
                 index_name.clone(),
                 admit_timeout,
+                Arc::clone(&self.finalize_gate),
                 #[cfg(test)]
                 None,
             );
@@ -15810,6 +15873,7 @@ impl Index {
             let admit_timeout = std::time::Duration::from_millis(
                 self.flush_admit_timeout_ms.load(Ordering::Relaxed),
             );
+            let finalize_gate = Arc::clone(&self.finalize_gate);
             tokio::spawn(async move {
                 // Release permit after drain (Phase 1), not after Phase 2
                 // I/O — lets new flushes dispatch while segment writes
@@ -15837,6 +15901,7 @@ impl Index {
                     warm_caches,
                     index_name,
                     admit_timeout,
+                    finalize_gate,
                     #[cfg(test)]
                     None,
                 )
@@ -31584,6 +31649,7 @@ impl Index {
                 let store = Arc::clone(&store);
                 let memtable = Arc::clone(&memtable);
                 let collection_publication = Arc::clone(&index.collection_publication);
+                let finalize_gate = Arc::clone(&index.finalize_gate);
                 let registry = Arc::clone(&registry);
                 let data_dir = data_dir.clone();
                 let field_configs = field_configs.clone();
@@ -31628,6 +31694,7 @@ impl Index {
                         warm_caches,
                         shard_index_name,
                         admit_timeout,
+                        finalize_gate,
                         #[cfg(test)]
                         test_hook,
                     )
@@ -40282,9 +40349,10 @@ async fn do_flush_shard(
     warm_caches: PublishWarmCaches,
     index_name: String,
     admit_timeout: std::time::Duration,
+    finalize_gate: Arc<tokio::sync::Semaphore>,
     #[cfg(test)] test_hook: Option<FlushPublisherTestHook>,
 ) -> Result<()> {
-    // #1226 — re-check emptiness BEFORE the process-global finalize gate.
+    // #1226 — re-check emptiness BEFORE the data-dir finalize gate.
     // `Index::refresh`/`Index::flush` already skip shards that look empty
     // when they build the fan-out (#1319), but this task may have waited on
     // `flush_sema` since then while a concurrent flush drained the shard,
@@ -40315,7 +40383,7 @@ async fn do_flush_shard(
             &index_name,
             "the finalize gate",
             admit_timeout,
-            crate::flush_finalize_gate().acquire(),
+            finalize_gate.acquire_owned(),
         )
         .await
         {
@@ -40771,7 +40839,7 @@ async fn do_flush_shard(
     // The segment encode + side-car build (CPU-heavy, ~600 ms) runs on the
     // deprioritised background pool (build_fts's inner install() is a
     // same-pool no-op).  Two flush-storm mitigations wrap it:
-    //   1. `flush_finalize_gate()` bounds how many shard finalizes run at
+    //   1. `flush_finalize_gate_for()` bounds how many shard finalizes run at
     //      once, staggering the 16-wide storm's core contention off the
     //      readers (see the gate's doc comment for the measured win).
     //   2. `spawn_blocking` runs the (blocking) finalize on a blocking
@@ -68948,6 +69016,7 @@ mod flush_memory_integration_tests {
             warm_caches,
             idx.name.as_str().to_string(),
             std::time::Duration::from_secs(30),
+            Arc::clone(&idx.finalize_gate),
             Some(hook),
         )
         .await;
@@ -71275,15 +71344,14 @@ mod exact_scan_hydration_tests {
         // task spawned for a non-empty shard can find it drained by a
         // concurrent flush by the time it holds its `flush_sema` permit, and
         // the ingest-triggered flush paths call `do_flush_shard` directly.
-        // Those calls must not queue on the process-global
+        // Those calls must not queue on the data-dir
         // `flush_finalize_gate` just to discover there is nothing to drain.
         //
         // Exhaust the global gate, then flush an empty shard directly: it
         // must return at once and still fire `on_drained` (callers use it to
         // release their `flush_sema` permit). Without the pre-gate check the
-        // call blocks on `acquire()` and the timeout fires. The permits are
-        // held only for the duration of one no-op call, so concurrent tests
-        // that flush are delayed by microseconds, not stalled.
+        // call blocks on `acquire()` and the timeout fires. The gate is this
+        // engine's own (#3324), so holding all of it stalls no other test.
         let dir = tempfile::tempdir().unwrap();
         let eng = engine(&dir);
         let idx = eng.get_or_create_index("empty-shard-skip").unwrap();
@@ -71293,11 +71361,8 @@ mod exact_scan_hydration_tests {
         let drained = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let drained_flag = Arc::clone(&drained);
         let permits_n = crate::pools::sizing().flush_finalize as u32;
-        let held = crate::flush_finalize_gate()
-            .acquire_many(permits_n)
-            .await
-            .unwrap();
-        assert_eq!(crate::flush_finalize_gate().available_permits(), 0);
+        let held = idx.finalize_gate.acquire_many(permits_n).await.unwrap();
+        assert_eq!(idx.finalize_gate.available_permits(), 0);
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(2),
             do_flush_shard(
@@ -71314,6 +71379,7 @@ mod exact_scan_hydration_tests {
                 idx.publish_warm_caches(),
                 idx.name.as_str().to_string(),
                 std::time::Duration::from_secs(30),
+                Arc::clone(&idx.finalize_gate),
                 None,
             ),
         )
