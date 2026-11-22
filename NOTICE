@@ -2,3 +2,9 @@ XERJ
 Copyright 2026 The XERJ Authors
 
 This product includes software developed by the XERJ project (https://xerj.org).
+
+This product includes data derived from the Unicode Character Database
+(Unihan_Variants.txt, field kSimplifiedVariant) in
+engine/crates/xerj-fts/src/t2s_table.rs.
+Copyright (c) 1991-2026 Unicode, Inc. Distributed under the Unicode License v3,
+https://www.unicode.org/license.txt

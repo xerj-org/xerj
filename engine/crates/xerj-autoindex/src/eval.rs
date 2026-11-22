@@ -488,6 +488,7 @@ pub fn run_cli(args: &[String]) -> i32 {
         .as_ref()
         .and(raw_mapping.as_ref().map(numeric_property_names));
     let code_corpus = !xerj_common::code_query::code_symbol_fields_absent(mapped.as_ref());
+    let cjk_bigrams = crate::search::cjk_bigram_indices(&es, &pattern);
 
     let judged: Vec<&(String, String)> = queries
         .iter()
@@ -500,6 +501,9 @@ pub fn run_cli(args: &[String]) -> i32 {
     for (qid, text) in judged.iter().map(|p| (&p.0, &p.1)) {
         let q_started = Instant::now();
         let mut body = search_query_body_for_mapping(text, a.k, mapped.as_ref(), numeric.as_ref());
+        if cjk_bigrams {
+            xerj_common::code_query::drop_cjk_run_phrases(&mut body, text);
+        }
         if code_corpus {
             body["size"] = json!(search_fetch_size(a.k));
         }

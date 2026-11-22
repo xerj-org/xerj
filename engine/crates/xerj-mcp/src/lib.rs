@@ -2502,6 +2502,18 @@ async fn call_tool_inner(ctx: &Ctx, msg: &Value) -> Value {
                 Some(mapping) => build_search_with_mapping(&args, Some(mapping)),
                 None => build_search(&args),
             };
+            // #3377: same as `xerj search`, an index analyzed with CJK
+            // bigrams gets no run phrases.
+            if let Some(Value::String(q)) = args.get("query") {
+                if plain
+                    && !xerj_common::code_query::cjk_runs(q).is_empty()
+                    && fetch_cjk_bigrams(ctx, &index).await
+                {
+                    if let Ok((_, _, Some(body))) = built.as_mut() {
+                        xerj_common::code_query::drop_cjk_run_phrases(body, q);
+                    }
+                }
+            }
             if plain_search_demotes_test_paths(&args, mapping.as_ref()) {
                 let page = match opt_u64(&args, "size") {
                     Ok(Some(n)) => n as usize,
@@ -3913,6 +3925,25 @@ fn code_root() -> std::path::PathBuf {
 /// when the mapping read fails (#1601). Read on every plain-string call, not
 /// cached: `xerj autoindex` can add a dataset (and a field) between two tool
 /// calls, and a stale mapping is the failure this exists to prevent.
+/// #3377: does every index behind `index` declare a CJK bigram default
+/// analyzer? Any failure answers `false`.
+async fn fetch_cjk_bigrams(ctx: &Ctx, index: &str) -> bool {
+    let url = format!("{}/{index}/_settings", ctx.base_url.trim_end_matches('/'));
+    let mut req = ctx.client.get(&url);
+    if let Some(auth) = &ctx.auth {
+        req = req.header("Authorization", auth);
+    }
+    let Ok(resp) = req.send().await else {
+        return false;
+    };
+    if !resp.status().is_success() {
+        return false;
+    }
+    resp.json::<Value>()
+        .await
+        .is_ok_and(|settings| xerj_common::code_query::settings_use_cjk_bigrams(&settings))
+}
+
 async fn fetch_mapping(ctx: &Ctx, index: &str) -> Option<Value> {
     let url = format!("{}/{index}/_mapping", ctx.base_url.trim_end_matches('/'));
     let mut req = ctx.client.get(&url);

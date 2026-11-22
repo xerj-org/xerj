@@ -859,7 +859,11 @@ impl Tokenizer for CjkTokenizer {
             } else if c.is_whitespace() {
                 i += 1;
             } else {
-                // ASCII / Latin run — collect until whitespace or CJK boundary.
+                // Non-CJK run — collect until whitespace or CJK boundary,
+                // then split it on Unicode word boundaries like the standard
+                // tokenizer (#3377). Punctuation is dropped: `revenue,` is
+                // `revenue`, and the full-width `，` `《` `》` between two
+                // Han runs are not tokens that every document shares.
                 let run_start_byte = byte_start;
                 while i < chars.len() && !chars[i].1.is_whitespace() && !is_cjk(chars[i].1) {
                     i += 1;
@@ -869,13 +873,15 @@ impl Tokenizer for CjkTokenizer {
                 } else {
                     input.len()
                 };
-                if let Some(word) = input.get(run_start_byte..run_end_byte) {
-                    if !word.is_empty() {
+                if let Some(run) = input.get(run_start_byte..run_end_byte) {
+                    for word in run.unicode_words() {
+                        let start =
+                            run_start_byte + (word.as_ptr() as usize - run.as_ptr() as usize);
                         tokens.push(Token::new(
                             word.to_lowercase(),
                             position,
-                            run_start_byte as u32,
-                            run_end_byte as u32,
+                            start as u32,
+                            (start + word.len()) as u32,
                         ));
                         position += 1;
                     }
@@ -884,6 +890,49 @@ impl Tokenizer for CjkTokenizer {
         }
 
         tokens
+    }
+}
+
+/// Name of the analyzer that bigrams CJK text and folds Traditional Han to
+/// Simplified (#3377).
+pub const XERJ_CJK_ANALYZER: &str = "xerj_cjk";
+
+/// The Simplified form of a Traditional Han character, or the character
+/// itself. Table: [`crate::t2s_table::T2S_PAIRS`] (Unihan
+/// `kSimplifiedVariant`, U+4E00..=U+9FFF, one character to one character).
+pub fn fold_traditional_han(c: char) -> char {
+    use std::sync::OnceLock;
+    static TABLE: OnceLock<Vec<(char, char)>> = OnceLock::new();
+    let table = TABLE.get_or_init(|| {
+        let chars: Vec<char> = crate::t2s_table::T2S_PAIRS.chars().collect();
+        chars.chunks_exact(2).map(|p| (p[0], p[1])).collect()
+    });
+    if !is_cjk(c) {
+        return c;
+    }
+    match table.binary_search_by_key(&c, |(t, _)| *t) {
+        Ok(i) => table[i].1,
+        Err(_) => c,
+    }
+}
+
+/// Folds Traditional Han characters to Simplified, one character to one
+/// character, so `經濟` and `经济` index and query as the same bigram.
+/// Offsets and positions are unchanged (the mapping keeps the character
+/// count, and highlighting reads the source text).
+pub struct TraditionalToSimplifiedFilter;
+
+impl TokenFilter for TraditionalToSimplifiedFilter {
+    fn filter(&self, tokens: Vec<Token>) -> Vec<Token> {
+        tokens
+            .into_iter()
+            .map(|mut t| {
+                if t.text.chars().any(is_cjk) {
+                    t.text = t.text.chars().map(fold_traditional_han).collect();
+                }
+                t
+            })
+            .collect()
     }
 }
 
@@ -1167,6 +1216,22 @@ impl AnalyzerRegistry {
                 vec![],
                 Arc::new(CjkTokenizer),
                 vec![Arc::new(LowercaseFilter) as Arc<dyn TokenFilter>],
+            ),
+        );
+
+        // "xerj_cjk" — the `cjk` bigrams with Traditional Han folded to
+        // Simplified (#3377). XERJ-native: `xerj autoindex` elects it for
+        // Chinese-dominant text; an explicit `cjk` mapping keeps ES's
+        // unfolded behaviour.
+        self.register(
+            XERJ_CJK_ANALYZER,
+            AnalyzerPipeline::new(
+                vec![],
+                Arc::new(CjkTokenizer),
+                vec![
+                    Arc::new(LowercaseFilter) as Arc<dyn TokenFilter>,
+                    Arc::new(TraditionalToSimplifiedFilter),
+                ],
             ),
         );
 
@@ -3391,5 +3456,70 @@ mod unsupported_analysis_tests {
             problems.iter().any(|p| p.contains("`tokenizer` must be")),
             "{problems:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod cjk_3377_tests {
+    use super::*;
+
+    fn texts(analyzer: &str, input: &str) -> Vec<String> {
+        AnalyzerRegistry::default()
+            .get_analyzer(analyzer)
+            .expect("built-in analyzer")
+            .analyze(input)
+            .into_iter()
+            .map(|t| t.text)
+            .collect()
+    }
+
+    /// #3377: punctuation between Han runs is not a token, and a Latin word
+    /// is split like the standard tokenizer (no trailing comma).
+    #[test]
+    fn cjk_drops_punctuation_and_splits_latin_words() {
+        assert_eq!(
+            texts("cjk", "《公司法》第四十七条，Revenue, 2025 (FY)"),
+            vec![
+                "公司", "司法", "第四", "四十", "十七", "七条", "revenue", "2025", "fy"
+            ]
+        );
+        assert_eq!(texts("cjk", "東京都"), vec!["東京", "京都"]);
+        let input = "北京，Beijing!";
+        let tokens = AnalyzerRegistry::default()
+            .get_analyzer("cjk")
+            .unwrap()
+            .analyze(input);
+        let latin = tokens.iter().find(|t| t.text == "beijing").unwrap();
+        assert_eq!(
+            &input[latin.start_offset as usize..latin.end_offset as usize],
+            "Beijing"
+        );
+        assert_eq!(latin.position, 1);
+    }
+
+    /// `xerj_cjk` folds Traditional to Simplified; `cjk` does not.
+    #[test]
+    fn xerj_cjk_folds_traditional_han_and_cjk_does_not() {
+        assert_eq!(texts("xerj_cjk", "經濟發展"), texts("xerj_cjk", "经济发展"));
+        assert_eq!(texts("xerj_cjk", "經濟"), vec!["经济"]);
+        assert_eq!(texts("cjk", "經濟"), vec!["經濟"]);
+        // A character that is also a Simplified form is left alone.
+        assert_eq!(fold_traditional_han('乾'), '乾');
+        assert_eq!(fold_traditional_han('a'), 'a');
+        assert_eq!(texts("xerj_cjk", "Net Income"), vec!["net", "income"]);
+    }
+
+    /// The table is sorted, one-to-one, and inside the bigram range.
+    #[test]
+    fn traditional_table_is_sorted_and_in_range() {
+        let chars: Vec<char> = crate::t2s_table::T2S_PAIRS.chars().collect();
+        assert_eq!(chars.len() % 2, 0);
+        let pairs: Vec<(char, char)> = chars.chunks_exact(2).map(|p| (p[0], p[1])).collect();
+        assert!(pairs.len() > 2_000);
+        assert!(pairs.windows(2).all(|w| w[0].0 < w[1].0));
+        assert!(pairs
+            .iter()
+            .all(|(t, s)| is_cjk(*t) && is_cjk(*s) && t != s));
+        assert!(pairs.iter().all(|(_, s)| fold_traditional_han(*s) == *s));
     }
 }

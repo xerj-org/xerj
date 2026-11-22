@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`xerj autoindex` analyzes Chinese-dominant text with CJK bigrams and folds
+  Traditional Han to Simplified (#3377).** When at least 20% of the sampled
+  letters in a dataset's text fields are Han/kana/Hangul, the index declares
+  the new `xerj_cjk` analyzer (`cjk` bigrams + Traditional→Simplified folding
+  from Unihan `kSimplifiedVariant`); text with kana gets plain `cjk`, and
+  English keeps `stemmer`. `xerj search`, `xerj eval` and the MCP
+  `xerj_search` drop the per-run CJK phrase clauses (#2580) on such indices.
+  The `cjk` tokenizer now splits non-CJK runs on word boundaries and drops
+  punctuation (`revenue,` is `revenue`; `，` is no longer a token). On the
+  issue's 29-file PRC statute corpus (20 law questions, passage holding the
+  answer in the top k): R@1 0.45 → 0.95, R@3 0.60 → 1.00; the same
+  questions converted to Traditional: R@1 0.65 → 0.90, R@3 0.80 → 0.95.
+  English results are unchanged (SearchTome medicine: identical ranks).
+  An explicit `cjk` mapping keeps ES's unfolded behaviour. Existing indices
+  keep their analyzer until reindexed.
+
 - **A `terms` aggregation that meets more distinct keys than
   `search.max_buckets` now fails with HTTP 400 `too_many_buckets_exception`
   instead of returning a wrong answer (#3362).** It used to keep the first

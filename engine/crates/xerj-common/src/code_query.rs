@@ -370,6 +370,61 @@ pub fn cjk_runs(query: &str) -> Vec<String> {
     runs
 }
 
+/// Default analyzers whose terms are CJK bigrams (#3377). `xerj_cjk` is the
+/// one `xerj autoindex` elects for Chinese-dominant text, `cjk` the one it
+/// elects when the text carries kana.
+pub const CJK_BIGRAM_ANALYZERS: &[&str] = &["cjk", "xerj_cjk"];
+
+/// Does every index in a `GET /{pattern}/_settings` response declare a CJK
+/// bigram analyzer as `index.analysis.analyzer.default`? An empty, error
+/// or mixed response answers `false`, which keeps the #2580 run phrases.
+pub fn settings_use_cjk_bigrams(settings: &Value) -> bool {
+    let Some(indices) = settings.as_object() else {
+        return false;
+    };
+    !indices.is_empty()
+        && indices.values().all(|index| {
+            let declared = index
+                .pointer("/settings/index/analysis/analyzer/default/type")
+                .and_then(Value::as_str);
+            declared.is_some_and(|name| CJK_BIGRAM_ANALYZERS.contains(&name))
+        })
+}
+
+/// Drops the #2580 CJK-run `match_phrase` clauses from a built search body.
+///
+/// They exist because the `standard` analyzer emits one token per Han
+/// character, so a bag of characters needs the phrase to rank the document
+/// that holds the term. Under a bigram analyzer the bigrams already carry
+/// the adjacency, and on a natural-language question the run phrase
+/// (`中华人民共和国公司法`, the law's name) ranks the section that names the
+/// law above the one that answers: on the issue's 29-file PRC statute
+/// corpus, passage R@1 0.45 with the clauses and 0.95 without (#3377).
+pub fn drop_cjk_run_phrases(body: &mut Value, query: &str) {
+    let runs = cjk_runs(query);
+    if runs.is_empty() {
+        return;
+    }
+    let Some(should) = body
+        .pointer_mut("/query/bool/should")
+        .and_then(Value::as_array_mut)
+    else {
+        return;
+    };
+    should.retain(|clause| {
+        let Some(fields) = clause.get("match_phrase").and_then(Value::as_object) else {
+            return true;
+        };
+        !fields.values().any(|spec| {
+            spec.get("boost").and_then(Value::as_f64) == Some(CJK_RUN_PHRASE_BOOST)
+                && spec
+                    .get("query")
+                    .and_then(Value::as_str)
+                    .is_some_and(|q| runs.iter().any(|run| run == q))
+        })
+    });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Dotted member lookups (#2426)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1117,6 +1172,32 @@ mod tests {
         ] {
             assert!(identifier_spellings(not_a_name).is_empty(), "{not_a_name}");
         }
+    }
+
+    #[test]
+    fn bigram_settings_drop_the_cjk_run_phrases_and_keep_the_rest() {
+        let prose_names: BTreeSet<String> =
+            ["body", "title"].iter().map(|s| s.to_string()).collect();
+        let query = "公司法 第四十七条 出资";
+        let mut body = search_query_body_for_mapping(query, 5, Some(&prose_names), None);
+        let before = should_clauses(&body).len();
+        assert!(body.to_string().contains("第四十七条"));
+        drop_cjk_run_phrases(&mut body, query);
+        let after = should_clauses(&body);
+        assert_eq!(before - after.len(), 3, "one clause per run on `body`");
+        assert!(after.iter().any(|c| c.get("multi_match").is_some()));
+        // The whole-query exact phrase is not a run and stays.
+        assert!(after.iter().any(|c| c.to_string().contains(query)));
+
+        let cjk = json!({"a-docs": {"settings": {"index": {"analysis": {"analyzer": {"default": {"type": "xerj_cjk"}}}}}}});
+        let mixed = json!({
+            "a-docs": {"settings": {"index": {"analysis": {"analyzer": {"default": {"type": "cjk"}}}}}},
+            "b-docs": {"settings": {"index": {}}}
+        });
+        assert!(settings_use_cjk_bigrams(&cjk));
+        assert!(!settings_use_cjk_bigrams(&mixed));
+        assert!(!settings_use_cjk_bigrams(&json!({})));
+        assert!(!settings_use_cjk_bigrams(&json!({"error": "x"})));
     }
 
     #[test]
