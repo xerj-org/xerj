@@ -8,15 +8,15 @@
   {
    "repo": "2b2tAtlas-Public-API",
    "url": "https://github.com/bobymicjohn/2b2tAtlas-Public-API",
-   "sha": "95b3cbdc6501c460c0ed4346410d033fa03764eb",
-   "licence": "Unlicense (LICENSE file at pin 95b3cbdc6501, GitHub licence API 2026-11-10)",
+   "sha": "727b4ad3ba8a857d641cc0fc18882b6333d7a4c0",
+   "licence": "Unlicense (LICENSE file at pin 727b4ad3ba8a, GitHub licence API 2026-11-21; re-pinned 2026-11-21 from 95b3cbdc6501 at the author's request, 727b4ad3ba8a)",
    "review": {
     "spdx": "Unlicense",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-19T03:14Z",
     "consent_receipt": "c54d66be7a85",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T03:14Z (receipt c54d66be7a85); selected commit 95b3cbdc6501: \"Finish BlueMap controls and clean up public examples\". LICENSE file at pin 95b3cbdc6501 detected as Unlicense by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T03:14Z (receipt c54d66be7a85); selected commit 95b3cbdc6501: \"Finish BlueMap controls and clean up public examples\". LICENSE file at pin 95b3cbdc6501 detected as Unlicense by the GitHub licence API on 2026-11-10; used under that licence with attribution. Re-pinned to 727b4ad3ba8a (727b4ad3ba8a) on 2026-11-21 at the author's request."
    }
   }
  ]
