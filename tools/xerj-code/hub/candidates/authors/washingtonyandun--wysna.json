@@ -8,15 +8,15 @@
   {
    "repo": "W",
    "url": "https://github.com/WashingtonYandun/W",
-   "sha": "8d2f95c7a65b1d53ee97d8dd3524475c100457a0",
-   "licence": "Apache-2.0 (LICENSE file at pin 8d2f95c7a65b, GitHub licence API 2026-11-22)",
+   "sha": "4ad7c5e46ad476a1b1a0666c8c8f3f68a6a7fd9c",
+   "licence": "Apache-2.0 (LICENSE file at pin 4ad7c5e46ad4, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-17T04:22Z",
     "consent_receipt": "bd1863cc82cc",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T04:22Z (receipt bd1863cc82cc); selected commit 8d2f95c7a65b: \"feat(types): implement closed error unions\". LICENSE file at pin 8d2f95c7a65b detected as Apache-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head 8d2f95c7a65b (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T04:22Z (receipt bd1863cc82cc); selected commit 4ad7c5e46ad4: \"feat(types): implement closed error unions\". LICENSE file at pin 4ad7c5e46ad4 detected as Apache-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head 4ad7c5e46ad4 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]
