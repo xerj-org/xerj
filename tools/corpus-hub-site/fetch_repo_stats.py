@@ -40,6 +40,23 @@ def token():
     return subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, check=True).stdout.strip()
 
 
+def repos_of(d):
+    """The "repos" list of a manifest/candidate file, or [] when the file has
+    none (hub/candidates also holds do-not-contact.json and
+    owner-overrides.json, which are not repository lists)."""
+    rs = d.get("repos") if isinstance(d, dict) else None
+    return [r for r in rs if isinstance(r, dict)] if isinstance(rs, list) else []
+
+
+def read_json(p):
+    """Parsed JSON, or None (with a warning) when the file is unreadable."""
+    try:
+        return json.loads(Path(p).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        print(f"skipped {p} ({e})", file=sys.stderr)
+        return None
+
+
 def targets():
     """{"owner/repo" (lower): {"repo": "Owner/Repo", "sha": pin, "tree": need_tree}}"""
     import gen
@@ -55,19 +72,23 @@ def targets():
         cur["sha"] = cur["sha"] or sha or ""
         cur["tree"] = cur["tree"] or tree
     for c in gen.load_registry():
-        if 0 < len(c["repos"]) <= AGGREGATE:
-            for r in c["repos"]:
+        rs = repos_of(c)
+        if 0 < len(rs) <= AGGREGATE:
+            for r in rs:
                 add(r.get("url"), r.get("sha"), not r.get("files"))
     for p in sorted((gen.HUB / "candidates" / "authors").glob("*.json")):
-        d = json.loads(p.read_text())
-        for r in d.get("repos", []):
+        for r in repos_of(read_json(p)):
             add(r.get("url"), r.get("sha"), True)
     for p in sorted((gen.HUB / "candidates").glob("*.json")):
-        d = json.loads(p.read_text())
-        if len(d.get("repos", [])) <= AGGREGATE:
-            for r in d["repos"]:
+        rs = repos_of(read_json(p))
+        if len(rs) <= AGGREGATE:
+            for r in rs:
                 add(r.get("url"), r.get("sha"), True)
     return want
+
+
+class AuthError(Exception):
+    """A bad or expired token: stop, do not retry or split every batch."""
 
 
 def post(tok, query, tries=4):
@@ -79,6 +100,8 @@ def post(tok, query, tries=4):
             with urllib.request.urlopen(req, timeout=90) as r:
                 return json.loads(r.read())
         except urllib.error.HTTPError as e:
+            if e.code == 401:
+                raise AuthError("GitHub rejected the token (HTTP 401)") from e
             if e.code in (502, 503, 504, 403, 429) and i < tries - 1:
                 time.sleep(10 * (i + 1))
                 continue
@@ -138,8 +161,12 @@ def query(tok, want, chunk, done):
         half = len(chunk) // 2
         rl = query(tok, want, chunk[:half], done)
         return query(tok, want, chunk[half:], done) or rl
+    res = res if isinstance(res, dict) else {}
     data = res.get("data") or {}
-    missing = {e.get("path", [None])[0] for e in res.get("errors", []) if e.get("type") == "NOT_FOUND"}
+    errors = [e for e in (res.get("errors") or []) if isinstance(e, dict)]
+    if not data and errors:
+        print(f"graphql: no data for {len(chunk)} repos ({errors[0].get('type') or errors[0].get('message')})", file=sys.stderr)
+    missing = {(e.get("path") or [None])[0] for e in errors if e.get("type") == "NOT_FOUND"}
     for j, k in enumerate(chunk):
         node = data.get(f"r{j}")
         if node:
@@ -166,9 +193,15 @@ def save_partial(done):
 
 
 def core_remaining(tok):
+    """REST calls left this hour; 0 (no tree calls) when it cannot be read."""
     req = urllib.request.Request(API + "/rate_limit", headers={"Authorization": "bearer " + tok, "User-Agent": "xerj-hub-stats"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read())["resources"]["core"]["remaining"]
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return int(json.loads(r.read())["resources"]["core"]["remaining"])
+    except (urllib.error.URLError, http.client.HTTPException, TimeoutError, ConnectionError,
+            ValueError, KeyError, TypeError) as e:
+        print(f"rate_limit: unreadable ({e}); skipping trees", file=sys.stderr)
+        return 0
 
 
 def tree(tok, repo, sha):
@@ -204,24 +237,34 @@ def fetch_trees(tok, want, done, floor=800):
                 print(f"trees {n}/{len(todo)}", file=sys.stderr)
 
 
+def saved_repos(d):
+    """{key: facts} from a parsed stats file; {} when it is None or not in the
+    {"repos": {...}} shape (a renamed or absent key must not crash a run)."""
+    rs = d.get("repos") if isinstance(d, dict) else None
+    return {k: v for k, v in rs.items() if isinstance(v, dict)} if isinstance(rs, dict) else {}
+
+
 def main():
     tok = token()
     want = targets()
-    old = json.loads(OUT.read_text()).get("repos", {}) if OUT.exists() else {}
-    done = {k: v for k, v in old.items() if k in want}
+    done = {k: v for k, v in saved_repos(read_json(OUT) if OUT.exists() else None).items() if k in want}
     # keep trees only when the pin is unchanged
     for k, v in done.items():
-        if v.get("tree", {}).get("sha") not in (None, want[k]["sha"]):
-            v.pop("tree")
+        t = v.get("tree")
+        if not isinstance(t, dict) or t.get("sha") not in (None, want[k]["sha"]):
+            v.pop("tree", None)
     refresh = {k: v.get("tree") for k, v in done.items()}
     done = {}
     # resume a run that stopped part way (same day only)
-    if PARTIAL.exists():
-        p = json.loads(PARTIAL.read_text())
-        if p.get("date") == datetime.date.today().isoformat():
-            done = {k: v for k, v in p["repos"].items() if k in want}
-            print(f"resuming: {len(done)} from {PARTIAL.name}", file=sys.stderr)
-    fetch_graphql(tok, want, done)
+    p = read_json(PARTIAL) if PARTIAL.exists() else None
+    if isinstance(p, dict) and p.get("date") == datetime.date.today().isoformat():
+        done = {k: v for k, v in saved_repos(p).items() if k in want}
+        print(f"resuming: {len(done)} from {PARTIAL.name}", file=sys.stderr)
+    try:
+        fetch_graphql(tok, want, done)
+    except AuthError as e:
+        save_partial(done)
+        sys.exit(f"fetch_repo_stats: {e}; {len(done)} repos kept in {PARTIAL.name}, {OUT.name} unchanged")
     save_partial(done)
     for k, t in refresh.items():
         if t and k in done and not done[k].get("missing"):
