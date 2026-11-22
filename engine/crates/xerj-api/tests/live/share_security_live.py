@@ -389,8 +389,10 @@ for method, path, body in [
 s, r, _ = call("POST", "/private-diary/_pit?keep_alive=5m", None, ADMIN)
 PIT = r.get("id")
 ok("(owner opens a PIT on the private index)", s == 200 and PIT, (s, r))
-s, r, _ = call("POST", "/casefile/_search", {"query": {"match_all": {}}, "pit": {"id": PIT}}, ADMIN)
-ok("(and for the owner that PIT really does override the path index)", s == 200 and leaks(r), (s, r))
+# A PIT search that also names an index is refused with a 400 (as in ES), so
+# the owner's search names none: the PIT alone takes it to private-diary.
+s, r, _ = call("POST", "/_search", {"query": {"match_all": {}}, "pit": {"id": PIT}}, ADMIN)
+ok("(and for the owner that PIT really does reach the private index)", s == 200 and leaks(r), (s, r))
 s, r, _ = call("POST", "/casefile/_search", {"query": {"match_all": {}}, "pit": {"id": PIT, "keep_alive": "1m"}}, GK)
 ok("a guest cannot ride it via _search", s == 403 and not leaks(r) and "private-diary" not in json.dumps(r), (s, r))
 s, r, _ = call("POST", "/casefile/_msearch", nd({}, {"query": {"match_all": {}}, "pit": {"id": PIT}}), GK)

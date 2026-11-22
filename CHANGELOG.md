@@ -67,6 +67,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   even when they lack whitespace. Re-index previously affected folders
   with a fresh prefix and state directory.
 
+- **A point-in-time search that also names an index is refused with a
+  400**, as Elasticsearch 8.13 refuses it (`action_request_validation_exception`,
+  "[indices] cannot be used with point in time. Do not specify any index with
+  point in time."). `POST /{index}/_search` with a `pit`, and an `_msearch`
+  item with a `pit` whose header or `/{index}/_msearch` path names an index,
+  searched the PIT's indices and ignored the named ones. One such `_msearch`
+  item fails the whole request, and the reason lists every such item.
+  `/_search` and `_msearch` items that name no index run as before.
+
 - **A collapsed `_search` or `_msearch` whose `collapse.inner_hits` block has
   no `name` is refused with a 400**, as Elasticsearch 8.13 refuses it
   (`x_content_parse_exception` caused by `illegal_argument_exception`
