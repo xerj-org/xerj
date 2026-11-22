@@ -79,7 +79,10 @@ fn assert_refused(path: &str, status: StatusCode, got: &Value, items: usize) {
         got["error"]["root_cause"][0]["type"], "action_request_validation_exception",
         "{path}: {got}"
     );
-    assert_eq!(got["error"]["root_cause"][0]["reason"], reason, "{path}: {got}");
+    assert_eq!(
+        got["error"]["root_cause"][0]["reason"], reason,
+        "{path}: {got}"
+    );
 }
 
 /// The second `msearch` of the ES test: both headers name an index, and
@@ -141,9 +144,15 @@ async fn pit_searches_that_name_no_index_still_run() {
     let (status, got) = send(&app, "/_msearch", "application/x-ndjson", &body).await;
     assert_eq!(status, StatusCode::OK, "{got}");
     assert_eq!(got["responses"][0]["hits"]["total"]["value"], 3, "{got}");
-    assert_eq!(got["responses"][0]["hits"]["total"]["relation"], "eq", "{got}");
+    assert_eq!(
+        got["responses"][0]["hits"]["total"]["relation"], "eq",
+        "{got}"
+    );
     assert_eq!(got["responses"][1]["hits"]["total"]["value"], 4, "{got}");
-    assert_eq!(got["responses"][1]["hits"]["total"]["relation"], "eq", "{got}");
+    assert_eq!(
+        got["responses"][1]["hits"]["total"]["relation"], "eq",
+        "{got}"
+    );
 
     let body = format!("{{\"pit\":{{\"id\":\"{id}\"}}}}");
     let (status, got) = send(&app, "/_search", "application/json", &body).await;
