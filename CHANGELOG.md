@@ -41,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`profile: true` requests always run fresh again (#3315, #3020).** Since
+  #3315 a repeated identical profile request was answered from the
+  whole-response cache, with the first run's timings. Profile requests now
+  never use that cache, as in ES. `profile.shards[*].request_cache` is kept
+  and always reads `"bypass"` on a profile response.
+
 - **Searches no longer wait on WAL and snapshot fsyncs while bulk writes run
   (refs #3324 #3331).** Three code paths held the collection-publication
   bracket (every search on the index waits while it is open) across disk

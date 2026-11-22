@@ -25239,21 +25239,19 @@ impl Index {
         // `dataset_version` counter which bumps on every doc write.
         //
         // Skipped when:
+        // - `request.profile == true`: a profile must time a fresh
+        //   execution, so it is never stored in or served from this cache
+        //   (ES never caches profile requests either). #3315 briefly made
+        //   profile requests cache-eligible; that is reverted. #3020's
+        //   marker stays: every profile response says `request_cache:
+        //   "bypass"`.
         // - `request.scroll.is_some()` / scroll cursor (stateful).
         // - `request.search_after.is_some()` (cursor-based pagination
         //   could collide with cached state).
         // XERJ_DISABLE_QUERY_CACHE=1 turns off the whole-result cache so a
         // benchmark measures true per-request execution on every call (no
         // took_ms=0 clone). Read once. Normal operation is unaffected.
-        //
-        // #3020: a `profile: true` request is cached too (its key differs
-        // from the plain request's: `profile` is part of the hashed body), and
-        // its profile says which way it went: `request_cache` is "miss" on
-        // the run that executed, "hit" when this cache (or an in-flight
-        // identical request) answered, "bypass" when the request was not
-        // eligible. Before this, profile requests always bypassed the cache
-        // and nothing in any response said whether a timing was a cache hit.
-        let cache_eligible = request.search_after.is_none() && {
+        let cache_eligible = !request.profile && request.search_after.is_none() && {
             static DISABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
             !*DISABLED.get_or_init(|| {
                 matches!(
@@ -55451,7 +55449,8 @@ enum RequestCacheOutcome {
     Miss,
     /// Answered from the cache or from an identical in-flight request.
     Hit,
-    /// Not eligible (`search_after`, `XERJ_DISABLE_QUERY_CACHE=1`).
+    /// Not eligible (`profile: true`, `search_after`,
+    /// `XERJ_DISABLE_QUERY_CACHE=1`). Every profile response reports this.
     Bypass,
 }
 
