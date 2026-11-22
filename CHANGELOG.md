@@ -9,9 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `xerj init` pack guidance and MCP registration for Claude Code, Cursor
-  and Codex, with idempotent updates, user-config preservation and `--remove`
-  rollback (#2761).
+- Add `xerj init` MCP registration and a pack skill for Claude Code, Cursor and
+  Codex, with idempotent updates and user-config preservation (#2761). The pack
+  text names only the `xerj_*` tools `xerj mcp` serves today: the `core` tools,
+  and the `xerj_hub_*` tools in a build with a hub key. It does not mention the
+  `write.*`, `bio.*` or `cyber.*` packs, which are not served yet; a pack is
+  added to the text in the change that makes `xerj mcp` serve it.
+- Add `xerj init --skills`. With `--remove` it rolls back what `xerj init`
+  wrote: the `xerj` entry init added to `.mcp.json`, `.cursor/mcp.json` and
+  `.codex/config.toml`, the teaching files nobody edited, and the AGENTS.md
+  block between the `xerj-init-managed` markers. `--remove` still needs an
+  explicit target (`--skills`, `--memory` or `--hooks`): a bare
+  `xerj init --remove` is refused with a usage error, as before, so existing
+  `--memory --remove` and `--hooks --remove` behaviour is unchanged.
 
 ## [1.0.0-rc.105] - 2026-11-23
 
