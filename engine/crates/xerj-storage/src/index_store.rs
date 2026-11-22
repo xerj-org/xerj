@@ -750,6 +750,27 @@ pub enum MergePublicationError {
     },
 }
 
+/// Merge inputs whose orphan recovery is already durably disarmed.
+///
+/// Returned by [`IndexStore::disarm_merge_inputs`] and consumed by
+/// [`IndexStore::apply_merge_with_repoints`]. The disarm persists the
+/// snapshot and fsyncs the segments directory; doing it first lets a caller
+/// keep that disk work out of its reader-blocking publication bracket
+/// (#3351). The inputs stay snapshot-listed and readable until the merge
+/// publishes, so dropping this without publishing is the same handled state
+/// as an aborted merge.
+#[derive(Debug)]
+#[must_use = "pass the disarmed inputs to apply_merge_with_repoints"]
+pub struct DisarmedMergeInputs {
+    ids: Vec<SegmentId>,
+}
+
+impl DisarmedMergeInputs {
+    pub fn segment_ids(&self) -> &[SegmentId] {
+        &self.ids
+    }
+}
+
 /// Cached verification state of one rotated WAL generation.
 enum WalGenVerdict {
     /// Every entry proven durable-or-superseded — prunable now.
@@ -1836,6 +1857,18 @@ impl IndexStore {
         // input neither snapshot-listed nor recoverable after restart.
         self.save_snapshot()?;
         self.unlink_recovery_markers(segment_ids, true)
+    }
+
+    /// Disarm a merge's inputs ahead of publication (#3351).
+    ///
+    /// This is the first step of [`Self::apply_merge`], split out so the
+    /// engine can run its snapshot save and directory fsync before it opens
+    /// the collection publication bracket. Nothing here is reader-visible.
+    pub fn disarm_merge_inputs(&self, merged_ids: &[SegmentId]) -> Result<DisarmedMergeInputs> {
+        self.disarm_orphan_recovery_for_segments(merged_ids)?;
+        Ok(DisarmedMergeInputs {
+            ids: merged_ids.to_vec(),
+        })
     }
 
     /// Durably disarm every orphan-recovery generation for unpublished output.
@@ -5058,6 +5091,7 @@ impl IndexStore {
     /// atomically replace merged segments with the merged result and update
     /// the version map.
     pub fn apply_merge(&self, merged_ids: &[SegmentId], new_meta: SegmentMeta) -> Result<()> {
+        self.disarm_orphan_recovery_for_segments(merged_ids)?;
         self.apply_merge_inner(merged_ids, new_meta, None, || {})
             .map(|_| ())
             .map_err(|error| match error {
@@ -5074,13 +5108,16 @@ impl IndexStore {
     /// Publish a merge and take ownership of its provisional version-map
     /// repoints. The transaction commits at the exact durable manifest
     /// boundary, before any fallible or panic-capable post-publication work.
+    ///
+    /// The inputs must already be disarmed ([`Self::disarm_merge_inputs`]),
+    /// so the work left here is the snapshot swap and one snapshot save.
     pub fn apply_merge_with_repoints(
         &self,
-        merged_ids: &[SegmentId],
+        inputs: DisarmedMergeInputs,
         new_meta: SegmentMeta,
         version_repoints: VersionRepointTransaction,
     ) -> std::result::Result<MergePublicationOutcome, MergePublicationError> {
-        self.apply_merge_inner(merged_ids, new_meta, Some(version_repoints), || {})
+        self.apply_merge_inner(&inputs.ids, new_meta, Some(version_repoints), || {})
     }
 
     /// Test seam for exercising cancellation/panic immediately after durable
@@ -5088,12 +5125,12 @@ impl IndexStore {
     #[doc(hidden)]
     pub fn apply_merge_with_repoints_and_post_publish<F: FnOnce()>(
         &self,
-        merged_ids: &[SegmentId],
+        inputs: DisarmedMergeInputs,
         new_meta: SegmentMeta,
         version_repoints: VersionRepointTransaction,
         post_publish: F,
     ) -> std::result::Result<MergePublicationOutcome, MergePublicationError> {
-        self.apply_merge_inner(merged_ids, new_meta, Some(version_repoints), post_publish)
+        self.apply_merge_inner(&inputs.ids, new_meta, Some(version_repoints), post_publish)
     }
 
     fn apply_merge_inner<F: FnOnce()>(
@@ -5103,13 +5140,11 @@ impl IndexStore {
         version_repoints: Option<VersionRepointTransaction>,
         post_publish: F,
     ) -> std::result::Result<MergePublicationOutcome, MergePublicationError> {
-        // Inputs still belong to the authoritative snapshot at this point.
-        // Durably remove their ZID3 completion markers before committing the
-        // replacement, so no crash after snapshot publication can resurrect
-        // a partially retired input. The ids sidecars stay readable if this
-        // step fails and the merge is aborted.
-        self.disarm_orphan_recovery_for_segments(merged_ids)
-            .map_err(MergePublicationError::NotPublished)?;
+        // Callers have already durably removed the inputs' ZID3 completion
+        // markers (`disarm_orphan_recovery_for_segments`, via `apply_merge`
+        // or `disarm_merge_inputs`), so no crash after snapshot publication
+        // can resurrect a partially retired input. The inputs are still in
+        // the authoritative snapshot here.
         // Sum the doc counts of the segments we're about to replace, so we can
         // tell whether this merge actually dropped any documents.
         let (merged_total, previous_metas): (u64, Vec<SegmentMeta>) = {
@@ -8657,10 +8692,71 @@ mod tests {
         store
             .snapshot_save_failures_remaining
             .store(2, Ordering::Release);
+        let inputs = store.disarm_merge_inputs(&input_ids).unwrap();
         let error = store
-            .apply_merge_with_repoints(&input_ids, output, transaction)
+            .apply_merge_with_repoints(inputs, output, transaction)
             .unwrap_err();
         assert!(matches!(error, MergePublicationError::Indeterminate { .. }));
+    }
+
+    /// #3351 — the engine disarms merge inputs before it opens its reader
+    /// bracket, so the publication step must do no disarm work of its own
+    /// (exactly one snapshot save), and a merge that stops between the two
+    /// steps must leave the inputs listed, readable and restartable.
+    #[test]
+    fn disarmed_merge_inputs_publish_with_one_save_or_stay_listed_when_dropped() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+        store.index("a", serde_json::json!({"value": "a"})).unwrap();
+        store.flush().unwrap().unwrap();
+        store.index("b", serde_json::json!({"value": "b"})).unwrap();
+        store.flush().unwrap().unwrap();
+        let before = store.snapshot();
+        let input_ids: Vec<_> = before.segments.iter().map(|meta| meta.id.clone()).collect();
+        let segments = dir.path().join("segments");
+
+        let dropped = store.disarm_merge_inputs(&input_ids).unwrap();
+        assert_eq!(dropped.segment_ids(), input_ids.as_slice());
+        for id in &input_ids {
+            assert!(!segments.join(format!("{id}.complete")).exists());
+        }
+        drop(dropped);
+        assert_eq!(store.snapshot().segments.len(), 2);
+        for id in &input_ids {
+            assert!(store.open_segment(id).is_ok());
+        }
+
+        let mut output = before.segments[0].clone();
+        output.id = "one-save-output".into();
+        let inputs = store.disarm_merge_inputs(&input_ids).unwrap();
+        // Fail the next two saves. If apply ran a disarm save first, that
+        // save would fail and return NotPublished before the swap. With the
+        // disarm already done, the two failures are the publication save and
+        // the rollback save: Indeterminate.
+        store.fail_snapshot_save_after.store(0, Ordering::Release);
+        store
+            .snapshot_save_failures_remaining
+            .store(2, Ordering::Release);
+        let transaction =
+            VersionRepointTransaction::with_capacity(Arc::clone(&store.version_map), 0);
+        let error = store
+            .apply_merge_with_repoints(inputs, output, transaction)
+            .unwrap_err();
+        assert!(matches!(error, MergePublicationError::Indeterminate { .. }));
+        let after: std::collections::HashSet<_> = store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.id.clone())
+            .collect();
+        assert_eq!(after, input_ids.iter().cloned().collect());
+        drop(before);
+        drop(store);
+
+        let reopened = open_test_store(dir.path());
+        assert_eq!(reopened.snapshot().segments.len(), 2);
+        assert!(reopened.version_map.get("a").is_some());
+        assert!(reopened.version_map.get("b").is_some());
     }
 
     // ── #948: storage memtable prune on flush completion ────────────────────

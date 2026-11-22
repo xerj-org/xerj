@@ -17648,6 +17648,24 @@ impl Index {
                         self.test_merge_repoint_ready
                             .store(false, Ordering::Release);
                     }
+                    // #3351 — disarm the inputs' orphan recovery BEFORE the
+                    // bracket opens. It is a snapshot save plus a directory
+                    // fsync (three fsyncs) and changes nothing a reader sees;
+                    // inside the bracket it held every search on the index
+                    // for 0.6-1.4 s per merge under write load. A merge that
+                    // stops after this point leaves its inputs snapshot-listed
+                    // and readable, the same handled state as a failed apply.
+                    let disarmed_inputs = match self.store.disarm_merge_inputs(&batch_slice) {
+                        Ok(inputs) => inputs,
+                        Err(e) => {
+                            tracing::warn!("merge: apply_merge failed: {e:?}");
+                            failed_batches.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            self.shortcut_count_cache
+                                .retain(|(seg, _), _| seg != merged_meta.id.as_str());
+                            launch_next!();
+                            continue;
+                        }
+                    };
                     // Segment construction is private scratch work. Enter the
                     // collection epoch only for the short authoritative
                     // VersionMap + durable snapshot publication performed by
@@ -17695,21 +17713,21 @@ impl Index {
                         .swap(false, Ordering::AcqRel)
                     {
                         self.store.apply_merge_with_repoints_and_post_publish(
-                            &batch_slice,
+                            disarmed_inputs,
                             merged_meta.clone(),
                             version_repoints,
                             || panic!("injected panic after durable merge publication"),
                         )
                     } else {
                         self.store.apply_merge_with_repoints(
-                            &batch_slice,
+                            disarmed_inputs,
                             merged_meta.clone(),
                             version_repoints,
                         )
                     };
                     #[cfg(not(test))]
                     let apply_result = self.store.apply_merge_with_repoints(
-                        &batch_slice,
+                        disarmed_inputs,
                         merged_meta.clone(),
                         version_repoints,
                     );
