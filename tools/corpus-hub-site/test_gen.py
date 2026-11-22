@@ -1476,13 +1476,17 @@ class BuiltSiteDiscoverabilityTest(SiteLinksTest):
             login, pin = r["login"], r["pin"]
             # the audited corpus, found by its pin: a restored person may since have added more repos
             # (hub.xerj.org/add, e.g. QeZzhi/shark24 on 2026-10-28), which are not part of the audit
-            rows = [x for x in ledger.get(login) or [] if x["pin"]["sha"] == pin]
+            # ... or the same repository re-pinned later at its author's request (pin.to, 2026-11-21: ResumeForge -> main)
+            rows = [x for x in ledger.get(login) or [] if x["pin"]["sha"] == pin
+                    or (x["repo"] == r["repo"] and (x.get("pin") or {}).get("to") == "author's request")]
             self.assertEqual(len(rows), 1, login)
             row = rows[0]
             lic = row["licence"]
             self.assertTrue(lic["reviewed"], login)
             self.assertEqual(lic["at_pin"], lic["spdx"], login)
             self.assertNotIn(lic["spdx"], ("", "NONE", "NOASSERTION"), login)
+            if (row.get("pin") or {}).get("to") == "author's request":
+                pin = row["pin"]["sha"]          # re-pinned by its author since the audit: check the entry at its new pin
             self.assertEqual(row["pin"]["sha"], pin, login)
             consent = row["consent"]
             if login == "Yiming1997":
