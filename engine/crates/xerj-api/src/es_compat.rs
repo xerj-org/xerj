@@ -7967,6 +7967,270 @@ fn finalize_leaf_terms_summaries(
     }
 }
 
+/// Post-merge finalize for non-leaf `terms` and `multi_terms` aggs.
+///
+/// The bounded leaf-terms path (#2957) finalizes order/size only for plain
+/// leaf terms. A terms agg with a child agg, a metric order, or a script,
+/// and every `multi_terms` agg, fall through to `merge_bucket_agg`, which
+/// re-sorts count-desc and never re-applies the requested order or size.
+/// This mirrors `finalize_leaf_terms_summaries` for those aggs: re-apply
+/// `min_doc_count`, re-sort by the request's `order`, truncate to `size`,
+/// and recompute `sum_other_doc_count` from the dropped buckets. Aggs
+/// already finalized by the leaf path (passed in `leaf_names`) are skipped.
+/// Keyed (`keyed: true`) bucket objects are left as merged.
+fn finalize_terms_aggs(results: &mut Value, request: &Value, leaf_names: &[String]) {
+    let (Some(results), Some(request)) = (results.as_object_mut(), request.as_object()) else {
+        return;
+    };
+    for (name, spec) in request {
+        let Some(result) = results.get_mut(name) else {
+            continue;
+        };
+        if let Some(params) = spec.get("terms").or_else(|| spec.get("multi_terms")) {
+            if !leaf_names.iter().any(|n| n == name) {
+                finalize_terms_result(result, params, spec.get("multi_terms").is_some());
+            }
+        }
+        if let Some(nested) = spec.get("aggs").or_else(|| spec.get("aggregations")) {
+            if let Some(buckets) = result.get_mut("buckets") {
+                match buckets {
+                    Value::Array(buckets) => {
+                        for bucket in buckets {
+                            finalize_terms_aggs(bucket, nested, leaf_names);
+                        }
+                    }
+                    Value::Object(buckets) => {
+                        for bucket in buckets.values_mut() {
+                            finalize_terms_aggs(bucket, nested, leaf_names);
+                        }
+                    }
+                    _ => {}
+                }
+            } else {
+                finalize_terms_aggs(result, nested, leaf_names);
+            }
+        }
+    }
+}
+
+fn finalize_terms_result(result: &mut Value, params: &Value, is_multi: bool) {
+    if result.get("error").is_some() {
+        return;
+    }
+    let merged_other = result
+        .get("sum_other_doc_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let merged_error = result
+        .get("doc_count_error_upper_bound")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let Some(rows) = result.get_mut("buckets").and_then(Value::as_array_mut) else {
+        return;
+    };
+    let minimum = params
+        .get("min_doc_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(1);
+    rows.retain(|b| b["doc_count"].as_u64().unwrap_or(0) >= minimum);
+    let orders = terms_orders(params);
+    rows.sort_by(|a, b| cmp_terms_buckets(a, b, &orders, is_multi, params));
+    let size = params.get("size").and_then(Value::as_u64).unwrap_or(10);
+    let size = if size == 0 {
+        usize::MAX
+    } else {
+        usize::try_from(size).unwrap_or(usize::MAX)
+    };
+    let other = rows.iter().skip(size).try_fold(merged_other, |sum, b| {
+        sum.checked_add(b["doc_count"].as_u64().unwrap_or(0))
+    });
+    rows.truncate(size);
+    let Some(other) = other else {
+        *result = json!({"error":"terms document count overflow","__error_status__":400});
+        return;
+    };
+    // Only a count-descending list has a meaningful bound: an unseen term
+    // has at most the last count each cutting index returned.
+    let count_desc = orders
+        .first()
+        .is_some_and(|(key, asc)| key == "_count" && !asc);
+    result["sum_other_doc_count"] = json!(other);
+    result["doc_count_error_upper_bound"] = json!(if count_desc { merged_error } else { 0 });
+}
+
+/// Parse a terms `order` the way the engine does (`order_entries` in
+/// `xerj-engine/src/aggs.rs`): an object or an array of objects mapping
+/// `_count`, `_key`, a sub-agg path, or (for `multi_terms`) a term field
+/// name to `asc`/`desc`. Anything else is ignored; an empty list means
+/// the ES default (count desc, key asc), handled by the comparator.
+fn terms_orders(params: &Value) -> Vec<(String, bool)> {
+    let mut out: Vec<(String, bool)> = Vec::new();
+    let mut push = |o: &serde_json::Map<String, Value>| {
+        for (k, v) in o {
+            out.push((k.clone(), v.as_str() == Some("asc")));
+        }
+    };
+    match params.get("order") {
+        Some(Value::Object(o)) => push(o),
+        Some(Value::Array(arr)) => {
+            for item in arr {
+                if let Some(o) = item.as_object() {
+                    push(o);
+                }
+            }
+        }
+        _ => {}
+    }
+    out
+}
+
+fn cmp_terms_buckets(
+    a: &Value,
+    b: &Value,
+    orders: &[(String, bool)],
+    is_multi: bool,
+    params: &Value,
+) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    if orders.is_empty() {
+        // ES default: count desc, key asc.
+        return b["doc_count"]
+            .as_u64()
+            .cmp(&a["doc_count"].as_u64())
+            .then_with(|| cmp_terms_keys(a, b, is_multi));
+    }
+    for (path, asc) in orders {
+        let ord = match path.as_str() {
+            "_count" => a["doc_count"].as_u64().cmp(&b["doc_count"].as_u64()),
+            "_key" => cmp_terms_keys(a, b, is_multi),
+            other => {
+                if is_multi {
+                    if let Some(idx) = multi_terms_field_index(params, other) {
+                        let (ka, kb) = (
+                            a.get("key").unwrap_or(&Value::Null),
+                            b.get("key").unwrap_or(&Value::Null),
+                        );
+                        compare_leaf_terms_keys(
+                            ka.as_array()
+                                .and_then(|p| p.get(idx))
+                                .unwrap_or(&Value::Null),
+                            kb.as_array()
+                                .and_then(|p| p.get(idx))
+                                .unwrap_or(&Value::Null),
+                        )
+                    } else {
+                        let va = lookup_terms_metric(a, other);
+                        let vb = lookup_terms_metric(b, other);
+                        va.partial_cmp(&vb).unwrap_or(Ordering::Equal)
+                    }
+                } else {
+                    let va = lookup_terms_metric(a, other);
+                    let vb = lookup_terms_metric(b, other);
+                    va.partial_cmp(&vb).unwrap_or(Ordering::Equal)
+                }
+            }
+        };
+        let ord = if *asc { ord } else { ord.reverse() };
+        if ord != Ordering::Equal {
+            return ord;
+        }
+    }
+    // Final tiebreaker on key.
+    cmp_terms_keys(a, b, is_multi)
+}
+
+fn cmp_terms_keys(a: &Value, b: &Value, is_multi: bool) -> std::cmp::Ordering {
+    let (ka, kb) = (
+        a.get("key").unwrap_or(&Value::Null),
+        b.get("key").unwrap_or(&Value::Null),
+    );
+    if is_multi {
+        let (Some(aa), Some(bb)) = (ka.as_array(), kb.as_array()) else {
+            return compare_leaf_terms_keys(ka, kb);
+        };
+        for (x, y) in aa.iter().zip(bb.iter()) {
+            let ord = compare_leaf_terms_keys(x, y);
+            if ord != std::cmp::Ordering::Equal {
+                return ord;
+            }
+        }
+        return aa.len().cmp(&bb.len());
+    }
+    compare_leaf_terms_keys(ka, kb)
+}
+
+fn multi_terms_field_index(params: &Value, name: &str) -> Option<usize> {
+    params
+        .get("terms")?
+        .as_array()?
+        .iter()
+        .position(|t| t.get("field").and_then(Value::as_str) == Some(name))
+}
+
+/// Resolve a dotted/`>`-separated metric path against a bucket's sub-aggs
+/// into a numeric value. Port of `lookup_agg_metric` in
+/// `xerj-engine/src/aggs.rs`: `<agg_name>`, `<agg_name>.value`,
+/// `<agg_name>.values.<pct>`, nested bucket paths
+/// `<bucket_agg>><metric_agg>`, and keyed percentile lookups. Missing
+/// sorts as -inf, so it lands first on asc, last on desc.
+fn lookup_terms_metric(bucket: &Value, path: &str) -> f64 {
+    let normalized = path.replace('>', ".");
+    let mut cur: &Value = bucket;
+    for seg in normalized.split('.').filter(|s| !s.is_empty()) {
+        match cur.get(seg) {
+            Some(v) => cur = v,
+            None => {
+                return lookup_keyed_terms_metric(bucket, path).unwrap_or(f64::NEG_INFINITY);
+            }
+        }
+    }
+    if let Some(v) = cur.get("value") {
+        if let Some(f) = v.as_f64() {
+            return f;
+        }
+    }
+    cur.as_f64()
+        .or_else(|| lookup_keyed_terms_metric(bucket, path))
+        .unwrap_or(f64::NEG_INFINITY)
+}
+
+fn lookup_keyed_terms_metric(root: &Value, path: &str) -> Option<f64> {
+    let (chain, last) = match path.rsplit_once('>') {
+        Some((chain, last)) => (Some(chain), last),
+        None => (None, path),
+    };
+    let mut cur = root;
+    for name in chain.into_iter().flat_map(|c| c.split('>')) {
+        cur = cur.get(name)?;
+    }
+    let (name, key) = match last.split_once('[') {
+        Some((name, rest)) => (name, rest.strip_suffix(']')?),
+        None => last.split_once('.')?,
+    };
+    let agg = cur.get(name)?;
+    if let Some(f) = agg.get(key).and_then(Value::as_f64) {
+        return Some(f);
+    }
+    let want = key.parse::<f64>().ok();
+    let same_key = |k: &str| want.is_some() && k.parse::<f64>().ok() == want;
+    match agg.get("values")? {
+        Value::Object(values) => values
+            .get(key)
+            .or_else(|| values.iter().find(|(k, _)| same_key(k)).map(|(_, v)| v))
+            .and_then(Value::as_f64),
+        Value::Array(entries) => entries
+            .iter()
+            .find(|e| match e.get("key") {
+                Some(Value::String(k)) => same_key(k),
+                Some(k) => k.as_f64().is_some() && k.as_f64() == want,
+                None => false,
+            })
+            .and_then(|e| e.get("value"))
+            .and_then(Value::as_f64),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod leaf_terms_coordinator_tests {
     use super::*;
@@ -8314,6 +8578,143 @@ mod leaf_terms_coordinator_tests {
             2,
         );
         assert_eq!(r["t"]["__error_status__"], 400);
+    }
+}
+
+#[cfg(test)]
+mod non_leaf_terms_coordinator_tests {
+    use super::*;
+
+    // The bounded leaf-terms path (#2957) finalizes order/size only for
+    // plain leaf terms. A terms agg with a child agg, a metric order, or a
+    // multi_terms agg is excluded from it (see
+    // `plan_preserves_original_and_excludes_children_scripts_metric_order`)
+    // and falls back to `merge_bucket_agg`, which re-sorts count-desc and
+    // never re-applies the requested order or size. These tests pin the
+    // ES-expected outcome for the merge of two per-index results, run
+    // through the post-merge `finalize_terms_aggs`.
+    //
+    // Per-index inputs mirror what the engine returns for the request:
+    // each index's own top-N in the requested order, with its own
+    // `sum_other_doc_count` (0 here: each side fits its own cap).
+
+    fn finalize_merged(req: Value, a: Value, b: Value, leaf: &[String]) -> Value {
+        let mut r = json!({"t": merge_bucket_agg(&a, &b).unwrap()});
+        finalize_terms_aggs(&mut r, &req, leaf);
+        r
+    }
+
+    fn bucket_keys(r: &Value) -> Vec<String> {
+        r["t"]["buckets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|bk| bk["key"].to_string())
+            .collect()
+    }
+
+    #[test]
+    fn nested_terms_merge_keeps_requested_key_order_and_size() {
+        // Request: {"terms": {"field": "k", "order": {"_key": "asc"},
+        // "size": 2}, "aggs": {"avg_n": {"avg": {"field": "n"}}}}
+        let req = json!({"t":{"terms":{"field":"k","order":{"_key":"asc"},"size":2},"aggs":{"avg_n":{"avg":{"field":"n"}}}}});
+        let a = json!({"buckets":[
+            {"key":"a","doc_count":1,"avg_n":{"value":10.0}},
+            {"key":"b","doc_count":5,"avg_n":{"value":20.0}}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let b = json!({"buckets":[
+            {"key":"c","doc_count":2,"avg_n":{"value":30.0}},
+            {"key":"d","doc_count":4,"avg_n":{"value":40.0}}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let r = finalize_merged(req, a, b, &[]);
+        assert_eq!(bucket_keys(&r), vec!["\"a\"", "\"b\""]);
+        assert_eq!(r["t"]["sum_other_doc_count"], 6);
+    }
+
+    #[test]
+    fn metric_order_terms_merge_follows_the_metric_not_the_count() {
+        // Request: {"terms": {"field": "k", "order": {"avg_n": "desc"},
+        // "size": 2}, "aggs": {"avg_n": {"avg": {"field": "n"}}}}
+        let req = json!({"t":{"terms":{"field":"k","order":{"avg_n":"desc"},"size":2},"aggs":{"avg_n":{"avg":{"field":"n"}}}}});
+        let a = json!({"buckets":[
+            {"key":"b","doc_count":5,"avg_n":{"value":20.0}},
+            {"key":"a","doc_count":1,"avg_n":{"value":10.0}}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let b = json!({"buckets":[
+            {"key":"d","doc_count":4,"avg_n":{"value":40.0}},
+            {"key":"c","doc_count":2,"avg_n":{"value":30.0}}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let r = finalize_merged(req, a, b, &[]);
+        assert_eq!(bucket_keys(&r), vec!["\"d\"", "\"c\""]);
+        assert_eq!(r["t"]["sum_other_doc_count"], 6);
+    }
+
+    #[test]
+    fn multi_terms_merge_keeps_requested_key_order_and_size() {
+        // Request: {"multi_terms": {"terms": [{"field": "k"}, {"field": "g"}],
+        // "order": {"_key": "asc"}, "size": 2}}
+        let req = json!({"t":{"multi_terms":{"terms":[{"field":"k"},{"field":"g"}],"order":{"_key":"asc"},"size":2}}});
+        let a = json!({"buckets":[
+            {"key":["a","x"],"doc_count":1},
+            {"key":["b","x"],"doc_count":5}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let b = json!({"buckets":[
+            {"key":["c","x"],"doc_count":2},
+            {"key":["d","x"],"doc_count":4}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let r = finalize_merged(req, a, b, &[]);
+        assert_eq!(bucket_keys(&r), vec!["[\"a\",\"x\"]", "[\"b\",\"x\"]"]);
+        assert_eq!(r["t"]["sum_other_doc_count"], 6);
+    }
+
+    #[test]
+    fn default_order_is_count_desc_with_key_asc_tiebreak_and_size_cut() {
+        let req = json!({"t":{"terms":{"field":"k","size":2}}});
+        let a = json!({"buckets":[
+            {"key":"a","doc_count":1},
+            {"key":"b","doc_count":5}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let b = json!({"buckets":[
+            {"key":"c","doc_count":2},
+            {"key":"d","doc_count":4}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let r = finalize_merged(req, a, b, &[]);
+        assert_eq!(bucket_keys(&r), vec!["\"b\"", "\"d\""]);
+        assert_eq!(r["t"]["sum_other_doc_count"], 3);
+    }
+
+    #[test]
+    fn nested_child_terms_finalized_inside_surviving_buckets() {
+        let req = json!({"t":{"terms":{"field":"k","order":{"_key":"asc"},"size":1},"aggs":{"g":{"terms":{"field":"g","order":{"_key":"asc"},"size":1}}}}});
+        let a = json!({"buckets":[
+            {"key":"a","doc_count":4,"g":{"buckets":[{"key":"x","doc_count":3},{"key":"y","doc_count":1}],"sum_other_doc_count":0,"doc_count_error_upper_bound":0}},
+            {"key":"b","doc_count":5,"g":{"buckets":[{"key":"p","doc_count":5}],"sum_other_doc_count":0,"doc_count_error_upper_bound":0}}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let b = json!({"buckets":[
+            {"key":"c","doc_count":2,"g":{"buckets":[{"key":"m","doc_count":2}],"sum_other_doc_count":0,"doc_count_error_upper_bound":0}}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let r = finalize_merged(req, a, b, &[]);
+        assert_eq!(
+            r["t"]["buckets"],
+            json!([{"key":"a","doc_count":4,"g":{"buckets":[{"key":"x","doc_count":3}],"sum_other_doc_count":1,"doc_count_error_upper_bound":0}}])
+        );
+        assert_eq!(r["t"]["sum_other_doc_count"], 7);
+    }
+
+    #[test]
+    fn leaf_terms_names_are_left_to_the_leaf_finalize() {
+        let req = json!({"t":{"terms":{"field":"k","order":{"_key":"asc"},"size":2}}});
+        let a = json!({"buckets":[
+            {"key":"a","doc_count":1},
+            {"key":"b","doc_count":5}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let b = json!({"buckets":[
+            {"key":"c","doc_count":2},
+            {"key":"d","doc_count":4}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let r = finalize_merged(req, a, b, &["t".to_string()]);
+        assert_eq!(bucket_keys(&r), vec!["\"b\"", "\"d\"", "\"c\"", "\"a\""]);
+        assert_eq!(r["t"]["sum_other_doc_count"], 0);
     }
 }
 
@@ -19229,6 +19630,7 @@ async fn search_impl(
                 &leaf_terms_names,
                 xerj_engine::aggs::max_buckets(),
             );
+            finalize_terms_aggs(m, aggs_req, &leaf_terms_names);
         }
     }
 
