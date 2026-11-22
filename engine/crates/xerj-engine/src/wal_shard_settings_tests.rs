@@ -269,3 +269,53 @@ async fn a_pinned_wal_shard_count_survives_reopen_with_every_document_intact() {
         assert_eq!(wal_shard_dirs(&pinned_dir), 0);
     }
 }
+
+/// #2929 — the memtable follows the same per-index override. A 5-document
+/// write to an index pinned to one shard refreshes into ONE segment; before,
+/// the memtable kept the host-sized default and the refresh wrote one segment
+/// per non-empty shard (each a full per-field file set, every file fsynced).
+#[tokio::test]
+async fn a_pinned_index_refreshes_a_small_write_into_one_segment() {
+    let dir = TempDir::new().expect("temp dir");
+    let config = config_for(&dir);
+    {
+        let engine = Engine::new(config.clone()).expect("engine");
+        engine
+            .create_index_with_settings("pinned", Schema::empty(), settings_with(json!(1)))
+            .expect("create pinned index");
+        engine
+            .create_index("spread", Schema::empty())
+            .expect("create default index");
+        for name in ["pinned", "spread"] {
+            let idx = engine.get_index(name).expect("index");
+            for i in 0..5 {
+                idx.index_document(Some(format!("catalog-{i}")), json!({ "n": i }))
+                    .await
+                    .expect("index document");
+            }
+            idx.refresh().await.expect("refresh");
+        }
+        let pinned = engine.get_index("pinned").expect("pinned");
+        let spread = engine.get_index("spread").expect("spread");
+        assert_eq!(pinned.memtable.shard_count(), 1);
+        assert_eq!(pinned.store.snapshot().segments.len(), 1);
+        // Control: the same documents on a default index spread over the
+        // engine's 8 shards, so the assertion above is the setting's doing.
+        assert_eq!(spread.memtable.shard_count(), 8);
+        assert!(spread.store.snapshot().segments.len() > 1);
+    }
+    let engine = Engine::new(config).expect("reopen engine");
+    let pinned = engine.get_index("pinned").expect("pinned after reopen");
+    assert_eq!(
+        pinned.memtable.shard_count(),
+        1,
+        "reopen must size the memtable from the persisted setting"
+    );
+    for i in 0..5 {
+        assert!(pinned
+            .get_document(&format!("catalog-{i}"))
+            .await
+            .expect("get")
+            .is_some());
+    }
+}

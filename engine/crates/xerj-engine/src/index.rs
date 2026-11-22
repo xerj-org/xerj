@@ -12692,11 +12692,8 @@ impl Index {
         std::fs::create_dir_all(&index_dir)?;
 
         let storage_mode = storage_mode_from_config(&config.storage, name.as_str())?;
-        let store_config = store_config_from(
-            config,
-            wal_shards_override_from_settings(&settings),
-            storage_mode,
-        );
+        let shards_override = wal_shards_override_from_settings(&settings);
+        let store_config = store_config_from(config, shards_override, storage_mode);
         let store = IndexStore::open(&index_dir, store_config)?;
 
         let managed = ManagedSchema {
@@ -12789,7 +12786,7 @@ impl Index {
             memtable: Arc::new(
                 crate::memtable::ShardedFtsMemtable::with_registry_and_shards(
                     Arc::clone(&registry),
-                    config.engine.ingest_shards,
+                    memtable_shards(config, shards_override),
                 ),
             ),
             write_publication: crate::write_publication::WritePublicationCoordinator::new(),
@@ -13025,11 +13022,8 @@ impl Index {
             }
         }
         let settings = load_settings(&index_dir)?.unwrap_or(Value::Null);
-        let store_config = store_config_from(
-            config,
-            wal_shards_override_from_settings(&settings),
-            storage_mode,
-        );
+        let shards_override = wal_shards_override_from_settings(&settings);
+        let store_config = store_config_from(config, shards_override, storage_mode);
         let store = IndexStore::open(&index_dir, store_config)?;
 
         // Estimate doc count from snapshot.
@@ -13095,7 +13089,7 @@ impl Index {
         let memtable = {
             let mem = crate::memtable::ShardedFtsMemtable::with_registry_and_shards(
                 Arc::clone(&registry),
-                config.engine.ingest_shards,
+                memtable_shards(config, shards_override),
             );
             let wal_dir = store.wal_dir();
             // Must use the sharded-aware discovery: with the 16-shard WAL
@@ -47111,6 +47105,22 @@ fn wal_shards_override_from_settings(settings: &Value) -> Option<usize> {
         .and_then(Value::as_u64)
         .filter(|&n| (1..=MAX_PER_INDEX_WAL_SHARDS).contains(&n))
         .map(|n| n as usize)
+}
+
+/// Memtable shard count for one index: the same per-index override as the
+/// WAL (`index.xerj_ingest_shards`), else `engine.ingest_shards`.
+///
+/// #2929 — every non-empty memtable shard becomes its own segment on
+/// `_refresh`, a full file set per field (about 117 files for autoindex's
+/// wide catalog schema), each one fsynced and renamed. `xerj autoindex`
+/// already pins its indices to one WAL shard; before this the memtable still
+/// used the host-sized default (16 shards on a 32-core box), so a 5-document
+/// catalog bulk spread over 5 shards and its commit refresh wrote 5 segments.
+/// With the override honoured here, a refresh of such an index writes one.
+/// Memtable shards are in-memory only, so the count may differ across
+/// restarts without any on-disk effect.
+fn memtable_shards(config: &Config, shards_override: Option<usize>) -> usize {
+    shards_override.unwrap_or(config.engine.ingest_shards)
 }
 
 /// Ceiling for the per-index override, mirroring the `engine.ingest_shards`
