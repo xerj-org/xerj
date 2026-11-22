@@ -8009,3 +8009,52 @@ fn a_record_too_large_once_vectors_are_added_is_set_aside_before_sealing() {
     assert!(docs.contains("beta"), "the edit is indexed");
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
 }
+
+/// #3279 on the incremental (`--no-graph`) path: an edit that leaves one
+/// dataset with 0 live documents is an ordinary generation. The rerun must
+/// not fail verification or ask for `--fresh`, the emptied rows are gone, and
+/// the sibling dataset is untouched.
+#[test]
+fn an_edit_that_empties_a_dataset_reconciles_without_fresh() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    for (label, emptied) in [("header only", "id,value\n"), ("empty file", "")] {
+        let corpus = tempfile::tempdir().unwrap();
+        let state_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            corpus.path().join("people.csv"),
+            "name,age,city\nann,31,oslo\nbob,42,rome\n",
+        )
+        .unwrap();
+        fs::write(
+            corpus.path().join("notes.csv"),
+            "id,value\n1,before\n2,also\n",
+        )
+        .unwrap();
+        let endpoint = HttpEndpoint::start();
+        let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+        assert_eq!(run_index(config.clone()).unwrap(), 0, "{label}: first run");
+        assert_eq!(endpoint.data_docs().len(), 4, "{label}: four rows live");
+
+        fs::write(corpus.path().join("notes.csv"), emptied).unwrap();
+        let (code, _) = run_index_report(config.clone()).unwrap_or_else(|error| {
+            panic!("{label}: an edit that empties a dataset must not fail verify: {error:#}")
+        });
+        assert_ne!(code, 1, "{label}");
+        let live = endpoint.data_docs();
+        assert!(
+            live.iter().all(|doc| doc.get("value").is_none()),
+            "{label}: the emptied rows are gone: {live:?}"
+        );
+        assert_eq!(
+            live.iter().filter(|doc| doc.get("name").is_some()).count(),
+            2,
+            "{label}: the other dataset is untouched: {live:?}"
+        );
+        let (code, _) = run_index_report(config)
+            .unwrap_or_else(|error| panic!("{label}: second rerun after emptying: {error:#}"));
+        assert_ne!(code, 1, "{label}: second rerun");
+    }
+}

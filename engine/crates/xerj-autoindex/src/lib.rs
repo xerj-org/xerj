@@ -8995,6 +8995,73 @@ pub(crate) fn run_index_report_watched(
     run_index_report_inner(cfg, &ScanTally::default(), Some(pass))
 }
 
+/// #3281: move a pre-generation `--no-graph` journal aside and remove what it
+/// published, so the run can start over as generation one on the same prefix.
+///
+/// Order matters. The journal is COPIED aside first, so a failure anywhere
+/// below leaves the operator a copy. `remove::execute` then deletes this
+/// folder's `{prefix}-*` indices and catalog rows (selected by root, so a
+/// sibling folder on the same prefix keeps its own) and discards the resume
+/// journal and sync snapshots. A legacy run that published nothing has
+/// nothing to delete: the journal is discarded directly. Anything else (an
+/// ambiguous root, a failed delete) stops the run with remove's own words and
+/// the journal copy, and nothing is rebuilt. Returns the copy's path.
+fn migrate_legacy_no_graph_state(
+    cfg: &IndexCfg,
+    root_str: &str,
+    state_dir: &Path,
+    pr: &Progress,
+) -> Result<std::path::PathBuf> {
+    let journal = state_dir.join("journal.ndjson");
+    let stamp = chrono::Utc::now().format("%Y%m%dT%H%M%SZ");
+    let mut legacy = state_dir.join(format!("journal.ndjson.legacy-{stamp}"));
+    let mut n = 1;
+    while legacy.exists() {
+        legacy = state_dir.join(format!("journal.ndjson.legacy-{stamp}-{n}"));
+        n += 1;
+    }
+    std::fs::copy(&journal, &legacy)
+        .with_context(|| format!("keep the legacy journal as {}", legacy.display()))?;
+    pr.note(&format!(
+        "autoindex: {} is a pre-generation resume journal; kept a copy as {}",
+        journal.display(),
+        legacy.display()
+    ));
+    let report = remove::execute(remove::RemoveRequest {
+        url: cfg.url.clone(),
+        api_key: cfg.api_key.clone(),
+        prefix: cfg.prefix.clone(),
+        root: Some(root_str.to_owned()),
+        yes: true,
+        prompt: false,
+        state_dir: Some(state_dir.to_owned()),
+        uncataloged: false,
+    })
+    .context("remove the legacy journal's indices before rebuilding")?;
+    let nothing_published = report.exit_code != 0
+        && report.body["empty"].as_bool() == Some(true)
+        && report.body["uncataloged"]
+            .as_array()
+            .is_none_or(|names| names.is_empty());
+    if nothing_published {
+        remove::discard_resume_journals(root_str, &cfg.url, &cfg.prefix, Some(state_dir))
+            .context("discard the legacy resume journal")?;
+    } else if report.exit_code != 0 {
+        anyhow::bail!(
+            "this state directory holds a pre-generation journal, and removing what it published did not complete, so nothing was rebuilt. The journal is kept as {}. remove said: {}",
+            legacy.display(),
+            report.summary
+        );
+    }
+    anyhow::ensure!(
+        !journal.exists(),
+        "the legacy journal {} is still in place after its removal; nothing was rebuilt (copy kept as {})",
+        journal.display(),
+        legacy.display()
+    );
+    Ok(legacy)
+}
+
 /// The argv a legacy `--no-graph` journal prints for its independent rebuild.
 ///
 /// Following the printed advice must rebuild the same corpus the operator asked
@@ -10215,6 +10282,31 @@ fn run_index_report_inner(
         let code = generated_exit_code(&summary);
         finish_generated_progress(&pr, code, &summary, dataless_skipped);
         return Ok((code, Some(summary)));
+    }
+    // #3281: a pre-generation journal of THIS folder and prefix is migrated in
+    // place instead of refused. Its plan cannot become generation authority
+    // (see `CommittedManifest::bootstrap_legacy`), and its indices were written
+    // under the legacy document identity and mapping (a `semantic_text` body
+    // that a `--no-semantic` plan now wants as `text` is a mapper conflict).
+    // So the journal is kept beside itself as `journal.ndjson.legacy-<ts>`,
+    // this folder's indices and catalog rows for this prefix are removed the
+    // way `xerj autoindex remove` removes them, and the run starts over as the
+    // first generation. Every document is rebuilt from the folder, which is
+    // what the field report did by hand (delete the journal, `remove`, rerun).
+    // `--dry-run` still only reports.
+    if cfg.no_graph && preflight.plan.is_some() && !genesis_recovery && !cfg.dry_run {
+        let legacy = migrate_legacy_no_graph_state(&cfg, &root_str, &state_dir, &pr)?;
+        pr.note(&format!(
+            "autoindex: migrated a pre-generation journal for prefix {}: kept it as {}, removed this folder's {}-* indices and catalog rows, and rebuilding them from the folder",
+            cfg.prefix,
+            legacy.display(),
+            cfg.prefix
+        ));
+        pr.hand_off();
+        drop(ticker);
+        // The preflight holds the state-dir lock; the restarted run takes it.
+        drop(preflight);
+        return run_index_report_inner(cfg.clone(), tally, watch);
     }
     if cfg.no_graph && preflight.plan.is_some() && !genesis_recovery {
         let replacement_state = state_dir.with_extension("generation-v1");

@@ -52,6 +52,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`xerj autoindex --no-graph` migrates a pre-generation journal in place
+  (#3281).** Re-indexing a folder whose state directory still holds a resume
+  journal from an older release (or from a default graph run) used to stop
+  with "legacy nonempty plan that cannot become generation authority" and a
+  rebuild under a new `--state-dir` and `--prefix`, even with `--fresh`; the
+  field report recovered only by deleting `journal.ndjson` by hand and running
+  `xerj autoindex remove`. The run now keeps the journal as
+  `journal.ndjson.legacy-<ts>`, removes this folder's `<prefix>-*` indices and
+  catalog rows as `remove` does, and rebuilds them from the folder as the first
+  generation, exiting 0. That also clears the `semantic_text` to `text` mapper
+  conflict a `--no-semantic` rerun met on the older prose index. Searches on
+  the prefix see the indices empty until the rebuild finishes. `--dry-run`
+  still only reports.
+
 - **`profile: true` requests always run fresh again (#3315, #3020).** Since
   #3315 a repeated identical profile request was answered from the
   whole-response cache, with the first run's timings. Profile requests now

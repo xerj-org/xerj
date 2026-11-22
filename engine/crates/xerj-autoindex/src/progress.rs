@@ -736,6 +736,14 @@ impl Progress {
         self.finish_with_flags(ok, exit, reason, extra, &[]);
     }
 
+    /// Close this surface WITHOUT a terminal line, because the run hands off
+    /// to a fresh run that reports its own (#3281's in-place legacy migration
+    /// restarts the run). Dropping the ticker afterwards then prints nothing,
+    /// so the stream still ends with exactly one `xerj-done`.
+    pub fn hand_off(&self) {
+        self.reported.store(true, Ordering::SeqCst);
+    }
+
     /// Fields merged into the `--progress json` terminal object.
     ///
     /// The plain `xerj-done` line stays numeric: readers split it on spaces,
