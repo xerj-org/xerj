@@ -1993,6 +1993,16 @@ async fn refill_after_missed_writes(mut members: Vec<Member>, bus: Option<&InMem
         &case.replica_a,
     )
     .await;
+    // `wait_refilled` reads the primary's in-sync set. A GET on the refilled
+    // replica routes by that node's own copy, which raft applies there later
+    // (`cluster_apply` SetShardInSync); until it lands, the GET below finds
+    // no ready copy and answers 503 shard_not_ready. Wait for every member.
+    wait_in_sync(
+        &members,
+        case.shard,
+        &[case.replica_a.clone(), case.replica_b.clone()],
+    )
+    .await;
     let on_user = members[replica_a_at]
         .engine
         .get_index("orders")
