@@ -8652,9 +8652,21 @@ fn merge_metric_agg(old: &Value, new: &Value) -> Option<Value> {
         }
         let a = old_obj.get("value");
         let b = new_obj.get("value");
+        // ES renders value_count as a long. Summing through f64 turned a
+        // merged 100 + 5 into `105.0`, so integer counts stay integers.
+        if t == "value_count" {
+            let count = |v: Option<&Value>| {
+                v.and_then(|v| v.as_u64().or_else(|| v.as_f64().map(|f| f.max(0.0) as u64)))
+            };
+            let value = match (count(a), count(b)) {
+                (None, None) => Value::Null,
+                (x, y) => Value::from(x.unwrap_or(0).saturating_add(y.unwrap_or(0))),
+            };
+            return Some(serde_json::json!({ "value": value, "__xy_agg__": "value_count" }));
+        }
         let merged: Option<f64> = match (a.and_then(Value::as_f64), b.and_then(Value::as_f64)) {
             (Some(x), Some(y)) => Some(match t {
-                "sum" | "value_count" => x + y,
+                "sum" => x + y,
                 "min" => x.min(y),
                 "max" => x.max(y),
                 _ => return None,
@@ -9061,7 +9073,21 @@ mod merge_bucket_agg_keyed_tests {
         assert_eq!(bucket["doc_count"], 5);
         assert_eq!(bucket["stats"]["count"], 5);
         assert_eq!(bucket["stats"]["avg"], 12.6);
-        assert_eq!(bucket["vc"]["value"], 5.0);
+        assert_eq!(bucket["vc"]["value"].as_u64(), Some(5), "{}", bucket["vc"]);
+    }
+
+    #[test]
+    fn value_count_merge_stays_an_integer() {
+        let a = json!({"value":100,"__xy_agg__":"value_count"});
+        let b = json!({"value":5,"__xy_agg__":"value_count"});
+        let merged = merge_metric_agg(&a, &b).unwrap();
+        assert_eq!(serde_json::to_string(&merged["value"]).unwrap(), "105");
+        let empty = json!({"value":0,"__xy_agg__":"value_count"});
+        let merged = merge_metric_agg(&empty, &b).unwrap();
+        assert_eq!(serde_json::to_string(&merged["value"]).unwrap(), "5");
+        let sum_a = json!({"value":100.0,"__xy_agg__":"sum"});
+        let sum_b = json!({"value":5.0,"__xy_agg__":"sum"});
+        assert_eq!(merge_metric_agg(&sum_a, &sum_b).unwrap()["value"], 105.0);
     }
 
     #[test]

@@ -3911,24 +3911,9 @@ fn code_root() -> std::path::PathBuf {
 
 // ── Engine transport ─────────────────────────────────────────────────────────
 
-/// Send one request to the configured XERJ base URL and wrap the response as
-/// an MCP tool result. Non-2xx responses (and transport errors) come back as
-/// `isError:true` with the engine's text verbatim, so the agent sees exactly
-/// what the engine said (including its "not a graph database" refusals).
-///
-/// `budget` (#1058): when `Some(max_tokens)`, a SUCCESSFUL response is held
-/// to that token budget by [`token_budget::budget_json_response`]. Errors are
-/// never budgeted — a refusal the agent cannot read end-to-end is worse than
-/// a long response, and refusals are small anyway.
-/// `GET /{index}/_mapping` for a plain-string `xerj_search` (#1961).
-///
-/// `None` when the node cannot answer or the body is not JSON: the caller
-/// then keeps the historical code-shaped query, exactly like the CLI does
-/// when the mapping read fails (#1601). Read on every plain-string call, not
-/// cached: `xerj autoindex` can add a dataset (and a field) between two tool
-/// calls, and a stale mapping is the failure this exists to prevent.
-/// #3377: does every index behind `index` declare a CJK bigram default
-/// analyzer? Any failure answers `false`.
+/// `GET /{index}/_settings` for a plain-string `xerj_search` (#3377): does
+/// every index behind `index` declare a CJK bigram default analyzer? Any
+/// failure answers `false`, and the caller keeps its CJK run phrases.
 async fn fetch_cjk_bigrams(ctx: &Ctx, index: &str) -> bool {
     let url = format!("{}/{index}/_settings", ctx.base_url.trim_end_matches('/'));
     let mut req = ctx.client.get(&url);
@@ -3946,6 +3931,13 @@ async fn fetch_cjk_bigrams(ctx: &Ctx, index: &str) -> bool {
         .is_ok_and(|settings| xerj_common::code_query::settings_use_cjk_bigrams(&settings))
 }
 
+/// `GET /{index}/_mapping` for a plain-string `xerj_search` (#1961).
+///
+/// `None` when the node cannot answer or the body is not JSON: the caller
+/// then keeps the historical code-shaped query, exactly like the CLI does
+/// when the mapping read fails (#1601). Read on every plain-string call, not
+/// cached: `xerj autoindex` can add a dataset (and a field) between two tool
+/// calls, and a stale mapping is the failure this exists to prevent.
 async fn fetch_mapping(ctx: &Ctx, index: &str) -> Option<Value> {
     let url = format!("{}/{index}/_mapping", ctx.base_url.trim_end_matches('/'));
     let mut req = ctx.client.get(&url);
@@ -4402,6 +4394,15 @@ async fn explain_zero_hits(ctx: &Ctx, args: &Value, result: Value) -> Value {
     tool_text(resp.to_string(), false)
 }
 
+/// Send one request to the configured XERJ base URL and wrap the response as
+/// an MCP tool result. Non-2xx responses (and transport errors) come back as
+/// `isError:true` with the engine's text verbatim, so the agent sees exactly
+/// what the engine said (including its "not a graph database" refusals).
+///
+/// `budget` (#1058): when `Some(max_tokens)`, a SUCCESSFUL response is held
+/// to that token budget by [`token_budget::budget_json_response`]. Errors are
+/// never budgeted — a refusal the agent cannot read end-to-end is worse than
+/// a long response, and refusals are small anyway.
 #[allow(clippy::too_many_arguments)]
 async fn engine_request(
     ctx: &Ctx,
