@@ -168,13 +168,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Holds and waits of 1 s or more (`XERJ_STALL_TRACE_MS` sets the threshold)
   are now logged at WARN with the holder's call site.
 
-- **A `range` bound under `format: date_optional_time` whose year is too far
-  from 1970 for epoch milliseconds is an `illegal_argument_exception`**, as
-  in Elasticsearch 8.18: `lte: 522000000` (the year 522000000) answers 400
-  with root cause `illegal_argument_exception`, "date[...] is too far in the
-  future to be represented in a long milliseconds variable" (or "past").
-  It was a `parse_exception`. Values that do not parse at all, and every
-  other format, keep the `parse_exception`.
+- **A `range` bound under `format: date_optional_time` (or
+  `date_optional_time_nanos`) whose year is too far from 1970 for epoch
+  milliseconds is an `illegal_argument_exception`**, as in Elasticsearch
+  8.18: `lte: 522000000` (the year 522000000) answers 400 with root cause
+  `illegal_argument_exception`, "date[...] is too far in the future to be
+  represented in a long milliseconds variable" (or "past"). It was a
+  `parse_exception`. Values that do not parse at all, and the strict and
+  pattern formats, still answer `parse_exception`.
 
 - **Short Chinese, Japanese, and Korean document bodies are searchable
   after autoindexing (#3330).** Autoindex now maps these bodies as text

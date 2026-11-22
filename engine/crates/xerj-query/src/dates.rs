@@ -53,7 +53,8 @@ pub enum DateResolveError {
     /// The value parsed, but its instant does not fit a long count of epoch
     /// milliseconds (`date_optional_time` + `522000000`, the year 522000000).
     /// Carries the instant as Java's `Instant` prints it and whether it lies
-    /// after now, for ES's `date[...] is too far in the future|past to be
+    /// after 1970 (for an instant this far out, the same as ES's "after
+    /// now"), for ES's `date[...] is too far in the future|past to be
     /// represented in a long milliseconds variable`.
     OutOfRange { instant: String, future: bool },
 }
@@ -269,8 +270,10 @@ pub enum DateFmt {
     /// `strict_date_optional_time` / `date_optional_time` / `iso8601` — the
     /// partial ISO parser (also the default when no `format` is given).
     /// `strict` is false only for the non-strict `date_optional_time` names,
-    /// whose year ES reads with up to nine digits; parsing is the same for
-    /// both, the flag only matters for [`out_of_range_year`].
+    /// whose year ES reads with up to nine digits; `strict: true` means a
+    /// four-digit year, so `iso8601` and `rfc3339_lenient` carry it too.
+    /// Parsing is the same for both, the flag only matters for
+    /// [`out_of_range_year`].
     IsoOptionalTime {
         strict: bool,
     },
@@ -2916,7 +2919,9 @@ mod out_of_range_year_tests {
 
     #[test]
     fn strict_and_other_formats_keep_the_parse_error() {
-        for format in ["strict_date_optional_time", "iso8601", "uuuu"] {
+        // Formats whose year ES reads with four digits only.  (A `uuuu`
+        // pattern reads wider years in ES, so it is not pinned here.)
+        for format in ["strict_date_optional_time", "iso8601"] {
             let fmts = compile_formats(format).unwrap();
             assert_eq!(
                 resolve_date_bound_str("522000000", true, Some(&fmts)),
