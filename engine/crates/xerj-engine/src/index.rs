@@ -3019,6 +3019,30 @@ mod flush_publication_recovery_tests {
         idx
     }
 
+    /// Wait until every cold stored-values load task has finished.
+    ///
+    /// The reader is woken by the load task's `send`, and the task drops its
+    /// senders after that, on its own worker. Until then the watch channel
+    /// still holds the value it sent, and with it an uncached load's read
+    /// reservation, so asserting `current == 0` straight after the reader
+    /// returned raced that task. Under load (24 parallel copies, load 48-73)
+    /// `knn_scan_transients_reserve_read_memory_and_429_at_the_limit_2427`
+    /// failed 18 of 600 runs with `left: 449280`. Waiting for an empty
+    /// single-flight map was not enough (1 of 600 each): `DashMap::remove`
+    /// frees the slot before the returned sender is dropped. The task count
+    /// drops only after every sender is gone, so after this the reservation
+    /// lives exactly as long as the test's readers.
+    async fn await_stored_value_load_task_2427(idx: &Index) {
+        tokio::time::timeout(std::time::Duration::from_secs(20), async {
+            while idx.test_stored_value_load_tasks.load(Ordering::Acquire) != 0 {
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .expect("the stored-values load task never finished");
+        assert!(idx.stored_value_loads.is_empty());
+    }
+
     fn pinned_admission_2427(
         hydration: u64,
         governor: Option<Arc<crate::governor::ResourceGovernor>>,
@@ -3059,12 +3083,12 @@ mod flush_publication_recovery_tests {
         drop(docs);
         assert_eq!(full.read_budget.snapshot().current, held);
         drop(second);
+        await_stored_value_load_task_2427(&idx).await;
         assert_eq!(
             full.read_budget.snapshot().current,
             0,
             "released with the last reader"
         );
-        assert!(idx.stored_value_loads.is_empty());
 
         let roomy = pinned_admission_2427(u64::MAX, None);
         let cached = idx
@@ -3164,6 +3188,8 @@ mod flush_publication_recovery_tests {
             .unwrap();
         assert_eq!(result.hits.len(), 3);
         assert_eq!(result.hits[0].id, "doc-255");
+        drop(result);
+        await_stored_value_load_task_2427(&idx).await;
         let snap = full.read_budget.snapshot();
         assert!(
             snap.admitted >= 2,
@@ -7710,6 +7736,104 @@ mod merge_publication_transaction_tests {
         .expect("merge did not reach the pre-apply gate");
     }
 
+    /// `n` one-document segments, background merging stopped.
+    async fn forced_yield_fixture(dir: &TempDir, n: usize) -> (Engine, Arc<Index>) {
+        let (engine, index) = hand_driven_index(dir, "forced-yield", Schema::empty());
+        for i in 0..n {
+            index
+                .index_document(Some(format!("d{i}")), serde_json::json!({"value": i}))
+                .await
+                .unwrap();
+            index.flush().await.unwrap();
+        }
+        assert_eq!(index.store.snapshot().segments.len(), n);
+        (engine, index)
+    }
+
+    fn segment_docs(index: &Index) -> u64 {
+        index
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.doc_count)
+            .sum()
+    }
+
+    /// #2917 follow-up: a `_forcemerge` whose every pass stops one batch at
+    /// the memory limit but merges the others is making progress and must
+    /// converge. Pre-fix each such pass counted as a memory stop, so the
+    /// third one answered 429 with the index half merged.
+    ///
+    /// 12 segments, two per batch, the first batch of each of the first 5
+    /// passes stopped: 12 -> 7 -> 5 -> 4 -> 3 (merged 5, 2, 1, 1), then one
+    /// pass that merges nothing (its only batch stopped), then 3 -> 2 -> 1.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn forcemerge_converges_while_passes_merge_around_a_stopped_batch() {
+        let dir = TempDir::new().unwrap();
+        let (_engine, index) = forced_yield_fixture(&dir, 12).await;
+        index.test_forced_yield_passes.store(5, Ordering::Release);
+
+        let merged = index
+            .force_merge_with_memory_wait(1, std::time::Duration::from_secs(5))
+            .await
+            .expect("passes that merged something must not count towards the 429");
+
+        assert_eq!(index.test_forced_yield_passes.load(Ordering::Acquire), 0);
+        assert_eq!(index.store.snapshot().segments.len(), 1);
+        assert_eq!(segment_docs(&index), 12);
+        assert_eq!(merged, 5 + 2 + 1 + 1 + 1 + 1, "merged batches");
+    }
+
+    /// The 429 still fires on [`FORCE_MERGE_MEMORY_RETRIES`] + 1 passes IN A
+    /// ROW that merge nothing, with every input segment and document kept.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn forcemerge_429s_after_consecutive_passes_that_merge_nothing() {
+        let dir = TempDir::new().unwrap();
+        let (_engine, index) = forced_yield_fixture(&dir, 6).await;
+        index
+            .test_forced_yield_every_batch
+            .store(true, Ordering::Release);
+        index.test_forced_yield_passes.store(100, Ordering::Release);
+
+        let err = index
+            .force_merge_with_memory_wait(1, std::time::Duration::from_secs(5))
+            .await
+            .expect_err("passes that merge nothing must end in a 429");
+        match &err {
+            EngineError::Common(e) => assert_eq!(e.http_status(), 429, "{e}"),
+            other => panic!("expected a 429 circuit_breaking_exception, got {other:?}"),
+        }
+        assert_eq!(
+            100 - index.test_forced_yield_passes.load(Ordering::Acquire),
+            FORCE_MERGE_MEMORY_RETRIES + 1,
+            "passes run before the 429"
+        );
+        assert_eq!(index.store.snapshot().segments.len(), 6);
+        assert_eq!(segment_docs(&index), 6);
+
+        // The kept inputs are intact: once batches stop being stopped, the
+        // same index converges.
+        index.test_forced_yield_passes.store(0, Ordering::Release);
+        index
+            .force_merge_with_memory_wait(1, std::time::Duration::from_secs(5))
+            .await
+            .unwrap();
+        assert_eq!(index.store.snapshot().segments.len(), 1);
+        assert_eq!(segment_docs(&index), 6);
+    }
+
+    #[test]
+    fn forcemerge_memory_stops_count_only_passes_without_progress() {
+        let mut stops = 0;
+        for merged in [0, 0, 3, 0, 0, 1, 0] {
+            stops = force_merge_memory_stops_after_pass(stops, merged);
+        }
+        assert_eq!(stops, 1);
+        assert_eq!(force_merge_memory_stops_after_pass(2, 0), 3);
+        assert_eq!(force_merge_memory_stops_after_pass(2, 1), 0);
+    }
+
     /// #2234 — `_refresh` must publish a new write while a merge encode is
     /// held, on a runtime whose tokio blocking pool has a single thread.
     ///
@@ -11914,6 +12038,15 @@ pub struct Index {
     test_hold_merge_encode: Arc<AtomicBool>,
     #[cfg(test)]
     test_merge_encode_held: Arc<AtomicBool>,
+    /// #2917 follow-up — the next N forcemerge passes stop batches as if
+    /// RSS had reached the process limit: only the first batch of the pass
+    /// when `test_forced_yield_every_batch` is false, every batch when true.
+    /// Engine unit tests run without a governor, so the real stop cannot
+    /// fire.
+    #[cfg(test)]
+    test_forced_yield_passes: Arc<AtomicUsize>,
+    #[cfg(test)]
+    test_forced_yield_every_batch: Arc<AtomicBool>,
     /// #2234 — park `refresh` before it looks at the memtable. Off in release
     /// builds; `xerj-api` tests turn it on with the `refresh-test-hook` feature.
     #[cfg(any(test, feature = "refresh-test-hook"))]
@@ -12159,6 +12292,11 @@ pub struct Index {
     test_read_admission: Arc<parking_lot::Mutex<Option<ReadAdmission>>>,
     #[cfg(test)]
     test_stored_value_load_count: Arc<AtomicU64>,
+    /// Cold stored-values load tasks not yet finished: decremented after the
+    /// task has dropped every sender, so at 0 the watch channels hold no
+    /// sent value (#2427 test sync).
+    #[cfg(test)]
+    test_stored_value_load_tasks: Arc<AtomicUsize>,
     #[cfg(test)]
     test_stored_value_load_pause_before_publish: Arc<std::sync::atomic::AtomicBool>,
     #[cfg(test)]
@@ -12897,6 +13035,10 @@ impl Index {
             test_hold_merge_encode: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             test_merge_encode_held: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_forced_yield_passes: Arc::new(AtomicUsize::new(0)),
+            #[cfg(test)]
+            test_forced_yield_every_batch: Arc::new(AtomicBool::new(false)),
             #[cfg(any(test, feature = "refresh-test-hook"))]
             test_pause_refresh: Arc::new(AtomicBool::new(false)),
             #[cfg(any(test, feature = "refresh-test-hook"))]
@@ -12956,6 +13098,8 @@ impl Index {
             test_read_admission: Arc::new(parking_lot::Mutex::new(None)),
             #[cfg(test)]
             test_stored_value_load_count: Arc::new(AtomicU64::new(0)),
+            #[cfg(test)]
+            test_stored_value_load_tasks: Arc::new(AtomicUsize::new(0)),
             #[cfg(test)]
             test_stored_value_load_pause_before_publish: Arc::new(
                 std::sync::atomic::AtomicBool::new(false),
@@ -13385,6 +13529,8 @@ impl Index {
             #[cfg(test)]
             test_stored_value_load_count: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
+            test_stored_value_load_tasks: Arc::new(AtomicUsize::new(0)),
+            #[cfg(test)]
             test_stored_value_load_pause_before_publish: Arc::new(
                 std::sync::atomic::AtomicBool::new(false),
             ),
@@ -13417,6 +13563,10 @@ impl Index {
             test_hold_merge_encode: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             test_merge_encode_held: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_forced_yield_passes: Arc::new(AtomicUsize::new(0)),
+            #[cfg(test)]
+            test_forced_yield_every_batch: Arc::new(AtomicBool::new(false)),
             #[cfg(any(test, feature = "refresh-test-hook"))]
             test_pause_refresh: Arc::new(AtomicBool::new(false)),
             #[cfg(any(test, feature = "refresh-test-hook"))]
@@ -16056,9 +16206,11 @@ impl Index {
     /// Memory (#2917): a forced batch is no longer exempt from the cap. It
     /// waits out an engaged breaker before it starts, stops (inputs kept)
     /// when RSS reaches the process limit, and its output write is refused
-    /// when it would end past the watermark. A stopped batch is retried
-    /// [`FORCE_MERGE_MEMORY_RETRIES`] times after the breaker releases; a
-    /// pass that cannot start for `force_merge_memory_wait()` is given up.
+    /// when it would end past the watermark. After a pass that stopped a
+    /// batch the next pass runs once the breaker releases. Only
+    /// [`FORCE_MERGE_MEMORY_RETRIES`] such passes IN A ROW that merged
+    /// nothing are retried: a pass that merged any batch restarts the count.
+    /// A pass that cannot start for `force_merge_memory_wait()` is given up.
     /// Either way this returns a `circuit_breaking_exception` (429) and the
     /// index keeps every input segment.
     ///
@@ -16115,8 +16267,15 @@ impl Index {
             }
             // #2917: a batch stopped at the process limit. Wait for the
             // breaker's drain and retry; past the retries, report it.
+            //
+            // The retries count CONSECUTIVE passes that merged nothing. A
+            // pass that stopped one batch but merged others made progress:
+            // on a large index every pass can narrow one batch at the limit
+            // while the rest converge, and counting those passes turned a
+            // forcemerge that was getting there into a 429 on its third
+            // pass, inputs kept.
             if self.merge_last_pass_yields.load(AtomicOrdering::Relaxed) > 0 && seg_count > target {
-                memory_stops += 1;
+                memory_stops = force_merge_memory_stops_after_pass(memory_stops, n);
                 if memory_stops > FORCE_MERGE_MEMORY_RETRIES {
                     return Err(force_merge_memory_refusal(
                         self.name.as_str(),
@@ -16568,6 +16727,21 @@ impl Index {
         };
         let mut governor_deferred = 0usize;
 
+        #[cfg(test)]
+        let test_yield_pass = forced_merge
+            && self
+                .test_forced_yield_passes
+                .fetch_update(AtomicOrdering::AcqRel, AtomicOrdering::Acquire, |left| {
+                    left.checked_sub(1)
+                })
+                .is_ok();
+        #[cfg(test)]
+        let test_yield_every = self
+            .test_forced_yield_every_batch
+            .load(AtomicOrdering::Acquire);
+        #[cfg(test)]
+        let test_yield_first = Arc::new(AtomicBool::new(test_yield_pass));
+
         let spawn_one = |batch: Vec<xerj_storage::segment::SegmentId>,
                          metas: Vec<xerj_storage::segment::SegmentMeta>,
                          reservation: Option<crate::governor::MergeReservation>|
@@ -16608,7 +16782,15 @@ impl Index {
             // Checked at each input segment, every 8192 surviving docs, and
             // before the output segment is created — never after, so a
             // yielded batch leaves no partial output behind.
+            #[cfg(test)]
+            let test_yield_first_for_task = Arc::clone(&test_yield_first);
             let must_yield = move || -> bool {
+                #[cfg(test)]
+                if test_yield_pass
+                    && (test_yield_every || test_yield_first_for_task.swap(false, Ordering::AcqRel))
+                {
+                    return true;
+                }
                 let Some(governor) = crate::governor::global() else {
                     return false;
                 };
@@ -37425,9 +37607,16 @@ impl Index {
                     #[cfg(test)]
                     let ready_to_publish =
                         Arc::clone(&self.test_stored_value_load_ready_to_publish);
+                    #[cfg(test)]
+                    let load_tasks = Arc::clone(&self.test_stored_value_load_tasks);
+                    #[cfg(test)]
+                    load_tasks.fetch_add(1, Ordering::AcqRel);
                     tokio::spawn(async move {
                         let Ok(permit) = load_semaphore.acquire_owned().await else {
-                            loads.remove(&segment_id);
+                            drop(sender);
+                            drop(loads.remove(&segment_id));
+                            #[cfg(test)]
+                            load_tasks.fetch_sub(1, Ordering::AcqRel);
                             return;
                         };
                         // #751 — the decode runs on the engine's own rayon
@@ -37569,7 +37758,16 @@ impl Index {
                             let _ = sender.send(Some(value));
                         }
                         drop(permit);
-                        loads.remove(&segment_id);
+                        // The watch channel keeps the last value sent, so
+                        // an uncached load stays alive, holding its read
+                        // reservation, until every sender is gone. Drop
+                        // this task's sender, then the slot's: after both
+                        // the channel holds no sender, and the load lives
+                        // only as long as its readers (#2427).
+                        drop(sender);
+                        drop(loads.remove(&segment_id));
+                        #[cfg(test)]
+                        load_tasks.fetch_sub(1, Ordering::AcqRel);
                     });
                     receiver
                 }
@@ -59505,10 +59703,24 @@ fn publish_prepublication<T>(
     }
 }
 
-/// Times a `_forcemerge` retries after one of its batches stopped at the
-/// process memory limit before it reports a 429 (#2917). A retry runs after
-/// the breaker's drain released caches, under the halved batch cap.
+/// Times in a row a `_forcemerge` retries a pass in which a batch stopped
+/// at the process memory limit and no batch merged, before it reports a
+/// 429 (#2917). A retry runs after the breaker's drain released caches,
+/// under the halved batch cap. A pass that merged any batch resets the
+/// count.
 pub const FORCE_MERGE_MEMORY_RETRIES: usize = 2;
+
+/// The `_forcemerge` memory-stop count after a pass in which a batch
+/// stopped at the process limit (#2917). A pass that merged `merged > 0`
+/// batches made progress, so the count restarts; only consecutive passes
+/// that merged nothing move it towards the 429.
+fn force_merge_memory_stops_after_pass(stops: usize, merged: usize) -> usize {
+    if merged > 0 {
+        0
+    } else {
+        stops + 1
+    }
+}
 
 /// Default bound on how long a `_forcemerge` pass waits for memory headroom
 /// without merging anything (#2917).
