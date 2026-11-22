@@ -221,6 +221,7 @@ fn is_top_level_command(arg: &str) -> bool {
             | "hub"
             | "ask"
             | "mcp"
+            | "service"
             | "__extract-pdf"
             | xerj_autoindex::extract::xls::WORKER_ARG
     )
@@ -383,6 +384,9 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20xerj share <index|folder>           give someone read-only search over one\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20index: link + passcode + expiry (see xerj\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20share --help)\n\
+         \x20\x20\x20\x20xerj service install|uninstall|status  keep the node running across logouts\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20and reboots: systemd --user / launchd (see\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20xerj service --help)\n\
          \x20\x20\x20\x20xerj feedback [OPTIONS]             draft or --submit the agent field report —\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20see xerj feedback --help\n\
          \n\
@@ -3682,6 +3686,22 @@ fn main() -> Result<()> {
         && std::env::args().any(|a| a == "--detach")
     {
         std::process::exit(run_detached());
+    }
+
+    // `xerj service install|uninstall|status` (#3267): a systemd --user unit
+    // or a launchd agent that keeps the node up across logouts and reboots.
+    // Synchronous, so it runs before the runtime is built.
+    if matches!(xerj_common::argv::subcommand().as_deref(), Some("service")) {
+        let args = xerj_common::argv::args_after_subcommand();
+        std::process::exit(xerj_common::service::run_cli(&args, &|flags| {
+            if let Some(f) = flags
+                .iter()
+                .find(|f| matches!(f.as_str(), "--version" | "-V"))
+            {
+                return Err(format!("{f} is not a server flag"));
+            }
+            parse_args_from(flags.iter().cloned()).map(|_| ())
+        }));
     }
 
     // `xerj mcp` — MCP stdio server (newline-delimited JSON-RPC on

@@ -261,7 +261,10 @@ SUBCOMMANDS:
   hub        &lt;command&gt;         pull, sync, status, stop, config; build-pack and
                                build-catalogue for CI
   code       &lt;corpus&gt; "&lt;q&gt;"   retrieval over a corpus; --def &lt;SYMBOL&gt; for one definition
-  corpus     add|index|list    clone + index your own reference corpora</pre>
+  corpus     add|index|list    clone + index your own reference corpora
+  service    install|uninstall|status
+                               keep the node running across logouts and reboots
+                               (systemd --user, launchd)</pre>
   <p>Abridged. <code class="inline">xerj --help</code> prints every subcommand; each prints its own options with <code class="inline">--help</code>.</p>
 
   <h2 id="config-flag">--config / -c</h2>
@@ -281,6 +284,45 @@ SUBCOMMANDS:
 
   <h2>--version / -V</h2>
   <p>Prints the version, git SHA, and build date. Useful in oncall pages: <code class="inline">xerj -V | head -1</code>.</p>
+
+  <h2 id="service">xerj service install|uninstall|status</h2>
+  <p>Runs the local node under your own user's service manager, so it comes back after a crash, a logout or a reboot. <code class="inline">xerj --detach</code> survives the terminal closing; it does not survive a reboot or a whole-login kill. This does. Every file it writes is under your home directory, and no root or administrator rights are needed.</p>
+<pre class="code">USAGE:
+  xerj service install   [--name N] [--dry-run] [SERVER FLAGS...]
+  xerj service uninstall [--name N] [--dry-run]
+  xerj service status    [--name N]
+
+  SERVER FLAGS are the flags of a bare `xerj` start, e.g.
+      xerj service install --insecure --data-dir ~/xerj-data --port 9200
+  The data dir defaults to ~/xerj-data (not ./data) and is written into
+  the unit as an absolute path. --detach is refused: the service manager
+  keeps the node running.
+
+  --name N     run a second node side by side: unit xerj-N.service
+               (launchd org.xerj.node-N). Letters, digits, '-' and '_'.
+  --dry-run    print the unit file and the commands; write and start nothing.
+
+EXIT CODES:
+  0  done (status: running)        2  usage error
+  1  failed                        3  status: installed, not running
+                                   4  status: not installed</pre>
+  <p><strong>Linux:</strong> writes <code class="inline">~/.config/systemd/user/xerj.service</code> (or under <code class="inline">$XDG_CONFIG_HOME</code>), then runs <code class="inline">systemctl --user daemon-reload</code>, <code class="inline">enable</code> and <code class="inline">start</code> (<code class="inline">restart</code> when the flags changed). The unit has <code class="inline">Restart=on-failure</code>; logs go to <code class="inline">journalctl --user -u xerj.service</code>.</p>
+  <p><strong>macOS:</strong> writes <code class="inline">~/Library/LaunchAgents/org.xerj.node.plist</code> and runs <code class="inline">launchctl bootstrap gui/$UID</code>. <code class="inline">RunAtLoad</code> starts it at login and <code class="inline">KeepAlive</code> restarts it after a crash. Logs go to <code class="inline">&lt;data dir&gt;/node.log</code>.</p>
+  <p><strong>Windows:</strong> writes nothing. It prints a Task Scheduler command (<code class="inline">schtasks /Create … /SC ONLOGON</code> running <code class="inline">xerj --detach</code>) for you to run, and says why <code class="inline">sc.exe create</code> alone does not work: xerj does not answer the Windows Service Control Manager.</p>
+  <p>Re-running <code class="inline">install</code> with the same flags changes nothing and does not restart the node. With different flags it rewrites the unit and restarts the node. <code class="inline">uninstall</code> stops the node and removes the unit; the data dir is kept.</p>
+  <p>On Linux a user service starts when you log in. To start it at boot with nobody logged in, turn on lingering once: <code class="inline">loginctl enable-linger $USER</code>. <code class="inline">install</code> and <code class="inline">status</code> say which of the two applies.</p>
+  <p>If a node you started some other way (<code class="inline">xerj --detach</code>, or a client's auto-start) already runs on the same data dir, <code class="inline">install</code> registers the service but does not start it, and prints the PID to stop first. Two nodes cannot share one data dir.</p>
+<pre class="code">$ xerj service install --insecure --dry-run
+# xerj service install --dry-run: nothing was written or started.
+# unit file (new): /home/you/.config/systemd/user/xerj.service
+…
+ExecStart=/usr/local/bin/xerj --insecure --data-dir /home/you/xerj-data
+…
+# commands:
+systemctl --user daemon-reload
+systemctl --user enable xerj.service
+systemctl --user start xerj.service</pre>
+  <p>Verify: <code class="inline">xerj service status</code> exits 0 and prints <code class="inline">state     active</code> (launchd: <code class="inline">running</code>) and a <code class="inline">url … (answering)</code> line. Tested on Linux with systemd 261; the macOS and Windows paths have unit tests for the files and commands they produce but have not been run on those systems yet.</p>
 
   <h2 id="autoindex">xerj autoindex &lt;folder&gt;</h2>
   <p>Point it at a folder and it discovers, infers and indexes the contents — no mapping to write, no pipeline to configure. It is a client of a node that is <em>already running</em>, and it never reads the TOML config, so the endpoint and the credential are its own flags.</p>

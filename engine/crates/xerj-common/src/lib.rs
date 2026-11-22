@@ -69,6 +69,7 @@ pub mod nodedir;
 pub mod packed_f32;
 pub mod resource;
 pub mod schema;
+pub mod service;
 pub mod thread_spawn;
 pub mod types;
 pub mod writing_review;
