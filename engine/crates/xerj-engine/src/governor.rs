@@ -450,11 +450,53 @@ pub fn analyze_committed_bytes(observed: u64, already_reserved: u64, baseline: O
     }
 }
 
+/// Length of one bucket of [`HydrationRoomWindow`] (#2427). The window spans
+/// one to two buckets, so a query transient or flush burst keeps the cache
+/// small for at least this long after it ends.
+const HYDRATION_ROOM_BUCKET: Duration = Duration::from_secs(10);
+
+/// The hydration cache never shrinks below `limit / this` (#2427), so hot
+/// segments still cache on a node whose other memory fills the watermark.
+const HYDRATION_ROOM_FLOOR_DIVISOR: u64 = 16;
+
+/// Peak of the memory held outside the hydration cache over the last one to
+/// two [`HYDRATION_ROOM_BUCKET`]s (#2427). Two buckets, so the peak drops
+/// back gradually instead of on the first quiet sample.
+#[derive(Debug, Default)]
+struct HydrationRoomWindow {
+    bucket_start: Option<Instant>,
+    current: u64,
+    previous: u64,
+}
+
+impl HydrationRoomWindow {
+    /// Record `bytes` at `now` and return the window's peak.
+    fn observe(&mut self, bytes: u64, now: Instant) -> u64 {
+        let start = *self.bucket_start.get_or_insert(now);
+        let elapsed = now.saturating_duration_since(start);
+        if elapsed >= HYDRATION_ROOM_BUCKET * 2 {
+            self.previous = 0;
+            self.current = 0;
+            self.bucket_start = Some(now);
+        } else if elapsed >= HYDRATION_ROOM_BUCKET {
+            self.previous = self.current;
+            self.current = 0;
+            self.bucket_start = Some(start + HYDRATION_ROOM_BUCKET);
+        }
+        self.current = self.current.max(bytes);
+        self.current.max(self.previous)
+    }
+}
+
 /// Process-wide resource governor. See the module docs.
 pub struct ResourceGovernor {
     /// One admission authority shared by every index in this process.
     segment_hydration_budget: Arc<SegmentHydrationBudget>,
     segment_hydration_budget_source: SegmentHydrationBudgetSource,
+    /// Recent peak of the memory held outside the hydration cache (#2427),
+    /// which sets the cache's room target. See
+    /// [`ResourceGovernor::resize_hydration_cache`].
+    hydration_room: Mutex<HydrationRoomWindow>,
     // ── item 1: process-wide memtable budget ────────────────────────────
     /// Ceiling on summed memtable bytes across ALL indices. `0` = disabled.
     memtable_budget_bytes: u64,
@@ -1911,6 +1953,8 @@ impl ResourceGovernor {
             }
         }
 
+        self.resize_hydration_cache(rss, watermark, Instant::now());
+
         // ── disk flood stage (1% release hysteresis to avoid flapping) ──
         let flood_pct = self.disk_flood_pct.load(Ordering::Relaxed);
         if flood_pct != 0 {
@@ -2001,6 +2045,41 @@ impl ResourceGovernor {
 
     pub fn segment_hydration_budget(&self) -> Arc<SegmentHydrationBudget> {
         Arc::clone(&self.segment_hydration_budget)
+    }
+
+    /// #2427: give the hydration cache only the room the rest of the process
+    /// leaves under the watermark. Called on every memory sample.
+    ///
+    /// The cache limit is a fixed fifth of the process cap, but the memory it
+    /// shares that cap with is not fixed. On the 1 GB release gate at a
+    /// 3,072 MB cap the in-memory HNSW graphs (921 MB) and version maps
+    /// (428 MB) alone took 44% of the cap once the corpus was in; with a full
+    /// 614 MB cache, one keyword `term` query's doc-value decode took RssAnon
+    /// to 3,209 MB. The cache now gets `watermark - peak`, where `peak` is the
+    /// recent high of RSS minus the cache's own charge, never less than
+    /// `limit / 16`. New entries past that are refused (built for the query
+    /// and dropped, under the read transient budget); entries already cached
+    /// stay until their last reader drops them or the breaker drain releases
+    /// them.
+    ///
+    /// Same shape as ClickHouse's page cache auto-resize (target = limit
+    /// minus the recent peak of usage excluding the cache, clamped to a
+    /// minimum; `src/Common/PageCache.cpp:171`, Apache-2.0), written for this
+    /// budget.
+    fn resize_hydration_cache(&self, rss: u64, watermark: u64, now: Instant) {
+        let budget = &self.segment_hydration_budget;
+        if watermark == 0 || rss == 0 {
+            budget.set_target(u64::MAX);
+            return;
+        }
+        let outside_cache = rss.saturating_sub(budget.used());
+        let peak = self
+            .hydration_room
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .observe(outside_cache, now);
+        let floor = budget.limit() / HYDRATION_ROOM_FLOOR_DIVISOR;
+        budget.set_target(watermark.saturating_sub(peak).max(floor));
     }
 }
 
@@ -2573,6 +2652,7 @@ fn build(config: &Config) -> ResourceGovernor {
     ResourceGovernor {
         segment_hydration_budget,
         segment_hydration_budget_source: resolved_segment_hydration.source,
+        hydration_room: Mutex::new(HydrationRoomWindow::default()),
         memtable_budget_bytes,
         memtable_used_bytes: AtomicU64::new(0),
         memtable_tripped: AtomicBool::new(false),
@@ -5973,6 +6053,76 @@ mod tests {
             }
         }
         assert_eq!(semantic_embed_reserve_bytes(1 << 20, 0), 0);
+    }
+
+    /// #2427: the room window keeps the peak for one to two buckets, then
+    /// forgets it.
+    #[test]
+    fn hydration_room_window_holds_the_recent_peak() {
+        let t0 = Instant::now();
+        let mut w = HydrationRoomWindow::default();
+        assert_eq!(w.observe(100, t0), 100);
+        assert_eq!(w.observe(40, t0 + Duration::from_secs(1)), 100);
+        // Next bucket: the previous bucket's peak still counts.
+        assert_eq!(w.observe(30, t0 + HYDRATION_ROOM_BUCKET), 100);
+        // One more bucket: only the last bucket's 30 remains.
+        assert_eq!(w.observe(20, t0 + HYDRATION_ROOM_BUCKET * 2), 30);
+        // A gap of two buckets clears both.
+        assert_eq!(w.observe(10, t0 + HYDRATION_ROOM_BUCKET * 5), 10);
+    }
+
+    /// #2427: the hydration cache gets `watermark - peak(RSS - cache)`,
+    /// floored at `limit / 16`; no watermark removes the target.
+    #[test]
+    fn hydration_cache_target_follows_room_under_the_watermark() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.max_segment_hydration_cache_mb = 1024;
+        let g = build(&cfg);
+        let budget = g.segment_hydration_budget();
+        let limit = budget.limit();
+        assert!(limit > 0, "the config sizes a hydration cache");
+        let t0 = Instant::now();
+        let watermark = 3000 * MB;
+
+        use crate::segment_cache_budget::SegmentCacheCategory;
+
+        // Plenty of room: the target is the room, capped by the limit.
+        g.resize_hydration_cache(MB, watermark, t0);
+        assert_eq!(budget.ceiling(), limit.min(watermark - MB));
+
+        // 2,800 MB outside the cache leaves 200 MB (or the floor, if larger).
+        let floor = limit / HYDRATION_ROOM_FLOOR_DIVISOR;
+        assert!(
+            floor < 250 * MB,
+            "the default limit keeps the floor under 250 MB"
+        );
+        g.resize_hydration_cache(2800 * MB, watermark, t0);
+        assert_eq!(budget.ceiling(), (200 * MB).max(floor).min(limit));
+        let charge = budget.try_charge(SegmentCacheCategory::DocValues, 150 * MB);
+        assert!(charge.is_some(), "a charge inside the room fits");
+        assert!(
+            budget
+                .try_charge(SegmentCacheCategory::DocValues, 100 * MB)
+                .is_none(),
+            "a charge past the room is refused"
+        );
+        drop(charge);
+
+        // Past the watermark: the floor still lets hot segments cache.
+        g.resize_hydration_cache(watermark + 500 * MB, watermark, t0);
+        assert_eq!(budget.ceiling(), limit / HYDRATION_ROOM_FLOOR_DIVISOR);
+
+        // The peak holds inside the window even when RSS drops...
+        g.resize_hydration_cache(MB, watermark, t0 + Duration::from_secs(1));
+        assert_eq!(budget.ceiling(), limit / HYDRATION_ROOM_FLOOR_DIVISOR);
+        // ...and is forgotten after it.
+        g.resize_hydration_cache(MB, watermark, t0 + HYDRATION_ROOM_BUCKET * 3);
+        assert_eq!(budget.ceiling(), limit.min(watermark - MB));
+
+        // No watermark (breaker off): no target.
+        g.resize_hydration_cache(watermark * 2, 0, t0 + HYDRATION_ROOM_BUCKET * 4);
+        assert_eq!(budget.ceiling(), limit);
     }
 
     /// A standalone governor `headroom` below its watermark and `limit_room`

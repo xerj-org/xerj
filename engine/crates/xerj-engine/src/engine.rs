@@ -42,6 +42,45 @@ use crate::{EngineError, Result};
 /// reads) without the drain worker competing with ingest for every tick.
 const MEMORY_DRAIN_MIN_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
 
+/// RSS, in percent of the memory watermark, from which the sampler returns
+/// freed allocator pages to the OS on its own (#2427). See
+/// [`pressure_purge_due`].
+const PRESSURE_PURGE_RSS_PCT: u64 = 80;
+
+/// Minimum spacing between two sampler purges (#2427).
+const PRESSURE_PURGE_MIN_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// Whether this sampler tick should purge freed allocator pages (#2427).
+///
+/// jemalloc keeps freed pages resident for `dirty_decay_ms` and hands them
+/// back gradually over that window. On the 1 GB gate at a 3,072 MB cap a
+/// query dropped ~800 MB of decoded segment data, the next request
+/// allocated on other arenas before those pages decayed, and jemalloc's
+/// resident bytes reached 3,409 MB while only 2,177 MB was allocated: the
+/// gap alone carried RssAnon past the cap. The breaker drain purges too, but
+/// only at the watermark and at most every 2 s; a burst crosses the last
+/// 5% of the cap in well under that. From [`PRESSURE_PURGE_RSS_PCT`] of the
+/// watermark the sampler purges itself, at most every
+/// [`PRESSURE_PURGE_MIN_INTERVAL`]. A purge only releases pages that are
+/// already free, so it costs no live data.
+fn pressure_purge_due(
+    rss: u64,
+    watermark: u64,
+    last_purge_at: &mut Option<std::time::Instant>,
+    now: std::time::Instant,
+) -> bool {
+    if watermark == 0 || rss.saturating_mul(100) < watermark.saturating_mul(PRESSURE_PURGE_RSS_PCT)
+    {
+        return false;
+    }
+    let due = last_purge_at
+        .is_none_or(|at| now.saturating_duration_since(at) >= PRESSURE_PURGE_MIN_INTERVAL);
+    if due {
+        *last_purge_at = Some(now);
+    }
+    due
+}
+
 /// Whether this sampler tick should ask the drain worker to run on the fixed
 /// window (#948, #2238).
 ///
@@ -288,6 +327,32 @@ mod pressure_cache_release_gate_tests {
         }
         assert!(gate.should_release(t0 + Duration::from_secs(30)));
         assert!(!gate.should_release(t0 + Duration::from_secs(31)));
+    }
+
+    /// #2427: the sampler purges from 80% of the watermark, at most every
+    /// 250 ms, and never without a watermark.
+    #[test]
+    fn pressure_purge_runs_near_the_watermark_and_is_spaced() {
+        use super::{pressure_purge_due, PRESSURE_PURGE_MIN_INTERVAL};
+        let t0 = Instant::now();
+        let mut last = None;
+        assert!(!pressure_purge_due(79, 100, &mut last, t0));
+        assert!(last.is_none());
+        assert!(pressure_purge_due(80, 100, &mut last, t0));
+        assert!(!pressure_purge_due(
+            99,
+            100,
+            &mut last,
+            t0 + Duration::from_millis(100)
+        ));
+        assert!(pressure_purge_due(
+            150,
+            100,
+            &mut last,
+            t0 + PRESSURE_PURGE_MIN_INTERVAL
+        ));
+        let mut never = None;
+        assert!(!pressure_purge_due(u64::MAX, 0, &mut never, t0));
     }
 
     #[test]
@@ -5042,6 +5107,7 @@ impl Engine {
             let mut rss_drains =
                 crate::governor::MemoryDrainSchedule::new(MEMORY_DRAIN_MIN_INTERVAL);
             let mut last_memtable_drain_at: Option<std::time::Instant> = None;
+            let mut last_pressure_purge_at: Option<std::time::Instant> = None;
             let mut disk_hint_shown = false;
             loop {
                 std::thread::sleep(period);
@@ -5059,6 +5125,14 @@ impl Engine {
                 let available_commit = xerj_common::resource::available_commit_bytes();
                 let (disk_pct, disk_avail) = crate::governor::disk_used_pct_and_avail(&data_dir);
                 governor.refresh_memory_observing(observed, disk_pct, disk_avail, available_commit);
+                if pressure_purge_due(
+                    observed,
+                    governor.memory_watermark_bytes(),
+                    &mut last_pressure_purge_at,
+                    std::time::Instant::now(),
+                ) {
+                    purge_allocator_pages();
+                }
                 // #3282: name the drive and the `--data-dir` fix once per
                 // engagement (the first sample after startup included), so a
                 // node that starts in flood stage says why every write fails.
