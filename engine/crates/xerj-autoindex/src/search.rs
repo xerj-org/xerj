@@ -1419,6 +1419,14 @@ pub(crate) fn spawn_staleness_check(
     std::thread::spawn(move || staleness::check(&url, api_key.as_deref(), &prefix))
 }
 
+/// #3377: does every index behind `pattern` declare a CJK bigram default
+/// analyzer? An unreadable settings body answers `false`.
+pub(crate) fn cjk_bigram_indices(es: &Es, pattern: &str) -> bool {
+    es.get_json(&format!("/{pattern}/_settings"))
+        .ok()
+        .is_some_and(|settings| xerj_common::code_query::settings_use_cjk_bigrams(&settings))
+}
+
 pub fn run_search_cli() -> i32 {
     let url = std::env::var("XERJ_URL")
         .ok()
@@ -1548,6 +1556,10 @@ pub fn run_search_cli() -> i32 {
     // test/example penalty (#2122).
     let code_corpus = !xerj_common::code_query::code_symbol_fields_absent(mapped.as_ref());
     let mut body = search_query_body_for_mapping(&query, k, mapped.as_ref(), numeric.as_ref());
+    // #3377: an index that analyzes with CJK bigrams needs no run phrases.
+    if !xerj_common::code_query::cjk_runs(&query).is_empty() && cjk_bigram_indices(&es, &pattern) {
+        xerj_common::code_query::drop_cjk_run_phrases(&mut body, &query);
+    }
     if code_corpus && k > 0 {
         body["size"] = json!(search_fetch_size(k));
     }

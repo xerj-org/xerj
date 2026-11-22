@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `search.max_buckets` cluster setting now also raises or lowers the engine's
   own cap (histogram gap fill, `multi_terms`); clearing it restores
   `limits.max_buckets` from the node config.
+
 - **BM25 now normalises long fields by their real length (#3007).** The
   per-document field-length byte saturated at 1,690 tokens, so every longer
   field was scored as if it were 1,690 tokens long while the average used the
@@ -37,16 +38,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   binary older than this one refuses the new norms files instead of
   misreading them.
 
-- **A `terms` aggregation that meets more distinct keys than
-  `search.max_buckets` now fails with HTTP 400 `too_many_buckets_exception`
-  instead of returning a wrong answer (#3362).** It used to keep the first
-  65,536 keys in document order and drop the rest without saying so: on one
-  index with 69,901 distinct keys, `terms size:3` returned 200 with
-  `sum_other_doc_count: 65533` (true value 69,898) and
-  `doc_count_error_upper_bound: 0`. This applies on one index and on each
-  index of a multi-index search, with or without sub-aggregations. Raise
-  `limits.max_buckets` in the node config, or narrow the query, for fields
-  with more distinct values than the cap.
+- **`xerj autoindex` analyzes Chinese-dominant text with CJK bigrams and folds
+  Traditional Han to Simplified (#3377).** When at least 20% of the sampled
+  letters in a dataset's text fields are Han/kana/Hangul, the index declares
+  the new `xerj_cjk` analyzer (`cjk` bigrams + Traditional→Simplified folding
+  from Unihan `kSimplifiedVariant`); text with kana gets plain `cjk`, and
+  English keeps `stemmer`. `xerj search`, `xerj eval` and the MCP
+  `xerj_search` drop the per-run CJK phrase clauses (#2580) on such indices.
+  The `cjk` tokenizer now splits non-CJK runs on word boundaries and drops
+  punctuation (`revenue,` is `revenue`; `，` is no longer a token). On the
+  issue's 29-file PRC statute corpus (20 law questions, passage holding the
+  answer in the top k): R@1 0.45 → 0.95, R@3 0.60 → 1.00; the same
+  questions converted to Traditional: R@1 0.65 → 0.90, R@3 0.80 → 0.95.
+  English results are unchanged (SearchTome medicine: identical ranks).
+  An explicit `cjk` mapping keeps ES's unfolded behaviour. Existing indices
+  keep their analyzer until reindexed.
 
 - **Hybrid queries read `_source` for the returned page only (#3018).** The
   BM25 and kNN legs now return ids, scores and `seq_no`s, fusion moves hits
@@ -101,6 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as the old pid exits. A lock holder stopped with SIGSTOP is reported at
   once with `kill -CONT <pid>`. Unit test: 60.08 s timeout before, 1.5 s
   after.
+
 - **`xerj autoindex --no-graph` migrates a pre-generation journal in place
   (#3281).** Re-indexing a folder whose state directory still holds a resume
   journal from an older release (or from a default graph run) used to stop

@@ -59,15 +59,16 @@ pub mod bm25;
 pub mod index;
 pub mod postings;
 pub mod search;
+mod t2s_table;
 
 // ── Convenience re-exports ────────────────────────────────────────────────────
 
 pub use analyzer::{
-    AnalyzerPipeline, AnalyzerRegistry, AsciiFoldingFilter, CharFilter, CjkTokenizer,
-    EdgeNGramTokenizer, IcuFoldingFilter, KeywordTokenizer, LengthFilter, LowercaseFilter,
-    NGramTokenizer, PatternTokenizer, ShingleFilter, StandardTokenizer, StemmerFilter,
-    StopwordsFilter, SynonymFilter, ThaiTokenizer, Token, TokenFilter, Tokenizer,
-    WhitespaceTokenizer,
+    fold_traditional_han, AnalyzerPipeline, AnalyzerRegistry, AsciiFoldingFilter, CharFilter,
+    CjkTokenizer, EdgeNGramTokenizer, IcuFoldingFilter, KeywordTokenizer, LengthFilter,
+    LowercaseFilter, NGramTokenizer, PatternTokenizer, ShingleFilter, StandardTokenizer,
+    StemmerFilter, StopwordsFilter, SynonymFilter, ThaiTokenizer, Token, TokenFilter, Tokenizer,
+    TraditionalToSimplifiedFilter, WhitespaceTokenizer, XERJ_CJK_ANALYZER,
 };
 
 pub use bm25::{
