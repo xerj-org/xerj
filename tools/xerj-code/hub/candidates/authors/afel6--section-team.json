@@ -8,15 +8,15 @@
   {
    "repo": "section-team",
    "url": "https://github.com/afel6/section-team",
-   "sha": "e935fd76e949c3c30a8f3bf75830d904ca2c5d91",
-   "licence": "MIT (LICENSE file at pin e935fd76e949, GitHub licence API 2026-11-21)",
+   "sha": "56b45ec642906208443f843c075ea111456ab948",
+   "licence": "MIT (LICENSE file at pin 56b45ec64290, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:40Z",
     "consent_receipt": "4f683d811b15",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:40Z (receipt 4f683d811b15); pinned to the default-branch head. LICENSE file at pin e935fd76e949 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:40Z (receipt 4f683d811b15); pinned to the default-branch head. LICENSE file at pin 56b45ec64290 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
    }
   }
  ]

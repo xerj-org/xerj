@@ -1,0 +1,23 @@
+{
+ "corpus": "cccppy--lamplight",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on book-source, chinese, epub queries this for how cccppy/lamplight implements it: \u706f\u4e0b Lamplight\uff1a\u7075\u611f\u6765\u81ea Reader \u7684\u8f7b\u91cf Windows TXT/EPUB \u9605\u8bfb\u5668\uff0c\u517c\u5bb9 bs.json \u4e66\u6e90 (selected work: src)",
+ "repos": [
+  {
+   "repo": "lamplight",
+   "url": "https://github.com/cccppy/lamplight",
+   "sha": "27bbc20746188b1bb8ff9761334b0a955199c063",
+   "licence": "MIT (LICENSE file at pin 27bbc2074618, GitHub licence API 2026-11-22)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T09:13Z",
+    "consent_receipt": "889afcfb89c8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T09:13Z (receipt 889afcfb89c8); selected commit 27bbc2074618: \"\u5728\u7ebf\u7ed3\u679c\uff1a\u6bcf\u4e2a\u4e66\u6e90\u53ef\u9884\u89c8\u76ee\u5f55\u5e76\u70b9\u7ae0\u76f4\u63a5\u5f00\u59cb\u8bfb\". LICENSE file at pin 27bbc2074618 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "guranshsingh1001--toyako-music-player",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ios, ipados, local-music-player queries this for how GuranshSingh1001/Toyako-Music-Player implements it: Your music. Your device. No internet required (selected work: android)",
+ "repos": [
+  {
+   "repo": "Toyako-Music-Player",
+   "url": "https://github.com/GuranshSingh1001/Toyako-Music-Player",
+   "sha": "664bfac5157c262b57fad02153ea178da2c59e15",
+   "licence": "MIT (LICENSE file at pin 664bfac5157c, GitHub licence API 2026-11-22)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-20T12:50Z",
+    "consent_receipt": "dff2e85e633d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-20T12:50Z (receipt dff2e85e633d); selected commit 664bfac5157c: \"Toyako Android Build\". LICENSE file at pin 664bfac5157c detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+   }
+  }
+ ]
+}

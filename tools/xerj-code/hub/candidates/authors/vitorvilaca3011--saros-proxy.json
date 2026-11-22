@@ -1,0 +1,23 @@
+{
+ "corpus": "vitorvilaca3011--saros-proxy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how vitorvilaca3011/saros-proxy implements it: Saros \u2014 like the eclipse cycle, this proxy predicts exhaustion and rotates accounts before they run out. Multi-provider(opencode-go, command (selected work: test, src, src/cli)",
+ "repos": [
+  {
+   "repo": "saros-proxy",
+   "url": "https://github.com/vitorvilaca3011/saros-proxy",
+   "sha": "3e14a0892c28a1829057952e65e3c2334f6eb3f5",
+   "licence": "MIT (LICENSE file at pin 3e14a0892c28, GitHub licence API 2026-11-22)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T21:09Z",
+    "consent_receipt": "9e2f32d6aaad",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T21:09Z (receipt 9e2f32d6aaad); selected commit 3e14a0892c28: \"feat(proxy): explain why a key is out of rotation (#79, #80) (#94)\". LICENSE file at pin 3e14a0892c28 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "treeder--flaregun-starter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on JavaScript queries this for how treeder/flaregun-starter implements it: Starter kit for full stack apps on Cloudflare developer platform. No framework lock-in (selected work: tests, functions, public)",
+ "repos": [
+  {
+   "repo": "flaregun-starter",
+   "url": "https://github.com/treeder/flaregun-starter",
+   "sha": "13177d224a030fbd46fc3779baeefb556fa0eda5",
+   "licence": "Apache-2.0 (LICENSE file at pin 13177d224a03, GitHub licence API 2026-11-22)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-21T20:57Z",
+    "consent_receipt": "967645bd6b15",
+    "note": "Inclusion consented by the commit author by email at 2026-11-21T20:57Z (receipt 967645bd6b15); selected commit 13177d224a03: \"fix(auth): clear preview URL and parent domain cookies on sign out (#30)\". LICENSE file at pin 13177d224a03 detected as Apache-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+   }
+  }
+ ]
+}
