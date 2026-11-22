@@ -1,9 +1,9 @@
 {
- "corpus": "slopfest--sandogasa",
+ "corpus": "michel-slm--sandogasa",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how slopfest/sandogasa implements it: A collection of tools and libraries for Fedora package maintenance, built around shared API clients for Bugzilla, Bodhi, NVD, and dist-git (selected work: tools)",
+ "domain": "an agent working on Rust queries this for how michel-slm/sandogasa implements it: A collection of tools and libraries for Fedora package maintenance, built around shared API clients for Bugzilla, Bodhi, NVD, and dist-git (selected work: tools)",
  "repos": [
   {
    "repo": "sandogasa",

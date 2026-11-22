@@ -8,15 +8,15 @@
   {
    "repo": "PocketDesk",
    "url": "https://github.com/Yash-Awasthi/PocketDesk",
-   "sha": "8b73f7e919018d0801c6fe56cdbafa728d162952",
-   "licence": "GPL-3.0 (LICENSE file at pin 8b73f7e91901, GitHub licence API 2026-11-22)",
+   "sha": "decaa8c7e0427901f8206a0cbe2cc767c84d7184",
+   "licence": "GPL-3.0 (LICENSE file at pin decaa8c7e042, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T22:25Z",
     "consent_receipt": "45d2edc11ef5",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:25Z (receipt 45d2edc11ef5); pinned to the default-branch head. LICENSE file at pin 8b73f7e91901 detected as GPL-3.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:25Z (receipt 45d2edc11ef5); pinned to the default-branch head. LICENSE file at pin decaa8c7e042 detected as GPL-3.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution."
    }
   }
  ]
