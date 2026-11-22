@@ -1,9 +1,9 @@
 {
- "corpus": "yesvus--ask-oogway",
+ "corpus": "yesvus--ask-oogway-legacy",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, cli, coding-agents queries this for how yesvus/ask-oogway implements it: Get a second opinion from stronger models in coding-agent workflows (selected work: tests, src/ask_oogway)",
+ "domain": "an agent working on ai-agents, cli, coding-agents queries this for how yesvus/ask-oogway-legacy implements it: Get a second opinion from stronger models in coding-agent workflows (selected work: tests, src/ask_oogway)",
  "repos": [
   {
    "repo": "ask-oogway",
