@@ -8770,4 +8770,49 @@ mod object_io_runtime_tests {
         assert_eq!(left.join().unwrap().unwrap(), 1);
         assert_eq!(right.join().unwrap().unwrap(), 2);
     }
+
+    /// #3353: a flush finalizer is a `spawn_blocking` task. It holds
+    /// `object_publish_lock` and drives the catalog PUT through
+    /// `block_on_backend`, and that PUT is `tokio::fs`, which is one more
+    /// `spawn_blocking`. tokio 1.52.0 shipped a sharded blocking pool
+    /// (tokio-rs/tokio#7757) in which two back-to-back `spawn_blocking` calls
+    /// could both "notify" the same idle thread and start no new one. The
+    /// sibling shard's finalizer took that thread, and the PUT stayed queued
+    /// with no thread to run it: the object_storage_e2e hang (2-3 runs in 20).
+    /// tokio reverted it in 1.52.1 (#8057).
+    ///
+    /// This pins what the bridge relies on: a blocking task that waits on a
+    /// blocking task queued right after it, while one pool thread is idle,
+    /// finishes. Each round fails after 10 s instead of hanging. On 1.52.0 a
+    /// round goes wrong when the idle thread picks the waiter (about half of
+    /// them), so 20 rounds catch it.
+    #[test]
+    fn a_blocking_task_that_waits_on_the_next_blocking_task_finishes() {
+        use std::time::Duration;
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            for round in 0..20 {
+                // Leave exactly one blocking thread idle.
+                tokio::task::spawn_blocking(|| ()).await.unwrap();
+                tokio::time::sleep(Duration::from_millis(20)).await;
+                let (tx, rx) = std::sync::mpsc::channel::<()>();
+                let waiter = tokio::task::spawn_blocking(move || {
+                    rx.recv_timeout(Duration::from_secs(10)).is_ok()
+                });
+                let sender = tokio::task::spawn_blocking(move || {
+                    let _ = tx.send(());
+                });
+                assert!(
+                    waiter.await.unwrap(),
+                    "round {round}: the second spawn_blocking never ran while the first \
+                     waited on it (tokio blocking-pool lost wakeup, #3353)"
+                );
+                sender.await.unwrap();
+            }
+        });
+    }
 }

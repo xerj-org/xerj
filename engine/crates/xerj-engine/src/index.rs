@@ -257,6 +257,13 @@ thread_local! {
 /// runner it often does not.  That is the entire 2-core dependence of this
 /// family of flakes.
 ///
+/// That growth rule was tokio 1.52.0's sharded blocking queue
+/// (tokio-rs/tokio#7757), reverted upstream in 1.52.1; the lockfile is on
+/// 1.53.2 since #3353, where the spawner counts the idle thread down itself.
+/// The production flush path hit the same starvation (object_storage_e2e).
+/// The on-runtime wait below stays: it costs nothing and does not depend on
+/// a pool detail.
+///
 /// Waiting here keeps the waiter on the runtime and leaves the blocking pool
 /// free for the work that produces the signal.  The bound preserves the #158
 /// diagnostic: an unreached publication point fails in 20 s naming the barrier
