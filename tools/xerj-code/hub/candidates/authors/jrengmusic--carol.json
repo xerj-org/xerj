@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Shell queries this for how jrengmusic/carol implements it: Cognitive Amplifier Role Orchestration with LLM agents (selected work: skills, the project root, templates)",
+ "domain": "an agent working on Lua queries this for how jrengmusic/carol implements it: Cognitive Amplifier Role Orchestration with LLM agents (selected work: skills, the project root, templates)",
  "repos": [
   {
    "repo": "carol",
