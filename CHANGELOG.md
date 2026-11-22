@@ -174,8 +174,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   8.18: `lte: 522000000` (the year 522000000) answers 400 with root cause
   `illegal_argument_exception`, "date[...] is too far in the future to be
   represented in a long milliseconds variable" (or "past"). It was a
-  `parse_exception`. Values that do not parse at all, and the strict and
-  pattern formats, still answer `parse_exception`.
+  `parse_exception`. Only a bare year is covered: a value that does not
+  parse at all and the strict formats keep `parse_exception`, as in
+  Elasticsearch, and so, unlike Elasticsearch, do such a year followed by a
+  month (`522000000-01-01`) and a `uuuu` pattern.
 
 - **Short Chinese, Japanese, and Korean document bodies are searchable
   after autoindexing (#3330).** Autoindex now maps these bodies as text
