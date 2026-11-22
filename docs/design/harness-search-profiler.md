@@ -225,3 +225,49 @@ does not. A second iteration should change the answer, not the trigger: per-prob
 tokens instead of the chain union, code-only candidates for code searches, history only
 as a tie-breaker inside the top 5, and Tier 1 symbol definitions (gate a) once P0 passes.
 Each is a new pre-registered replay on a fresh split, not a re-read of this one.
+
+## 8. v2 (2026-11-22): per-probe answers, Tier 1, firing tail
+
+Pre-registration: [`harness-search-profiler.v2.prereg.json`](./harness-search-profiler.v2.prereg.json),
+committed and pushed (`c5b68d113`) before any v2 run; amendments A1-A4 were made after the
+data and are marked so. Aggregates: [`harness-search-profiler.v2.results.json`](./harness-search-profiler.v2.results.json).
+Shared machine: load average 45-115, disk IO pressure 54-64%, disk 88-99% full.
+
+What changed: answers are ranked on the triggering probe's own tokens, only under its search
+root, code files for code searches and docs for doc searches; history only breaks ties; Tier 1
+uses one index prefix per worktree and keeps only exact symbol hits under the search root;
+per-rule counters are written in place (no rename of the profile on a firing call); the scan
+stops at its deadline between 64 KB reads and runs in a child process in live hooks.
+
+**Fresh data was too thin to decide anything.** Events after the v1 corpus (2026-11-21 13:28
+to 2026-11-22 01:40): 5,795 calls, 113 streams, 447 code-tree searches. Both v1 and v2 fired
+9 times and emitted 0 nudges.
+
+| # | Fresh window (confirmatory) | Threshold | Verdict |
+|---|---|---|---|
+| R-1 | fire 1.6% of 447; 100% of 73 non-struggle streams silent | <= 12% / >= 95% | PASS |
+| R-2 | not run: 300-item blind sheet built locally, awaits the owner | P >= 0.70, R >= 0.50 | NOT RUN |
+| R-3 | n = 4 (v2 top-5 0.00, own grep 0.25) | n >= 30 | INSUFFICIENT_N |
+| R-4 | 0 nudges | n >= 15 | INSUFFICIENT_N |
+| R-5 | real binary, valid tmpfs pair: silent p99 3.7 / 2.9 ms; firing p99 321.5 / 13.1 ms (v1: 789.8 / 654.6 ms) | <= 25 / <= 250 ms | silent PASS, firing **FAIL** |
+| R-6, R-7 | nothing emitted | — | vacuous |
+| R-8 | synthetic chains pass (detector unchanged) | >= 18/20, >= 19/20 | PASS |
+| P0 | definition precision@1 0.64 (this repo, cold) / 0.89 (a large TypeScript repo); lookup p99 210.6 / 201.5 ms; `--watch` freshness 8-29 s, 1/5 within 10 s | >= 0.90, <= 200 ms, 5/5 <= 10 s | **FAIL** |
+
+The R-5 comparison is confounded: v2 scans the probe's own (smaller) root, and its gate refused
+every bench case, so a v2 firing call did less work. An exploratory P0 rerun on this repository
+scored 0.80; every remaining miss was in one of two oversized files that autoindex does not index.
+P0 failing keeps Tier 1 off, so arm V2-t1 was not run (A1).
+
+**Old data, exploratory only** (the v1 test split, today's tree; v2 was designed after reading
+v1's numbers on it): v2 top-5 0.057 vs own grep 0.029 (n = 35), v1 0.061 vs 0.030 (n = 33); useful
+top-1 v2 0/5, v1 1/14. With the chain-end ground truth the target was under v2's search root only
+17% of the time (v1's worktree root: 36%), and it was source code in 14 of 35 cases, a config or
+data file in 14, and a doc in 7. When the target was under v2's root, v2 had it in the top 5 in 2
+of 6 cases.
+
+**Verdict: v2 does not open the Stage-2 gate.** R-2 needs the owner's labels; R-3/R-4 lack
+fresh n; R-5 firing and P0 fail. What the data now says about the idea: the files a struggling
+chain ends on are mostly outside the search the agent ran and often not code, so a hook that
+answers "where is this identifier" addresses a minority of struggle chains. Shadow mode stays the
+only mode.

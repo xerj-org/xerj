@@ -1,0 +1,59 @@
+{
+  "name": "xerj hook v2 - results against harness-search-profiler.v2.prereg.json",
+  "date": "2026-11-22",
+  "code": "c5b68d113 (pre-registration and code, pushed before any run)",
+  "aggregates_only": "no transcript text, paths or names; per-event rows stay local",
+  "box": "shared machine; load average 45-115 and disk IO pressure (PSI some avg60) 54-64% during the runs; the disk sat at 88-99% full and twice crossed the node's flood-stage watermark",
+  "fresh_window": {
+    "calls": 5795,
+    "streams": 113,
+    "struggle_streams_t1": 40,
+    "code_tree_searches": 447,
+    "active_fires": {"V1": 9, "V2-t0": 9},
+    "nudges_emitted": {"V1": 0, "V2-t0": 0},
+    "fire_outcomes_V2-t0": {"gate_refused": 8, "tier0_budget": 1},
+    "R-1": {"fire_rate": 0.0157, "silent_non_struggle_streams": 1.0, "n_streams": 73, "verdict": "PASS (both arms)"},
+    "R-2": "NOT RUN: 300-item blind sheet built locally, awaits the owner",
+    "R-3": {"n": 4, "V2-t0_at5": 0.0, "baseline": 0.25, "verdict": "INSUFFICIENT_N (min 30)"},
+    "R-3b": "no hits",
+    "R-4": {"nudges": 0, "verdict": "INSUFFICIENT_N (min 15)"},
+    "R-6": {"tokens": 0, "verdict": "PASS (vacuous: nothing emitted)"},
+    "R-7": {"cites": 0, "verdict": "PASS (vacuous)"},
+    "R-8": "PASS: t20 unit test (>= 18/20 fire, >= 19/20 silent); detector logic unchanged from v1 (20/20, 20/20)",
+    "calendar_strict_subset_2026-11-22": {"calls": 1092, "code_tree_searches": 99, "active_fires": 4, "nudges": 0, "R-3_n": 2},
+    "V2-t1": "NOT RUN (amendment A1): P0 failed, so Tier 1 stays off by the pre-registered rule; n = 4 could not change a verdict"
+  },
+  "R-5_end_to_end_real_binary": {
+    "valid_pair_tmpfs_runtime": {
+      "V1": {"firing_p50_ms": [169.5, 43.0], "firing_p95_ms": [706.5, 446.5], "firing_p99_ms": [789.8, 654.6], "silent_p99_ms": [4.0, 3.9], "spoke_of_40": [12, 40]},
+      "V2": {"firing_p50_ms": [10.3, 10.9], "firing_p95_ms": [80.5, 13.1], "firing_p99_ms": [321.5, 13.1], "silent_p99_ms": [3.7, 2.9], "spoke_of_40": [0, 0]},
+      "load": "45-48", "io_psi_some_avg60": "61-64%"
+    },
+    "setup_error_pair_ext4_runtime": {
+      "V1": {"firing_p99_ms": [337.5, 819.3], "silent_p99_ms": [145.4, 321.6]},
+      "V2": {"firing_p99_ms": [400.7, 680.1], "silent_p99_ms": [193.2, 490.4]},
+      "note": "XDG_RUNTIME_DIR on ext4 by mistake (live hooks use tmpfs); shows what per-call files on a saturated disk cost"
+    },
+    "verdict": "silent PASS (p99 <= 4 ms); firing FAIL (V2 p99 321.5 ms in one of two runs; V1 655-790 ms)",
+    "confound": "V2 scans the probe's own (smaller) root and its gate refused every bench case, so a V2 firing call did less work than a V1 one"
+  },
+  "probe_P0": {
+    "rust_this_repo": {"precision_at1": 0.64, "no_hit": 36, "lookup_p50_ms": 117.8, "lookup_p99_ms": 210.6, "load": "107-92"},
+    "rust_this_repo_rerun_exploratory": {"precision_at1": 0.80, "lookup_p50_ms": 4.9, "lookup_p99_ms": 122.8, "misses": "all 20 in two oversized source files that autoindex junks"},
+    "typescript_large_3d_engine": {"precision_at1": 0.89, "file_in_any_hit": 0.96, "no_hit": 4, "lookup_p50_ms": 3.3, "lookup_p99_ms": 201.5, "load": "63-50"},
+    "watch_freshness_s": {"trials": [19.2, 28.7, 21.9, 15.8, 8.0], "within_10s": "1/5", "note": "--watch requires --no-graph (CLI refuses otherwise)", "load": "58-47"},
+    "verdict": "FAIL (precision 0.64 / 0.89 < 0.90; p99 210.6 / 201.5 ms > 200; freshness 1/5): Tier 1 stays off"
+  },
+  "exploratory_v1_test_split_today_tree": {
+    "label": "EXPLORATORY ONLY: v2 was designed after reading v1's numbers on this split",
+    "calls": 124695,
+    "streams": 1882,
+    "active_fires": 421,
+    "V2-t0": {"R-1_fire": 0.0307, "R-1_silent": 0.9975, "R-3_n": 35, "at5": 0.057, "at20": 0.057, "baseline": 0.029, "target_under_scanned_root": 0.171, "R-4": "0/5", "max_tokens": 298},
+    "V1": {"R-1_fire": 0.0307, "R-1_silent": 0.9959, "R-3_n": 33, "at5": 0.061, "at20": 0.091, "baseline": 0.030, "target_under_scanned_root": 0.364, "R-4": "1/14", "max_tokens": 270},
+    "chain_end_targets_V2_rows": {"source_code": 14, "config_data_other": 14, "docs": 7},
+    "given_target_under_root_at5": {"V2-t0": "2/6", "V1": "2/12"},
+    "fires_lost_to_deleted_worktrees": 271
+  },
+  "verdict": "v2 does not open the Stage-2 gate. R-2 needs the owner's labels; R-3 and R-4 are INSUFFICIENT_N on fresh data (9 fires, 0 nudges in 5,795 calls) and at kill level on the old split (exploratory); R-5 firing fails; P0 fails, so Tier 1 stays off. Shadow mode stays the only mode."
+}

@@ -47,5 +47,10 @@
     "on_fail": "Tier 1 stays off; gate (a) is reported as not usable"
   },
   "stage2_gate": "unchanged: R-2, R-3, R-5 and R-7 must pass. R-2 needs the owner's labels, so Stage 2 stays blocked this round whatever R-3 shows. No live pilot this round.",
-  "amendments": []
+  "amendments": [
+    {"id": "A1", "date": "2026-11-22", "after_data": true, "text": "Arm V2-t1 was not run on the fresh window. P0 failed its bar, and the pre-registered on_fail rule keeps Tier 1 off; the window also had n = 4 scored R-3 events (min_n 30), so the arm could not change a verdict. Indexing the six worktrees it needed was estimated at about an hour on a box at load 45-115 with the disk at 88-99% full."},
+    {"id": "A2", "date": "2026-11-22", "after_data": true, "text": "R-5: the first pair of runs per binary put XDG_RUNTIME_DIR on ext4 by mistake (live hooks use the tmpfs runtime dir). A second pair was run with it on tmpfs; that pair is the valid one, and both are reported. The v2 gate refused every bench case, so v2 firing calls did less work than v1 ones (confound, reported)."},
+    {"id": "A3", "date": "2026-11-22", "after_data": true, "text": "P0 Rust: the pre-registered run scored 0.64 with 36 lookups returning nothing (cold, load ~107). An identical exploratory rerun scored 0.80; all 20 remaining misses are definitions in two oversized source files that autoindex junks. The verdict uses the first run."},
+    {"id": "A4", "date": "2026-11-22", "after_data": true, "text": "P0 freshness: `xerj autoindex --watch` refuses to run without `--no-graph`, so the watch trials used `--watch --no-graph`."}
+  ]
 }
