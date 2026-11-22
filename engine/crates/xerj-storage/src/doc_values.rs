@@ -957,6 +957,97 @@ impl Column {
             Column::Presence(column) => roaring_retained_bytes(&column.present),
         }
     }
+
+    /// A copy of this column holding only `rows` (ascending physical row
+    /// ids), renumbered `0..rows.len()`. Every derived structure is rebuilt
+    /// from the kept rows: the numeric sorted index and stats, the keyword
+    /// dictionary (terms seen only in dropped rows leave it, so ordinals stay
+    /// dense and `per_ord_count` has no zero entries), and the presence
+    /// bitmap. Rows past `doc_count` are treated as null.
+    pub fn retain_rows(&self, rows: &[u32]) -> Result<Column> {
+        Ok(match self {
+            Column::Numeric(n) => {
+                Column::Numeric(NumericColumn::from_iter(rows.iter().map(|&r| n.get(r))))
+            }
+            Column::Keyword(k) => Column::Keyword(k.retain_rows(rows)?),
+            Column::Presence(p) => {
+                let mut present = RoaringBitmap::new();
+                for (new_row, &r) in rows.iter().enumerate() {
+                    if p.contains(r) {
+                        present.insert(new_row as u32);
+                    }
+                }
+                Column::Presence(PresenceColumn {
+                    doc_count: rows.len() as u32,
+                    present,
+                })
+            }
+        })
+    }
+}
+
+impl KeywordColumn {
+    /// See [`Column::retain_rows`]. The kept terms keep their relative
+    /// (lexicographic) order, so the rebuilt FST inserts in sorted order.
+    pub fn retain_rows(&self, rows: &[u32]) -> Result<KeywordColumn> {
+        const ABSENT: u32 = u32::MAX;
+        let mut used = vec![false; self.terms.len()];
+        for &r in rows {
+            if let Some(ord) = self.ord_for(r) {
+                if let Some(u) = used.get_mut(ord as usize) {
+                    *u = true;
+                }
+            }
+        }
+        let mut remap = vec![ABSENT; self.terms.len()];
+        let mut terms: Vec<String> = Vec::new();
+        for (ord, keep) in used.iter().enumerate() {
+            if *keep {
+                remap[ord] = terms.len() as u32;
+                terms.push(self.terms[ord].clone());
+            }
+        }
+        let mut fst_bytes: Vec<u8> = Vec::new();
+        {
+            let mut builder = MapBuilder::new(&mut fst_bytes)
+                .map_err(|e| StorageError::Other(anyhow::anyhow!("dv kw fst builder: {e}")))?;
+            for (i, term) in terms.iter().enumerate() {
+                builder
+                    .insert(term.as_bytes(), i as u64)
+                    .map_err(|e| StorageError::Other(anyhow::anyhow!("dv kw fst insert: {e}")))?;
+            }
+            builder
+                .finish()
+                .map_err(|e| StorageError::Other(anyhow::anyhow!("dv kw fst finish: {e}")))?;
+        }
+        let mut null_bitmap = RoaringBitmap::new();
+        let mut ords = Vec::with_capacity(rows.len());
+        let mut per_ord_count = vec![0u32; terms.len()];
+        for (new_row, &r) in rows.iter().enumerate() {
+            match self
+                .ord_for(r)
+                .and_then(|o| remap.get(o as usize).copied())
+                .filter(|&o| o != ABSENT)
+            {
+                Some(o) => {
+                    ords.push(o);
+                    per_ord_count[o as usize] += 1;
+                }
+                None => {
+                    null_bitmap.insert(new_row as u32);
+                    ords.push(0);
+                }
+            }
+        }
+        Ok(KeywordColumn {
+            doc_count: rows.len() as u32,
+            terms,
+            fst_bytes,
+            null_bitmap,
+            ords,
+            per_ord_count,
+        })
+    }
 }
 
 fn usize_to_u64(value: usize) -> u64 {
@@ -1188,6 +1279,51 @@ fn io_to_storage(e: std::io::Error) -> StorageError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A live-row view drops the given rows and rebuilds every derived
+    /// structure, as if the column had been written from the kept rows.
+    #[test]
+    fn retain_rows_matches_a_column_built_from_the_kept_rows() {
+        let nums = [Some(5i64), None, Some(1), Some(9), Some(3)];
+        let kws = [Some("b"), Some("a"), None, Some("c"), Some("a")];
+        let keep = [0u32, 2, 4];
+
+        let n = Column::Numeric(NumericColumn::from_iter(nums));
+        let Column::Numeric(got) = n.retain_rows(&keep).unwrap() else {
+            panic!("numeric");
+        };
+        let want = NumericColumn::from_iter(keep.iter().map(|&r| nums[r as usize]));
+        assert_eq!(got.doc_count, 3);
+        assert_eq!(got.sorted, want.sorted);
+        assert_eq!(got.live_count, want.live_count);
+        assert_eq!(got.live_sum, want.live_sum);
+        assert_eq!((got.live_min, got.live_max), (want.live_min, want.live_max));
+
+        let k = Column::Keyword(
+            KeywordColumn::from_iter(kws.iter().map(|v| v.map(str::to_string))).unwrap(),
+        );
+        let Column::Keyword(got) = k.retain_rows(&keep).unwrap() else {
+            panic!("keyword");
+        };
+        assert_eq!(got.doc_count, 3);
+        assert_eq!(got.terms, vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(got.per_ord_count, vec![1, 1]);
+        assert_eq!(got.ord_for(0), got.ord_for_term("b"));
+        assert_eq!(got.ord_for(1), None);
+        assert_eq!(got.ord_for(2), got.ord_for_term("a"));
+        assert_eq!(got.ord_for_term("c"), None);
+        assert_eq!(got.doc_freq("a"), 1);
+
+        let mut p = PresenceColumn::empty();
+        p.insert(1);
+        p.insert(4);
+        p.set_doc_count(5);
+        let Column::Presence(got) = Column::Presence(p).retain_rows(&keep).unwrap() else {
+            panic!("presence");
+        };
+        assert_eq!(got.doc_count, 3);
+        assert_eq!(got.present.iter().collect::<Vec<_>>(), vec![2]);
+    }
 
     /// #2427: the header-only estimate must cover what the decode retains,
     /// so a reservation taken from it before decoding is not an undercount.
