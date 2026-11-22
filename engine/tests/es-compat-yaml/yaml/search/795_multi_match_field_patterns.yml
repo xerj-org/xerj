@@ -1,0 +1,83 @@
+setup:
+  - do:
+      indices.create:
+          index: test_mm_patterns
+          body:
+              mappings:
+                  properties:
+                      title:
+                          type: text
+                      body:
+                          type: text
+                      cat:
+                          type: keyword
+                      n:
+                          type: long
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "test_mm_patterns", "_id": "1"}}'
+              - '{"title": "vitamin d", "body": "bone mass", "cat": "trial", "n": 1}'
+              - '{"index": {"_index": "test_mm_patterns", "_id": "2"}}'
+              - '{"title": "calcium", "body": "vitamin intake", "cat": "review", "n": 2}'
+              - '{"index": {"_index": "test_mm_patterns", "_id": "3"}}'
+              - '{"title": "exercise", "body": "nothing here", "cat": "vitamin", "n": 3}'
+              - '{"index": {"_index": "test_mm_patterns", "_id": "4"}}'
+              - '{"title": "other", "body": "unrelated", "cat": "x", "n": 4}'
+
+---
+"multi_match on * searches every text and keyword field (#3413)":
+  - do:
+      count:
+          index: test_mm_patterns
+          body: { query: { multi_match: { query: "vitamin", fields: ["*"] } } }
+  - match: { count: 3 }
+
+---
+"multi_match on * with a multi-term query; keyword fields take the whole value (#3413)":
+  - do:
+      count:
+          index: test_mm_patterns
+          body: { query: { multi_match: { query: "vitamin bone", fields: ["*"] } } }
+  - match: { count: 2 }
+
+---
+"multi_match on * with operator and needs every term in one field (#3413)":
+  - do:
+      count:
+          index: test_mm_patterns
+          body: { query: { multi_match: { query: "vitamin bone", fields: ["*"], operator: "and" } } }
+  - match: { count: 0 }
+
+---
+"multi_match on a prefix pattern searches only the fields it names (#3413)":
+  - do:
+      count:
+          index: test_mm_patterns
+          body: { query: { multi_match: { query: "vitamin", fields: ["tit*"] } } }
+  - match: { count: 1 }
+
+---
+"multi_match on a pattern that names no field matches nothing (#3413)":
+  - do:
+      count:
+          index: test_mm_patterns
+          body: { query: { multi_match: { query: "vitamin", fields: ["nope*"] } } }
+  - match: { count: 0 }
+
+---
+"query_string with no default_field searches every text and keyword field (#3413)":
+  - do:
+      count:
+          index: test_mm_patterns
+          body: { query: { query_string: { query: "vitamin" } } }
+  - match: { count: 3 }
+
+---
+"query_string with default_field * (#3413)":
+  - do:
+      search:
+          index: test_mm_patterns
+          body: { query: { query_string: { query: "vitamin", default_field: "*" } } }
+  - match: { hits.total.value: 3 }

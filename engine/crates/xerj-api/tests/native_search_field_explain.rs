@@ -264,9 +264,9 @@ async fn check_all(node: &Node, phase: &str) {
         assert!(close(max, score(hit)), "{phase}: best_fields = max: {hit}");
     }
 
-    // 4. A field-less query_string is broken down over every text field. The
-    // engine scores it as one clause, not as a sum of per-field BM25, so it
-    // is reported as `other`.
+    // 4. A field-less query_string is broken down over every field `*`
+    // expands onto. Each term is a `best_fields` dis_max over those fields
+    // (ES `query_string` semantics, #3413), so it is reported as `other`.
     let hits = node
         .native_search(json!({
             "query": {"query_string": {"query": "vitamin density"}},
@@ -285,6 +285,45 @@ async fn check_all(node: &Node, phase: &str) {
         close(field_score(doc5, "title"), title_only["5"]),
         "{doc5} vs {title_only:?}"
     );
+
+    // 4b. An opaque field-less query_string (the unterminated quote stops the
+    // parser lowering it) is one BM25 `should` over every text field: its
+    // fields add up to `_score`.
+    let hits = node
+        .native_search(json!({
+            "query": {"query_string": {"query": "vitamin \"density"}},
+            "explain": true
+        }))
+        .await;
+    assert!(!hits.is_empty(), "{phase}");
+    for hit in &hits {
+        assert_eq!(hit["_score_breakdown"]["combine"], "sum", "{phase}: {hit}");
+        assert!(close(field_sum(hit), score(hit)), "{phase}: {hit}");
+    }
+
+    // 4c. Native `q` is `multi_match` on `*` (#3413: it used to match
+    // nothing). best_fields: `_score` is the largest field score.
+    let (st, b) = send(
+        &node.native,
+        "POST",
+        "/v1/indices/kb/search",
+        json!({"q": "vitamin bone density", "explain": true}),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{phase}: {b}");
+    let hits = b["data"]["hits"].as_array().cloned().expect("hits");
+    assert_eq!(hits.len(), 5, "{phase}: {hits:?}");
+    for hit in &hits {
+        assert_eq!(
+            hit["_score_breakdown"]["combine"], "other",
+            "{phase}: {hit}"
+        );
+        let max = ["title", "body", "cat"]
+            .iter()
+            .map(|f| field_score(hit, f))
+            .fold(0.0, f64::max);
+        assert!(close(max, score(hit)), "{phase}: q = max field: {hit}");
+    }
 
     // 5. Off by default.
     let hits = node
