@@ -1,5 +1,13 @@
 # XERJ Query-1: the capabilities
 
+> **Release binaries only, not in the public build.** `/_facts`, `--facts-model-dir`
+> and the `xerj_facts_ask` MCP tool are in the published release binaries (rc.101
+> and later), which are built from a private tree that adds the proprietary model
+> crates (`xerj-infer`, `xerj-serve`, `xerj-exec`). This repository's source does
+> not contain them: a node built from `main` has no `/_facts` route, no
+> `--facts-model-dir` flag and no `xerj_facts_ask` tool. Everything below describes
+> the release binaries.
+
 Retrieval finds documents. XERJ Query-1 writes a small program over the facts
 you stored, and the engine executes it. Lookup and comparison answers carry the
 program, the facts they used and the character span each one quotes; counting

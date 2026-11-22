@@ -223,9 +223,9 @@ rates a hub corpus. `xerj_hub_find`, `xerj_hub_def` and `xerj_hub_ask` answer
 from Corpus Hub packs already on the machine, the `xerj ask` flow. A binary with
 no hub key omits the three hub tools and serves twenty-two.
 
-One more tool, `xerj_facts_ask`, is a thin, read-only proxy of
-`POST /_facts/{ns}/_ask` — question in, the engine's verified answer out, same
-contract as the HTTP call. `xerj mcp` lists it only when the node it proxies
+One more tool, `xerj_facts_ask` (release binaries only, not in the public
+build), is a thin, read-only proxy of `POST /_facts/{ns}/_ask` — question in,
+the engine's verified answer out, same contract as the HTTP call. `xerj mcp` lists it only when the node it proxies
 was started with `--facts-model-dir` (a default node keeps the published
 twenty-five; `XERJ_MCP_FACTS=on|off` decides instead of probing). Verify: the
 tool list carries `xerj_facts_ask` after the node is started with the flag.
@@ -246,9 +246,13 @@ advertised six tools while the binary served ten.
 
 ## Asking over a facts namespace (`/_facts`)
 
-From rc.101 the binary carries **XERJ Query-1**, a model served on CPU over
-`/_facts`. It is off by default: a node serves `/_facts` only when started with
-`--facts-model-dir <DIR>` (`XERJ_FACTS_MODEL_DIR` is the environment equivalent);
+From rc.101 the release binary carries **XERJ Query-1**, a model served on CPU
+over `/_facts`. **It is not in the public build:** the release binaries are built
+from a private tree that adds the proprietary model crates, so a node built from
+this repository's `main` has no `/_facts` route, no `--facts-model-dir` flag and
+no `xerj_facts_ask` tool, and a change made here cannot be tested against it.
+In a release binary it is off by default: a node serves `/_facts` only when
+started with `--facts-model-dir <DIR>` (`XERJ_FACTS_MODEL_DIR` is the environment equivalent);
 without it every `/_facts` path answers `404 xerj_query_not_enabled`, naming the
 flag. You write facts to a namespace (`POST /_facts/{ns}/_bulk` with
 `documents` and `facts`), then ask a natural-language question

@@ -1,5 +1,13 @@
 # Model bundles: serving facts and counting from one directory
 
+> **Release binaries only, not in the public build.** `/_facts`, `--facts-model-dir`
+> and the `xerj_facts_ask` MCP tool are in the published release binaries (rc.101
+> and later), which are built from a private tree that adds the proprietary model
+> crates (`xerj-infer`, `xerj-serve`, `xerj-exec`). This repository's source does
+> not contain them: a node built from `main` has no `/_facts` route, no
+> `--facts-model-dir` flag and no `xerj_facts_ask` tool. Everything below describes
+> the release binaries.
+
 What this file is: the serving contract for the model directory that XERJ's
 `/_facts` endpoint loads. Last updated 2026-11-05 (rc.101). If this
 document and the engine disagree, the engine's load checks and `bundle.json` win;
