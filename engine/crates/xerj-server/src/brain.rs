@@ -246,7 +246,7 @@ fn run(cfg: BrainCfg) -> Result<i32> {
                     cfg.url
                 );
             }
-            let booted = boot_server(&data_dir, port)?;
+            let booted = boot_server(&data_dir, port, "brain")?;
             eprintln!(
                 "booted xerj server (pid {}) — data: {}, log: {}",
                 booted.pid,
@@ -666,30 +666,31 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
 // Booting the server
 // ─────────────────────────────────────────────────────────────────────────────
 
-struct BootedServer {
-    pid: u32,
-    log_path: PathBuf,
+pub(crate) struct BootedServer {
+    pub(crate) pid: u32,
+    pub(crate) log_path: PathBuf,
 }
 
-/// Spawn `current_exe() --config <data-dir>/xerj-brain.toml` detached, with
+/// Spawn `current_exe() --config <data-dir>/xerj-<tool>.toml` detached, with
 /// stdout+stderr appended to `<data-dir>/server.log`. The rest/grpc ports are
 /// pinned to `es_port+1`/`es_port+2` so a non-default `--url` port yields a
-/// fully non-colliding triple deterministically.
-fn boot_server(data_dir: &Path, es_port: u16) -> Result<BootedServer> {
+/// fully non-colliding triple deterministically. `tool` is the subcommand
+/// doing the boot (`brain`, `ask`), named in the config file and its header.
+pub(crate) fn boot_server(data_dir: &Path, es_port: u16, tool: &str) -> Result<BootedServer> {
     if es_port > u16::MAX - 2 {
         bail!("--url port {es_port} is too high — the booted server also needs ports +1 and +2");
     }
     std::fs::create_dir_all(data_dir)
         .with_context(|| format!("create data dir {}", data_dir.display()))?;
 
-    let config_path = data_dir.join("xerj-brain.toml");
+    let config_path = data_dir.join(format!("xerj-{tool}.toml"));
     // serde_json string escaping is valid TOML basic-string escaping for the
     // characters paths can contain (`\`, `"`, control chars → \uXXXX).
     let dir_toml = serde_json::to_string(&data_dir.to_string_lossy())?;
     std::fs::write(
         &config_path,
         format!(
-            "# written by `xerj brain` on every boot it performs — edit ports here\n\
+            "# written by `xerj {tool}` on every boot it performs — edit ports here\n\
              # only if you also change the --url this command is given.\n\
              [server]\n\
              data_dir = {dir_toml}\n\
@@ -736,7 +737,7 @@ fn boot_server(data_dir: &Path, es_port: u16) -> Result<BootedServer> {
     Ok(BootedServer { pid, log_path })
 }
 
-fn wait_ready(probe: &Es, booted: &BootedServer) -> Result<()> {
+pub(crate) fn wait_ready(probe: &Es, booted: &BootedServer) -> Result<()> {
     let deadline = Instant::now() + BOOT_TIMEOUT;
     loop {
         if matches!(probe.get_status("/health/ready"), Ok(200)) {

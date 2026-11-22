@@ -165,6 +165,7 @@ macro_rules! eprintln {
     }};
 }
 
+mod ask_folder;
 mod brain;
 #[cfg(all(target_os = "linux", feature = "debug-profiling"))]
 mod debug_profiling;
@@ -5017,10 +5018,15 @@ async fn async_main() -> Result<()> {
         // Corpus Hub v2 answer flow (plan §5): route the question to a hub
         // corpus, answer from its pack (pulling it the first time). Blocking
         // HTTP + process spawn — off the runtime like `hub`.
+        // `xerj ask <folder> "q"` (#1800): index the folder with autoindex,
+        // then answer from it. Anything else is the hub ask, unchanged.
         let args: Vec<String> = xerj_common::argv::args_after_subcommand();
-        let code = tokio::task::spawn_blocking(move || xerj_hub::cli::run_ask(&args))
-            .await
-            .unwrap_or(1);
+        let code = tokio::task::spawn_blocking(move || match ask_folder::folder_request(&args) {
+            Some(req) => ask_folder::run_cli(req),
+            None => xerj_hub::cli::run_ask(&args),
+        })
+        .await
+        .unwrap_or(1);
         std::process::exit(code);
     }
     if xerj_hub::cli::is_bare_question(argv1.as_deref()) {
