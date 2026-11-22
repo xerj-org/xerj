@@ -1487,9 +1487,12 @@ fn guest_route_allowed(
 /// One thing today: a point-in-time id. A guest cannot open a PIT (`_pit` is
 /// not on the allow-list), so any id it presents was opened by someone else —
 /// and a PIT, not the path, decides which index a search runs against:
-/// `POST /casefile/_search {"pit": {"id": <a PIT on private-diary>}}` searches
-/// `private-diary`. The engine's index funnel already refuses that for a
-/// guest (live-verified 2026-09-18: `404 no such index [private-diary]`), but
+/// `POST /_search {"pit": {"id": <a PIT on private-diary>}}` searches
+/// `private-diary`. (Naming an index beside the PIT, as in
+/// `POST /casefile/_search`, is now a 400 for every caller, as in ES 8.13.)
+/// The engine's index funnel already refuses a guest's PIT search
+/// (live-verified 2026-09-18 on `/casefile/_search`:
+/// `404 no such index [private-diary]`), but
 /// that answer echoes the other index's name back, and the path-level decision
 /// above it authorized `casefile` for a request that was never going to read
 /// `casefile`. Refused here, by shape, for both spellings that carry a search

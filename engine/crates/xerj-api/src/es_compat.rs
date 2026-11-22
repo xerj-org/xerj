@@ -15260,7 +15260,9 @@ mod unknown_field_refusal_tests {
 
 /// `POST /{index}/_search`.
 ///
-/// Thin wrapper over [`search_impl`] that installs the Painless fault sink for
+/// Refuses a point-in-time search, since the path names an index
+/// ([`PIT_WITH_INDICES`]), then runs [`search_any`], the thin wrapper over
+/// [`search_impl`] that installs the Painless fault sink for
 /// every script this handler evaluates *itself* — `script_fields` and
 /// `runtime_mappings` emit-scripts run during response assembly, outside the
 /// spawned search task, so they are not covered by the engine-side capture in
