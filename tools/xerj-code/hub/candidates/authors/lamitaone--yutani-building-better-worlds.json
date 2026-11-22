@@ -8,15 +8,15 @@
   {
    "repo": "Yutani-Building-better-worlds",
    "url": "https://github.com/LaMitaOne/Yutani-Building-better-worlds",
-   "sha": "5af4038e47c99535e0f15fd67537297bb32095ce",
-   "licence": "Apache-2.0 (LICENSE file at pin 5af4038e47c9, GitHub licence API 2026-11-19)",
+   "sha": "384ac328040a4dd74c8799d9d096f945483fb679",
+   "licence": "Apache-2.0 (LICENSE file at pin 384ac328040a, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T18:06Z",
     "consent_receipt": "46e88be32c8a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 46e88be32c8a); pinned to the default-branch head. LICENSE file at pin 5af4038e47c9 detected as Apache-2.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 46e88be32c8a); pinned to the default-branch head. LICENSE file at pin 384ac328040a detected as Apache-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution."
    }
   }
  ]

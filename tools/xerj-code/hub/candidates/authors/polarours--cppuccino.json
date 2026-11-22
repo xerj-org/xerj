@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how polarours/Cppuccino implements it: Cppuccino is a compact C++ tutorial and reference repository covering modern C++ features, value categories, references, and move semantics. (selected work: cpp-mastery-roadmap)",
+ "domain": "an agent working on bilingual, cplusplus, cpp queries this for how polarours/Cppuccino implements it: Cppuccino is a compact C++ tutorial and reference repository covering modern C++ features, value categories, references, and move semantics. (selected work: cpp-mastery-roadmap)",
  "repos": [
   {
    "repo": "Cppuccino",

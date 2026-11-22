@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C queries this for how NoBlobs/Imagination_BXE-2-32 implements it: NoBlobs/Imagination_BXE-2-32 (C) (selected work: src, src/include)",
+ "domain": "an agent working on C queries this for how NoBlobs/Imagination_BXE-2-32 implements it: GNU C23, GPLv3+, Imagination Rogue BXE-2-32 clean-room implementation (selected work: src, src/include)",
  "repos": [
   {
    "repo": "Imagination_BXE-2-32",

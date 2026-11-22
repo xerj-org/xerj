@@ -8,15 +8,15 @@
   {
    "repo": "Hotel-Concierge-Bot",
    "url": "https://github.com/agastya279/Hotel-Concierge-Bot",
-   "sha": "95ee8b528b1dfaac2031aab9819f88b092dda5b9",
-   "licence": "author's permission (LICENSE at pin 95ee8b528b1d: NONE; repository: none)",
+   "sha": "c0aa65ca32679a530a42f99fed599e86c247bcd0",
+   "licence": "author's permission (LICENSE at pin c0aa65ca3267: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-22T09:34Z",
     "consent_receipt": "5ee108a2724e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-22T09:34Z (receipt 5ee108a2724e); pinned to the default-branch head. LICENSE at pin 95ee8b528b1d: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-22T09:34Z (receipt 5ee108a2724e); pinned to the default-branch head. LICENSE at pin c0aa65ca3267: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
