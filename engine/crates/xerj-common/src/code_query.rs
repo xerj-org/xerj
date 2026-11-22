@@ -597,7 +597,7 @@ const _: () = assert!(EXACT_ID_CITED_BOOST > 2.0 * COVERAGE_MATCH_BOOST);
 const _: () = assert!(EXACT_ID_CITED_BOOST < EXACT_ID_TERM_BOOST);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// File-name lane for `xerj code` (#1788)
+// Identifier lane for `xerj code` (#1788)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Score of a symbol whose `name` is the query's words joined as one
@@ -644,68 +644,6 @@ pub fn identifier_spellings(query: &str) -> Vec<String> {
     out.sort();
     out.dedup();
     out
-}
-
-/// Score a document gets per query word its `title` contains (#1788).
-///
-/// On a code corpus `title` is the file name of a file record and the
-/// symbol name of a symbol record, mapped `keyword`, so the BM25
-/// `multi_match` only ever matched it when the whole query was the name.
-/// `HNSW graph` never reached `HnswGraphBuilder.java` through it. Swept 2,
-/// 3, 5, 8 and 15 on the 300 search-exact-phrase questions and 200 Lucene
-/// Javadoc questions (benchmarks/code-search-field-bm25-2026-11): 5 had the
-/// best sum (3 was 0.001 nDCG@10 higher on the first set and 0.008 lower on
-/// the second); 15 lost on the first set.
-pub const NAME_LANE_BOOST: f64 = 5.0;
-
-/// At most this many words get a name clause, so a pasted paragraph does
-/// not grow the body by one wildcard per word.
-pub const MAX_NAME_LANE_TOKENS: usize = 8;
-
-/// English words that are in a question but say nothing about which file
-/// is meant. Three-letter words shorter than this list are already cut by
-/// the length floor in [`name_lane_tokens`].
-const NAME_LANE_STOP_WORDS: &[&str] = &[
-    "the", "and", "for", "are", "with", "from", "its", "this", "that", "how", "what", "when",
-    "where", "which", "who", "does",
-];
-
-/// Lower-cased query words of three or more ASCII letters, digits, or `_`,
-/// minus [`NAME_LANE_STOP_WORDS`], in order, deduplicated, at most
-/// [`MAX_NAME_LANE_TOKENS`].
-pub fn name_lane_tokens(query: &str) -> Vec<String> {
-    let mut out: Vec<String> = Vec::new();
-    for word in query.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
-        let lower = word.to_ascii_lowercase();
-        if lower.len() < 3 || NAME_LANE_STOP_WORDS.contains(&lower.as_str()) || out.contains(&lower)
-        {
-            continue;
-        }
-        out.push(lower);
-        if out.len() == MAX_NAME_LANE_TOKENS {
-            break;
-        }
-    }
-    out
-}
-
-/// One `constant_score` case-insensitive `*word*` wildcard on `field` per
-/// [`name_lane_tokens`] word, each worth [`NAME_LANE_BOOST`]. A constant,
-/// not BM25: the field is a keyword, and the lane is a tie-breaker inside
-/// the coverage tiers ([`COVERAGE_MATCH_BOOST`] is 200 times larger).
-pub fn name_lane_clauses(query: &str, field: &str) -> Vec<Value> {
-    name_lane_tokens(query)
-        .into_iter()
-        .map(|word| {
-            json!({ "constant_score": {
-                "filter": { "wildcard": { field: {
-                    "value": format!("*{word}*"),
-                    "case_insensitive": true
-                } } },
-                "boost": NAME_LANE_BOOST
-            }})
-        })
-        .collect()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1170,33 +1108,6 @@ mod tests {
         ] {
             assert!(identifier_spellings(not_a_name).is_empty(), "{not_a_name}");
         }
-    }
-
-    #[test]
-    fn name_lane_words_skip_glue_short_words_and_repeats_and_are_capped() {
-        assert_eq!(
-            name_lane_tokens("When does the HNSW graph builder link nodes?"),
-            vec!["hnsw", "graph", "builder", "link", "nodes"]
-        );
-        assert_eq!(
-            name_lane_tokens("cat_pending_tasks"),
-            vec!["cat_pending_tasks"]
-        );
-        assert_eq!(name_lane_tokens("Tree::flush"), vec!["tree", "flush"]);
-        assert_eq!(name_lane_tokens("io db x"), Vec::<String>::new());
-        assert_eq!(name_lane_tokens("graph Graph GRAPH"), vec!["graph"]);
-        assert!(name_lane_tokens("WAL 雷同 rotation").contains(&"rotation".to_string()));
-        let long = "alpha bravo charlie delta echo foxtrot golf hotel india juliet";
-        assert_eq!(name_lane_tokens(long).len(), MAX_NAME_LANE_TOKENS);
-        let lane = name_lane_clauses("graph builder", "title");
-        assert_eq!(lane.len(), 2);
-        assert_eq!(
-            lane[0],
-            json!({ "constant_score": {
-                "filter": { "wildcard": { "title": { "value": "*graph*", "case_insensitive": true } } },
-                "boost": NAME_LANE_BOOST
-            }})
-        );
     }
 
     #[test]

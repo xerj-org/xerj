@@ -887,9 +887,12 @@ pub(crate) fn diversify(hits: Vec<Value>, want: usize) -> (Vec<Value>, usize, us
 /// `body` and `symbols`.
 ///
 /// `lanes` (#1788) adds the field lanes a read mapping allows: the exact
-/// advisory/package ID clauses, which may match on their own (a record whose
-/// ID is only in a keyword field), and the file-name lane on `title`, which
-/// only adds score. `None` (mapping unreadable) keeps the historical body.
+/// advisory/package ID clauses and the identifier spellings, which may match
+/// on their own (a record whose ID or name is only in a keyword field).
+/// `None` (mapping unreadable) keeps the historical body. There is no
+/// file-name wildcard lane on `title`: it cost +138% `took` p50 on a
+/// 188k-record corpus for +0.023 nDCG@10 on held-out questions
+/// (benchmarks/code-search-field-bm25-2026-11, round 7).
 pub(crate) fn bm25_body(
     query: &str,
     k: usize,
@@ -921,22 +924,6 @@ pub(crate) fn bm25_body(
         "fields": ["_passage"]
     });
     attach_coverage_clauses(&mut body, query, fields);
-    if let Some(l) = lanes {
-        let name_lane = l.name_lane_clauses(query, fields);
-        if !name_lane.is_empty() {
-            if let Some(obj) = body
-                .pointer_mut("/query/bool")
-                .and_then(Value::as_object_mut)
-            {
-                let should = obj
-                    .entry("should")
-                    .or_insert_with(|| Value::Array(Vec::new()));
-                if let Some(arr) = should.as_array_mut() {
-                    arr.extend(name_lane);
-                }
-            }
-        }
-    }
     body
 }
 
@@ -947,10 +934,6 @@ pub(crate) fn bm25_body(
 pub(crate) struct FieldLanes {
     mapped: std::collections::BTreeSet<String>,
     numeric: std::collections::BTreeSet<String>,
-    /// `title` is `keyword` in every index that maps it: the file name of a
-    /// file record, the symbol name of a symbol record (autoindex code
-    /// corpora). The name lane is measured on that shape only.
-    title_is_keyword: bool,
 }
 
 impl FieldLanes {
@@ -962,18 +945,9 @@ impl FieldLanes {
         if mapped.is_empty() {
             return None;
         }
-        let title_types: Vec<&str> = mapping
-            .as_object()
-            .into_iter()
-            .flat_map(|obj| obj.values())
-            .filter_map(|m| m.pointer("/mappings/properties/title/type"))
-            .map(|t| t.as_str().unwrap_or(""))
-            .collect();
         Some(FieldLanes {
             numeric: crate::code_query::numeric_property_names(mapping),
             mapped,
-            title_is_keyword: !title_types.is_empty()
-                && title_types.iter().all(|t| *t == "keyword"),
         })
     }
 
@@ -1007,15 +981,6 @@ impl FieldLanes {
             }
         }
         out
-    }
-
-    /// The file-name lane on a keyword `title`, when the `multi_match`
-    /// names it.
-    fn name_lane_clauses(&self, query: &str, fields: &[String]) -> Vec<Value> {
-        if !self.title_is_keyword || !self.usable("title") || !fields.iter().any(|f| f == "title") {
-            return Vec::new();
-        }
-        crate::code_query::name_lane_clauses(query, "title")
     }
 }
 
@@ -2578,11 +2543,12 @@ mod tests {
         http.searches.lock().unwrap()[0].1.clone()
     }
 
-    /// #1788: `title` is the keyword file name, so the `multi_match` only
-    /// matched it on a query that was the whole name. `HNSW graph` now
-    /// reaches `HnswGraphBuilder.java` through a constant name lane per word.
+    /// #1788 round 7: the file-name wildcard lane on a keyword `title` was
+    /// dropped (+138% `took` p50 on a 188k-record corpus). A keyword title
+    /// gets no wildcard clause; the measured `multi_match` and the coverage
+    /// tiers are unchanged.
     #[test]
-    fn a_keyword_title_gets_a_name_lane_per_query_word() {
+    fn a_keyword_title_gets_no_wildcard_name_lane() {
         let root = root_with_state();
         let mut http = FakeHttp::new();
         http.mapping = code_corpus_mapping(serde_json::json!({}));
@@ -2594,43 +2560,19 @@ mod tests {
             )),
             "the measured multi_match is still the recall clause"
         );
-        let lanes: Vec<(String, f64)> = body
-            .pointer("/query/bool/should")
-            .and_then(Value::as_array)
-            .unwrap()
-            .iter()
-            .filter_map(|c| {
-                let w = c.pointer("/constant_score/filter/wildcard/title")?;
-                assert_eq!(w["case_insensitive"], serde_json::json!(true));
-                Some((
-                    w["value"].as_str()?.to_string(),
-                    c.pointer("/constant_score/boost")?.as_f64()?,
-                ))
-            })
-            .collect();
-        let b = crate::code_query::NAME_LANE_BOOST;
-        assert_eq!(
-            lanes,
-            vec![
-                ("*hnsw*".to_string(), b),
-                ("*graph*".to_string(), b),
-                ("*builder*".to_string(), b),
-                ("*link*".to_string(), b),
-                ("*nodes*".to_string(), b),
-            ],
-            "stop words and words under three characters get no lane"
+        assert!(
+            !body.to_string().contains("\"wildcard\""),
+            "no wildcard clause: {body}"
         );
-        // The coverage tiers (#2327) are still there, ahead of the lanes.
         assert!(body
             .pointer("/query/bool/should/0/constant_score/boost")
             .is_some_and(|b| b.as_f64() == Some(crate::code_query::COVERAGE_MATCH_BOOST)));
     }
 
-    /// A `text` title (prose corpora) and an unreadable mapping keep the
-    /// historical body: the lane was measured on the keyword file name only,
-    /// and a lane on a field a strict index does not map is HTTP 400.
+    /// An unreadable mapping keeps the historical body: a lane on a field a
+    /// strict index does not map is HTTP 400.
     #[test]
-    fn no_name_lane_without_a_keyword_title_or_a_read_mapping() {
+    fn no_lanes_without_a_read_mapping() {
         let root = root_with_state();
         let http = FakeHttp::new();
         let body = first_body(&root, &http, "graph builder");

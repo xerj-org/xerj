@@ -1,5 +1,13 @@
 # `xerj code` field lanes, and markdown behind code in `xerj search`
 
+> **Round 7 (2026-11-22): the name lane was dropped.** A held-out
+> re-measure put its cost at +135% to +138% `took` p50 on the 188k-record
+> corpus, against a decision bar of 25%. On held-out questions it added
+> +0.023 nDCG@10. The identifier and exact-ID lanes stay. They cost +5%
+> `took` p50 at load 5-16 and +18% at load 24-68, and they keep a held-out
+> gain with zero losses. See [Round 7](#round-7-held-out-questions-and-the-name-lane-decision).
+> The sections below are the original run, which still measured the name lane.
+
 **Run:** 2026-11-21, one Linux x86_64 host shared with other builds. Load
 averages are next to every timing; they ran from 58 to 88, so the timings are
 upper bounds, not a speed claim. Node: one private `--insecure` node on port
@@ -192,3 +200,100 @@ harness/fixture_ranks.sh ./xerj http://localhost:24100 ids "RUSTSEC-2021-0003"
 `data/sep-*` and `data/lucene-*` are the existing question files reshaped
 into `xerj eval` TSVs (qid prefix = set); `data/javadoc-*` is the generator's
 output.
+
+## Round 7: held-out questions and the name-lane decision
+
+**Run:** 2026-11-22. Same harness ([`code_eval.py`](harness/code_eval.py)),
+same corpus (Lucene, 188,125 records, re-indexed from the same checkout). One
+private `--insecure` node, restarted before every pass. The server binary is
+main `136e0d141` for all three arms. Each arm is a client binary built with
+`cargo build --release -p xerj-server`:
+
+| Arm | Source | sha256 |
+|---|---|---|
+| main | `136e0d141` | `546bfc23033fd0a7581dfa11a4b0f870c7acb77ae9d55981274689bd6e05dd05` |
+| A | this PR at `ba3307558` (all lanes) | `433a2a8a8d1b9f2342b0593c39bbd3318dea3974b61ff7703fd98918e002af90` |
+| B | A without the name lane (this commit) | `9a399bee23e4491b30277aeb4e826a5a370f5a522200273c6bf47ad980edf5f7` |
+
+Decision rule, recorded before the run:
+1. Land A if the `xerj code` p50 regression is 25% or less.
+2. Otherwise land B, if B alone keeps the ranking gain.
+3. Otherwise hold.
+
+### Held-out question sets (built after the weights were frozen)
+
+| Set | n | Built by | Relevant | Notes |
+|---|---:|---|---|---|
+| `h` | 200 | [`make_heldout_set.py`](harness/make_heldout_set.py): the `javadoc` recipe, but over every module **except** `core` (and test-framework/benchmark/luke), seed 20261122 | declaring file | no file overlaps the tuning `javadoc` set; 24/200 sentences contain the class name |
+| `hm` | 200 | `h` with the class name removed from the sentence | same | takes away the name-lane advantage on those 24 |
+| `id` | 200 | [`make_ident_set.py`](harness/make_ident_set.py): a public/protected camelCase method name from a non-core module, declared in exactly one file and written as `name(` at most 3 times in the whole checkout, split into words (`get hyphenation points`), seed 1122 | declaring file | built to fit the identifier lane, the way `sep` B was |
+
+### Ranking, nDCG@10 (paired sign-flip, 10,000 rounds)
+
+| Set | main | A | B | A W/L/T | B W/L/T | A p | B p |
+|---|---:|---:|---:|---|---|---:|---:|
+| `h` held-out | 0.8836 | **0.9067** | 0.8836 | 12/1/187 | 0/0/200 | 0.0023 | 1 |
+| `hm` held-out, name masked | 0.8756 | **0.9032** | 0.8756 | 15/2/183 | 0/0/200 | 0.0002 | 1 |
+| `id` held-out | 0.2556 | 0.4724 | **0.4856** | 60/13/127 | 56/0/144 | 0.0001 | 0.0001 |
+| `javadoc` (tuning) | 0.8597 | **0.9280** | 0.8597 | 33/3/164 | 0/0/200 | 0.0001 | 1 |
+| `lucene` 8 (tuning) | 0.4814 | **0.5561** | 0.4814 | 3/0/5 | 0/0/8 | 0.24 | 1 |
+| `sep` all (tuning, 18k-record corpus) | 0.6699 | **0.6917** | 0.6887 | 16/21/263 | 6/0/294 | 0.044 | 0.031 |
+| … `sep` B words of a name | 0.5392 | 0.5952 | **0.5956** | 9/7/84 | 6/0/94 | 0.039 | 0.032 |
+
+The main and A numbers on the tuning sets match the original run exactly.
+Rankings were identical across the 8 passes of each arm on `h`.
+
+- **The name lane's gain is smaller on held-out questions:** +0.023 on `h`,
+  against +0.068 on the tuning `javadoc` set.
+- **B never loses a query on any set.** On Lucene prose questions it is
+  identical to main: the identifier lane needs the words of one name. On
+  `id` it gains slightly more than A (+0.230 vs +0.217), because A's name
+  lane loses 13 queries there. It keeps 86% of A's `sep` gain (+0.0188 vs
+  +0.0218) with no losses; A lost 21 queries on `sep`.
+- ID fixture ([`r7/fixture-ids.txt`](results/r7/fixture-ids.txt)): A and B
+  both rank `advisory_gate.rs` first for both RUSTSEC queries; main ranks it
+  2 and 3. The exact-ID lane is unchanged in B.
+
+### Latency, set `h`
+
+`took` is the node's own figure; wall is the client process end to end.
+Each pass is 200 queries, and the node is restarted before each pass. Load
+is the 1-minute load average at start / peak / end. The host is shared, and
+part of the peak during A passes comes from A's own wildcard scans.
+
+**Loaded window:** 5 rounds, order rotated (main A B, B A main, A main B, B main A, main B A).
+
+| Arm | `took` p50 per pass (ms) | median `took` p50 / p95 | median wall p50 / p95 | load range |
+|---|---|---|---|---|
+| main | 163, 170, 173, 163, 174 | 170 / 278 | 252 / 639 | 23.6 to 55.5 |
+| A | 404, 399, 404, 406, 402 | 404 / 558 (**+138%** / +101%) | 516 / 894 | 28.1 to 60.9 |
+| B | 201, 180, 194, 215, 203 | 201 / 405 (+18% / +46%) | 293 / 826 | 23.8 to 67.9 |
+
+**Quiet window:** 3 rounds (main A B, B A main, A B main). Every pass
+started at load 5.2-16.0.
+
+| Arm | `took` p50 per pass (ms) | median `took` p50 / p95 | median wall p50 / p95 |
+|---|---|---|---|
+| main | 182, 176, 177 | 177 / 298 | 236 / 384 |
+| A | 416, 434, 393 | 416 / 571 (**+135%** / +92%) | 470 / 628 |
+| B | 210, 186, 180 | 186 / 410 (+5% / +38%) | 233 / 452 |
+
+The A cost does not shrink on a quiet host. It is the engine's
+case-insensitive `*word*` wildcard scan over the keyword `title` of 188k
+records, up to 8 per query. B's p95 rises because a query whose words form
+an identifier adds up to four `term` clauses on `name` and a `bool` wrapper.
+
+### Decision
+
+- **A fails rule 1:** +135% to +138% `took` p50, against a bar of 25%.
+- **B passes rule 2:** +5% (quiet) / +18% (loaded) `took` p50. It keeps a
+  significant held-out gain (`id` +0.230, p = 0.0001, no losses). It also
+  keeps most of the `sep` gain, keeps the ID fixture, and loses no query on
+  any set.
+- **B does not keep the name lane's gain on prose questions** (`h` +0.023,
+  `javadoc` +0.068). Recovering that needs a cheaper name match than a
+  per-word wildcard scan, for example an analyzed sub-field of `title`
+  split on case changes, at index time.
+
+Question sets: `data/r7-{h,hm,id}-{queries,qrels}.tsv`. Raw per-query JSON: [`results/r7/`](results/r7/). Every pass with its load
+is in [`r7/passes.log`](results/r7/passes.log).
