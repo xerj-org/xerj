@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on TypeScript queries this for how syedsenterprises/Web3User-Permission-Lab implements it: A TypeScript prototype for evaluating transaction policies with ERC-20 calldata validation and security-focused tests (selected work: test, src)",
+ "domain": "an agent working on erc20, ethereum, permissions queries this for how syedsenterprises/Web3User-Permission-Lab implements it: A TypeScript prototype for evaluating transaction policies with ERC-20 calldata validation and security-focused tests (selected work: test, src)",
  "repos": [
   {
    "repo": "Web3User-Permission-Lab",

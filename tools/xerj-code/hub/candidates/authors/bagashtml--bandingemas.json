@@ -1,0 +1,23 @@
+{
+ "corpus": "bagashtml--bandingemas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on emas, gold, gold-price queries this for how BagasHtml/Bandingemas implements it: Pantau harga Emas dan Perak yang terpercaya dan terbaru hanya di Bandingemas (selected work: src/views, functions, src/composables)",
+ "repos": [
+  {
+   "repo": "Bandingemas",
+   "url": "https://github.com/BagasHtml/Bandingemas",
+   "sha": "76f3f60f59c3ac062c20b836ec078db431c9e32a",
+   "licence": "Apache-2.0 (LICENSE file at pin 76f3f60f59c3, GitHub licence API 2026-11-22)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-22T15:11Z",
+    "consent_receipt": "6aec1a572982",
+    "note": "Inclusion consented by the commit author by email at 2026-11-22T15:11Z (receipt 6aec1a572982); selected commit 76f3f60f59c3: \"update new layout and update security issue\". LICENSE file at pin 76f3f60f59c3 detected as Apache-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+   }
+  }
+ ]
+}

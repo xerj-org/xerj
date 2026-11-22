@@ -1,9 +1,9 @@
 {
- "corpus": "mukundzha--hazzel",
+ "corpus": "varpsilon--hazzel",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on cli, llm, ollama queries this for how mukundzha/hazzel implements it: a terminal coding harness (selected work: src/hazzel, tests)",
+ "domain": "an agent working on cli, llm, ollama queries this for how varpsilon/hazzel implements it: a terminal coding harness (selected work: src/hazzel, tests)",
  "repos": [
   {
    "repo": "hazzel",
