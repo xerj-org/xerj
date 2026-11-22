@@ -3303,6 +3303,7 @@ impl<'a> FastCtx<'a> {
             let (typed_key, key_as_string) = typed_term_key(&key, !is_bool);
             let mut bucket = Map::new();
             bucket.insert("key".to_string(), typed_key);
+            bucket.insert("__xy_terms_key__".to_string(), json!(key));
             if let Some(kas) = key_as_string {
                 bucket.insert("key_as_string".to_string(), json!(kas));
             }

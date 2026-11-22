@@ -186,4 +186,13 @@ async fn lowered_max_buckets_binds_the_columnar_terms_path_and_the_brute_path_al
         CAP,
         "at-cap terms agg dropped or invented a bucket"
     );
+    assert!(
+        agg["buckets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|b| b.get("__xy_terms_key__").is_some()),
+        "the columnar path must keep the raw term identity the multi-index \
+         coordinator merges on"
+    );
 }
