@@ -28,6 +28,4 @@ aggregations/stats_metric_fail_formatting.yml · fail formatting
 aggregations/top_hits.yml · having
 search/110_field_collapsing.yml · field collapsing and scroll
 search/150_rewrite_on_coordinator.yml · Ensure that we fetch the document only once
-search/500_date_range.yml · test bad dates in range - future
-search/500_date_range.yml · test bad dates in range - past
 search/90_search_after.yml · Format sort values

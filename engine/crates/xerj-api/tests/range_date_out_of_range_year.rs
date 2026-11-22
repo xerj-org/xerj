@@ -69,8 +69,12 @@ async fn seeded() -> (axum::Router, tempfile::TempDir) {
 }
 
 async fn range(app: &axum::Router, bounds: Value) -> (StatusCode, Value) {
+    range_in(app, bounds, "date_optional_time").await
+}
+
+async fn range_in(app: &axum::Router, bounds: Value, format: &str) -> (StatusCode, Value) {
     let mut date = bounds;
-    date["format"] = json!("date_optional_time");
+    date["format"] = json!(format);
     let body = json!({"sort": "field", "query": {"range": {"date": date}}});
     send(
         app,
@@ -129,6 +133,35 @@ async fn an_unparseable_bound_is_still_a_parse_exception() {
          [failed to parse date field [bogus] with format [date_optional_time]]",
         "{got}"
     );
+}
+
+#[tokio::test]
+async fn the_strict_format_keeps_the_parse_exception() {
+    // strict_date_optional_time takes exactly four year digits in ES too, so
+    // 522000000 does not parse there at all.
+    let (app, _dir) = seeded().await;
+    let format = "strict_date_optional_time";
+    let (status, got) = range_in(&app, json!({"lte": "522000000"}), format).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{got}");
+    let root = &got["error"]["root_cause"][0];
+    assert_eq!(root["type"], "parse_exception", "{got}");
+}
+
+#[tokio::test]
+async fn the_year_reading_wins_when_its_format_comes_first() {
+    // ES tries the formats in order: date_optional_time reads the year
+    // before epoch_millis could read 522000000 as a 1970 instant.
+    let (app, _dir) = seeded().await;
+    let format = "date_optional_time||epoch_millis";
+    let (status, got) = range_in(&app, json!({"lte": "522000000"}), format).await;
+    assert_too_far(status, &got, "future", "date_optional_time||epoch_millis");
+}
+
+#[tokio::test]
+async fn date_math_on_such_a_year_is_an_illegal_argument() {
+    let (app, _dir) = seeded().await;
+    let (status, got) = range(&app, json!({"lte": "522000000||+1d"})).await;
+    assert_too_far(status, &got, "future", "522000000||+1d");
 }
 
 #[tokio::test]

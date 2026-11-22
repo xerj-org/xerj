@@ -1198,6 +1198,13 @@ fn date_resolve_err(e: dates::DateResolveError, fmt: Option<&str>, value: &str) 
             format!("operator not supported for date math [{m}]")
         }
         UnknownTimeZone(tz) => format!("Unknown time-zone ID: {tz}"),
+        OutOfRange { instant, future } => {
+            let when = if future { "future" } else { "past" };
+            format!(
+                "date[{instant}] is too far in the {when} to be represented \
+                 in a long milliseconds variable"
+            )
+        }
     };
     QueryError::Parse(ParseError::Invalid(msg))
 }
