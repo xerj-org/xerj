@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on censorship-resistance, cryptography, django queries this for how Orviniq/communication-platform implements it: Self-hosted, end-to-end encrypted messenger built to keep working through a national internet shutdown. Pairwise Double Ratchet DMs and grou (selected work: frontend)",
+ "domain": "an agent working on cryptography, django, double-ratchet queries this for how Orviniq/communication-platform implements it: Self-hosted messenger with end-to-end encrypted direct and group chats, plus audio rooms over a self-hosted TURN relay. Flutter for Android, (selected work: frontend)",
  "repos": [
   {
    "repo": "communication-platform",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Rust queries this for how Magaav/wasm-agent implements it: Magaav/wasm-agent (Rust) (selected work: rust, scripts)",
+ "domain": "an agent working on Lua queries this for how Magaav/wasm-agent implements it: Magaav/wasm-agent (Lua) (selected work: rust, scripts)",
  "repos": [
   {
    "repo": "wasm-agent",
