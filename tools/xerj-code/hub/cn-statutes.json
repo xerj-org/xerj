@@ -1,0 +1,4 @@
+{"corpus":"cn-statutes","cloned_at":"2026-11-21T15:32:14Z","repos":[
+  {"repo":"corpus-cn-statutes","url":"https://github.com/wasabihu/corpus-cn-statutes","licence":"CC0-1.0","sha":"11ff988beb67ec1c6aa6bd70284bcc8fe8a7eadf","files":3209,"bytes":2599507,
+   "review":{"spdx":"CC0-1.0","use":"adapt-with-attribution","by":"wasabihu","at":"2026-11-21","note":"Verbatim PRC national statutes, State Council regulations, CSRC/MoF accounting & capital-market rules, and SPC judicial interpretation split into 3,204 per-article pure-text Markdown files (0 code files; 100% non-header substantive body byte-conserved). Underlying statutory texts are in the public domain under PRC Copyright Law Article 5(1); repository LICENSE is unmodified CC0-1.0 (GitHub API spdx_id: CC0-1.0; xerj software-licence detector read UNKNOWN). Pre-registered 5-question blind G7 suite at backlog/g7-cn-statutes-2026-11.json."}}
+]}
