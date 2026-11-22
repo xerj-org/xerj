@@ -154,10 +154,18 @@ pub const STORED_LZ4_MAGIC: &[u8; 4] = b"LZ4\0";
 /// Compress a stored-section blob using LZ4 and prepend the magic header.
 /// Kept for tests and for the slow-path fallback.
 pub fn encode_stored_lz4(uncompressed: &[u8]) -> Vec<u8> {
-    let compressed = lz4_flex::compress_prepend_size(uncompressed);
-    let mut out = Vec::with_capacity(4 + compressed.len());
-    out.extend_from_slice(STORED_LZ4_MAGIC);
-    out.extend_from_slice(&compressed);
+    // The bytes of `MAGIC ++ lz4_flex::compress_prepend_size(input)`,
+    // compressed in place after the 8-byte header instead of into a second
+    // buffer that is then copied (#2917: on a 723 MB force-merge input the
+    // "never make things worse" check below held both copies).
+    let max = lz4_flex::block::get_maximum_output_size(uncompressed.len());
+    let mut out = vec![0u8; 8 + max];
+    out[..4].copy_from_slice(STORED_LZ4_MAGIC);
+    out[4..8].copy_from_slice(&(uncompressed.len() as u32).to_le_bytes());
+    let written = lz4_flex::block::compress_into(uncompressed, &mut out[8..])
+        .expect("the buffer is sized by get_maximum_output_size");
+    out.truncate(8 + written);
+    out.shrink_to_fit();
     out
 }
 
@@ -359,6 +367,98 @@ fn encode_json_fallback(
     } else {
         (ColCodec::RawJson, zstd_payload, zstd_form != 0)
     }
+}
+
+/// Smallest row-text column (#2917) whose JSON fallback is compressed from
+/// its rows as a stream instead of from a contiguous `[row,row,…]` copy.
+/// Below it the column is built and encoded exactly as before.
+const JSON_COLUMN_STREAM_MIN_BYTES: usize = 8 * 1024 * 1024;
+
+/// A streamed column tries the LZ4 candidate only when the plain zstd form
+/// saved less than `1 / LZ4_CANDIDATE_MIN_SAVING_DIVISOR` of the text.
+const LZ4_CANDIDATE_MIN_SAVING_DIVISOR: usize = 8;
+
+/// [`encode_json_fallback`] for a column held as row text (#2917).
+///
+/// The fallback used to build the whole column as one `[row,row,…]` buffer
+/// and keep it, the plain zstd payload, the long-effort payload and the LZ4
+/// payload alive together. For the 1024-d vector column of a force-merged
+/// 74,600-doc index that buffer alone was 700 MB, beside the 723 MB merged
+/// stored JSON the rows borrow from. A column of at least
+/// `stream_min_bytes` is now fed to zstd row by row, with no contiguous
+/// copy:
+///
+/// - the plain candidate goes through the same `zstd::stream::Encoder`
+///   `zstd::encode_all` uses, so it is the same frame;
+/// - the long-effort candidate runs the same parameters (level, LDM,
+///   window log) with the column length pledged up front, as the one-shot
+///   compressor knows it;
+/// - LZ4 has no entropy stage, and on text zstd at level 1 or more beats
+///   it by a wide margin, so the LZ4 candidate (which needs the contiguous
+///   copy) is tried only when zstd saved less than
+///   `1 / LZ4_CANDIDATE_MIN_SAVING_DIVISOR` of the column.
+///
+/// Peers stream the same way: tantivy's doc store compresses fixed-size
+/// blocks as they fill (`tantivy/src/store/writer.rs:65,72`,
+/// `send_current_block_to_compressor`), never the whole store at once.
+fn encode_json_column_fallback(
+    json: &lazy_columns::JsonColumn<'_>,
+    level: i32,
+    long_effort_level: Option<i32>,
+    stream_min_bytes: usize,
+) -> (ColCodec, Vec<u8>, bool) {
+    let len = json.json_array_len();
+    if len < stream_min_bytes {
+        return encode_json_fallback(&json.to_json_array(), level, long_effort_level);
+    }
+    let materialised = || encode_json_fallback(&json.to_json_array(), level, long_effort_level);
+    let Some(zstd_payload) = zstd_stream_rows(json, level, None) else {
+        return materialised();
+    };
+    let (zstd_payload, zstd_form) = match long_effort_level {
+        Some(long_level) => {
+            let long_level = long_effort_level_for_len(len, long_level);
+            let size_log = 64 - (len as u64).saturating_sub(1).leading_zeros();
+            let window_log = RAW_LONG_WINDOW_LOG_MAX.min(size_log);
+            match zstd_stream_rows(json, long_level, Some((window_log, len as u64))) {
+                Some(long) if long.len() + 3 < zstd_payload.len() => {
+                    let mut payload = Vec::with_capacity(3 + long.len());
+                    payload.push(1u8);
+                    payload.push(long_level.clamp(0, u8::MAX as i32) as u8);
+                    payload.push(window_log as u8);
+                    payload.extend_from_slice(&long);
+                    (payload, 1u8)
+                }
+                _ => (zstd_payload, 0u8),
+            }
+        }
+        None => (zstd_payload, 0u8),
+    };
+    if zstd_payload.len() > len - len / LZ4_CANDIDATE_MIN_SAVING_DIVISOR {
+        let lz4_payload = lz4_flex::compress_prepend_size(&json.to_json_array());
+        if lz4_payload.len() + 1 < zstd_payload.len() {
+            return (ColCodec::Lz4Json, lz4_payload, false);
+        }
+    }
+    (ColCodec::RawJson, zstd_payload, zstd_form != 0)
+}
+
+/// zstd over a row-text column's `[row,row,…]` bytes, fed row by row.
+/// `long` = `(window_log, pledged length)` for the long-distance-matching
+/// form; `None` = the plain stream `zstd::encode_all` writes.
+fn zstd_stream_rows(
+    json: &lazy_columns::JsonColumn<'_>,
+    level: i32,
+    long: Option<(u32, u64)>,
+) -> Option<Vec<u8>> {
+    let mut encoder = zstd::stream::write::Encoder::new(Vec::new(), level).ok()?;
+    if let Some((window_log, pledged)) = long {
+        encoder.window_log(window_log).ok()?;
+        encoder.long_distance_matching(true).ok()?;
+        encoder.set_pledged_src_size(Some(pledged)).ok()?;
+    }
+    json.write_json_array(&mut encoder).ok()?;
+    encoder.finish().ok()
 }
 
 /// Encode a stored section written as a JSON array of
@@ -875,9 +975,35 @@ fn encode_v2_columns_with_json(
     }
 
     // Pick a codec per column and build its payload.
-    let mut col_payloads: Vec<(String, u8, Vec<u8>)> = Vec::with_capacity(col_order.len());
+    // Assemble the V2 payload as the columns are encoded (#2917): each
+    // column's payload is appended and freed before the next column is
+    // encoded, so the blob never sits beside every column's payload at
+    // once. ZBS4 magic only when something in it needs a ZBS2 reader's
+    // parser to behave differently; otherwise the bytes are exactly what
+    // an older build would have written. The magic is patched in once the
+    // last column has been encoded.
+    let mut out: Vec<u8> = Vec::with_capacity(4 + 8);
+    out.extend_from_slice(STORED_V2_MAGIC);
+    out.write_u32::<LittleEndian>(num_docs as u32).unwrap();
+    out.write_u32::<LittleEndian>(col_order.len() as u32)
+        .unwrap();
+    let mut appended_columns = 0usize;
+    let mut append_payloads = |out: &mut Vec<u8>, payloads: &mut Vec<(String, u8, Vec<u8>)>| {
+        for (name, codec_id, payload) in payloads.drain(..) {
+            out.reserve(2 + name.len() + 5 + payload.len());
+            out.write_u16::<LittleEndian>(name.len() as u16).unwrap();
+            out.extend_from_slice(name.as_bytes());
+            out.push(codec_id);
+            out.write_u32::<LittleEndian>(payload.len() as u32).unwrap();
+            out.extend_from_slice(&payload);
+            appended_columns += 1;
+        }
+    };
+    let mut col_payloads: Vec<(String, u8, Vec<u8>)> = Vec::with_capacity(1);
     let mut used_v4_feature = false;
     for (cix, cname) in col_order.iter().enumerate() {
+        // Every iteration pushes exactly one payload; append the previous one.
+        append_payloads(&mut out, &mut col_payloads);
         let col = &columns[cix];
 
         // CONSTANT → COPY_OF → CROSS_DEP → DICT_BITPACK (raced against
@@ -897,8 +1023,12 @@ fn encode_v2_columns_with_json(
                 used_v4_feature = true;
                 continue;
             }
-            let (codec, payload, long_form) =
-                encode_json_fallback(&json.to_json_array(), level, long_effort_level);
+            let (codec, payload, long_form) = encode_json_column_fallback(
+                json,
+                level,
+                long_effort_level,
+                JSON_COLUMN_STREAM_MIN_BYTES,
+            );
             used_v4_feature |= long_form;
             col_payloads.push((cname.clone(), codec as u8, payload));
             continue;
@@ -984,33 +1114,16 @@ fn encode_v2_columns_with_json(
         }
     }
 
-    // Assemble the V2 payload.  ZBS4 magic only when something in it needs
-    // a ZBS2 reader's parser to behave differently; otherwise the bytes are
-    // exactly what an older build would have written.
-    let mut out: Vec<u8> = Vec::with_capacity(
-        4 + 8
-            + col_payloads
-                .iter()
-                .map(|(n, _, p)| 2 + n.len() + 5 + p.len())
-                .sum::<usize>(),
+    append_payloads(&mut out, &mut col_payloads);
+    assert_eq!(
+        appended_columns,
+        col_order.len(),
+        "the stored header's column count must match the columns written"
     );
-    out.extend_from_slice(if used_v4_feature {
-        STORED_V4_MAGIC
-    } else {
-        STORED_V2_MAGIC
-    });
-    out.write_u32::<LittleEndian>(num_docs as u32).unwrap();
-    out.write_u32::<LittleEndian>(col_payloads.len() as u32)
-        .unwrap();
-    // #2917: consume the payloads so each is freed once copied, instead of
-    // holding every column's payload beside the assembled blob.
-    for (name, codec_id, payload) in col_payloads {
-        out.write_u16::<LittleEndian>(name.len() as u16).unwrap();
-        out.extend_from_slice(name.as_bytes());
-        out.push(codec_id);
-        out.write_u32::<LittleEndian>(payload.len() as u32).unwrap();
-        out.extend_from_slice(&payload);
+    if used_v4_feature {
+        out[..4].copy_from_slice(STORED_V4_MAGIC);
     }
+    out.shrink_to_fit();
 
     if prof {
         eprintln!(
@@ -4012,6 +4125,33 @@ fn read_zigzag_i64(data: &[u8], pos: &mut usize) -> Result<i64> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// #2917: the in-place v1 encode writes the same bytes as the magic
+    /// followed by `lz4_flex::compress_prepend_size`, the form it replaced.
+    #[test]
+    fn in_place_lz4_encode_matches_the_prepend_size_form_2917() {
+        let mut inputs: Vec<Vec<u8>> = vec![Vec::new(), b"x".to_vec(), b"[]".to_vec()];
+        inputs.push(
+            serde_json::to_vec(
+                &(0..3000)
+                    .map(|i| json!({"_id": format!("d{i}"), "_seq_no": i, "_source": {"v": [i, i % 7]}}))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+        );
+        inputs.push(
+            (0..200_000u32)
+                .map(|i| (i.wrapping_mul(2654435761) >> 13) as u8)
+                .collect(),
+        );
+        for input in inputs {
+            let mut expected = STORED_LZ4_MAGIC.to_vec();
+            expected.extend_from_slice(&lz4_flex::compress_prepend_size(&input));
+            let encoded = encode_stored_lz4(&input);
+            assert_eq!(encoded, expected, "input of {} bytes", input.len());
+            assert_eq!(encoded.capacity(), encoded.len());
+        }
+    }
 
     // ── #1122/#2433: derived semantic vectors are not persisted ──────────
 

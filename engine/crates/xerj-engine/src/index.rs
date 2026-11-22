@@ -17011,6 +17011,30 @@ impl Index {
                     // duplicate copies were filtered by the version map).
                     survivors.sort_unstable_by_key(|(seq, _, _, _, _)| *seq);
 
+                    // #2917: size `merged_json_buf` once for every survivor
+                    // (`[`, the rows, the commas, `]`). Growing it by
+                    // doubling reallocated a 480 MB buffer to 960 MB during
+                    // the drain of a 723 MB vector batch, holding both while
+                    // the survivors were still live, and left a quarter of
+                    // the capacity unused for the whole encode.
+                    let merged_len = survivors
+                        .iter()
+                        .map(|(_, _, raw, _, _)| raw.len())
+                        .sum::<usize>()
+                        .saturating_add(survivors.len())
+                        .saturating_add(1);
+                    if let Err(error) = merged_json_buf
+                        .try_reserve_exact(merged_len.saturating_sub(merged_json_buf.len()))
+                    {
+                        tracing::error!(
+                            bytes = merged_len,
+                            "merge aborted: not enough memory to reserve the merged stored buffer; \
+                             input segments were preserved and the node stayed up: {error}"
+                        );
+                        failed_for_task.fetch_add(1, Ordering::Relaxed);
+                        return None;
+                    }
+
                     // Single sorted stream → all four outputs.  `into_iter`
                     // frees each raw String right after its bytes are copied
                     // into `merged_json_buf`, keeping peak memory ~1× stored.

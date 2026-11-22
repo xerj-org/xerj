@@ -76,26 +76,37 @@ impl JsonColumn<'_> {
             .then(|| first.to_vec())
     }
 
-    /// `[row,row,…]` with `null` for a missing row: the bytes
-    /// `serde_json::to_vec` writes for the parsed column.
-    pub(super) fn to_json_array(&self) -> Vec<u8> {
-        let len = 2
-            + self.rows.len()
+    /// Length in bytes of [`Self::to_json_array`], without building it.
+    pub(super) fn json_array_len(&self) -> usize {
+        2 + self.rows.len().saturating_sub(1)
             + self
                 .rows
                 .iter()
                 .map(|row| row.as_ref().map_or(4, |bytes| bytes.len()))
-                .sum::<usize>();
-        let mut out = Vec::with_capacity(len);
-        out.push(b'[');
+                .sum::<usize>()
+    }
+
+    /// `[row,row,…]` with `null` for a missing row: the bytes
+    /// `serde_json::to_vec` writes for the parsed column.
+    pub(super) fn to_json_array(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(self.json_array_len());
+        self.write_json_array(&mut out)
+            .expect("writing to a Vec does not fail");
+        out
+    }
+
+    /// Stream the bytes of [`Self::to_json_array`] into `out` row by row,
+    /// so a compressor can consume the column without a second copy of it
+    /// (#2917).
+    pub(super) fn write_json_array(&self, out: &mut dyn std::io::Write) -> std::io::Result<()> {
+        out.write_all(b"[")?;
         for (i, row) in self.rows.iter().enumerate() {
             if i > 0 {
-                out.push(b',');
+                out.write_all(b",")?;
             }
-            out.extend_from_slice(row.as_deref().unwrap_or(b"null"));
+            out.write_all(row.as_deref().unwrap_or(b"null"))?;
         }
-        out.push(b']');
-        out
+        out.write_all(b"]")
     }
 }
 
@@ -682,5 +693,45 @@ mod tests {
         assert_eq!(long_effort_level_for_len(128 * MIB + 1, 19), 9);
         // Never raises a lower request.
         assert_eq!(long_effort_level_for_len(512 * MIB, 5), 5);
+    }
+
+    /// A row-text column at or above the streaming threshold is compressed
+    /// from its rows, with no contiguous `[row,row,…]` copy. Both zstd
+    /// candidates must be the bytes the materialised fallback writes, and
+    /// the payload must decompress to the column text.
+    #[test]
+    fn streamed_json_column_fallback_matches_the_materialised_one_2917() {
+        use super::super::{
+            decode_raw_payload, encode_json_column_fallback, encode_json_fallback, ColCodec,
+        };
+        use std::borrow::Cow;
+        let rows: Vec<Option<Cow<'static, [u8]>>> = (0..1500)
+            .map(|i| (i % 11 != 0).then(|| Cow::Owned(serde_json::to_vec(&vector(i, 96)).unwrap())))
+            .collect();
+        let column = super::JsonColumn { rows };
+        let text = column.to_json_array();
+        assert_eq!(column.json_array_len(), text.len());
+        let mut streamed_text = Vec::new();
+        column.write_json_array(&mut streamed_text).unwrap();
+        assert_eq!(streamed_text, text);
+        for long in [None, Some(RAW_LONG_LEVEL), Some(9)] {
+            let materialised = encode_json_fallback(&text, STORED_ZSTD_LEVEL, long);
+            // Threshold 0: always streamed.
+            let streamed = encode_json_column_fallback(&column, STORED_ZSTD_LEVEL, long, 0);
+            assert!(materialised == streamed, "long effort {long:?}");
+            assert!(streamed.0 == ColCodec::RawJson);
+            assert_eq!(streamed.2, long.is_some(), "long effort {long:?}");
+            let frame = decode_raw_payload(&streamed.1).unwrap();
+            assert_eq!(
+                zstd::decode_all(frame).unwrap(),
+                text,
+                "long effort {long:?}"
+            );
+        }
+        // At the threshold it streams; below it builds the copy. The output
+        // is the same.
+        let at = encode_json_column_fallback(&column, STORED_ZSTD_LEVEL, None, text.len());
+        let below = encode_json_column_fallback(&column, STORED_ZSTD_LEVEL, None, text.len() + 1);
+        assert!(at == below);
     }
 }
