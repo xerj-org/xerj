@@ -9,16 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **A `terms` aggregation that meets more distinct keys than
-  `search.max_buckets` now fails with HTTP 400 `too_many_buckets_exception`
-  instead of returning a wrong answer (#3362).** It used to keep the first
-  65,536 keys in document order and drop the rest without saying so: on one
-  index with 69,901 distinct keys, `terms size:3` returned 200 with
-  `sum_other_doc_count: 65533` (true value 69,898) and
-  `doc_count_error_upper_bound: 0`. This applies on one index and on each
-  index of a multi-index search, with or without sub-aggregations. Raise
-  `limits.max_buckets` in the node config, or narrow the query, for fields
-  with more distinct values than the cap.
+- **`search.max_buckets` counts the buckets a search returns, not the
+  distinct keys a `terms` aggregation sees (#3362).** A top-10 over a field
+  with more than 65,536 distinct values (user IDs, IPs) is served with exact
+  counts, as in Elasticsearch: over 100,000 distinct keys, `terms size:10`
+  answers 200 with `sum_other_doc_count` 99,991. Only a request whose kept
+  buckets (`size`, nested sub-aggregations, composite pages, histograms) are
+  more than the limit fails with HTTP 400 `too_many_buckets_exception`. This
+  applies on one index and across indices. Earlier builds kept the first
+  65,536 keys in document order with a wrong `sum_other_doc_count`, and an
+  intermediate main build refused every such request with 400. The
+  `search.max_buckets` cluster setting now also raises or lowers the engine's
+  own cap (histogram gap fill, `multi_terms`); clearing it restores
+  `limits.max_buckets` from the node config.
 
 - **Hybrid queries read `_source` for the returned page only (#3018).** The
   BM25 and kNN legs now return ids, scores and `seq_no`s, fusion moves hits
