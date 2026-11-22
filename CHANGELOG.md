@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Hybrid queries read `_source` for the returned page only (#3018).** The
+  BM25 and kNN legs now return ids, scores and `seq_no`s, fusion moves hits
+  instead of copying them, and only the `size` page documents are read
+  afterwards, as the version each leg scored. If a page document was
+  rewritten, deleted or merged away in the meantime, the request runs again
+  the old way. Pages are unchanged: ids, order, scores and `_source` matched
+  base on every compared page (3,120 pages, two fixtures). Median of six
+  alternating rounds, client wall p50, one node, 768-d vectors, load average
+  11-62: `hybrid` size 10 went from 7.20 to 4.31 ms on 3,000 documents (kNN
+  leg on the exact scan) and from 8.80 to 6.29 ms (a rerun gave 7.74 to
+  5.19 ms) on 5,000 documents (kNN leg on HNSW). With
+  `_source.excludes: [vec]` the 3,000-document case went from 5.09 to
+  3.35 ms; the 5,000-document case stayed within noise (13.7% slower in one
+  run, 8.9% faster in the next). `XERJ_HYBRID_DEFER_SOURCE=0` restores the
+  old reads.
+
 - **Merges and flushes encode fields that are sometimes a scalar and
   sometimes an array in less memory (#3311, refs #2427 #1122).** The
   stored-section encoder now keeps a `_source` column as row JSON text when

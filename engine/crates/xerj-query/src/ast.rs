@@ -1341,6 +1341,18 @@ pub struct SearchRequest {
     /// so it can never arrive from the wire (same contract as `savings`).
     #[serde(skip)]
     pub ids_only: bool,
+
+    /// INTERNAL (never on the wire — `serde(skip)`): a hybrid leg (#3018).
+    /// The caller reads each hit's `id`, `score` and `seq_no`, fuses the legs
+    /// and hydrates only the final page itself, so the executors may leave
+    /// `_source` as `Value::Null` on the hits they would otherwise have to
+    /// decode from a segment, and they skip the `_source` filter (the caller
+    /// applies the request's filter to the page). A hit whose source the
+    /// executor already holds (a memtable document, a stored scan that
+    /// scored from it) keeps it, raw. Set only by the hybrid executor;
+    /// `parse_request` never sets it.
+    #[serde(skip)]
+    pub defer_source: bool,
 }
 
 /// Whether — and how precisely — to measure withheld `_source` bytes.
@@ -1393,6 +1405,7 @@ impl Default for SearchRequest {
             leaf_ts_field: None,
             savings: SavingsMode::Off,
             ids_only: false,
+            defer_source: false,
         }
     }
 }
