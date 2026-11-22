@@ -869,7 +869,16 @@ fn build_search_query(
     // Appended last so the #916 clause positions do not move. A one-word
     // symbol still matches the recall `multi_match`; these clauses only
     // add score when the document covers the question (#2327).
-    should.extend(coverage_match_clauses(&shaped, &fields));
+    //
+    // Code corpora only (#3007). The clauses exist because a short
+    // `name^4` / `code^2` symbol collects a large BM25 from field length;
+    // a prose, markdown or log mapping names none of those fields, and there
+    // the 1000-point tiers rank "matches half the words" above BM25:
+    // BEIR nDCG@10 SciFact 0.6229 -> 0.6550, NFCorpus 0.2980 -> 0.3058
+    // without them (paired randomization p = 0.0024 / 0.0064).
+    if !code_symbol_fields_absent(mapped) {
+        should.extend(coverage_match_clauses(&shaped, &fields));
+    }
     // Everything below is appended after the #916/#2327 clauses so their
     // positions do not move, and each block is empty for a query it does
     // not apply to.
