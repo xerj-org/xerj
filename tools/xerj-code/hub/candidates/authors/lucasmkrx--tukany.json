@@ -1,0 +1,23 @@
+{
+ "corpus": "lucasmkrx--tukany",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bass, github-pages, guitar queries this for how lucasmkrx/tukany implements it: Interactive guitar and bass scales, alternate tunings, left/right fretboards, bilingual guides, and browser-generated PDF atlases",
+ "repos": [
+  {
+   "repo": "tukany",
+   "url": "https://github.com/lucasmkrx/tukany",
+   "sha": "209b0de1a7c9668812123e1e2d865edca26d047a",
+   "licence": "author's permission (LICENSE at pin 209b0de1a7c9: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T21:20Z",
+    "consent_receipt": "2e3d0d67eb40",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:20Z (receipt 2e3d0d67eb40); pinned to the default-branch head. LICENSE at pin 209b0de1a7c9: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "duckpilot",
    "url": "https://github.com/amrhasanain/duckpilot",
-   "sha": "663644cfd4e0cc07b1fdc74bb01303c3fe573c08",
-   "licence": "Apache-2.0 (LICENSE file at pin 663644cfd4e0, GitHub licence API 2026-10-31)",
+   "sha": "fe01eab24a36cd102262bda6980ffb1db666556a",
+   "licence": "Apache-2.0 (LICENSE file at pin fe01eab24a36, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T16:49Z",
     "consent_receipt": "75bb3729c591",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T16:49Z (receipt 75bb3729c591); pinned to the default-branch head. LICENSE file at pin 663644cfd4e0 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T16:49Z (receipt 75bb3729c591); pinned to the default-branch head. LICENSE file at pin fe01eab24a36 detected as Apache-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution."
    }
   }
  ]

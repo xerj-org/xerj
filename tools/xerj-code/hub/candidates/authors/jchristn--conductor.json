@@ -8,15 +8,15 @@
   {
    "repo": "Conductor",
    "url": "https://github.com/jchristn/Conductor",
-   "sha": "8a1c642720862802d1b730ab67d0813b2d376a4e",
-   "licence": "MIT (LICENSE file at pin 8a1c64272086, GitHub licence API 2026-11-22)",
+   "sha": "b4a544c3993b3073288dcc60a43a097cc42f45bb",
+   "licence": "MIT (LICENSE file at pin b4a544c3993b, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "120769a57bb0",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt 120769a57bb0); pinned to the default-branch head. LICENSE file at pin 8a1c64272086 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt 120769a57bb0); pinned to the default-branch head. LICENSE file at pin b4a544c3993b detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
    }
   }
  ]

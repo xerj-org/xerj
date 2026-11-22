@@ -8,15 +8,15 @@
   {
    "repo": "monocoque",
    "url": "https://github.com/vorjdux/monocoque",
-   "sha": "a37409bdc873f638f029e9814b5899487317f611",
-   "licence": "MIT (LICENSE file at pin a37409bdc873, GitHub licence API 2026-11-13)",
+   "sha": "bfce36104322d9e33569055cc5b3d54364cc48d8",
+   "licence": "MIT (LICENSE file at pin bfce36104322, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-13T14:30Z",
     "consent_receipt": "76149eb9e215",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T14:30Z (receipt 76149eb9e215); pinned to the default-branch head. LICENSE file at pin a37409bdc873 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T14:30Z (receipt 76149eb9e215); pinned to the default-branch head. LICENSE file at pin bfce36104322 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
    }
   }
  ]

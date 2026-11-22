@@ -8,15 +8,15 @@
   {
    "repo": "early-browser",
    "url": "https://github.com/earlybrowser/early-browser",
-   "sha": "03cb15668fe717e73a6b7c2108f1b48af3f3e5cc",
-   "licence": "MPL-2.0 (LICENSE file at pin 03cb15668fe7, GitHub licence API 2026-11-22)",
+   "sha": "ceae723a19ef934d4ee7cd65e2310afb1084deba",
+   "licence": "MPL-2.0 (LICENSE file at pin ceae723a19ef, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-18T03:51Z",
     "consent_receipt": "f89e59b1f2ea",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T03:51Z (receipt f89e59b1f2ea); selected commit 03cb15668fe7: \"feat: add persistent Spaces and validated organization operations (#5)\". LICENSE file at pin 03cb15668fe7 detected as MPL-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head 03cb15668fe7 (contains the selected commit): the LICENSE at the selected commit was MIT. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @earlybrowser, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T03:51Z (receipt f89e59b1f2ea); selected commit ceae723a19ef: \"feat: add persistent Spaces and validated organization operations (#5)\". LICENSE file at pin ceae723a19ef detected as MPL-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head ceae723a19ef (contains the selected commit): the LICENSE at the selected commit was MIT. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @earlybrowser, who has not added it."
    },
    "paths": [
     "Sources/Early",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how WhyFaust/fstack implements it: Faust stack \u2014 \u043b\u0438\u0447\u043d\u044b\u0439 \u043f\u043b\u0430\u0433\u0438\u043d Codex \u0441 \u0438\u043d\u0436\u0435\u043d\u0435\u0440\u043d\u044b\u043c\u0438 \u043d\u0430\u0432\u044b\u043a\u0430\u043c\u0438 (selected work: profile, tools)",
+ "domain": "an agent working on HTML queries this for how WhyFaust/fstack implements it: Faust stack \u2014 \u043b\u0438\u0447\u043d\u044b\u0439 \u043f\u043b\u0430\u0433\u0438\u043d Codex \u0441 \u0438\u043d\u0436\u0435\u043d\u0435\u0440\u043d\u044b\u043c\u0438 \u043d\u0430\u0432\u044b\u043a\u0430\u043c\u0438 (selected work: profile, tools)",
  "repos": [
   {
    "repo": "fstack",

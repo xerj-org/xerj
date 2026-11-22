@@ -2,7 +2,7 @@
  "corpus": "mikhail-angelov--2maps-and",
  "cloned_at": null,
  "status": "draft",
- "shelf": "NET",
+ "shelf": "WEB",
  "domain": "an agent working on android, brouter, kotlin queries this for how mikhail-angelov/2maps-and implements it: Offline Android navigator: MBTiles maps on MapLibre, on-device BRouter routing, placemarks and GPX tracks (selected work: app/src)",
  "repos": [
   {

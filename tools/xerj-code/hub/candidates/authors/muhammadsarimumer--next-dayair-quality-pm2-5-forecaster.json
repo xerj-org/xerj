@@ -8,15 +8,15 @@
   {
    "repo": "Next-DayAir-Quality-PM2.5-Forecaster",
    "url": "https://github.com/MuhammadSarimUmer/Next-DayAir-Quality-PM2.5-Forecaster",
-   "sha": "55ac141d2121585684ccc6812e087ba80d76169f",
-   "licence": "MIT (LICENSE file at pin 55ac141d2121, GitHub licence API 2026-11-21)",
+   "sha": "2c488b7d81e4fb7c98e739386f042ccc96784944",
+   "licence": "MIT (LICENSE file at pin 2c488b7d81e4, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-12T19:08Z",
     "consent_receipt": "b5df3c0e5fc4",
-    "note": "Inclusion consented by the commit author by email at 2026-11-12T19:08Z (receipt b5df3c0e5fc4); selected commit 55ac141d2121: \"Tested with 50k rows\". LICENSE file at pin 55ac141d2121 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution. Pinned to head 55ac141d2121 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T19:08Z (receipt b5df3c0e5fc4); selected commit 2c488b7d81e4: \"Tested with 50k rows\". LICENSE file at pin 2c488b7d81e4 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head 2c488b7d81e4 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
