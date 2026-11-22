@@ -4,9 +4,9 @@
  "authoring": "BLIND from clone reads; every expect is a verbatim clause grep-verified against the clone at authoring time; no retrieval was run",
  "corpus_pin": {
   "repo": "corpus-clinical-trials",
-  "sha": "93dda3d1d31a0288e8317f34106d1959b23759c4"
+  "sha": "086fc293e58a1dce13bd6848f8799bf63ceed625"
  },
- "scope_note": "55 table-verified quantitative clinical trial records (271 Markdown pipe tables; 0 prose-only files): 20 US NIH ClinicalTrials.gov v2 outcome tables (CC0-1.0) + 35 Europe PMC open-access JATS XML efficacy/diagnostic tables (CC-BY-4.0).",
+ "scope_note": "55 table-verified quantitative clinical trial records (271 Markdown pipe tables; 0 prose-only files): 20 US NIH/NLM ClinicalTrials.gov v2 outcome tables (US-government public domain; attribution requested; non-US rights reserved; retrieved 2026-11-21) + 35 Europe PMC open-access JATS XML efficacy/diagnostic tables (CC-BY-4.0).",
  "queries": [
   {
    "q": "nivolumab BMS-936558 phase 2 renal cell carcinoma progression free survival median months across 0.3 2 and 10 mg/kg arms",
