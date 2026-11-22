@@ -9,23 +9,18 @@
 //! 37. That is the OOM vector the cap exists to close, honoured on brute and
 //! ignored on the columnar path.
 //!
-//! ## Why the fix BAILS rather than errors or truncates
+//! ## Why the fast path BAILS rather than errors in place
 //!
-//! The two executors must AGREE past the cap. Brute `run_terms` does not error
-//! there: it keeps the first `max_buckets` distinct terms in doc-iteration
-//! order, drops the rest, and reports a `sum_other_doc_count` computed only
-//! over the terms it kept — so the dropped terms vanish silently and the total
-//! conceals them (order-dependent, and a bug in its own right). Reproducing
-//! that on the fast path would copy the bug, not the contract; erroring would
-//! make the fast path disagree with a brute path that still returns a body.
-//!
-//! So `exec_terms` bails to brute the instant its distinct-term count would
-//! exceed the cap. After the bail the request is answered by the very
-//! `run_terms` the fast path would be measured against, so the two AGREE past
-//! the cap by construction. What this test pins is that agreement plus the two
-//! observable consequences of the bail: the fast path stops SERVING the
-//! over-cap agg (`fast_path_aggs_served` no longer ticks) and the answer honours
-//! the cap (exactly `CAP` distinct buckets, not all `NTERMS`).
+//! The two executors must AGREE past the cap. `exec_terms` bails to brute the
+//! instant its distinct-term count would exceed the cap, and brute `run_terms`
+//! answers an over-cap agg with a 400 too_many_buckets (#3362; before that it
+//! kept the first `max_buckets` keys in doc order and dropped the rest
+//! silently, with a `sum_other_doc_count` that concealed them). One owner of
+//! the over-cap answer means the two AGREE by construction. What this test
+//! pins is that agreement plus the observable consequences of the bail: the
+//! fast path stops SERVING the over-cap agg (`fast_path_aggs_served` no longer
+//! ticks) and the answer is the too_many_buckets failure naming the cap, never
+//! a truncated bucket list.
 //!
 //! Which executor answered is read from `aggs::fast_path_aggs_served`; the brute
 //! leg is forced by keeping an index under the columnar path's own size gate
@@ -121,6 +116,22 @@ async fn run_terms(engine: &Engine, index: &str) -> (Value, u64) {
     (aggs["by_tag"].clone(), served)
 }
 
+/// #3362: past the cap a terms agg is the embedded too_many_buckets failure
+/// (the `_search` handler turns it into ES's HTTP 400), never a bucket list.
+fn assert_too_many_buckets(agg: &Value, label: &str) {
+    assert!(
+        agg.get("buckets").is_none(),
+        "{label}: an over-cap terms agg returned buckets instead of failing: {agg}"
+    );
+    assert_eq!(agg["__error_status__"], json!(400), "{label}: {agg}");
+    let reason = agg["error"].as_str().unwrap_or_default();
+    assert!(
+        reason.contains("Trying to create too many buckets")
+            && reason.contains(&format!("[{CAP}]")),
+        "{label}: expected too_many_buckets naming max_buckets={CAP}, got {agg}"
+    );
+}
+
 fn bucket_count(agg: &Value) -> usize {
     agg["buckets"]
         .as_array()
@@ -141,35 +152,22 @@ async fn lowered_max_buckets_binds_the_columnar_terms_path_and_the_brute_path_al
     build_index(&engine, "small-over", SMALL_DOCS, NTERMS).await;
 
     // ── Fast path, cardinality PAST the cap ──────────────────────────────
-    // The regression: before the fix this was served columnarly (served == 1)
-    // and returned all NTERMS buckets. The fix bails to brute, so the fast path
-    // no longer serves it and the brute cap (exactly CAP distinct terms) binds.
+    // #121: before the bail this was served columnarly (served == 1) and
+    // returned all NTERMS buckets. The fast path bails to brute, so it no
+    // longer serves it, and brute answers with too_many_buckets (#3362).
     let (agg, served) = run_terms(&engine, "big-over").await;
     assert_eq!(
-        served,
-        0,
-        "exec_terms served an over-cap agg columnarly instead of bailing; it \
-         returned {} buckets against max_buckets={CAP}",
-        bucket_count(&agg)
+        served, 0,
+        "exec_terms served an over-cap agg columnarly instead of bailing: {agg}"
     );
-    assert_eq!(
-        bucket_count(&agg),
-        CAP,
-        "over-cap terms agg did not honour max_buckets={CAP}: {}",
-        bucket_count(&agg)
-    );
+    assert_too_many_buckets(&agg, "fast-path index past the cap");
 
     // ── Brute path, same over-cap shape below the size gate ──────────────
-    // The path the fast leg bails INTO. It agrees on the cap: exactly CAP
-    // distinct buckets. (The kept terms are order-dependent and the doc counts
-    // differ from the big index, so agreement is on the count, per the issue.)
+    // The path the fast leg bails INTO. It agrees: the same too_many_buckets
+    // failure, not the first CAP keys in doc order.
     let (agg, served) = run_terms(&engine, "small-over").await;
     assert_eq!(served, 0, "the small index must not take the fast path");
-    assert_eq!(
-        bucket_count(&agg),
-        CAP,
-        "brute run_terms disagrees with the fast path on the cap"
-    );
+    assert_too_many_buckets(&agg, "brute index past the cap");
 
     // ── Fast path, cardinality exactly AT the cap ────────────────────────
     // The fix must bail only when the count would EXCEED the cap: an at-cap

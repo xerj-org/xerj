@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A `terms` aggregation that meets more distinct keys than
+  `search.max_buckets` now fails with HTTP 400 `too_many_buckets_exception`
+  instead of returning a wrong answer (#3362).** It used to keep the first
+  65,536 keys in document order and drop the rest without saying so: on one
+  index with 69,901 distinct keys, `terms size:3` returned 200 with
+  `sum_other_doc_count: 65533` (true value 69,898) and
+  `doc_count_error_upper_bound: 0`. This applies on one index and on each
+  index of a multi-index search, with or without sub-aggregations. Raise
+  `limits.max_buckets` in the node config, or narrow the query, for fields
+  with more distinct values than the cap.
+
 - **Hybrid queries read `_source` for the returned page only (#3018).** The
   BM25 and kNN legs now return ids, scores and `seq_no`s, fusion moves hits
   instead of copying them, and only the `size` page documents are read
