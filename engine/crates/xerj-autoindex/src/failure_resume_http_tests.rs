@@ -5293,3 +5293,59 @@ fn a_record_refused_as_too_large_sets_its_file_aside() {
     assert_eq!(code, 0);
     assert_eq!(file_done_count(state_dir.path()), 1);
 }
+
+/// #3279: an ordinary rerun (no `--fresh`) after an in-place edit leaves one
+/// dataset with 0 live documents. The rerun must not fail verification and
+/// ask for `--fresh`: the dataset is empty because its files say so now, not
+/// because writes were lost. The other dataset is untouched.
+#[test]
+fn an_edit_that_empties_a_dataset_passes_verify_without_fresh() {
+    let _guards = http_test_guards();
+    for (label, emptied) in [("header only", "id,value\n"), ("empty file", "")] {
+        let corpus = tempfile::tempdir().unwrap();
+        let state_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            corpus.path().join("people.csv"),
+            "name,age,city\nann,31,oslo\nbob,42,rome\n",
+        )
+        .unwrap();
+        fs::write(
+            corpus.path().join("notes.csv"),
+            "id,value\n1,before\n2,also\n",
+        )
+        .unwrap();
+        let endpoint = MockEndpoint::start(usize::MAX);
+        let config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+        assert_eq!(run_index(config.clone()).unwrap(), 0, "{label}: first run");
+        assert!(
+            dataset_catalog_docs(&endpoint).len() >= 2,
+            "{label}: two datasets"
+        );
+
+        fs::write(corpus.path().join("notes.csv"), emptied).unwrap();
+        let (code, _) = run_index_report(config.clone()).unwrap_or_else(|error| {
+            panic!("{label}: an edit that empties a dataset must not fail verify: {error:#}")
+        });
+        assert_ne!(code, 1, "{label}");
+        let locked = endpoint.state.lock().unwrap();
+        let values: Vec<&str> = locked
+            .docs
+            .values()
+            .filter_map(|doc| doc["value"].as_str())
+            .collect();
+        assert!(
+            values.is_empty(),
+            "{label}: the emptied rows are gone: {values:?}"
+        );
+        let names: Vec<&str> = locked
+            .docs
+            .values()
+            .filter_map(|doc| doc["name"].as_str())
+            .collect();
+        assert_eq!(names.len(), 2, "{label}: the other dataset is untouched");
+        drop(locked);
+        let (code, _) = run_index_report(config)
+            .unwrap_or_else(|error| panic!("{label}: second rerun after emptying: {error:#}"));
+        assert_ne!(code, 1, "{label}: second rerun");
+    }
+}

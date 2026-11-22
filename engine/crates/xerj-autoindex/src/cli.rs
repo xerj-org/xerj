@@ -763,9 +763,10 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20--drop-indexed approval before its previously indexed documents are swept.\n\
          \x20\x20\x20\x20--fresh is not a destination wipe. It is refused once a durable corpus\n\
          \x20\x20\x20\x20generation exists: rerun without it to reconcile changes incrementally.\n\
-         \x20\x20\x20\x20A pre-generation --no-graph journal needs an isolated rebuild under a new\n\
-         \x20\x20\x20\x20--state-dir and --prefix. For any independent graph rebuild also use a new\n\
-         \x20\x20\x20\x20--brain (or --no-graph).\n\
+         \x20\x20\x20\x20A pre-generation journal met by a --no-graph run is kept as\n\
+         \x20\x20\x20\x20journal.ndjson.legacy-<ts>; this folder's <prefix>-* indices are removed and\n\
+         \x20\x20\x20\x20rebuilt from the folder as the first generation. For any independent graph\n\
+         \x20\x20\x20\x20rebuild also use a new --brain (or --no-graph).\n\
          \x20\x20\x20\x20Validate before switching readers; explicitly clean the shared\n\
          \x20\x20\x20\x20autoindex-catalog and old target only after validation.\n\
          \n\
