@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on hackintosh, lilu-plugin, macos queries this for how RX4Darwin/AMDRadeonRDNA4.kext implements it: AMD Radeon RDNA 4 (RX 9060/9060 XT/9070/9070 GRE/9070 XT) display driver for macOS, with experimental Metal support through Apple's paravirt (selected work: src, vulkan, tools)",
+ "domain": "an agent working on hackintosh, lilu-plugin, macos queries this for how RX4Darwin/AMDRadeonRDNA4.kext implements it: AMD Radeon RDNA 4 (RX 9060/9060 XT/9070/9070 GRE/9070 XT) display driver for macOS, with experimental Metal support (selected work: src, vulkan, tools)",
  "repos": [
   {
    "repo": "AMDRadeonRDNA4.kext",

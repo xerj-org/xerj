@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on image-editor, pdf, pdf-converter queries this for how Alinur1/LocalPDF_Studio implements it: Complete offline, privacy focused PDF tool (selected work: PyBackend, LocalPDF_Studio_api, src/main)",
+ "domain": "an agent working on image-editor, pdf, pdf-converter queries this for how Alinur1/LocalPDF_Studio implements it: Complete offline, privacy focused PDF editing desktop application (selected work: PyBackend, LocalPDF_Studio_api, src/main)",
  "repos": [
   {
    "repo": "LocalPDF_Studio",

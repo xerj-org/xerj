@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "CRYPTO",
- "domain": "an agent working on algorithms, c, data-structures queries this for how ayevexy/libcdsa implements it: A Feature-Rich, High-Level, and Easy-to-Use Data Structures and Algorithms Library for the C Programming Language (selected work: src/util, test, src)",
+ "domain": "an agent working on algorithms, c, data-structures queries this for how ayevexy/libcdsa implements it: A Feature-Rich, High-Level, and Easy-to-Use General-Purpose Utility Library for the C Programming Language (selected work: src/util, test, src)",
  "repos": [
   {
    "repo": "libcdsa",
