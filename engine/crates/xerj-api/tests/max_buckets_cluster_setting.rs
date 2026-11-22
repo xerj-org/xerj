@@ -12,14 +12,32 @@ use axum::http::{Request, StatusCode};
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
-async fn app() -> (axum::Router, tempfile::TempDir) {
+/// The setting drives the engine's process-wide bucket cap
+/// (`aggs::set_max_buckets`), and `Engine::new` resets it to the node config,
+/// so the tests in this binary must not overlap: each holds this lock for its
+/// whole run, through the `Fixture` it gets with its router.
+static SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+struct Fixture {
+    _dir: tempfile::TempDir,
+    _serial: tokio::sync::MutexGuard<'static, ()>,
+}
+
+async fn app() -> (axum::Router, Fixture) {
+    let serial = SERIAL.lock().await;
     let dir = tempfile::tempdir().expect("tempdir");
     let mut config = xerj_common::config::Config::default();
     config.server.data_dir = dir.path().to_string_lossy().into_owned();
     let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
     let engine = xerj_engine::Engine::new(config.clone()).expect("engine");
     let state = xerj_api::state::AppState::new(config, engine, metrics);
-    (xerj_api::router::build_es_compat_router(state), dir)
+    (
+        xerj_api::router::build_es_compat_router(state),
+        Fixture {
+            _dir: dir,
+            _serial: serial,
+        },
+    )
 }
 
 async fn send(
@@ -60,7 +78,7 @@ async fn put_settings(app: &axum::Router, body: Value) {
 
 /// The eight documents of `aggregations/max_buckets.yml`: eight distinct
 /// `keyword` values, each with its own `date`.
-async fn seeded() -> (axum::Router, tempfile::TempDir) {
+async fn seeded() -> (axum::Router, Fixture) {
     let (app, dir) = app().await;
     let (status, got) = send(
         &app,
@@ -432,10 +450,12 @@ async fn keyed_buckets_are_counted() {
     );
 }
 
-/// A setting above the node's own cap does not raise that cap, in `_msearch`
-/// as in `_search`.
+/// The setting is the cap, above the node config's `limits.max_buckets` as
+/// below it (#3362): a composite page of 70,000 under a setting of 100,000 is
+/// served in `_msearch` as in `_search`. It used to be refused at the node's
+/// 65,536 whatever the setting said.
 #[tokio::test]
-async fn an_msearch_composite_over_the_node_cap_is_refused() {
+async fn a_setting_above_the_node_cap_raises_it_in_msearch() {
     let (app, _dir) = seeded().await;
     put_settings(&app, json!({"persistent": {"search.max_buckets": 100000}})).await;
     let header = json!({"index": "test"}).to_string();
@@ -447,10 +467,51 @@ async fn an_msearch_composite_over_the_node_cap_is_refused() {
     let (status, body) = send(&app, "POST", "/_msearch", "application/x-ndjson", ndjson).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let item = &body["responses"][0];
+    assert_eq!(item["status"], 200, "{body}");
+    assert_eq!(
+        item["aggregations"]["test"]["buckets"]
+            .as_array()
+            .map(Vec::len),
+        Some(8),
+        "{body}"
+    );
+
+    // Back to the node cap once the setting is cleared.
+    put_settings(&app, json!({"persistent": {"search.max_buckets": null}})).await;
+    let ndjson = format!("{header}\n{big}\n");
+    let (_, body) = send(&app, "POST", "/_msearch", "application/x-ndjson", ndjson).await;
+    let item = &body["responses"][0];
     assert_eq!(item["status"], 400, "{body}");
     assert!(
         item.to_string()
             .contains("Must be less than or equal to: [65536] but was [70000]"),
         "{body}"
     );
+}
+
+/// The engine's own caps follow the setting too: about 122,000 half-hour
+/// buckets pass the node's 65,536, and a setting of 200,000 serves them.
+#[tokio::test]
+async fn a_setting_above_the_node_cap_raises_the_engine_cap() {
+    let (app, _dir) = seeded().await;
+    let histogram = json!({"size": 0, "aggs": {"test": {"date_histogram": {
+        "field": "date",
+        "fixed_interval": "30m"
+    }}}});
+
+    let (status, body) = search(&app, histogram.clone()).await;
+    too_many_buckets(status, &body, 65_536);
+
+    put_settings(&app, json!({"transient": {"search.max_buckets": 200000}})).await;
+    let (status, body) = search(&app, histogram.clone()).await;
+    assert_eq!(status, StatusCode::OK, "{}", body["error"]);
+    let n = body["aggregations"]["test"]["buckets"]
+        .as_array()
+        .map(Vec::len)
+        .unwrap_or(0);
+    assert!(n > 65_536 && n <= 200_000, "{n} buckets");
+
+    put_settings(&app, json!({"transient": {"search.max_buckets": null}})).await;
+    let (status, body) = search(&app, histogram).await;
+    too_many_buckets(status, &body, 65_536);
 }

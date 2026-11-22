@@ -7651,8 +7651,12 @@ fn leaf_terms_params(spec: &Value) -> Option<&Value> {
 
 /// How many candidate terms each index returns for a leaf terms agg: the
 /// explicit `shard_size` (never below `size`), else `size * 3 / 2 + 10`.
-/// `0` means every term: `size: 0` asks for all of them, and a primary
-/// `_count: asc` order has no usable error bound once an index cuts its list.
+/// `0` means every term: `size: 0` asks for all of them. A primary
+/// `_count: asc` order has no usable error bound once an index cuts its list,
+/// so each index sends as many terms as the bucket cap allows: every term
+/// when it holds no more than `cap` (exact), else its `cap` rarest. Asking
+/// for every term there made an index with more than `cap` distinct keys
+/// refuse a small `_count: asc` top-N with too_many_buckets (#3362).
 /// Clamped to the bucket cap, so per-index work is bounded by the request
 /// rather than by field cardinality.
 fn leaf_terms_fetch_size(params: &Value, cap: usize) -> u64 {
@@ -7660,8 +7664,11 @@ fn leaf_terms_fetch_size(params: &Value, cap: usize) -> u64 {
     let count_asc = leaf_terms_orders(params)
         .and_then(|orders| orders.into_iter().next())
         .is_some_and(|(key, asc)| key == "_count" && asc);
-    if size == 0 || count_asc {
+    if size == 0 {
         return 0;
+    }
+    if count_asc {
+        return cap as u64;
     }
     let fetch = match params.get("shard_size").and_then(Value::as_u64) {
         Some(shard_size) => shard_size.max(size),
@@ -8157,7 +8164,7 @@ mod leaf_terms_coordinator_tests {
         assert_eq!(fetch(json!({"field":"k","size":0})), 0);
         assert_eq!(
             fetch(json!({"field":"k","size":5,"order":{"_count":"asc"}})),
-            0
+            65_536
         );
         assert_eq!(
             fetch(json!({"field":"k","size":5,"order":{"_key":"desc"}})),
@@ -34242,7 +34249,14 @@ async fn msearch_impl(
 
         // Over `search.max_buckets`, this item fails with `_search`'s error;
         // the rest of the batch still runs. Unlike `_search`, an error the
-        // engine left inside an aggregation result is not mapped here.
+        // engine left inside an aggregation result is not mapped here, except
+        // the engine's own too_many_buckets: the engine cap follows the
+        // setting (#3362), so a `terms` keeping more buckets than it allows
+        // fails inside the engine before the count below can see it.
+        if merged_aggs.as_ref().is_some_and(embedded_too_many_buckets) {
+            responses.push(too_many_buckets_body(max_buckets));
+            continue;
+        }
         if let (Some(aggs_req), Some(aggs)) = (
             search_body_val
                 .get("aggs")
@@ -42479,6 +42493,17 @@ pub async fn put_cluster_settings(
             }
         }
     }
+    // `search.max_buckets` is dynamic in ES: it bounds every aggregation's
+    // buckets, the engine's own (histogram gap fill, multi_terms, terms past
+    // their size cut) included, not only the reduce-time count `_search`
+    // makes. A single node has one cluster, so the engine-wide cap follows
+    // the setting, and clearing it restores the node config's
+    // `limits.max_buckets`. Before this, a setting above the node cap could
+    // not raise it.
+    let node_default = state.config.limits.max_buckets as u64;
+    let effective = max_buckets_from_settings(&settings, node_default);
+    xerj_engine::aggs::set_max_buckets(usize::try_from(effective).unwrap_or(usize::MAX));
+    drop(settings);
     let flat = flat_settings_param(&params);
     Json(json!({
         "acknowledged": true,
@@ -50462,6 +50487,28 @@ async fn keep_alive_over_cluster_limit(
 /// default is ES's 65536.
 async fn effective_max_buckets(state: &AppState) -> u64 {
     let settings = state.engine.cluster_settings.read().await;
+    max_buckets_from_settings(&settings, state.config.limits.max_buckets as u64)
+}
+
+/// Whether an aggregation result tree carries the engine's embedded
+/// too_many_buckets failure anywhere.
+fn embedded_too_many_buckets(v: &Value) -> bool {
+    match v {
+        Value::Object(obj) => {
+            let marker = obj.get("__error_status__").is_some_and(Value::is_number)
+                && obj
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .is_some_and(|e| e.contains("Trying to create too many buckets"));
+            marker || obj.values().any(embedded_too_many_buckets)
+        }
+        Value::Array(arr) => arr.iter().any(embedded_too_many_buckets),
+        _ => false,
+    }
+}
+
+/// [`effective_max_buckets`] over an already-locked settings document.
+fn max_buckets_from_settings(settings: &Value, node_default: u64) -> u64 {
     ["transient", "persistent"]
         .iter()
         .find_map(|scope| {
@@ -50470,7 +50517,7 @@ async fn effective_max_buckets(state: &AppState) -> u64 {
                 .as_u64()
                 .or_else(|| value.as_str()?.trim().parse().ok())
         })
-        .unwrap_or(state.config.limits.max_buckets as u64)
+        .unwrap_or(node_default)
 }
 
 /// Counts the buckets a merged aggregation result keeps, the way ES's final

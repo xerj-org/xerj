@@ -283,16 +283,15 @@ fn clause_targets_only_text(node: &QueryNode, schema: &Schema) -> bool {
 
 // ── Aggregation bucket cap ────────────────────────────────────────────────────
 //
-// Hard cap on how many distinct buckets a single aggregation may materialise.
-// Mirrors Elasticsearch's `search.max_buckets` cluster setting (default 65536).
-// Without this guard, a `terms` agg over a high-cardinality field (e.g. 50M
-// unique user IDs) allocates one HashMap entry per unique value before any
-// `size`/`shard_size` cap can drop them — easy OOM. Per-bucket-allocator
-// loops in this module read `max_buckets()` ONCE, hoisted above the loop,
-// and compare against it on each insert; when exceeded the accumulator stops
-// adding new keys (existing keys still increment). The read used to sit
-// inside the loop; hoisting it is what lets the cap be a per-call value
-// without paying for the lookup per document.
+// Hard cap on how many buckets a single aggregation may return. Mirrors
+// Elasticsearch's `search.max_buckets` cluster setting (default 65536), which
+// `PUT _cluster/settings` changes at runtime through `set_max_buckets`.
+// Histogram-family loops materialise every bucket they return, so they stop
+// with too_many_buckets as soon as they pass it. `terms` counts every distinct
+// key and checks only the buckets left after its `size` cut (#3362), as ES's
+// final reduce does. Loops read `max_buckets()` ONCE, hoisted above the loop:
+// that is what lets the cap be a per-call value without paying for the lookup
+// per document.
 //
 // The node-wide default is set once at Engine construction via
 // `set_max_buckets`; it defaults to the same 65 536 ES uses if never set.
@@ -318,9 +317,10 @@ thread_local! {
         const { std::cell::Cell::new(None) };
 }
 
-/// Set the node-wide default per-aggregation bucket cap. Called once at
-/// Engine startup with `config.limits.max_buckets`. Subsequent calls
-/// overwrite the previous value.
+/// Set the node-wide default per-aggregation bucket cap. Called at Engine
+/// startup with `config.limits.max_buckets`, and by `PUT _cluster/settings`
+/// when `search.max_buckets` is set or cleared. Each call overwrites the
+/// previous value.
 ///
 /// This is deliberately *not* the way to express a limit for a single
 /// aggregation — use [`run_aggs_with_limits`] for that.
@@ -3663,12 +3663,13 @@ fn run_terms(
         Value::Bool(b) => Some(b.to_string()),
         _ => None,
     });
-    // #3362: `search.max_buckets` bounds the distinct keys this map may
-    // hold (the memory bound #121 added). A key past the cap is a 400
-    // too_many_buckets, never a silent drop: keeping the first `cap` keys
-    // in doc order reported a 200 whose top-N and `sum_other_doc_count`
-    // were wrong (70,000 docs, cap 65,536: 4,365 docs counted nowhere) while
-    // `doc_count_error_upper_bound` claimed 0.
+    // #3362: every distinct key is counted. `search.max_buckets` limits the
+    // buckets this agg RETURNS (checked after the size cut below), as ES's
+    // final reduce does: a top-10 over 100k distinct user IDs is a 200 with
+    // exact counts. Capping the map instead either dropped keys silently
+    // (wrong top-N and `sum_other_doc_count`) or, after #3383, refused every
+    // top-N over a field with more than 65,536 distinct values. The map is
+    // bounded by `docs`, which this evaluator already holds in memory.
     let mut counts: HashMap<String, u64> = HashMap::new();
     let bucket_cap = max_buckets();
     for doc in docs {
@@ -3676,17 +3677,11 @@ fn run_terms(
         let vals = terms_agg_bucket_keys(&field_or_script, doc);
         if vals.is_empty() {
             if let Some(ph) = &missing_placeholder {
-                if !counts.contains_key(ph) && counts.len() >= bucket_cap {
-                    return too_many_buckets_error(bucket_cap);
-                }
                 *counts.entry(ph.clone()).or_insert(0) += weight;
             }
             continue;
         }
         for term in vals {
-            if !counts.contains_key(&term) && counts.len() >= bucket_cap {
-                return too_many_buckets_error(bucket_cap);
-            }
             *counts.entry(term).or_insert(0) += weight;
         }
     }
@@ -3702,9 +3697,6 @@ fn run_terms(
     if min_doc_count_preview == 0 {
         for doc in all_docs {
             for term in terms_agg_bucket_keys(&field_or_script, doc) {
-                if !counts.contains_key(&term) && counts.len() >= bucket_cap {
-                    return too_many_buckets_error(bucket_cap);
-                }
                 counts.entry(term).or_insert(0);
             }
         }
@@ -3903,27 +3895,16 @@ fn run_terms(
         .map(|v| v as usize);
     let (sorted, sum_other_doc_count) =
         apply_terms_size_pipeline(sorted, |r| r.1, cap, shard_size_param, min_doc_count);
+    // `search.max_buckets` counts the buckets that survive the size cut,
+    // never the keys seen: `size` (or `size: 0`) keeping more than the cap
+    // is a 400 too_many_buckets, and nothing is dropped silently.
+    if sorted.len() > bucket_cap {
+        return too_many_buckets_error(bucket_cap);
+    }
 
     let buckets: Vec<Value> = sorted
         .into_iter()
         .map(|(key, count, sub_res)| {
-            let is_missing_bucket = missing_placeholder
-                .as_deref()
-                .map(|ph| ph == key.as_str())
-                .unwrap_or(false);
-            let bucket_docs: Vec<Value> = docs
-                .iter()
-                .filter(|doc| {
-                    let vals = terms_agg_bucket_keys(&field_or_script, doc);
-                    if is_missing_bucket {
-                        vals.is_empty()
-                    } else {
-                        vals.contains(&key)
-                    }
-                })
-                .cloned()
-                .collect();
-            let _ = &bucket_docs; // silence unused when neither sub nor `count` needs it
             let (key, count, precomputed_sub) = (key, count, sub_res);
 
             let (typed_key, key_as_string) = typed_term_key(&key, source_is_string);
@@ -3939,8 +3920,14 @@ fn run_terms(
 
             // Reuse the precomputed sub-agg result when we had to build it
             // for ordering; otherwise compute it now (no-op if no sub_aggs).
+            // The bucket's docs are gathered only when a sub-agg reads them:
+            // a full scan per returned bucket made a leaf `size: N` cost
+            // O(N x docs) for nothing.
             let sub_result = precomputed_sub.or_else(|| {
-                sub_aggs.map(|sa| run_aggs_in_bucket(sa, &bucket_docs, all_docs, count))
+                sub_aggs.map(|sa| {
+                    let bucket_docs = compute_bucket_docs(&key);
+                    run_aggs_in_bucket(sa, &bucket_docs, all_docs, count)
+                })
             });
             if let Some(Value::Object(sub_obj)) = sub_result {
                 if let Some(bucket_obj) = bucket.as_object_mut() {
@@ -16034,15 +16021,20 @@ mod tests {
         );
     }
 
-    /// #3362: a terms agg that meets more distinct keys than the cap fails
-    /// with too_many_buckets, even when `size` asks for a small top-N. It used
-    /// to keep the first `cap` keys in doc order, so the issue's shape (one
-    /// hot key x100 plus many unique keys, cap below the cardinality) returned
-    /// 200 with a `sum_other_doc_count` short by every dropped key's docs.
+    /// #3362: `max_buckets` limits the buckets a terms agg RETURNS, not the
+    /// distinct keys it counts (ES applies it in the final reduce). A small
+    /// top-N over more keys than the cap is a 200 with exact counts (#3383
+    /// refused it with a 400); a `size` that keeps more buckets than the cap is
+    /// a 400. Before #3383 the map kept the first `cap` keys in doc order, so
+    /// the hot-key shape below returned a `sum_other_doc_count` short by every
+    /// dropped key's docs.
     #[test]
-    fn terms_past_bucket_cap_errors_instead_of_silent_drop() {
+    fn terms_bucket_cap_counts_returned_buckets_not_distinct_keys() {
         let mut docs: Vec<Value> = (0..100).map(|_| json!({ "u": "hot" })).collect();
         docs.extend((0..20).map(|i| json!({ "u": format!("k{i}") })));
+        // Half the hot docs come after the uniques, so a doc-order cap would
+        // miss part of them.
+        docs.rotate_left(50);
         let agg = json!({ "t": { "terms": { "field": "u", "size": 3 } } });
         let assert_cap_error = |r: &Value, cap: usize, label: &str| {
             assert!(r["t"].get("buckets").is_none(), "{label}: {r}");
@@ -16055,19 +16047,61 @@ mod tests {
             );
         };
 
-        // 21 distinct keys against a cap of 10.
-        let capped = run_aggs_with_limits(&agg, &docs, &docs, AggLimits { max_buckets: 10 });
-        assert_cap_error(&capped, 10, "top-3 over 21 keys, cap 10");
+        // Top-3 over 21 distinct keys at caps 3..21: served, counts exact.
+        for cap in [3, 10, 21] {
+            let ok = run_aggs_with_limits(&agg, &docs, &docs, AggLimits { max_buckets: cap });
+            let buckets = ok["t"]["buckets"]
+                .as_array()
+                .expect("buckets under the cap");
+            assert_eq!(buckets.len(), 3, "cap {cap}: {ok}");
+            assert_eq!(buckets[0]["key"], json!("hot"), "cap {cap}: {ok}");
+            assert_eq!(buckets[0]["doc_count"], json!(100), "cap {cap}: {ok}");
+            assert_eq!(
+                ok["t"]["sum_other_doc_count"],
+                json!(120 - 102),
+                "cap {cap}: {ok}"
+            );
+            assert_eq!(
+                ok["t"]["doc_count_error_upper_bound"],
+                json!(0),
+                "cap {cap}"
+            );
+        }
 
-        // Exactly at the cap: served, and the counts are exact.
-        let ok = run_aggs_with_limits(&agg, &docs, &docs, AggLimits { max_buckets: 21 });
-        let buckets = ok["t"]["buckets"].as_array().expect("buckets at the cap");
-        assert_eq!(buckets.len(), 3, "{ok}");
-        assert_eq!(buckets[0]["key"], json!("hot"));
-        assert_eq!(buckets[0]["doc_count"], json!(100));
-        assert_eq!(ok["t"]["sum_other_doc_count"], json!(120 - 102), "{ok}");
+        // `size` keeping more buckets than the cap is refused...
+        let wide = json!({ "t": { "terms": { "field": "u", "size": 15 } } });
+        let capped = run_aggs_with_limits(&wide, &docs, &docs, AggLimits { max_buckets: 10 });
+        assert_cap_error(&capped, 10, "size 15 over 21 keys, cap 10");
+        let ok = run_aggs_with_limits(&wide, &docs, &docs, AggLimits { max_buckets: 15 });
+        assert_eq!(
+            ok["t"]["buckets"].as_array().map(Vec::len),
+            Some(15),
+            "{ok}"
+        );
+        // ...and so is `size: 0` (every key) past the cap.
+        let all = json!({ "t": { "terms": { "field": "u", "size": 0 } } });
+        let capped = run_aggs_with_limits(&all, &docs, &docs, AggLimits { max_buckets: 20 });
+        assert_cap_error(&capped, 20, "size 0 over 21 keys, cap 20");
+        let ok = run_aggs_with_limits(&all, &docs, &docs, AggLimits { max_buckets: 21 });
+        assert_eq!(
+            ok["t"]["buckets"].as_array().map(Vec::len),
+            Some(21),
+            "{ok}"
+        );
 
-        // `missing` adds a placeholder key; it counts against the cap too.
+        // A nested terms agg is limited by the buckets each level returns.
+        let nested = json!({ "t": { "terms": { "field": "u", "size": 2 },
+            "aggs": { "s": { "terms": { "field": "u", "size": 1 } } } } });
+        let ok = run_aggs_with_limits(&nested, &docs, &docs, AggLimits { max_buckets: 2 });
+        let buckets = ok["t"]["buckets"].as_array().expect("nested buckets");
+        assert_eq!(buckets.len(), 2, "{ok}");
+        assert_eq!(
+            buckets[0]["s"]["buckets"][0]["doc_count"],
+            json!(100),
+            "{ok}"
+        );
+
+        // A `missing` placeholder bucket is a returned bucket like any other.
         let with_missing = vec![json!({ "u": "a" }), json!({ "u": "b" }), json!({})];
         let agg_missing = json!({ "t": { "terms": { "field": "u", "missing": "N/A" } } });
         let capped = run_aggs_with_limits(
@@ -16078,7 +16112,7 @@ mod tests {
         );
         assert_cap_error(&capped, 2, "missing placeholder past the cap");
 
-        // `min_doc_count: 0` pulls background keys in; past the cap it fails.
+        // `min_doc_count: 0` background buckets are returned buckets too.
         let matched = vec![json!({ "u": "a" })];
         let background = vec![
             json!({ "u": "a" }),

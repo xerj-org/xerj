@@ -25322,6 +25322,13 @@ impl Index {
                     SavingsMode::Exact => 2,
                 },
             );
+            // #3362: the bucket cap is not in the body either, and it decides
+            // whether an aggregation answers or fails with too_many_buckets.
+            // `PUT _cluster/settings` changes it at runtime, so an answer
+            // computed under one cap must not be replayed under another.
+            if request.aggs.is_some() {
+                Hasher::write_usize(&mut h, crate::aggs::max_buckets());
+            }
             let body_hash: Option<u64> = serde_json::to_writer(HasherWriter(&mut h), request)
                 .ok()
                 .map(|_| h.finish());
