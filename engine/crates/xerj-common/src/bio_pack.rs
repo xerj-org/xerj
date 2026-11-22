@@ -84,11 +84,19 @@ pub enum StudyType {
     CaseControl,
     #[serde(alias = "case-series-or-report")]
     CaseReport,
-    #[serde(alias = "preclinical-or-in-vitro")]
+    /// Animal-model study. Never merged with [`StudyType::InVitro`] or
+    /// [`StudyType::ExpertOpinion`]: each is its own design and its own rule.
     Preclinical,
-    #[serde(alias = "expert-opinion-or-review")]
+    /// Bench or mechanistic assay.
     InVitro,
+    /// Expert opinion or a narrative review: no primary data, no systematic
+    /// appraisal.
+    ExpertOpinion,
 }
+
+/// Rule that caps a study that is not human clinical evidence at
+/// [`EvidenceTier::Level5`].
+pub const NON_HUMAN_CAP_RULE_ID: &str = "bio.grade.non-human-cap.v1";
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -101,6 +109,10 @@ pub enum FindingDirection {
 }
 
 /// Study design metadata used only to select a deterministic [`GradeRule`].
+///
+/// `human_clinical` must be `true` for a study of human participants: a study
+/// that is not (an animal model, or a meta-analysis of animal studies) is capped
+/// at [`EvidenceTier::Level5`] whatever its design, and the default is `false`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StudyMetadata {
@@ -220,7 +232,31 @@ pub fn grade_study(study_type: StudyType, metadata: &StudyMetadata) -> GradeRule
                 "In-vitro bench or mechanistic assay; non-clinical evidence",
             )
         }
+        StudyType::ExpertOpinion => {
+            matched_signals.push("scope:non-clinical-expert-opinion".into());
+            (
+                "bio.grade.expert-opinion.v1",
+                EvidenceTier::Level5,
+                "Expert opinion or narrative review without primary data; non-clinical evidence",
+            )
+        }
     };
+    // Only human clinical evidence is graded above Level5. A meta-analysis of
+    // animal studies is a synthesis, but not of people: it is capped, under its
+    // own rule, and the receipt names the rule it would otherwise have met.
+    if !metadata.human_clinical && tier < EvidenceTier::Level5 {
+        matched_signals.push(format!("scope:non-human-capped-from:{rule_id}"));
+        return GradeRule {
+            rule_id: NON_HUMAN_CAP_RULE_ID.into(),
+            study_type,
+            tier: EvidenceTier::Level5,
+            matched_signals,
+            metadata: metadata_map,
+            rationale: "Study not of human clinical evidence (for example a meta-analysis of \
+                        animal studies); capped at Level5"
+                .into(),
+        };
+    }
     GradeRule {
         rule_id: rule_id.into(),
         study_type,
@@ -247,23 +283,6 @@ pub struct BioEvidenceItem {
     pub title: String,
     pub summary: String,
 }
-
-impl PartialEq for PinnedCitation {
-    fn eq(&self, other: &Self) -> bool {
-        self.corpus == other.corpus
-            && self.repository == other.repository
-            && self.commit == other.commit
-            && self.file == other.file
-            && self.file_sha256 == other.file_sha256
-            && self.byte_start == other.byte_start
-            && self.byte_end == other.byte_end
-            && self.line_start == other.line_start
-            && self.line_end == other.line_end
-            && self.span_sha256 == other.span_sha256
-    }
-}
-
-impl Eq for PinnedCitation {}
 
 impl BioEvidenceItem {
     #[allow(clippy::too_many_arguments)]
@@ -356,8 +375,10 @@ impl BioEvidenceItem {
     }
 
     pub fn is_clinical(&self) -> bool {
-        !matches!(self.study_type, StudyType::Preclinical | StudyType::InVitro)
-            && self.tier < EvidenceTier::Level5
+        !matches!(
+            self.study_type,
+            StudyType::Preclinical | StudyType::InVitro | StudyType::ExpertOpinion
+        ) && self.tier < EvidenceTier::Level5
             && self
                 .grade_rule
                 .metadata
@@ -969,5 +990,121 @@ mod tests {
                 .into_bytes()
         )
         .is_err());
+    }
+
+    /// #3300 review: `expert-opinion-or-review` used to deserialize as `InVitro`
+    /// and `preclinical-or-in-vitro` as `Preclinical`, merging distinct designs
+    /// in a pack whose whole point is the distinction.
+    #[test]
+    fn study_types_are_never_merged_by_an_alias() {
+        for slug in ["expert-opinion-or-review", "preclinical-or-in-vitro"] {
+            assert!(
+                serde_json::from_str::<StudyType>(&format!("\"{slug}\"")).is_err(),
+                "{slug} must not name a study type"
+            );
+        }
+        assert_eq!(
+            serde_json::from_str::<StudyType>("\"expert-opinion\"").unwrap(),
+            StudyType::ExpertOpinion
+        );
+        assert_eq!(
+            serde_json::from_str::<StudyType>("\"in-vitro\"").unwrap(),
+            StudyType::InVitro
+        );
+        let rule = grade_study(StudyType::ExpertOpinion, &StudyMetadata::default());
+        assert_eq!(rule.rule_id, "bio.grade.expert-opinion.v1");
+        assert_eq!(rule.tier, EvidenceTier::Level5);
+        assert_ne!(
+            rule.rule_id,
+            grade_study(StudyType::InVitro, &StudyMetadata::default()).rule_id
+        );
+
+        // Expert opinion is never clinical evidence, even for human subjects.
+        let human = StudyMetadata {
+            human_clinical: true,
+            ..StudyMetadata::default()
+        };
+        let opinion = item(StudyType::ExpertOpinion, human.clone(), "opinion");
+        assert!(!opinion.is_clinical());
+        let packet = bio_evidence(
+            "Question",
+            vec![opinion],
+            mandatory_not_medical_advice_notice(),
+        )
+        .unwrap();
+        assert!(packet.clinical_evidence.is_empty());
+        assert!(packet.abstention.is_some());
+    }
+
+    /// #3300 review: a meta-analysis of animal studies went into
+    /// `preclinical_evidence` graded `Level1A`, and `validate()` accepted it.
+    #[test]
+    fn a_study_that_is_not_human_clinical_is_never_graded_above_level_5() {
+        let not_human = StudyMetadata::default();
+        for study_type in [
+            StudyType::MetaAnalysis,
+            StudyType::SystematicReview,
+            StudyType::RandomizedControlledTrial,
+            StudyType::CohortStudy,
+            StudyType::CaseControl,
+            StudyType::CaseReport,
+        ] {
+            let rule = grade_study(study_type, &not_human);
+            assert_eq!(rule.tier, EvidenceTier::Level5, "{study_type:?}");
+            assert_eq!(rule.rule_id, NON_HUMAN_CAP_RULE_ID);
+            assert!(rule
+                .matched_signals
+                .iter()
+                .any(|s| s.starts_with("scope:non-human-capped-from:bio.grade.")));
+        }
+        let animal_meta = item(StudyType::MetaAnalysis, not_human.clone(), "animal-meta");
+        assert_eq!(animal_meta.tier, EvidenceTier::Level5);
+        assert!(!animal_meta.is_clinical());
+        let packet = bio_evidence(
+            "Question",
+            vec![animal_meta.clone()],
+            mandatory_not_medical_advice_notice(),
+        )
+        .unwrap();
+        assert_eq!(packet.preclinical_evidence.len(), 1);
+        assert!(packet
+            .preclinical_evidence
+            .iter()
+            .all(|i| i.tier == EvidenceTier::Level5));
+        assert_eq!(packet.highest_clinical_tier, None);
+
+        // The same design with human subjects keeps its grade.
+        assert_eq!(
+            grade_study(
+                StudyType::MetaAnalysis,
+                &StudyMetadata {
+                    human_clinical: true,
+                    ..StudyMetadata::default()
+                }
+            )
+            .tier,
+            EvidenceTier::Level1A
+        );
+
+        // A hand-edited item cannot claim Level1A for a non-human study.
+        let mut forged = animal_meta;
+        forged.tier = EvidenceTier::Level1A;
+        forged.grade_rule.tier = EvidenceTier::Level1A;
+        forged.grade_rule.rule_id = "bio.grade.meta-analysis.v1".into();
+        assert!(bio_evidence(
+            "Question",
+            vec![forged],
+            mandatory_not_medical_advice_notice()
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn pinned_citation_equality_comes_from_its_own_derive() {
+        let a = citation();
+        let mut b = citation();
+        assert_eq!(a, b);
+        b.span_sha256.push('0');
+        assert_ne!(a, b);
     }
 }
