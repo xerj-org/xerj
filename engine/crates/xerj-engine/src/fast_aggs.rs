@@ -2978,23 +2978,15 @@ impl<'a> FastCtx<'a> {
             Some(n) => Some(n),
             None => Some(10),
         };
-        // `search.max_buckets` (issue #121). `size`/`cap` above only trims the
-        // OUTPUT; the term MAP itself was previously unbounded, so a terms agg
-        // over a high-cardinality field materialised every distinct term on the
-        // columnar path while the brute `run_terms` stopped at `max_buckets` —
-        // the exact OOM vector the cap exists to close, honoured on brute and
-        // ignored here.
-        //
-        // We do NOT enforce the cap by truncating the map, and we do not
-        // decide the over-cap answer here either: we BAIL to brute the moment
-        // the distinct count would exceed the cap (checked below as the map
-        // grows, so the map is bounded to ~`bucket_cap`). Brute `run_terms`
-        // then answers with the 400 too_many_buckets it raises past the cap
-        // (#3362; it used to keep the first `max_buckets` keys and drop the
-        // rest silently). Bailing keeps one owner of the over-cap contract,
-        // so the two paths AGREE past the cap by construction (the same shape
-        // as the #104 / #120 bail-to-brute fallbacks). An index whose distinct
-        // count is at or under the cap is served here as before.
+        // `search.max_buckets` caps the buckets this agg RETURNS, not the
+        // distinct keys it counts (#3362 regression from #3383). ES collects
+        // every key and applies the limit in its final reduce, one count per
+        // bucket that survives the top-`size` cut. So the term map counts every
+        // key in the field (it is bounded by the segment dictionaries this
+        // pass already holds), and only a result that keeps more than
+        // `bucket_cap` buckets is refused: that case bails to brute
+        // `run_terms`, which owns the too_many_buckets answer, so the two paths
+        // agree by construction (the #104 / #120 bail shape).
         let bucket_cap = crate::aggs::max_buckets();
 
         let plan = self.plan_subs(sub, true)?;
@@ -3072,12 +3064,6 @@ impl<'a> FastCtx<'a> {
                         }
                     }
                 }
-                // Over `search.max_buckets` distinct terms → bail to brute (see
-                // the `bucket_cap` note above). Checked per segment so the map
-                // never grows more than one segment's dictionary past the cap.
-                if terms_map.len() > bucket_cap {
-                    return None;
-                }
                 continue;
             }
             // Row pass: per-ord local accumulators, then merged by term.
@@ -3153,11 +3139,6 @@ impl<'a> FastCtx<'a> {
                         push_top(&mut st.top, spec.k, spec.desc, e.0, e.1, e.2);
                     }
                 }
-            }
-            // Same cap bail as the `!has_row_work` arm above, after this
-            // segment's terms have merged in.
-            if terms_map.len() > bucket_cap {
-                return None;
             }
         }
 
@@ -3252,14 +3233,6 @@ impl<'a> FastCtx<'a> {
             }
         }
 
-        // Final cap check: the memtable may have introduced terms absent from
-        // every segment. Past `search.max_buckets` distinct terms, bail to
-        // brute (see the `bucket_cap` note above) rather than returning a
-        // fast-path answer the brute cap would never have produced.
-        if terms_map.len() > bucket_cap {
-            return None;
-        }
-
         if plan.top_hits.is_some() && missing_sort_seen {
             // A bucket doc without the sort value would need brute
             // missing-last + _id tie-breaking — bail for exactness.
@@ -3293,6 +3266,11 @@ impl<'a> FastCtx<'a> {
             shard_size_param,
             min_doc_count,
         );
+        // More buckets kept than `search.max_buckets` allows: brute answers
+        // with the too_many_buckets error (see the `bucket_cap` note above).
+        if candidates.len() > bucket_cap {
+            return None;
+        }
 
         let mut buckets: Vec<Value> = Vec::with_capacity(candidates.len());
         for (key, st) in candidates {
