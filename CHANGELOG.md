@@ -86,6 +86,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`_forcemerge` respects the process memory cap and survives a dropped
+  client (#2917).** A forced merge was exempt from every memory rule. It now
+  waits out an engaged breaker before it starts, stops (inputs kept) when RSS
+  reaches the process limit or before an input decode that would reach it,
+  and its output write is refused when it would end past the watermark. After
+  two retries it answers HTTP 429 `circuit_breaking_exception` with the
+  numbers, and the index keeps every segment and document. A dropped client
+  no longer cancels the merge half way, leaving an unpublished output on
+  disk: like Elasticsearch, the merge continues and completes. The merge also
+  holds less: the "never worse" LZ4 check sizes a large input chunk by chunk
+  instead of compressing all of it (about 0.6x the merged JSON), the survivor
+  scan borrows each input's rows instead of copying them, and the
+  publish-time warm charges its decode's transient. Measured on 84,600 docs
+  with a 1024-d `dense_vector` (736 MB, 9 segments, load 1-30): peak RSS
+  during `_forcemerge` 4,751 / 4,919 MB before, 4,204 / 4,285 MB after at an
+  8 GiB cap; at a 4 GiB cap main peaked at 4,248 MB (past the cap) and now
+  answers 429 at 4,014 MB; at 5 GiB both complete, peak 4,192 MB before and
+  3,484-4,620 MB after.
+
 - **Every node a client starts now leads its own session (#3267).** The hub's
   pack node, background `xerj hub pull`s and the server `xerj brain` boots
   were only put in their own process group, so they stayed in the

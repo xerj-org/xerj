@@ -1292,7 +1292,17 @@ impl ResourceGovernor {
     /// [`Self::merge_must_yield`] for a batch of `input_bytes`: after a
     /// streak of yields a small batch completes, so compaction cannot stall
     /// for good. See `merge_budget::merge_must_yield_after`.
+    ///
+    /// A `forced` batch (`_forcemerge`) follows
+    /// `merge_budget::forced_merge_must_yield` instead (#2917): it stops when
+    /// live process memory reaches the process limit.
     pub fn merge_must_yield_for(&self, forced: bool, input_bytes: u64) -> bool {
+        if forced {
+            return crate::merge_budget::forced_merge_must_yield(
+                self.observed_process_memory(),
+                self.memory_limit_bytes,
+            );
+        }
         let streak = self
             .merge_ledger
             .lock()
@@ -1316,6 +1326,29 @@ impl ResourceGovernor {
         ledger.pressure_cap =
             crate::merge_budget::pressure_cap_after_yield(ledger.pressure_cap, input_bytes);
         ledger.yield_streak = ledger.yield_streak.saturating_add(1);
+        ledger.pressure_cap
+    }
+
+    /// Whether a `_forcemerge` batch must stop before decoding an input of
+    /// `decoded_bytes` stored rows (#2917). See
+    /// `merge_budget::forced_merge_decode_must_yield`.
+    pub fn forced_merge_decode_must_yield(&self, decoded_bytes: u64) -> bool {
+        crate::merge_budget::forced_merge_decode_must_yield(
+            self.observed_process_memory(),
+            self.memory_limit_bytes,
+            decoded_bytes,
+        )
+    }
+
+    /// Record a `_forcemerge` batch of `input_bytes` that stopped at the
+    /// process limit (#2917): the next batches, forced or background, are
+    /// planned under half of it. Unlike [`Self::note_merge_yield`] this does
+    /// not extend the background yield streak, so a forced yield never
+    /// waives a background batch's yield (#2468).
+    pub fn note_forced_merge_yield(&self, input_bytes: u64) -> u64 {
+        let mut ledger = self.merge_ledger.lock().unwrap_or_else(|e| e.into_inner());
+        ledger.pressure_cap =
+            crate::merge_budget::pressure_cap_after_yield(ledger.pressure_cap, input_bytes);
         ledger.pressure_cap
     }
 
@@ -1407,7 +1440,7 @@ impl ResourceGovernor {
             input_bytes,
             streak,
         );
-        if !crate::merge_budget::decide_merge_write(observed, line, extra, forced, exempt) {
+        if !crate::merge_budget::decide_merge_write(observed, line, extra, exempt) {
             return false;
         }
         if let Some(reservation) = reservation {
@@ -5257,15 +5290,21 @@ mod tests {
         assert_eq!(g.merges_in_flight(), 0);
         assert_eq!(g.merge_reserved_bytes(), 0);
 
-        // Breaker engaged: no background merge, a forced one may run alone.
+        // Not engaged: a lone forced merge starts whatever its estimate
+        // (#2917: the live checks hold the cap), not beside a full ledger.
+        let forced = g
+            .try_reserve_merge(wm, true)
+            .expect("forcemerge starts alone");
+        assert!(g.try_reserve_merge(1, true).is_none());
+        drop(forced);
+
+        // Breaker engaged: no background merge, and since #2917 no forced
+        // one either; `Index::force_merge` waits for the drain, bounded.
         g.refresh(0, wm, 0);
         assert!(g.memory_breaker_engaged());
         assert!(g.try_reserve_merge(1, false).is_none());
-        let forced = g
-            .try_reserve_merge(1, true)
-            .expect("forcemerge progresses alone");
         assert!(g.try_reserve_merge(1, true).is_none());
-        drop(forced);
+        assert_eq!(g.merges_in_flight(), 0);
     }
 
     /// #2427: a batch whose side-cars dwarf its segment file reserves on its
@@ -5334,11 +5373,17 @@ mod tests {
         assert!(wm >= g.merge_pool_ceiling_bytes());
         assert!(g.merge_must_yield(false));
         assert!(!g.merge_must_yield(true));
-        // Engaged at the limit: the same.
+        // #2917: a forced batch keeps running between the watermark and the
+        // process limit, where the breaker drains caches...
+        assert!(!g.merge_must_yield_for(true, 0));
+        // Engaged at the limit: the same for the background rule...
         g.refresh(0, limit, 0);
         assert!(g.memory_breaker_engaged());
         assert!(g.merge_must_yield(false));
         assert!(!g.merge_must_yield(true));
+        // ...but a forced batch stops at the limit itself (#2917).
+        assert!(g.merge_must_yield_for(true, 0));
+        assert!(!g.merge_write_exempt(true, 0));
 
         assert_eq!(g.merge_pressure_cap_bytes(), 0);
         assert_eq!(g.note_merge_yield(66 * MIB), 33 * MIB);
@@ -5514,11 +5559,21 @@ mod tests {
         // No reservation (no governor at launch): only the decision.
         assert!(!g.admit_merge_write(None, 0, too_big, false, false));
         assert!(g.admit_merge_write(None, 0, 1, false, false));
-        // A #2468 streak-exempt batch and `_forcemerge` still write.
+        // A #2468 streak-exempt batch still writes.
         assert!(g.admit_merge_write(None, 0, too_big, false, true));
-        assert!(g.admit_merge_write(Some(&mut reservation), held, too_big, true, false));
-        assert_eq!(reservation.bytes(), held + too_big);
-        assert_eq!(g.merge_reserved_bytes(), held + too_big);
+        // #2917: `_forcemerge` is refused too, against the hard line (the
+        // limit capped at the watermark), and the ledger does not change...
+        assert!(!g.admit_merge_write(Some(&mut reservation), held, too_big, true, false));
+        assert_eq!(reservation.bytes(), held + extra);
+        assert_eq!(g.merge_reserved_bytes(), before);
+        // ...but it may use the read reserve under that line.
+        let into_reserve = g.merge_pool_ceiling_bytes() - wm / 2 + 1;
+        assert!(wm / 2 + into_reserve < wm);
+        assert!(g.admit_merge_write(None, 0, into_reserve, true, false));
+        assert!(!g.admit_merge_write(None, 0, into_reserve, false, false));
+        assert!(g.admit_merge_write(Some(&mut reservation), held, extra + 1, true, false));
+        assert_eq!(reservation.bytes(), held + extra + 1);
+        assert_eq!(g.merge_reserved_bytes(), held + extra + 1);
 
         drop(reservation);
         assert_eq!(g.merge_reserved_bytes(), 0);
@@ -5616,7 +5671,18 @@ mod tests {
         assert!(!g.merge_must_yield_for(false, small));
         assert!(g.merge_write_exempt(false, small));
         let exempt = g.merge_write_exempt(false, small);
-        let mut reservation = g.try_reserve_merge(small, true).expect("forced admission");
+        // A reservation taken before the breaker engaged (#2917: a forced
+        // admission no longer bypasses an engaged breaker).
+        let mut reservation = {
+            let bytes = crate::merge_budget::merge_reservation_bytes(small, 0);
+            let mut ledger = g.merge_ledger.lock().unwrap();
+            ledger.reserved += bytes;
+            ledger.in_flight += 1;
+            MergeReservation {
+                ledger: Arc::clone(&g.merge_ledger),
+                bytes,
+            }
+        };
         let held = reservation.bytes();
         assert!(g.admit_merge_write(Some(&mut reservation), held, write, false, exempt));
         // The exempt write is still charged to the ledger.
@@ -5627,10 +5693,11 @@ mod tests {
         let exempt = g.merge_write_exempt(false, large);
         assert!(!g.admit_merge_write(None, large, write, false, exempt));
 
-        // `_forcemerge` is never stopped by either rule, so it needs no
-        // exemption; its write runs on `forced` alone.
+        // `_forcemerge` needs no exemption: the streak rules do not apply to
+        // it. Since #2917 its write is checked against the hard line, and
+        // with RSS already at the watermark it is refused.
         assert!(!g.merge_write_exempt(true, small));
-        assert!(g.admit_merge_write(None, small, write, true, false));
+        assert!(!g.admit_merge_write(None, small, write, true, false));
 
         // A completed batch resets the streak: no exemption again.
         g.note_merge_completed(small);

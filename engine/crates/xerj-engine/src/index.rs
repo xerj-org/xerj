@@ -217,14 +217,27 @@ fn stored_slices_bound(raw: &[u8], expect_docs: u64) -> u64 {
 /// #2427: whether a publish-time stored-slices warm whose retained size is
 /// at most `bound` may decode at all: the hydration cache must have room to
 /// keep it, and when the parent RSS watermark is armed (`rss_room` is the
-/// distance to it) keeping it must not carry the node over the watermark.
+/// distance to it) the decode must not carry the node over the watermark.
+///
+/// #2917: the RSS side charges the decode's transient, not only what it
+/// keeps. `decode_stored` holds every column's decompressed text and the
+/// reassembled rows at once, about twice the retained rows
+/// ([`PUBLISH_STORED_WARM_TRANSIENT_NUMERATOR`]). A warm checked on the
+/// retained size alone could still peak a node that far past the watermark
+/// right after a forcemerge.
 fn publish_stored_warm_fits(
     budget: &SegmentHydrationBudget,
     bound: u64,
     rss_room: Option<u64>,
 ) -> bool {
-    budget.has_headroom(bound) && rss_room.is_none_or(|room| bound < room)
+    budget.has_headroom(bound)
+        && rss_room
+            .is_none_or(|room| bound.saturating_mul(PUBLISH_STORED_WARM_TRANSIENT_NUMERATOR) < room)
 }
+
+/// Peak bytes of a publish-time stored decode per retained byte (#2917): the
+/// decompressed column texts plus the reassembled rows.
+const PUBLISH_STORED_WARM_TRANSIENT_NUMERATOR: u64 = 2;
 
 #[cfg(test)]
 thread_local! {
@@ -2831,8 +2844,12 @@ mod flush_publication_recovery_tests {
         let roomy = SegmentHydrationBudget::new(u64::MAX);
         let full = SegmentHydrationBudget::new(0);
         assert!(publish_stored_warm_fits(&roomy, 100, None), "watermark off");
-        assert!(publish_stored_warm_fits(&roomy, 100, Some(101)));
+        // #2917: the decode's transient (2x the retained rows) must fit.
+        assert!(publish_stored_warm_fits(&roomy, 100, Some(201)));
+        assert!(!publish_stored_warm_fits(&roomy, 100, Some(200)));
+        assert!(!publish_stored_warm_fits(&roomy, 100, Some(101)));
         assert!(!publish_stored_warm_fits(&roomy, 100, Some(100)));
+        assert!(!publish_stored_warm_fits(&roomy, u64::MAX, Some(u64::MAX)));
         assert!(!publish_stored_warm_fits(&roomy, 100, Some(0)));
         assert!(!publish_stored_warm_fits(&full, 100, None), "no cache room");
     }
@@ -12573,6 +12590,11 @@ pub struct Index {
     /// cross the memory watermark (#1122). The debounced check retries;
     /// a pass that merges everything leaves this false.
     merge_batches_deferred: std::sync::atomic::AtomicBool,
+    /// Batches of the pass that just finished that stopped under memory
+    /// pressure (#2427 yield, or the #2917 forced-merge limit). Read by
+    /// `force_merge`, which retries and then reports a 429 instead of
+    /// looping on a batch that cannot fit.
+    merge_last_pass_yields: std::sync::atomic::AtomicUsize,
 }
 
 /// Keeps one index's schema unavailable to statistics until dropped.
@@ -13022,6 +13044,7 @@ impl Index {
             merge_evaluations: AtomicU64::new(0),
             merge_fts_reanalysed_docs: Arc::new(AtomicU64::new(0)),
             merge_batches_deferred: std::sync::atomic::AtomicBool::new(false),
+            merge_last_pass_yields: std::sync::atomic::AtomicUsize::new(0),
             schema_persist_failures: AtomicU64::new(0),
             self_ref: std::sync::OnceLock::new(),
             cold_stored_warms: dashmap::DashMap::new(),
@@ -13508,6 +13531,7 @@ impl Index {
             merge_evaluations: AtomicU64::new(0),
             merge_fts_reanalysed_docs: Arc::new(AtomicU64::new(0)),
             merge_batches_deferred: std::sync::atomic::AtomicBool::new(false),
+            merge_last_pass_yields: std::sync::atomic::AtomicUsize::new(0),
             schema_persist_failures: AtomicU64::new(0),
             self_ref: std::sync::OnceLock::new(),
             cold_stored_warms: dashmap::DashMap::new(),
@@ -16028,7 +16052,32 @@ impl Index {
     /// memtable has been flushed, segments are merged to the target, and
     /// the size-tiered background policy selects no further work until
     /// new writes arrive.
+    ///
+    /// Memory (#2917): a forced batch is no longer exempt from the cap. It
+    /// waits out an engaged breaker before it starts, stops (inputs kept)
+    /// when RSS reaches the process limit, and its output write is refused
+    /// when it would end past the watermark. A stopped batch is retried
+    /// [`FORCE_MERGE_MEMORY_RETRIES`] times after the breaker releases; a
+    /// pass that cannot start for `force_merge_memory_wait()` is given up.
+    /// Either way this returns a `circuit_breaking_exception` (429) and the
+    /// index keeps every input segment.
+    ///
+    /// A dropped HTTP client does not cancel the merge: like Elasticsearch,
+    /// whose force-merge task is not cancellable, the work continues. The
+    /// HTTP handler runs this on its own task so a disconnect cannot drop
+    /// it half way (see `es_compat::forcemerge`).
     pub async fn force_merge(&self, max_num_segments: usize) -> Result<usize> {
+        self.force_merge_with_memory_wait(max_num_segments, force_merge_memory_wait())
+            .await
+    }
+
+    /// [`Self::force_merge`] with an explicit bound on how long a pass may
+    /// wait for memory headroom without merging anything (#2917).
+    pub async fn force_merge_with_memory_wait(
+        &self,
+        max_num_segments: usize,
+        memory_wait: std::time::Duration,
+    ) -> Result<usize> {
         use std::sync::atomic::Ordering as AtomicOrdering;
 
         let target = max_num_segments.max(1);
@@ -16055,19 +16104,50 @@ impl Index {
 
         let merge_start = std::time::Instant::now();
         let mut total = 0usize;
+        let mut memory_stops = 0usize;
+        let mut waiting_since: Option<std::time::Instant> = None;
         loop {
             let n = self.merge_pass_locked(Some(target)).await?;
             total += n;
             let seg_count = self.store.snapshot().segments.len();
-            // A small budget deferred every remaining batch. Waiting is
-            // not "already at `target`": the inputs are still there.
-            // The request timeout bounds the wait.
+            if n > 0 {
+                waiting_since = None;
+            }
+            // #2917: a batch stopped at the process limit. Wait for the
+            // breaker's drain and retry; past the retries, report it.
+            if self.merge_last_pass_yields.load(AtomicOrdering::Relaxed) > 0 && seg_count > target {
+                memory_stops += 1;
+                if memory_stops > FORCE_MERGE_MEMORY_RETRIES {
+                    return Err(force_merge_memory_refusal(
+                        self.name.as_str(),
+                        seg_count,
+                        target,
+                        "a merge batch stopped at the process memory limit",
+                        memory_stops,
+                    ));
+                }
+                wait_for_breaker_release(memory_wait).await;
+                continue;
+            }
+            // A small budget, or an engaged breaker (#2917), deferred every
+            // remaining batch. Waiting is not "already at `target`": the
+            // inputs are still there. Bounded by `memory_wait`.
             if n == 0
                 && seg_count > target
                 && self
                     .merge_batches_deferred
                     .load(std::sync::atomic::Ordering::Relaxed)
             {
+                let since = *waiting_since.get_or_insert_with(std::time::Instant::now);
+                if since.elapsed() >= memory_wait {
+                    return Err(force_merge_memory_refusal(
+                        self.name.as_str(),
+                        seg_count,
+                        target,
+                        "no merge batch could start inside the memory budget",
+                        memory_stops,
+                    ));
+                }
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 continue;
             }
@@ -16183,6 +16263,8 @@ impl Index {
         self.merge_evaluations.fetch_add(1, AtomicOrdering::Relaxed);
         self.merge_batches_deferred
             .store(false, AtomicOrdering::Relaxed);
+        self.merge_last_pass_yields
+            .store(0, AtomicOrdering::Relaxed);
 
         // V4 M4.5 — larger merge batches so a bursty-ingest index with
         // thousands of small segments converges in far fewer passes.
@@ -16533,6 +16615,20 @@ impl Index {
                 if !governor.merge_must_yield_for(forced_for_task, input_bytes_for_task) {
                     return false;
                 }
+                if forced_for_task {
+                    // #2917: a forcemerge batch stops at the process limit
+                    // instead of growing past it.
+                    let cap = governor.note_forced_merge_yield(input_bytes_for_task);
+                    tracing::warn!(
+                        input_mb = input_bytes_for_task / (1024 * 1024),
+                        rss_mb = governor.observed_rss_bytes() / (1024 * 1024),
+                        limit_mb = governor.process_memory_limit_bytes() / (1024 * 1024),
+                        next_batch_cap_mb = cap / (1024 * 1024),
+                        "forcemerge batch stopped: RSS reached the process memory limit; \
+                         inputs kept, later batches narrowed"
+                    );
+                    return true;
+                }
                 let cap = governor.note_merge_yield(input_bytes_for_task);
                 tracing::warn!(
                     input_mb = input_bytes_for_task / (1024 * 1024),
@@ -16574,7 +16670,11 @@ impl Index {
                 ) {
                     return true;
                 }
-                let cap = governor.note_merge_yield(input_bytes_for_task);
+                let cap = if forced_for_task {
+                    governor.note_forced_merge_yield(input_bytes_for_task)
+                } else {
+                    governor.note_merge_yield(input_bytes_for_task)
+                };
                 tracing::warn!(
                     input_mb = input_bytes_for_task / (1024 * 1024),
                     write_mb = extra / (1024 * 1024),
@@ -16924,6 +17024,29 @@ impl Index {
                                 return None;
                             }
                         };
+                        // #2917: a forcemerge batch stops before an input
+                        // decode that would take RSS to the process limit.
+                        // The decode is one call, so the checkpoints around
+                        // it cannot catch its peak.
+                        if forced_for_task {
+                            let decoded_bound = stored_slices_bound(stored_bytes_raw, meta.doc_count);
+                            if let Some(governor) = crate::governor::global() {
+                                if governor.forced_merge_decode_must_yield(decoded_bound) {
+                                    let cap = governor.note_forced_merge_yield(input_bytes_for_task);
+                                    tracing::warn!(
+                                        input_mb = input_bytes_for_task / (1024 * 1024),
+                                        decode_mb = decoded_bound / (1024 * 1024),
+                                        rss_mb = governor.observed_rss_bytes() / (1024 * 1024),
+                                        limit_mb = governor.process_memory_limit_bytes() / (1024 * 1024),
+                                        next_batch_cap_mb = cap / (1024 * 1024),
+                                        "forcemerge batch stopped before an input decode that would \
+                                         reach the process memory limit; inputs kept"
+                                    );
+                                    yielded_for_task.fetch_add(1, Ordering::Relaxed);
+                                    return None;
+                                }
+                            }
+                        }
                         let stored_bytes =
                             // #1122/#2433: keep stripped semantic vectors
                                 // stripped (the merged encode would only
@@ -16964,7 +17087,12 @@ impl Index {
                         //
                         // Bonus: serde_json takes `&[u8]` immutably so we don't
                         // need the `.to_vec()` the simd_json path required.
-                        let raw_docs: Vec<Box<RawValue>> =
+                        //
+                        // #2917: borrowed `&RawValue`s, not `Box<RawValue>`.
+                        // A box copied every document, so each input was held
+                        // twice (decoded bytes + one copy per row) for its whole
+                        // survivor scan; the scan only reads the text.
+                        let raw_docs: Vec<&RawValue> =
                             match serde_json::from_slice(&stored_bytes) {
                                 Ok(d) => d,
                                 Err(e) => {
@@ -17256,10 +17384,26 @@ impl Index {
                         let held = json_bytes
                             .saturating_add(fts_bytes)
                             .saturating_add(merge_reader_bytes);
-                        let extra = crate::merge_budget::merge_write_phase_bytes(
-                            json_bytes,
-                            write_fts_bytes,
-                        );
+                        // #2917: a forcemerge write charges its array/object
+                        // rows at the streamed encode's measured cost and is
+                        // checked against the hard line; a background write
+                        // keeps the #2427 rule.
+                        let extra = if forced_for_task {
+                            let row_text = xerj_storage::stored_codec::stored_json_row_text_bytes(
+                                &merged_json_buf,
+                            )
+                            .unwrap_or(0);
+                            crate::merge_budget::forced_merge_write_phase_bytes(
+                                json_bytes,
+                                row_text,
+                                write_fts_bytes,
+                            )
+                        } else {
+                            crate::merge_budget::merge_write_phase_bytes(
+                                json_bytes,
+                                write_fts_bytes,
+                            )
+                        };
                         if !admit_write(reservation_for_encode.as_mut(), held, extra) {
                             yielded_for_task.fetch_add(1, Ordering::Relaxed);
                             return None;
@@ -17985,6 +18129,8 @@ impl Index {
             launch_next!();
         }
         let yielded = yielded_batches.load(AtomicOrdering::Relaxed);
+        self.merge_last_pass_yields
+            .store(yielded, AtomicOrdering::Relaxed);
         if yielded > 0 {
             self.merge_batches_deferred
                 .store(true, AtomicOrdering::Relaxed);
@@ -59357,6 +59503,68 @@ fn publish_prepublication<T>(
             Some(resident)
         }
     }
+}
+
+/// Times a `_forcemerge` retries after one of its batches stopped at the
+/// process memory limit before it reports a 429 (#2917). A retry runs after
+/// the breaker's drain released caches, under the halved batch cap.
+pub const FORCE_MERGE_MEMORY_RETRIES: usize = 2;
+
+/// Default bound on how long a `_forcemerge` pass waits for memory headroom
+/// without merging anything (#2917).
+pub const FORCE_MERGE_MEMORY_WAIT_DEFAULT: std::time::Duration =
+    std::time::Duration::from_secs(300);
+
+/// [`FORCE_MERGE_MEMORY_WAIT_DEFAULT`], or `XERJ_FORCEMERGE_MEMORY_WAIT_SECS`.
+fn force_merge_memory_wait() -> std::time::Duration {
+    std::env::var("XERJ_FORCEMERGE_MEMORY_WAIT_SECS")
+        .ok()
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .map(std::time::Duration::from_secs)
+        .unwrap_or(FORCE_MERGE_MEMORY_WAIT_DEFAULT)
+}
+
+/// Wait, at most `bound`, for the parent memory breaker to release.
+async fn wait_for_breaker_release(bound: std::time::Duration) {
+    let started = std::time::Instant::now();
+    loop {
+        let engaged = crate::governor::global().is_some_and(|g| g.memory_breaker_engaged());
+        if !engaged || started.elapsed() >= bound {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+}
+
+/// The 429 a `_forcemerge` returns when the memory budget refused it
+/// (#2917). The reason reads like the parent breaker's, with the numbers.
+fn force_merge_memory_refusal(
+    index: &str,
+    segments: usize,
+    target: usize,
+    what: &str,
+    stops: usize,
+) -> EngineError {
+    const MIB: u64 = 1024 * 1024;
+    let (rss, limit, watermark) = crate::governor::global()
+        .map(|g| {
+            (
+                g.observed_rss_bytes(),
+                g.process_memory_limit_bytes(),
+                g.memory_watermark_bytes(),
+            )
+        })
+        .unwrap_or((0, 0, 0));
+    EngineError::Common(xerj_common::XerjError::circuit_breaking(format!(
+        "[parent] forcemerge of [{index}] refused to protect the memory limit: {what} \
+         (batches stopped: {stops}); rss={}MB, watermark={}MB, limit={}MB; the index keeps \
+         {segments} segments (target {target}) and no document was changed; retry when \
+         the node has more headroom, or raise limits.max_process_memory_mb / \
+         XERJ_MAX_PROCESS_MEMORY_MB",
+        rss / MIB,
+        watermark / MIB,
+        limit / MIB,
+    )))
 }
 
 /// Warm one just-written segment's read-path caches OUTSIDE the query

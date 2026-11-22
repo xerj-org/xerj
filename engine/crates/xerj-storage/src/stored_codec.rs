@@ -505,6 +505,16 @@ pub fn encode_stored_v2_forcemerge_at_level(stored_docs_json: &[u8], level: i32)
     encode_stored_v2_at_level_inner(stored_docs_json, level, Some(RAW_LONG_LEVEL))
 }
 
+/// Bytes of the merged stored JSON whose `_source` values are arrays or
+/// objects (#2917). The columnar encode keeps those as row text and streams
+/// large columns into zstd, so they cost far less to encode than scalar
+/// fields, which are parsed into `serde_json::Value`s. Merge admission uses
+/// the split to charge a `_forcemerge` write. `None` = shape not handled
+/// (the caller charges everything as scalar).
+pub fn stored_json_row_text_bytes(stored_docs_json: &[u8]) -> Option<u64> {
+    lazy_columns::row_text_bytes(stored_docs_json)
+}
+
 fn encode_stored_v2_at_level_inner(
     stored_docs_json: &[u8],
     level: i32,
@@ -1138,14 +1148,59 @@ fn encode_v2_columns_with_json(
 
     // If v1 LZ4 would have been smaller, use it instead.  This is the
     // "never make things worse" safety net that mirrors cz's per-column
-    // best-of-codec picker.
+    // best-of-codec picker.  #2917: a large input is first sized chunk by
+    // chunk (`v1_lz4_may_be_smaller`), so the whole v1 blob is only built
+    // when it could win; on a 723 MB force-merge input it was a ~420 MB
+    // allocation beside a 230 MB columnar blob, every time, to be dropped.
     if let Some(json) = stored_docs_json {
-        let v1 = encode_stored_lz4(json);
-        if v1.len() < out.len() {
-            return v1;
+        if v1_lz4_may_be_smaller(json, out.len()) {
+            let v1 = encode_stored_lz4(json);
+            if v1.len() < out.len() {
+                return v1;
+            }
         }
     }
     out
+}
+
+/// Input chunk the v1 "never worse" check sizes LZ4 in (#2917). LZ4's match
+/// window is 64 KiB, so a 4 MiB chunk loses at most a few percent of the
+/// matches a single block finds, and the check holds one ~4 MiB output
+/// buffer instead of a copy of the whole compressed input.
+const V1_LZ4_CHECK_CHUNK: usize = 4 * 1024 * 1024;
+
+/// Whether the v1 LZ4 blob of `json` (`encode_stored_lz4`) could be smaller
+/// than a `columnar_len`-byte columnar blob (#2917).
+///
+/// `true` means "build it and compare exactly", as before. `false` only when
+/// chunked LZ4 sizes show it cannot win: the summed chunk sizes, less a
+/// generous allowance for the matches chunking loses (128 KiB per chunk,
+/// twice the LZ4 window, plus 1/16 of the total), still reach
+/// `columnar_len`. Inputs of one chunk or less always compare exactly, so
+/// flush-sized sections keep the old check byte for byte. Stops as soon as
+/// the running sum settles it.
+fn v1_lz4_may_be_smaller(json: &[u8], columnar_len: usize) -> bool {
+    if json.len() <= V1_LZ4_CHECK_CHUNK {
+        return true;
+    }
+    const PER_CHUNK_SLACK: u64 = 128 * 1024;
+    let chunks = json.len().div_ceil(V1_LZ4_CHECK_CHUNK) as u64;
+    let fixed_slack = chunks.saturating_mul(PER_CHUNK_SLACK);
+    let target = columnar_len as u64;
+    let mut buf = vec![0u8; lz4_flex::block::get_maximum_output_size(V1_LZ4_CHECK_CHUNK)];
+    // 8 = the v1 header (`encode_stored_lz4`).
+    let mut sized: u64 = 8;
+    for chunk in json.chunks(V1_LZ4_CHECK_CHUNK) {
+        let Ok(written) = lz4_flex::block::compress_into(chunk, &mut buf) else {
+            return true;
+        };
+        sized = sized.saturating_add(written as u64);
+        let lower_bound = (sized - sized / 16).saturating_sub(fixed_slack);
+        if lower_bound >= target {
+            return false;
+        }
+    }
+    true
 }
 
 /// Wrap a freshly-encoded ZBS2 blob with a sparse present-null sidecar
@@ -4125,6 +4180,44 @@ fn read_zigzag_i64(data: &[u8], pos: &mut usize) -> Result<i64> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// #2917: the chunked sizing of the v1 "never worse" check only skips
+    /// the full LZ4 build when the exact comparison would have kept the
+    /// columnar blob too, and always compares exactly at one chunk or less.
+    #[test]
+    fn v1_lz4_check_skips_only_when_v1_cannot_win_2917() {
+        // Poorly compressible JSON-ish bytes (vector-row shape): LZ4 output
+        // is a large fraction of the input.
+        let mut state: u64 = 0x9E37_79B9_7F4A_7C15;
+        let mut input = Vec::with_capacity(12 * 1024 * 1024);
+        input.push(b'[');
+        while input.len() < 12 * 1024 * 1024 {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            input.extend_from_slice(
+                format!("{:.6},", (state % 2_000_000) as f64 / 1e6 - 1.0).as_bytes(),
+            );
+        }
+        input.push(b']');
+        let exact = encode_stored_lz4(&input).len();
+        // A columnar blob far smaller than v1: skipped, and exact agrees.
+        let small = exact / 2;
+        assert!(!v1_lz4_may_be_smaller(&input, small));
+        assert!(exact >= small);
+        // A columnar blob larger than v1: must compare exactly.
+        assert!(v1_lz4_may_be_smaller(&input, exact + 1));
+        assert!(v1_lz4_may_be_smaller(&input, exact * 2));
+        // Within the allowance of v1's size: compares exactly.
+        assert!(v1_lz4_may_be_smaller(&input, exact - exact / 64));
+        // One chunk or less: always exact, whatever the sizes.
+        let one_chunk = &input[..V1_LZ4_CHECK_CHUNK];
+        assert!(v1_lz4_may_be_smaller(one_chunk, 1));
+        // Highly compressible input: v1 is tiny, so it is always compared.
+        let repetitive = b"{\"a\":1},".repeat(2 * 1024 * 1024);
+        let exact = encode_stored_lz4(&repetitive).len();
+        assert!(v1_lz4_may_be_smaller(&repetitive, exact + 1));
+    }
 
     /// #2917: the in-place v1 encode writes the same bytes as the magic
     /// followed by `lz4_flex::compress_prepend_size`, the form it replaced.
