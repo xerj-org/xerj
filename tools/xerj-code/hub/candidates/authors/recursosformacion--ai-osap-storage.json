@@ -8,15 +8,15 @@
   {
    "repo": "AI_osap-storage",
    "url": "https://github.com/recursosformacion/AI_osap-storage",
-   "sha": "13e9cdfc2eeadc1851035264a34c91f4dcb51985",
-   "licence": "AGPL-3.0 (LICENSE file at pin 13e9cdfc2eea, GitHub licence API 2026-11-22)",
+   "sha": "057bc77cf31f7039c2c57b62688496d92d53b421",
+   "licence": "AGPL-3.0 (LICENSE file at pin 057bc77cf31f, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-22T12:02Z",
     "consent_receipt": "ee6b268e53c2",
-    "note": "Inclusion consented by the commit author by email at 2026-11-22T12:02Z (receipt ee6b268e53c2); selected commit 13e9cdfc2eea: \"5.7 prep: pipeline de obras con Gemini, lotes y aplicador con joins\". LICENSE file at pin 13e9cdfc2eea detected as AGPL-3.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head 13e9cdfc2eea (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-22T12:02Z (receipt ee6b268e53c2); selected commit 057bc77cf31f: \"5.7 prep: pipeline de obras con Gemini, lotes y aplicador con joins\". LICENSE file at pin 057bc77cf31f detected as AGPL-3.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head 057bc77cf31f (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

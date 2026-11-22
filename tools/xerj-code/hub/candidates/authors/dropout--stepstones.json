@@ -8,15 +8,15 @@
   {
    "repo": "stepstones",
    "url": "https://github.com/dropout/stepstones",
-   "sha": "1ac00e7bfd07aef299ba800e34633b686cacd3f5",
-   "licence": "GPL-3.0 (LICENSE file at pin 1ac00e7bfd07, GitHub licence API 2026-11-22)",
+   "sha": "3bf47ab875ae7cf04ee751c16472d44d027bfdbe",
+   "licence": "GPL-3.0 (LICENSE file at pin 3bf47ab875ae, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-11T19:57Z",
     "consent_receipt": "bcc07f3dcec1",
-    "note": "Inclusion consented by the commit author by email at 2026-11-11T19:57Z (receipt bcc07f3dcec1); selected commit 1ac00e7bfd07: \"fix: failing social and stats module tests\". LICENSE file at pin 1ac00e7bfd07 detected as GPL-3.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head 1ac00e7bfd07 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T19:57Z (receipt bcc07f3dcec1); selected commit 3bf47ab875ae: \"fix: failing social and stats module tests\". LICENSE file at pin 3bf47ab875ae detected as GPL-3.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head 3bf47ab875ae (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

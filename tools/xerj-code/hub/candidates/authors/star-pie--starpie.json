@@ -8,15 +8,15 @@
   {
    "repo": "StarPie",
    "url": "https://github.com/Star-Pie/StarPie",
-   "sha": "2a04e3fae0016cfd80fa9c01151b9d4bea486747",
-   "licence": "MIT (LICENSE file at pin 2a04e3fae001, GitHub licence API 2026-11-22)",
+   "sha": "6ef413b1c83d849e53931b013225617abb125ffa",
+   "licence": "MIT (LICENSE file at pin 6ef413b1c83d, GitHub licence API 2026-11-22)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-11T04:00Z",
     "consent_receipt": "701c86050d83",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T04:00Z (receipt 701c86050d83); selected commit 2a04e3fae001: \"fix(i18n): \u89c4\u8303\u5316\u89e6\u53d1\u952e\u5fbd\u7ae0\u3001\u5f55\u5236\u6309\u94ae\u72b6\u6001\u4e0e\u786c\u4ef6\u611f\u77e5\u5668\u56db\u8bed\u7cfb\u56fd\u9645\u5316\u53ca\u6309\u952e\u683c\u5f0f\u5316\". LICENSE file at pin 2a04e3fae001 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head 2a04e3fae001 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Star-Pie, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T04:00Z (receipt 701c86050d83); selected commit 6ef413b1c83d: \"fix(i18n): \u89c4\u8303\u5316\u89e6\u53d1\u952e\u5fbd\u7ae0\u3001\u5f55\u5236\u6309\u94ae\u72b6\u6001\u4e0e\u786c\u4ef6\u611f\u77e5\u5668\u56db\u8bed\u7cfb\u56fd\u9645\u5316\u53ca\u6309\u952e\u683c\u5f0f\u5316\". LICENSE file at pin 6ef413b1c83d detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head 6ef413b1c83d (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Star-Pie, who has not added it."
    },
    "paths": [
     "WinPieGestures"
