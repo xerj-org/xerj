@@ -1,9 +1,9 @@
 {
- "corpus": "fridalif--open-defender",
+ "corpus": "open-defender--open-defender",
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on Go queries this for how fridalif/open-defender implements it: Open Defender: open-source EDR agent for Linux servers with brute-force protection, eBPF monitoring, and security auditing (selected work: pkg/ebpfmonitors)",
+ "domain": "an agent working on Go queries this for how open-defender/open-defender implements it: Open Defender: open-source EDR agent for Linux servers with brute-force protection, eBPF monitoring, and security auditing (selected work: pkg/ebpfmonitors)",
  "repos": [
   {
    "repo": "open-defender",

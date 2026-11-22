@@ -1,0 +1,23 @@
+{
+ "corpus": "emmanuelkhisa--raven-pc-monitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on remote-access, remote-control, remote-desktop queries this for how Emmanuelkhisa/RAVEN_PC-Monitor implements it: RAVEN PC-Monitor: Get access to your window PC through Telegram on your android. Get Live Window screenshot sent to your phone, Record your  (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "RAVEN_PC-Monitor",
+   "url": "https://github.com/Emmanuelkhisa/RAVEN_PC-Monitor",
+   "sha": "875a1ecb42313276a4af258437b97fcb53c88f58",
+   "licence": "MIT (LICENSE file at pin 875a1ecb4231, GitHub licence API 2026-11-22)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-22T08:10Z",
+    "consent_receipt": "f873d0a38f53",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-22T08:10Z (receipt f873d0a38f53); selected commit 875a1ecb4231: \"Portability Added- Transfer to any PC with ease\". LICENSE file at pin 875a1ecb4231 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+   }
+  }
+ ]
+}

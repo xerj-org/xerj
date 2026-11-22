@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how NPavii/codesys-mcp implements it: MCP server for CODESYS V3 PLC development: project automation (POUs, build, libraries, alarms, online read/write/force) + CODESYS docs searc (selected work: bridge, the project root)",
+ "domain": "an agent working on automation, codesys, iec-61131-3 queries this for how NPavii/codesys-mcp implements it: CODESYS V3 automation through MCP: project editing, ST refactoring, PLC operations, and searchable engineering documentation (selected work: bridge, the project root)",
  "repos": [
   {
    "repo": "codesys-mcp-server",
