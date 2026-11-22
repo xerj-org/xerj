@@ -3440,6 +3440,12 @@ fn create_snapshot_inner(
         })
         .unwrap_or_default();
     let mut files = Vec::with_capacity(inventory.files.len());
+    // #3449: collect every surviving newly-written file in `staging` and sync
+    // them in one concurrent batch before `manifest.json`. Blobs that
+    // `release_prepared_blob` unlinks immediately after extraction are never
+    // synced; hardlinked files reused from a prior committed snapshot are
+    // already durable (their new dir entries are synced by `sync_dir` below).
+    let mut paths_to_sync: Vec<std::path::PathBuf> = Vec::new();
     // Entered only when there is work to report: a retry that reuses a verified
     // final snapshot returned above and never claims a phase it did not run.
     pr.phase("snapshot", inventory.files.len() as u64, source_bytes);
@@ -3542,20 +3548,24 @@ fn create_snapshot_inner(
                         })
                     }
                     _ => match assignment {
-                        Some(assignment) => Some(prepare_artifact(
-                            &staging,
-                            ordinal,
-                            tx_id,
-                            source,
-                            content_id,
-                            &destination,
-                            assignment,
-                            lookup.as_ref().expect("assignment implies a plan"),
-                            &mut budget,
-                            labeler,
-                            vector_dims,
-                            pr,
-                        )?),
+                        Some(assignment) => {
+                            let artifact = prepare_artifact(
+                                &staging,
+                                ordinal,
+                                tx_id,
+                                source,
+                                content_id,
+                                &destination,
+                                assignment,
+                                lookup.as_ref().expect("assignment implies a plan"),
+                                &mut budget,
+                                labeler,
+                                vector_dims,
+                                pr,
+                            )?;
+                            paths_to_sync.push(staging.join(&artifact.relative_ndjson));
+                            Some(artifact)
+                        }
                         None => None,
                     },
                 };
@@ -3576,7 +3586,7 @@ fn create_snapshot_inner(
                 // The error names the live source so the caller can drop that
                 // one file and seal the rest.
                 verify_live_source(source, content_digest)?;
-                if let Err(error) = copy_synced(&source.path, &destination, &mut budget) {
+                if let Err(error) = copy_staged_blob(&source.path, &destination, &mut budget) {
                     if verify_live_source(source, content_digest).is_err() {
                         return Err(source_changed(
                             &source.path,
@@ -3592,23 +3602,30 @@ fn create_snapshot_inner(
                 #[cfg(test)]
                 apply_post_seal_source_replacement(&source.path)?;
                 let prepared = match assignment {
-                    Some(assignment) => Some(prepare_artifact(
-                        &staging,
-                        ordinal,
-                        tx_id,
-                        source,
-                        content_id,
-                        &destination,
-                        assignment,
-                        lookup.as_ref().expect("assignment implies a plan"),
-                        &mut budget,
-                        labeler,
-                        vector_dims,
-                        pr,
-                    )?),
+                    Some(assignment) => {
+                        let artifact = prepare_artifact(
+                            &staging,
+                            ordinal,
+                            tx_id,
+                            source,
+                            content_id,
+                            &destination,
+                            assignment,
+                            lookup.as_ref().expect("assignment implies a plan"),
+                            &mut budget,
+                            labeler,
+                            vector_dims,
+                            pr,
+                        )?;
+                        paths_to_sync.push(staging.join(&artifact.relative_ndjson));
+                        Some(artifact)
+                    }
                     None => None,
                 };
                 let blob_released = release_prepared_blob(&destination, prepared.as_ref())?;
+                if !blob_released {
+                    paths_to_sync.push(destination);
+                }
                 files.push(SnapshotFile {
                     content_id: content_id.clone(),
                     content_digest: content_digest.clone(),
@@ -3657,6 +3674,19 @@ fn create_snapshot_inner(
         &footprint,
         &snapshot.files,
     )?;
+    // #3449: nothing reads files inside `.{tx_id}.partial` as durable before
+    // `manifest.json` and the atomic rename — a crash beforehand discards the
+    // whole staging dir. Flush every surviving newly-written file in one
+    // concurrent batch here so all bytes reach stable storage before the
+    // manifest is written.
+    snapshot_before_batch_sync_hook(state_dir, &staging, &paths_to_sync);
+    xerj_common::fsio::sync_paths_batch(&paths_to_sync).with_context(|| {
+        format!(
+            "sync {} staged snapshot file(s) in {}",
+            paths_to_sync.len(),
+            staging.display()
+        )
+    })?;
     write_synced_json(&staging.join("manifest.json"), &snapshot)?;
     sync_dir(&blobs)?;
     if plan.is_some() {
@@ -3671,12 +3701,14 @@ fn create_snapshot_inner(
     open_snapshot(state_dir, tx_id)
 }
 
-/// #2421: once a file's prepared artifact is durable (`prepare_artifact`
-/// fsyncs it before returning), its sealed blob has served its only purpose —
-/// a stable input for extraction — so it is unlinked from the staging dir
-/// before the manifest is written. The blob is a hardlink when reused, so this
-/// never touches the prior generation's copy. Files with nothing prepared
-/// (junk/skipped, or a plan-less snapshot) keep their blob.
+/// #2421 / #3449: once a file's prepared artifact has been written and flushed
+/// into the staging dir (to be batch-synced before `manifest.json`), its
+/// staged blob has served its only purpose — a stable input for extraction —
+/// so it is unlinked from the staging dir before the batch sync and manifest
+/// write. A crash before the `.partial` rename discards the whole staging dir.
+/// The blob is a hardlink when reused, so this never touches the prior
+/// generation's copy. Files with nothing prepared (junk/skipped, or a
+/// plan-less snapshot) keep their blob and have it synced in the batch.
 fn release_prepared_blob(destination: &Path, prepared: Option<&PreparedArtifact>) -> Result<bool> {
     if prepared.is_none() {
         return Ok(false);
@@ -4045,8 +4077,9 @@ fn prepare_artifact(
             xerj_common::document_limit::MAX_INDEXED_DOCUMENT_BYTES,
         ));
     }
+    // #3449: flush into the page cache; durability is enforced in one
+    // concurrent batch (`fsio::sync_paths_batch`) before `manifest.json`.
     writer.flush()?;
-    writer.inner.get_ref().sync_all()?;
     drop(writer);
     let bytes = std::fs::metadata(&path)?.len();
     Ok(PreparedArtifact {
@@ -4176,7 +4209,10 @@ fn validate_tx_id(tx_id: &str) -> Result<()> {
     Ok(())
 }
 
-fn copy_synced(source: &Path, destination: &Path, budget: &mut PayloadBudget) -> Result<()> {
+/// Copy `source` into `staging/blobs/` without per-file fsync (#3449).
+/// Surviving blobs (when `release_prepared_blob` does not unlink them) are
+/// synced in one concurrent batch before `manifest.json`.
+fn copy_staged_blob(source: &Path, destination: &Path, budget: &mut PayloadBudget) -> Result<()> {
     let mut input = File::open(source)?;
     let output = OpenOptions::new()
         .create_new(true)
@@ -4187,7 +4223,6 @@ fn copy_synced(source: &Path, destination: &Path, budget: &mut PayloadBudget) ->
         budget,
     };
     std::io::copy(&mut input, &mut output)?;
-    output.inner.sync_all()?;
     Ok(())
 }
 
@@ -4195,7 +4230,7 @@ fn write_synced_json(path: &Path, value: &impl Serialize) -> Result<()> {
     let mut file = OpenOptions::new().create_new(true).write(true).open(path)?;
     serde_json::to_writer(&mut file, value)?;
     file.write_all(b"\n")?;
-    file.sync_all()?;
+    xerj_common::fsio::sync_file_full(&file)?;
     Ok(())
 }
 
@@ -4310,6 +4345,57 @@ fn snapshot_source_hook(state_dir: &Path) {
 
 #[cfg(not(test))]
 fn snapshot_source_hook(_state_dir: &Path) {}
+
+/// Test-only: run once immediately before `fsio::sync_paths_batch`, keyed by
+/// `state_dir`, receiving the staging directory and the exact slice of paths
+/// scheduled for batch syncing (#3449).
+#[cfg(test)]
+type SnapshotBeforeBatchSyncHook = (
+    std::path::PathBuf,
+    Box<dyn FnOnce(&Path, &[std::path::PathBuf]) + Send>,
+);
+#[cfg(test)]
+static SNAPSHOT_BEFORE_BATCH_SYNC_HOOK: std::sync::Mutex<Option<SnapshotBeforeBatchSyncHook>> =
+    std::sync::Mutex::new(None);
+
+#[cfg(test)]
+fn arm_snapshot_before_batch_sync_hook(
+    state_dir: &Path,
+    action: impl FnOnce(&Path, &[std::path::PathBuf]) + Send + 'static,
+) {
+    *SNAPSHOT_BEFORE_BATCH_SYNC_HOOK
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner()) =
+        Some((state_dir.to_path_buf(), Box::new(action)));
+}
+
+#[cfg(test)]
+fn snapshot_before_batch_sync_hook(
+    state_dir: &Path,
+    staging: &Path,
+    paths_to_sync: &[std::path::PathBuf],
+) {
+    let action = {
+        let mut armed = SNAPSHOT_BEFORE_BATCH_SYNC_HOOK
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        match armed.as_ref() {
+            Some((dir, _)) if dir == state_dir => armed.take().map(|(_, action)| action),
+            _ => None,
+        }
+    };
+    if let Some(action) = action {
+        action(staging, paths_to_sync);
+    }
+}
+
+#[cfg(not(test))]
+fn snapshot_before_batch_sync_hook(
+    _state_dir: &Path,
+    _staging: &Path,
+    _paths_to_sync: &[std::path::PathBuf],
+) {
+}
 
 #[cfg(test)]
 fn fail_next_snapshot(boundary: u8) {
@@ -7625,6 +7711,424 @@ mod tests {
         let err = mget_sources(&dup).unwrap_err().to_string();
         assert!(err.contains("duplicate ID a"), "{err}");
     }
+
+    /// #3449: `sync_paths_batch` runs before `manifest.json` is written. If any
+    /// staged file — either a prepared artifact or a retained (unreleased)
+    /// blob — cannot be synced, sealing fails before `manifest.json` or the
+    /// final snapshot directory ever exists, and staging cleanup removes the
+    /// `.partial` directory.
+    #[test]
+    fn snapshot_seal_fails_before_manifest_if_staged_artifact_cannot_be_synced() {
+        let _guard = SNAPSHOT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        // Case 1: prepared snapshot — delete one staged prepared NDJSON right
+        // before batch sync.
+        {
+            let corpus = tempfile::tempdir().unwrap();
+            let state = tempfile::tempdir().unwrap();
+            std::fs::write(corpus.path().join("a.md"), "# A\n\nalpha\n").unwrap();
+            std::fs::write(corpus.path().join("b.md"), "# B\n\nbravo\n").unwrap();
+            let inv = inventory(corpus.path());
+            let plan = plan_for_all(&inv);
+            let saw_manifest_before_sync =
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let flag = std::sync::Arc::clone(&saw_manifest_before_sync);
+            arm_snapshot_before_batch_sync_hook(state.path(), move |staging, paths| {
+                flag.store(
+                    staging.join("manifest.json").exists(),
+                    std::sync::atomic::Ordering::SeqCst,
+                );
+                assert_eq!(paths.len(), 2);
+                std::fs::remove_file(&paths[0]).unwrap();
+            });
+            let err = create_prepared_snapshot_reporting(
+                state.path(),
+                "tx-prep-fail",
+                &inv,
+                &plan,
+                "test-preparation-v1",
+                u64::MAX,
+                &crate::progress::Progress::silent(),
+                None,
+                "chunker-v1",
+                None,
+                None,
+            )
+            .unwrap_err();
+            assert!(
+                format!("{err:#}").contains("sync 2 staged snapshot file(s)"),
+                "unexpected error: {err:#}"
+            );
+            assert!(
+                !saw_manifest_before_sync.load(std::sync::atomic::Ordering::SeqCst),
+                "manifest.json must not exist before batch sync"
+            );
+            assert!(!state.path().join("sync-snapshots/tx-prep-fail").exists());
+            assert!(!state
+                .path()
+                .join("sync-snapshots/.tx-prep-fail.partial")
+                .exists());
+        }
+
+        // Case 2: plan-less snapshot (blobs retained) — delete one staged blob
+        // right before batch sync to prove retained blobs are included in the
+        // sync batch.
+        {
+            let corpus = tempfile::tempdir().unwrap();
+            let state = tempfile::tempdir().unwrap();
+            std::fs::write(corpus.path().join("a.txt"), "alpha\n").unwrap();
+            std::fs::write(corpus.path().join("b.txt"), "bravo\n").unwrap();
+            let inv = inventory(corpus.path());
+            arm_snapshot_before_batch_sync_hook(state.path(), |staging, paths| {
+                assert!(!staging.join("manifest.json").exists());
+                assert_eq!(paths.len(), 2);
+                std::fs::remove_file(&paths[1]).unwrap();
+            });
+            let err = create_snapshot(state.path(), "tx-blob-fail", &inv).unwrap_err();
+            assert!(
+                format!("{err:#}").contains("sync 2 staged snapshot file(s)"),
+                "unexpected error: {err:#}"
+            );
+            assert!(!state.path().join("sync-snapshots/tx-blob-fail").exists());
+            assert!(!state
+                .path()
+                .join("sync-snapshots/.tx-blob-fail.partial")
+                .exists());
+        }
+    }
+
+    /// #3449: batch sync covers every surviving newly-written file and skips
+    /// both unlinked (released) blobs and hardlinked reused files:
+    /// - prepared files -> only `prepared/*.ndjson` synced (0 released blobs)
+    /// - mixed prepared + unassigned/junk -> prepared NDJSONs + retained blobs
+    /// - incremental 1-file edit -> only the 1 newly prepared file
+    /// - zero-change full reuse -> 0 files in the batch
+    /// - reused retained blob newly assigned -> only the 1 newly prepared
+    ///   artifact (covering the `Some(prior)` re-prepare branch)
+    #[test]
+    fn snapshot_seal_batch_syncs_only_surviving_newly_written_files() {
+        let _guard = SNAPSHOT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let corpus = tempfile::tempdir().unwrap();
+        let state = tempfile::tempdir().unwrap();
+        for name in ["a.md", "b.md", "c.md", "deferred.txt", "skip2.bin"] {
+            std::fs::write(corpus.path().join(name), format!("body of {name}\n")).unwrap();
+        }
+        let inv1 = inventory(corpus.path());
+        // Plan only the 3 `.md` files; leave `deferred.txt` and `skip2.bin`
+        // unassigned so their blobs are retained (`prepared: None`,
+        // `blob_released: false`).
+        let mut plan1 = plan_for_all(&inv1);
+        plan1.files.retain(|_, fa| fa.rel.ends_with(".md"));
+
+        let capture = |state_dir: &Path| {
+            let captured = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+            let out = std::sync::Arc::clone(&captured);
+            arm_snapshot_before_batch_sync_hook(state_dir, move |staging, paths| {
+                let mut rels: Vec<String> = paths
+                    .iter()
+                    .map(|p| {
+                        p.strip_prefix(staging)
+                            .unwrap()
+                            .to_string_lossy()
+                            .replace('\\', "/")
+                    })
+                    .collect();
+                rels.sort();
+                *out.lock().unwrap() = rels;
+            });
+            captured
+        };
+
+        // Gen 1: 3 prepared NDJSONs + 2 retained blobs = 5 paths (never 8).
+        let gen1_synced = capture(state.path());
+        let gen1 = create_prepared_snapshot_reporting(
+            state.path(),
+            "tx-mix-1",
+            &inv1,
+            &plan1,
+            "test-preparation-v1",
+            u64::MAX,
+            &crate::progress::Progress::silent(),
+            None,
+            "chunker-v1",
+            None,
+            None,
+        )
+        .unwrap();
+        let gen1_paths = gen1_synced.lock().unwrap().clone();
+        assert_eq!(
+            gen1_paths.len(),
+            5,
+            "expected 3 prepared + 2 blobs: {gen1_paths:?}"
+        );
+        assert_eq!(
+            gen1_paths
+                .iter()
+                .filter(|p| p.starts_with("prepared/"))
+                .count(),
+            3
+        );
+        assert_eq!(
+            gen1_paths
+                .iter()
+                .filter(|p| p.starts_with("blobs/"))
+                .count(),
+            2
+        );
+        assert_eq!(open_snapshot(state.path(), "tx-mix-1").unwrap(), gen1);
+
+        // Gen 2: edit 1 markdown file; 2 prepared + 2 retained blobs are
+        // hardlinked from gen 1 -> ONLY the 1 newly prepared file is synced.
+        std::fs::write(corpus.path().join("b.md"), "updated body of b.md\n").unwrap();
+        let inv2 = inventory(corpus.path());
+        let mut plan2 = plan_for_all(&inv2);
+        plan2.files.retain(|_, fa| fa.rel.ends_with(".md"));
+        let gen2_synced = capture(state.path());
+        let gen2 = create_prepared_snapshot_reporting(
+            state.path(),
+            "tx-mix-2",
+            &inv2,
+            &plan2,
+            "test-preparation-v1",
+            u64::MAX,
+            &crate::progress::Progress::silent(),
+            Some(&gen1),
+            "chunker-v1",
+            None,
+            None,
+        )
+        .unwrap();
+        let gen2_paths = gen2_synced.lock().unwrap().clone();
+        assert_eq!(
+            gen2_paths.len(),
+            1,
+            "incremental 1-file edit must sync only the 1 new prepared artifact: {gen2_paths:?}"
+        );
+        assert!(gen2_paths[0].starts_with("prepared/"));
+        std::fs::remove_dir_all(state.path().join("sync-snapshots/tx-mix-1")).unwrap();
+        assert_eq!(open_snapshot(state.path(), "tx-mix-2").unwrap(), gen2);
+
+        // Gen 3: zero changes -> every surviving artifact is hardlinked from
+        // gen 2 -> 0 newly-written files in the sync batch.
+        let gen3_synced = capture(state.path());
+        let gen3 = create_prepared_snapshot_reporting(
+            state.path(),
+            "tx-mix-3",
+            &inv2,
+            &plan2,
+            "test-preparation-v1",
+            u64::MAX,
+            &crate::progress::Progress::silent(),
+            Some(&gen2),
+            "chunker-v1",
+            None,
+            None,
+        )
+        .unwrap();
+        assert!(
+            gen3_synced.lock().unwrap().is_empty(),
+            "full reuse must sync 0 newly-written files"
+        );
+        std::fs::remove_dir_all(state.path().join("sync-snapshots/tx-mix-2")).unwrap();
+        assert_eq!(open_snapshot(state.path(), "tx-mix-3").unwrap(), gen3);
+
+        // Gen 4: assign `deferred.txt`, which had a retained blob
+        // (`!prior.blob_released`, `prior.prepared == None`) in gen 3. This
+        // enters `Some(prior)` -> hardlink prior blob -> `prepare_artifact` ->
+        // release hardlinked blob, so `paths_to_sync` must include ONLY that
+        // newly prepared NDJSON (and 0 blobs), and gen 4 must survive removing
+        // gen 3.
+        let mut plan4 = plan_for_all(&inv2);
+        plan4
+            .files
+            .retain(|_, fa| fa.rel.ends_with(".md") || fa.rel == "deferred.txt");
+        let deferred_key = inv2
+            .files
+            .iter()
+            .zip(&inv2.keys)
+            .find(|(f, _)| f.rel == "deferred.txt")
+            .map(|(_, k)| k.clone())
+            .unwrap();
+        assert!(
+            !gen3
+                .files
+                .iter()
+                .find(|f| f.content_id == deferred_key)
+                .unwrap()
+                .blob_released,
+            "precondition: deferred.txt must have a retained blob in gen 3"
+        );
+        let gen4_synced = capture(state.path());
+        let gen4 = create_prepared_snapshot_reporting(
+            state.path(),
+            "tx-mix-4",
+            &inv2,
+            &plan4,
+            "test-preparation-v1",
+            u64::MAX,
+            &crate::progress::Progress::silent(),
+            Some(&gen3),
+            "chunker-v1",
+            None,
+            None,
+        )
+        .unwrap();
+        let gen4_paths = gen4_synced.lock().unwrap().clone();
+        assert_eq!(
+            gen4_paths.len(),
+            1,
+            "re-preparing a reused retained blob must sync only its newly prepared NDJSON: {gen4_paths:?}"
+        );
+        assert!(
+            gen4_paths[0].starts_with("prepared/"),
+            "expected prepared/*.ndjson, got {gen4_paths:?}"
+        );
+        let deferred_entry = gen4
+            .files
+            .iter()
+            .find(|f| f.content_id == deferred_key)
+            .unwrap();
+        assert!(deferred_entry.blob_released);
+        assert!(deferred_entry.prepared.is_some());
+        std::fs::remove_dir_all(state.path().join("sync-snapshots/tx-mix-3")).unwrap();
+        assert_eq!(open_snapshot(state.path(), "tx-mix-4").unwrap(), gen4);
+    }
+
+    /// #3449: both serial and windowed replay must `fdatasync` the journal once
+    /// per operation (`Started` write-ahead intent), not twice (`Started` +
+    /// `Committed`), and a resumed run over already-`Started` operations must
+    /// issue zero per-operation `fdatasync`s until `sync_validated`.
+    #[test]
+    fn replay_serial_and_windowed_sync_journal_once_per_operation() {
+        let _journal_guard = crate::state::SYNC_IO_FAILPOINT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = SNAPSHOT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        const FILES: usize = 12;
+        let make_corpus = |dir: &Path| {
+            for i in 0..FILES {
+                std::fs::write(dir.join(format!("f{i:02}.md")), format!("note {i}\n")).unwrap();
+            }
+        };
+
+        // 1. Serial replay (`replay_pending_operations` -> `replay_serial`):
+        //    FILES `Started` syncs + 1 `sync_validated` + 1 `sync_commit`.
+        {
+            let corpus = tempfile::tempdir().unwrap();
+            let state = tempfile::tempdir().unwrap();
+            make_corpus(corpus.path());
+            let inv = inventory(corpus.path());
+            let plan = plan_for_all(&inv);
+            let groups = groups_from_inventory(&inv, &plan, &[]).unwrap();
+            let snapshot = create_snapshot(state.path(), "tx-serial-syncs", &inv).unwrap();
+            let mut journal =
+                Journal::open(state.path(), "root", "http://engine", "ax", 300, false).unwrap();
+            journal.sync_bootstrap_genesis().unwrap();
+            begin(&mut journal, "tx-serial-syncs", &snapshot, plan, groups);
+            let mut backend = FakeBackend::default();
+
+            let before = journal.sync_data_calls();
+            replay_pending_operations(state.path(), &mut journal, &mut backend).unwrap();
+            let syncs = journal.sync_data_calls() - before;
+            assert_eq!(
+                syncs,
+                (FILES as u64) + 2,
+                "expected {FILES} Started + 1 sync_validated + 1 sync_commit = {}, got {syncs}",
+                FILES + 2
+            );
+            assert_eq!(backend.live.len(), FILES);
+            assert_eq!(journal.committed_manifest.as_ref().unwrap().generation, 1);
+        }
+
+        // 2. Windowed replay (width = 4, same `ReplayHooks` shape as
+        //    `EsSyncBackend::replay_operations`): FILES `Started` syncs during
+        //    windowed execution, 0 for `Committed`.
+        {
+            struct WindowedJournalHooks<'j> {
+                journal: &'j mut Journal,
+            }
+            impl ReplayHooks<String> for WindowedJournalHooks<'_> {
+                fn begin(&mut self, op_id: &String) -> Result<()> {
+                    let state = self
+                        .journal
+                        .pending_sync
+                        .as_ref()
+                        .and_then(|sync| sync.operation_states.get(op_id))
+                        .cloned();
+                    if state.is_none() {
+                        self.journal
+                            .sync_operation_state(op_id, SyncOperationState::Started)?;
+                    }
+                    Ok(())
+                }
+
+                fn applied(&mut self, op_id: &String, outcome: Result<()>) -> Result<()> {
+                    let () = outcome?;
+                    self.journal
+                        .sync_operation_state(op_id, SyncOperationState::Committed)
+                }
+            }
+
+            let corpus = tempfile::tempdir().unwrap();
+            let state = tempfile::tempdir().unwrap();
+            make_corpus(corpus.path());
+            let inv = inventory(corpus.path());
+            let plan = plan_for_all(&inv);
+            let groups = groups_from_inventory(&inv, &plan, &[]).unwrap();
+            let snapshot = create_snapshot(state.path(), "tx-win-syncs", &inv).unwrap();
+            let mut journal =
+                Journal::open(state.path(), "root", "http://engine", "ax", 300, false).unwrap();
+            journal.sync_bootstrap_genesis().unwrap();
+            begin(&mut journal, "tx-win-syncs", &snapshot, plan, groups);
+            let op_ids: Vec<String> = journal
+                .pending_sync
+                .as_ref()
+                .unwrap()
+                .operations
+                .iter()
+                .map(|op| op.operation_id.clone())
+                .collect();
+            assert_eq!(op_ids.len(), FILES);
+
+            // Mark the first 4 operations as already `Started` (as if resuming
+            // after a crash where those 4 had durable `Started` intents).
+            for op_id in &op_ids[..4] {
+                journal
+                    .sync_operation_state(op_id, SyncOperationState::Started)
+                    .unwrap();
+            }
+
+            let before = journal.sync_data_calls();
+            let mut hooks = WindowedJournalHooks {
+                journal: &mut journal,
+            };
+            replay_windowed(&op_ids, 4, &mut hooks, &|_| Ok(())).unwrap();
+            let replay_syncs = journal.sync_data_calls() - before;
+            // Only the remaining (FILES - 4) unstarted operations call Started
+            // -> fdatasync; all FILES Committed appends issue 0 fdatasyncs.
+            assert_eq!(
+                replay_syncs,
+                (FILES - 4) as u64,
+                "windowed replay issued {replay_syncs} syncs; expected {} Started only",
+                FILES - 4
+            );
+            let before_validate = journal.sync_data_calls();
+            journal.sync_validated().unwrap();
+            journal.sync_commit().unwrap();
+            assert_eq!(journal.sync_data_calls() - before_validate, 2);
+            drop(journal);
+            let reopened =
+                Journal::open(state.path(), "root", "http://engine", "ax", 300, false).unwrap();
+            assert_eq!(reopened.committed_manifest.as_ref().unwrap().generation, 1);
+            assert!(reopened.pending_sync.is_none());
+        }
+    }
 }
 
 /// Issue #482 regression guard.
@@ -7709,6 +8213,65 @@ mod windows_directory_open_guard {
             !body.contains("File::open"),
             "#482: `sync_dir` re-derived the Unix-only `File::open(dir).sync_all()` \
              idiom, which fails with os error 5 on every Windows call; body was:\n{body}"
+        );
+    }
+
+    /// #3449 regression guard: snapshot sealing must not issue per-file
+    /// `sync_all`/`sync_data` inside `prepare_artifact` or the blob copy loop;
+    /// all surviving newly-written files must be synced in one concurrent batch
+    /// (`sync_paths_batch`) before `manifest.json` is written.
+    #[test]
+    fn snapshot_sealing_defers_syncs_to_one_batch_before_manifest() {
+        fn multiline_fn_body(source: &str, signature: &str) -> String {
+            let sig_start = source
+                .find(signature)
+                .unwrap_or_else(|| panic!("signature moved: {signature}"));
+            let open_brace = source[sig_start..]
+                .find(") -> Result<")
+                .and_then(|ret| {
+                    source[sig_start + ret..]
+                        .find('{')
+                        .map(|b| sig_start + ret + b + 1)
+                })
+                .unwrap_or_else(|| panic!("body brace not found after {signature}"));
+            let mut depth = 1usize;
+            for (offset, ch) in source[open_brace..].char_indices() {
+                match ch {
+                    '{' => depth += 1,
+                    '}' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            return source[open_brace..open_brace + offset].to_string();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            panic!("unbalanced braces after {signature}");
+        }
+
+        const SRC: &str = include_str!("sync_executor.rs");
+        let prepare_body = multiline_fn_body(SRC, "fn prepare_artifact(");
+        assert!(
+            !prepare_body.contains(".sync_all(")
+                && !prepare_body.contains(".sync_data(")
+                && !prepare_body.contains("sync_file_full("),
+            "#3449: `prepare_artifact` must not fsync per file; defer to batch sync before manifest.json"
+        );
+        let seal_body = multiline_fn_body(SRC, "fn create_snapshot_inner(");
+        assert!(
+            !seal_body.contains("copy_synced("),
+            "#3449: `create_snapshot_inner` must not fsync copied blobs per file"
+        );
+        let batch_pos = seal_body
+            .find("sync_paths_batch(")
+            .expect("#3449: `create_snapshot_inner` must call `fsio::sync_paths_batch`");
+        let manifest_pos = seal_body
+            .find("write_synced_json(&staging.join(\"manifest.json\")")
+            .expect("manifest write missing from create_snapshot_inner");
+        assert!(
+            batch_pos < manifest_pos,
+            "#3449: `sync_paths_batch` must finish before `manifest.json` is written"
         );
     }
 }

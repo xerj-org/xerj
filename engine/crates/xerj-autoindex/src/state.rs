@@ -797,6 +797,10 @@ pub struct Journal {
     pub committed_manifest: Option<crate::sync::CommittedManifest>,
     pub pending_sync: Option<crate::sync::PendingSync>,
     pub legacy_migration_reasons: Vec<String>,
+    /// Number of `sync_data` (`fdatasync`) calls issued by this journal instance
+    /// (test-only counter, isolated per `Journal` with no process-global state).
+    #[cfg(test)]
+    sync_data_calls: u64,
     /// The journal was resumed and its newest record was NOT a `finish`: the
     /// previous invocation was killed, or bailed, somewhere between its first
     /// publication and its summary. Anything a run only does at its very end
@@ -1614,6 +1618,8 @@ impl Journal {
             committed_manifest,
             pending_sync,
             legacy_migration_reasons,
+            #[cfg(test)]
+            sync_data_calls: 0,
             interrupted: resumed && !is_new && !last_kind_was_finish,
         };
         if is_new {
@@ -1736,6 +1742,10 @@ impl Journal {
     }
 
     fn append_transaction(&mut self, v: &Value, what: &str) -> Result<()> {
+        self.append_transaction_with_sync(v, what, true)
+    }
+
+    fn append_transaction_with_sync(&mut self, v: &Value, what: &str, sync: bool) -> Result<()> {
         let mut line = serde_json::to_string(v)?;
         line.push('\n');
         let start = self.file.metadata()?.len();
@@ -1762,19 +1772,25 @@ impl Journal {
         if let Err(error) = write_result {
             return self.rollback_transaction(start, what, "append", error);
         }
-        #[cfg(test)]
-        let injected_sync_failure = consume_io_failpoint(what, 2, &self.path);
-        #[cfg(not(test))]
-        let injected_sync_failure = false;
-        let sync_result = if injected_sync_failure {
-            Err(std::io::Error::other(format!(
-                "injected {what} fsync failure"
-            )))
-        } else {
-            self.file.sync_data()
-        };
-        if let Err(error) = sync_result {
-            return self.rollback_transaction(start, what, "fsync", error);
+        if sync {
+            #[cfg(test)]
+            let injected_sync_failure = consume_io_failpoint(what, 2, &self.path);
+            #[cfg(not(test))]
+            let injected_sync_failure = false;
+            let sync_result = if injected_sync_failure {
+                Err(std::io::Error::other(format!(
+                    "injected {what} fsync failure"
+                )))
+            } else {
+                #[cfg(test)]
+                {
+                    self.sync_data_calls += 1;
+                }
+                self.file.sync_data()
+            };
+            if let Err(error) = sync_result {
+                return self.rollback_transaction(start, what, "fsync", error);
+            }
         }
         Ok(())
     }
@@ -1890,7 +1906,18 @@ impl Journal {
             .context("cannot record operation state without sync_begin")?;
         let tx_id = pending.tx_id.clone();
         pending.validate_operation_state(&tx_id, operation_id, &state)?;
-        self.append_transaction(
+        // #3449: only `Started` is a write-ahead intent that must reach disk
+        // before the remote apply begins. `Committed` appends without its own
+        // `fdatasync`; the next durable append (next `Started`, `sync_validated`,
+        // `sync_commit`, or `sync_abort`) syncs the whole file. If power loss
+        // drops an unsynced `Committed` record, resume still sees `Started`
+        // and convergently re-applies the operation, the same path already
+        // used for a crash between `apply` and `Committed`.
+        let sync = match state {
+            crate::sync::SyncOperationState::Started => true,
+            crate::sync::SyncOperationState::Committed => false,
+        };
+        self.append_transaction_with_sync(
             &serde_json::json!({
                 "kind": "sync_operation_state",
                 "tx_id": tx_id,
@@ -1898,6 +1925,7 @@ impl Journal {
                 "state": state,
             }),
             "sync_operation_state",
+            sync,
         )?;
         if let Some(pending) = self.pending_sync.as_mut() {
             pending.record_operation_state(operation_id, state);
@@ -2036,6 +2064,11 @@ impl Journal {
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    #[cfg(test)]
+    pub(crate) fn sync_data_calls(&self) -> u64 {
+        self.sync_data_calls
     }
 }
 
@@ -2629,6 +2662,183 @@ mod sync_journal_tests {
                 assert_eq!(reopened.committed_manifest.as_ref().unwrap().generation, 0);
                 assert!(reopened.pending_sync.is_some());
             }
+        }
+    }
+
+    /// #3449: `Started` is the write-ahead intent and must stay `fdatasync`ed;
+    /// `Committed` appends without its own `fdatasync`, and the next durable
+    /// append (`Started`, `sync_validated`, `sync_commit`, `sync_abort`) syncs
+    /// the whole file. Partial/append write errors on `Committed` still roll
+    /// back cleanly without updating in-memory state.
+    #[test]
+    fn committed_operation_state_skips_fdatasync_until_next_durable_append() {
+        let _guard = SYNC_IO_FAILPOINT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let mut journal = journal_with_plan(dir.path());
+        journal.sync_begin(&pending(&journal)).unwrap();
+        let before_started = journal.sync_data_calls();
+        journal
+            .sync_operation_state("upsert:group-a", SyncOperationState::Started)
+            .unwrap();
+        assert_eq!(
+            journal.sync_data_calls() - before_started,
+            1,
+            "Started is a write-ahead intent and must fdatasync"
+        );
+
+        // Boundary 2 injects an `fdatasync` failure on the next durable sync
+        // write. `Committed` must NOT issue `fdatasync`, so it must succeed,
+        // keep `sync_data_calls` unchanged, and leave boundary 2 armed for the
+        // next durable append.
+        let before_committed = journal.sync_data_calls();
+        fail_next_sync_io(2, journal.path());
+        journal
+            .sync_operation_state("upsert:group-a", SyncOperationState::Committed)
+            .expect("#3449: Committed must append without its own fdatasync");
+        assert_eq!(
+            journal.sync_data_calls() - before_committed,
+            0,
+            "#3449: Committed must not increment sync_data_calls"
+        );
+        assert_eq!(
+            journal
+                .pending_sync
+                .as_ref()
+                .unwrap()
+                .operation_states
+                .get("upsert:group-a"),
+            Some(&SyncOperationState::Committed)
+        );
+        let after_committed = std::fs::read(dir.path().join("journal.ndjson")).unwrap();
+
+        // The very next durable append (`sync_validated`) MUST issue `fdatasync`
+        // (consuming boundary 2), roll back ONLY `sync_validated`, and leave
+        // the prior `Committed` record intact.
+        let validated_err = journal
+            .sync_validated()
+            .expect_err("next durable append must still fdatasync and hit boundary 2");
+        assert!(
+            format!("{validated_err:#}").contains("fsync failure"),
+            "unexpected error: {validated_err:#}"
+        );
+        assert_eq!(
+            std::fs::read(dir.path().join("journal.ndjson")).unwrap(),
+            after_committed
+        );
+
+        // Retrying `sync_validated` and `sync_commit` now succeeds durably.
+        let before_validate_commit = journal.sync_data_calls();
+        journal.sync_validated().unwrap();
+        journal.sync_commit().unwrap();
+        assert_eq!(journal.sync_data_calls() - before_validate_commit, 2);
+        drop(journal);
+        let reopened = Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+        assert_eq!(reopened.committed_manifest.as_ref().unwrap().generation, 1);
+        assert!(reopened.pending_sync.is_none());
+
+        // Write/partial-write boundaries (1 and 3) on `Committed` still fail
+        // and roll back without leaving torn bytes or phantom Committed state.
+        for boundary in [1, 3] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut journal = journal_with_plan(dir.path());
+            journal.sync_begin(&pending(&journal)).unwrap();
+            journal
+                .sync_operation_state("upsert:group-a", SyncOperationState::Started)
+                .unwrap();
+            let before = std::fs::read(dir.path().join("journal.ndjson")).unwrap();
+            fail_next_sync_io(boundary, journal.path());
+            assert!(
+                journal
+                    .sync_operation_state("upsert:group-a", SyncOperationState::Committed)
+                    .is_err(),
+                "Committed must fail on write boundary {boundary}"
+            );
+            assert_eq!(
+                std::fs::read(dir.path().join("journal.ndjson")).unwrap(),
+                before
+            );
+            assert_eq!(
+                journal
+                    .pending_sync
+                    .as_ref()
+                    .unwrap()
+                    .operation_states
+                    .get("upsert:group-a"),
+                Some(&SyncOperationState::Started)
+            );
+        }
+    }
+
+    /// #3449 durability proof: if power is lost after an unsynced `Committed`
+    /// append — either dropping the whole line or leaving a torn tail — the
+    /// durable `Started` record remains authoritative on reopen so resume
+    /// convergently re-applies the operation and commits cleanly.
+    #[test]
+    fn lost_unsynced_committed_replays_as_started_and_converges() {
+        let _guard = SYNC_IO_FAILPOINT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        for torn_tail in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let jpath = dir.path().join("journal.ndjson");
+            let mut journal = journal_with_plan(dir.path());
+            journal.sync_begin(&pending(&journal)).unwrap();
+            journal
+                .sync_operation_state("upsert:group-a", SyncOperationState::Started)
+                .unwrap();
+            let durable_len = std::fs::metadata(&jpath).unwrap().len();
+            journal
+                .sync_operation_state("upsert:group-a", SyncOperationState::Committed)
+                .unwrap();
+            let after_committed_len = std::fs::metadata(&jpath).unwrap().len();
+            assert!(after_committed_len > durable_len);
+            drop(journal);
+
+            // Simulate power loss dropping the unsynced `Committed` line (or
+            // leaving an unterminated torn fragment at EOF).
+            let crash_len = if torn_tail {
+                durable_len + 17
+            } else {
+                durable_len
+            };
+            let file = std::fs::OpenOptions::new()
+                .write(true)
+                .open(&jpath)
+                .unwrap();
+            file.set_len(crash_len).unwrap();
+            file.sync_data().unwrap();
+            drop(file);
+
+            let mut reopened =
+                Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+            assert_eq!(reopened.committed_manifest.as_ref().unwrap().generation, 0);
+            assert_eq!(
+                reopened
+                    .pending_sync
+                    .as_ref()
+                    .unwrap()
+                    .operation_states
+                    .get("upsert:group-a"),
+                Some(&SyncOperationState::Started),
+                "torn_tail={torn_tail}: lost Committed must fall back to Started"
+            );
+            // Convergent redo completes the operation and advances generation 1.
+            reopened
+                .sync_operation_state("upsert:group-a", SyncOperationState::Committed)
+                .unwrap();
+            reopened.sync_validated().unwrap();
+            reopened.sync_commit().unwrap();
+            drop(reopened);
+
+            let final_open =
+                Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+            assert_eq!(
+                final_open.committed_manifest.as_ref().unwrap().generation,
+                1
+            );
+            assert!(final_open.pending_sync.is_none());
         }
     }
 }
