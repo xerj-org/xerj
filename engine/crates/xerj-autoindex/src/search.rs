@@ -612,6 +612,251 @@ fn fill_from_any_term_tier(
     Ok(())
 }
 
+/// `ax_locator` of the record that holds a whole code file's text (`body`,
+/// `defs`); its symbols are separate records with `name` and `impl`.
+const FILE_BODY_LOCATOR: &str = "code";
+
+/// Most file-body hits on one page whose symbols are looked up (#3378).
+const CARD_COLLAPSE_MAX_PATHS: usize = 5;
+
+/// Symbol records read back per page, across those paths.
+const CARD_COLLAPSE_SYMBOL_FETCH: usize = 64;
+
+/// Fewest query terms a symbol body must hold to stand in for its file.
+const CARD_COLLAPSE_MIN_TERMS: usize = 2;
+
+fn is_file_body_hit(hit: &Value) -> bool {
+    hit.pointer("/_source/ax_locator").and_then(Value::as_str) == Some(FILE_BODY_LOCATOR)
+}
+
+fn hit_key(hit: &Value) -> (String, String) {
+    let s = |p: &str| hit.get(p).and_then(Value::as_str).unwrap_or("").to_string();
+    (s("_index"), s("_id"))
+}
+
+/// Paths of file-body hits that are not already behind a symbol of the same
+/// file, in page order, at most [`CARD_COLLAPSE_MAX_PATHS`].
+fn file_body_paths_to_collapse(hits: &[Value]) -> Vec<String> {
+    let mut symbol_seen: BTreeSet<String> = BTreeSet::new();
+    let mut out: Vec<String> = Vec::new();
+    for hit in hits {
+        let path = hit_path(hit);
+        if path.is_empty() {
+            continue;
+        }
+        if is_file_body_hit(hit) {
+            if !symbol_seen.contains(&path) && !out.contains(&path) {
+                out.push(path);
+            }
+        } else if hit.pointer("/_source/name").is_some() || hit.pointer("/_source/kind").is_some() {
+            symbol_seen.insert(path);
+        }
+        if out.len() >= CARD_COLLAPSE_MAX_PATHS {
+            break;
+        }
+    }
+    out
+}
+
+/// A best symbol must outscore the next symbol of its file by this factor.
+const CARD_COLLAPSE_MARGIN: f64 = 1.2;
+
+/// A symbol whose body names this many other candidate symbols of its file
+/// is a dispatcher (`main` building a command table), not an answer.
+const CARD_COLLAPSE_HUB_NAMES: usize = 2;
+
+/// One query for the symbol records of `paths`. Each content term is one
+/// clause (a BM25 `match` on the symbol body `impl`, or the exact `name`), and
+/// a symbol must hold [`CARD_COLLAPSE_MIN_TERMS`] of them. `name` and `impl`
+/// are read back for the dispatcher check; `impl` is dropped before display.
+fn symbols_by_term_coverage_body(paths: &[String], terms: &[&str], source: &Value) -> Value {
+    let per_term: Vec<Value> = terms
+        .iter()
+        .map(|term| {
+            json!({ "bool": { "should": [
+                { "match": { "impl": term } },
+                { "term": { "name": { "value": term, "boost": 2.0 } } }
+            ] } })
+        })
+        .collect();
+    let mut fields: Vec<Value> = source.as_array().cloned().unwrap_or_default();
+    for extra in ["name", "impl"] {
+        if !fields.iter().any(|f| f.as_str() == Some(extra)) {
+            fields.push(json!(extra));
+        }
+    }
+    json!({
+        "size": CARD_COLLAPSE_SYMBOL_FETCH,
+        "query": { "bool": {
+            "filter": [
+                { "terms": { "ax_path": paths } },
+                { "exists": { "field": "name" } }
+            ],
+            "should": per_term,
+            "minimum_should_match": CARD_COLLAPSE_MIN_TERMS
+        } },
+        "_source": fields,
+        "fields": ["_passage"]
+    })
+}
+
+fn source_str<'a>(hit: &'a Value, field: &str) -> &'a str {
+    hit.pointer(&format!("/_source/{field}"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+}
+
+/// True when `body` holds `name` as a whole identifier.
+fn names_identifier(body: &str, name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let is_ident = |c: char| c.is_alphanumeric() || c == '_';
+    body.match_indices(name).any(|(at, _)| {
+        let before = body[..at].chars().next_back();
+        let after = body[at + name.len()..].chars().next();
+        !before.is_some_and(is_ident) && !after.is_some_and(is_ident)
+    })
+}
+
+/// Put the best symbol of a file ahead of that file's body hit (#3378).
+///
+/// The file-body record holds every word of the file, so a question whose
+/// words sit in one function ranked the whole file first, and its passage
+/// line pointed at whatever region matched the most words (a field report saw
+/// `repo_list` cited for a question about `cmd_commit`). The symbol records
+/// could not compete: `xerj search` does not name `impl` on a code corpus
+/// (#916, #1705).
+///
+/// `symbols` are the symbol records of those files with the engine's score.
+/// Per path, a symbol whose body names [`CARD_COLLAPSE_HUB_NAMES`] other
+/// candidates is a dispatcher and is skipped. The best remaining symbol is
+/// moved (or inserted) right before the file-body hit when it outscores the
+/// next one by [`CARD_COLLAPSE_MARGIN`]; a closer call leaves the page as the
+/// engine ranked it. The file hit stays, right after its symbol. Returns how
+/// many symbols were placed.
+pub(crate) fn place_best_symbol_before_file_body(
+    hits: &mut Vec<Value>,
+    symbols: &[Value],
+) -> usize {
+    let score = |h: &Value| h.get("_score").and_then(Value::as_f64).unwrap_or(0.0);
+    let mut by_path: std::collections::HashMap<String, Vec<&Value>> =
+        std::collections::HashMap::new();
+    for sym in symbols {
+        let path = hit_path(sym);
+        if !path.is_empty() {
+            by_path.entry(path).or_default().push(sym);
+        }
+    }
+    let mut placed = 0;
+    for path in file_body_paths_to_collapse(hits) {
+        let Some(cands) = by_path.get_mut(&path) else {
+            continue;
+        };
+        cands.sort_by(|a, b| score(b).total_cmp(&score(a)));
+        let names: Vec<&str> = cands.iter().map(|c| source_str(c, "name")).collect();
+        let answers: Vec<&Value> = cands
+            .iter()
+            .copied()
+            .filter(|c| {
+                let own = source_str(c, "name");
+                let body = source_str(c, "impl");
+                let named = names
+                    .iter()
+                    .filter(|n| **n != own && names_identifier(body, n))
+                    .count();
+                named < CARD_COLLAPSE_HUB_NAMES
+            })
+            .collect();
+        let Some(sym) = answers.first().copied() else {
+            continue;
+        };
+        if answers
+            .get(1)
+            .is_some_and(|next| score(sym) < CARD_COLLAPSE_MARGIN * score(next))
+        {
+            continue;
+        }
+        let Some(card_at) = hits
+            .iter()
+            .position(|h| is_file_body_hit(h) && hit_path(h) == path)
+        else {
+            continue;
+        };
+        let key = hit_key(sym);
+        let mut moved = match hits.iter().position(|h| hit_key(h) == key) {
+            Some(at) if at < card_at => continue,
+            Some(at) => hits.remove(at),
+            None => sym.clone(),
+        };
+        // `--json` keeps descending scores: the file hit's score. The body
+        // read for the dispatcher check is not part of the page.
+        if let Some(obj) = moved.as_object_mut() {
+            obj.insert("_score".into(), json!(score(&hits[card_at])));
+            obj.insert(
+                "_xerj_symbol_of_file".into(),
+                json!({ "reason": "best symbol of a matching file (#3378)" }),
+            );
+            if let Some(src) = obj.get_mut("_source").and_then(Value::as_object_mut) {
+                src.remove("impl");
+            }
+        }
+        hits.insert(card_at, moved);
+        placed += 1;
+    }
+    placed
+}
+
+/// Read the symbols of the file-body hits on the page and place each file's
+/// best one ahead of it ([`place_best_symbol_before_file_body`]). A question
+/// of fewer than three content terms is a lookup and is left alone, and so is
+/// a failed read: the page stays as the engine ranked it.
+fn collapse_file_bodies_into_symbols(
+    es: &Es,
+    pattern: &str,
+    body: &Value,
+    hits: &mut Vec<Value>,
+    query: &str,
+    page: usize,
+) {
+    let shaped = xerj_common::code_query::normalize_code_search_query(query);
+    let terms: Vec<&str> = shaped.split_whitespace().collect();
+    if terms.len() < 3 {
+        return;
+    }
+    let paths = file_body_paths_to_collapse(hits);
+    if paths.is_empty() {
+        return;
+    }
+    // Only the indices holding those file records: their symbols live beside
+    // them, and another index under the pattern may not map `impl`.
+    let mut indices: Vec<&str> = hits
+        .iter()
+        .filter(|h| is_file_body_hit(h) && paths.contains(&hit_path(h)))
+        .filter_map(|h| h.get("_index").and_then(Value::as_str))
+        .collect();
+    indices.sort_unstable();
+    indices.dedup();
+    let target = if indices.is_empty() {
+        pattern.to_string()
+    } else {
+        indices.join(",")
+    };
+    let source = body.get("_source").cloned().unwrap_or(Value::Null);
+    let req = symbols_by_term_coverage_body(&paths, &terms, &source);
+    let Ok(resp) = es.search_without_savings(&target, &req) else {
+        return;
+    };
+    let symbols = resp
+        .pointer("/hits/hits")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if place_best_symbol_before_file_body(hits, &symbols) > 0 {
+        hits.truncate(page);
+    }
+}
+
 /// What the node held when a search or def returned no hits.
 ///
 /// `None` means that read failed. An empty `Some` is a real answer.
@@ -1344,6 +1589,16 @@ pub fn run_search_cli() -> i32 {
             return 1;
         }
     }
+    // #3378: a file's best symbol ahead of the whole-file record. Needs the
+    // symbol fields mapped; autoindex indices are strict (#1601).
+    let symbols_mapped = mapped
+        .as_ref()
+        .is_some_and(|set| set.contains("impl") && set.contains("name"));
+    if code_corpus && symbols_mapped && k > 0 {
+        if let Some(hits) = resp.pointer_mut("/hits/hits").and_then(Value::as_array_mut) {
+            collapse_file_bodies_into_symbols(&es, &pattern, &body, hits, &query, k);
+        }
+    }
     // Same annotation `xerj_search` adds (#2266), so `--json` and the printed
     // header cite the matched line. `xerj code --json` is the raw server
     // body and does not share this hit post-pass.
@@ -1437,6 +1692,145 @@ pub fn run_search_cli() -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn file_body(path: &str, score: f64) -> Value {
+        json!({"_index": "ax-docs", "_id": format!("{path}#code"), "_score": score,
+               "_source": {"ax_path": path, "ax_locator": "code", "start_line": 1}})
+    }
+
+    fn symbol(path: &str, name: &str, line: u64, score: f64) -> Value {
+        symbol_with_body(
+            path,
+            name,
+            line,
+            score,
+            &format!("def {name}(args):\n    pass"),
+        )
+    }
+
+    fn symbol_with_body(path: &str, name: &str, line: u64, score: f64, body: &str) -> Value {
+        json!({"_index": "ax-docs", "_id": format!("{path}#{name}"), "_score": score,
+               "_source": {"ax_path": path, "ax_locator": format!("code:{line}:{name}"),
+                           "kind": "function", "name": name, "impl": body,
+                           "line": line, "start_line": line}})
+    }
+
+    fn ids(hits: &[Value]) -> Vec<String> {
+        hits.iter().map(|h| hit_key(h).1).collect()
+    }
+
+    /// #3378, the field report's shape: one Python file, a question about
+    /// `cmd_commit`. The file body held every word and ranked first. `main`
+    /// scores higher than `cmd_commit` only because it builds the command
+    /// table and so names every command; it is skipped as a dispatcher.
+    /// `cmd_commit` goes right before the file record, which stays.
+    #[test]
+    fn the_best_non_dispatcher_symbol_goes_before_its_file_record() {
+        let mut hits = vec![
+            file_body("gh_api.py", 1004.5),
+            symbol("other.py", "x", 3, 12.0),
+        ];
+        let symbols = vec![
+            symbol_with_body(
+                "gh_api.py",
+                "main",
+                183,
+                13.2,
+                "def main():\n    for name, fn in [(\"commit\", cmd_commit), (\"branch-create\", branch_create)]:",
+            ),
+            symbol("gh_api.py", "cmd_commit", 117, 8.75),
+            symbol("gh_api.py", "branch_create", 138, 4.46),
+        ];
+        assert_eq!(place_best_symbol_before_file_body(&mut hits, &symbols), 1);
+        assert_eq!(
+            ids(&hits),
+            vec!["gh_api.py#cmd_commit", "gh_api.py#code", "other.py#x"]
+        );
+        assert_eq!(
+            hits[0]["_score"],
+            json!(1004.5),
+            "takes the file hit's sort score"
+        );
+        assert!(hits[0]["_xerj_symbol_of_file"].is_object());
+        assert!(
+            hits[0]["_source"].get("impl").is_none(),
+            "the body read for the dispatcher check is not printed"
+        );
+    }
+
+    /// Two symbols within the margin say nothing about which part of the
+    /// file is meant, and a file whose only candidate is a dispatcher has no
+    /// answer: the page is unchanged.
+    #[test]
+    fn a_close_call_or_only_a_dispatcher_leaves_the_page_alone() {
+        let page = vec![file_body("a.py", 2000.0), symbol("b.py", "y", 9, 5.0)];
+        let mut close = page.clone();
+        let symbols = vec![symbol("a.py", "f", 1, 5.0), symbol("a.py", "g", 20, 4.5)];
+        assert_eq!(place_best_symbol_before_file_body(&mut close, &symbols), 0);
+        assert_eq!(ids(&close), ids(&page));
+
+        let mut hub_only = page.clone();
+        let symbols = vec![
+            symbol_with_body("a.py", "main", 30, 9.0, "f(); g()"),
+            symbol("a.py", "f", 1, 2.0),
+            symbol("a.py", "g", 20, 1.9),
+        ];
+        assert_eq!(
+            place_best_symbol_before_file_body(&mut hub_only, &symbols),
+            0
+        );
+        assert_eq!(ids(&hub_only), ids(&page));
+    }
+
+    /// A symbol already ranked above its file is left where it is; one
+    /// ranked below is moved up, not duplicated.
+    #[test]
+    fn a_symbol_already_on_the_page_is_moved_not_duplicated() {
+        let mut above = vec![symbol("a.py", "f", 4, 50.0), file_body("a.py", 40.0)];
+        let symbols = vec![symbol("a.py", "f", 4, 3.0)];
+        assert_eq!(place_best_symbol_before_file_body(&mut above, &symbols), 0);
+        assert_eq!(ids(&above), vec!["a.py#f", "a.py#code"]);
+
+        let mut below = vec![
+            file_body("a.py", 2000.0),
+            symbol("c.py", "z", 2, 30.0),
+            symbol("a.py", "f", 4, 10.0),
+        ];
+        assert_eq!(place_best_symbol_before_file_body(&mut below, &symbols), 1);
+        assert_eq!(ids(&below), vec!["a.py#f", "a.py#code", "c.py#z"]);
+    }
+
+    #[test]
+    fn a_name_counts_only_as_a_whole_identifier() {
+        assert!(names_identifier("(\"commit\", cmd_commit),", "cmd_commit"));
+        assert!(names_identifier("cmd_commit", "cmd_commit"));
+        assert!(!names_identifier("cmd_commit_all()", "cmd_commit"));
+        assert!(!names_identifier("x_cmd_commit", "cmd_commit"));
+        assert!(!names_identifier("anything", ""));
+    }
+
+    /// The symbol read is one bounded query: one clause per content term, at
+    /// least two of them, the page's `_source` list plus `name` and `impl`.
+    #[test]
+    fn the_symbol_read_is_one_clause_per_term_and_keeps_the_source_list() {
+        let source = json!(["ax_path", "kind"]);
+        let body = symbols_by_term_coverage_body(
+            &["gh_api.py".to_string()],
+            &["commit", "blob", "ref"],
+            &source,
+        );
+        assert_eq!(body["query"]["bool"]["should"].as_array().unwrap().len(), 3);
+        assert_eq!(
+            body["query"]["bool"]["minimum_should_match"],
+            json!(CARD_COLLAPSE_MIN_TERMS)
+        );
+        assert_eq!(
+            body["query"]["bool"]["filter"][0]["terms"]["ax_path"],
+            json!(["gh_api.py"])
+        );
+        assert_eq!(body["_source"], json!(["ax_path", "kind", "name", "impl"]));
+        assert_eq!(body["size"], json!(CARD_COLLAPSE_SYMBOL_FETCH));
+    }
 
     /// The folder is printed only when the hits themselves come from two or
     /// more folders: a catalog that also holds `ax-2` must not lengthen the

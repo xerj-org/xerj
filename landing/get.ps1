@@ -204,12 +204,47 @@
     $dir = if ($env:XERJ_INSTALL_DIR) { $env:XERJ_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\xerj' }
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     $dest = Join-Path $dir 'xerj.exe'
-    try {
-      Move-Item -Force -Path $src -Destination $dest
-    } catch {
-      Fail "could not replace $dest - if xerj is running, stop it first (Stop-Process -Name xerj) and re-run this installer"
+    # An MCP client keeps `xerj mcp` running, and Windows does not let a
+    # running .exe be overwritten (#3379). Windows does let it be renamed, so
+    # an earlier run may have left xerj.exe.old-* files; remove the ones no
+    # process holds any more. One still in use stays until a later run.
+    Get-ChildItem -LiteralPath $dir -Filter 'xerj.exe.old-*' -ErrorAction SilentlyContinue |
+      ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+    $sameBinary = $false
+    if (Test-Path -LiteralPath $dest) {
+      try {
+        $sameBinary = ((Get-FileHash -Algorithm SHA256 -LiteralPath $dest).Hash -eq (Get-FileHash -Algorithm SHA256 -LiteralPath $src).Hash)
+      } catch {}
     }
-    Write-Okay "installed $dest"
+    if ($sameBinary) {
+      Write-Okay "already up to date: $dest is the verified $tag binary, nothing to replace"
+    } else {
+      $restartNote = $false
+      try {
+        Move-Item -Force -Path $src -Destination $dest
+      } catch {
+        # Rename the running file aside, then move the new one in. The running
+        # process keeps its image until it exits.
+        $aside = 'xerj.exe.old-' + [IO.Path]::GetRandomFileName()
+        try {
+          Rename-Item -LiteralPath $dest -NewName $aside
+        } catch {
+          Fail "could not replace $dest ($($_.Exception.Message)) - stop xerj (Stop-Process -Name xerj) and re-run this installer"
+        }
+        try {
+          Move-Item -Force -Path $src -Destination $dest
+        } catch {
+          Rename-Item -LiteralPath (Join-Path $dir $aside) -NewName 'xerj.exe' -ErrorAction SilentlyContinue
+          Fail "could not install $dest ($($_.Exception.Message)) - stop xerj (Stop-Process -Name xerj) and re-run this installer"
+        }
+        $restartNote = $true
+      }
+      Write-Okay "installed $dest"
+      if ($restartNote) {
+        Write-Host "  xerj.exe was running (an MCP client keeps 'xerj mcp' alive). It keeps the old version until it exits:"
+        Write-Host "  restart your MCP client (or the running xerj) to use $tag. The old file is removed on the next install run."
+      }
+    }
 
     # --- PATH (user scope, reversible; opt out with XERJ_NO_PATH=1) ------------
     if (-not $env:XERJ_NO_PATH) {
