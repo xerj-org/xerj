@@ -328,6 +328,12 @@ fn item_result(
             .and_then(Value::as_array_mut)
         {
             xerj_autoindex::def::penalize_demoted_paths(hits);
+            // #2513: the same README/docs/markdown penalty and sparse-definition
+            // pass `xerj_search` runs, so one question ranks the same alone or
+            // in a batch.
+            if let Some(q) = item.get("query").and_then(Value::as_str) {
+                xerj_common::xccode::render::demote_sparse_definition_hits(hits, q);
+            }
             hits.truncate(size);
         }
     }
@@ -646,6 +652,69 @@ pub(crate) async fn run(ctx: &Ctx, args: &Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn ranked_paths(result: &Value) -> Vec<String> {
+        result["hits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|h| h["citation"]["ax_path"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    /// #2513: a batch item ran only the test/example penalty, so a markdown
+    /// note that `xerj_search` ranks behind the code stayed first in
+    /// `xerj_batch_search`. Both now run the same doc pass.
+    #[test]
+    fn batch_items_get_the_doc_demotion_xerj_search_gets() {
+        let code_mapping = json!({"ax-src": {"mappings": {"properties": {
+            "name": {"type": "keyword"}, "code": {"type": "keyword"},
+            "defs": {"type": "text"}, "body": {"type": "text"}
+        }}}});
+        let hit = |path: &str, score: f64| {
+            json!({"_index": "ax-src", "_id": path, "_score": score,
+                   "_source": {"ax_path": path}})
+        };
+        let response = || {
+            json!({"hits": {"total": {"value": 3}, "hits": [
+                hit("user-feedback/2026-11-03-autoindex-resume.md", 11.0),
+                hit("README.md", 10.5),
+                hit("src/autoindex/state.rs", 8.0),
+            ]}})
+        };
+        let question = json!({"query": "autoindex resume journal"});
+        let out = item_result(
+            json!({"position": 0}),
+            response(),
+            &question,
+            2,
+            Some(&code_mapping),
+            false,
+        );
+        assert_eq!(
+            ranked_paths(&out),
+            vec![
+                "src/autoindex/state.rs",
+                "user-feedback/2026-11-03-autoindex-resume.md"
+            ]
+        );
+        assert_eq!(out["hits_omitted"], json!(0));
+
+        let lookup = json!({"query": "AutoindexState"});
+        let out = item_result(
+            json!({"position": 0}),
+            response(),
+            &lookup,
+            3,
+            Some(&code_mapping),
+            false,
+        );
+        assert_eq!(
+            ranked_paths(&out)[0],
+            "user-feedback/2026-11-03-autoindex-resume.md",
+            "a one-token lookup keeps the engine order"
+        );
+    }
 
     #[test]
     fn batch_budget_keeps_outcomes_and_citations_or_refuses() {

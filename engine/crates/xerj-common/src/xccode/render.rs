@@ -398,6 +398,9 @@ const DOC_INTENT_WORDS: &[&str] = &[
     "guide",
     "translation",
     "translations",
+    "markdown",
+    "changelog",
+    "notes",
 ];
 
 /// True when a code-corpus query reads as words, not as one identifier, so
@@ -450,9 +453,19 @@ fn is_doc_dir(seg: &str) -> bool {
     ) || seg.contains("demo")
 }
 
+/// Extensions of prose markup files. On a code corpus these are notes,
+/// changelogs, feedback, and design text wherever they sit (#2513 found
+/// `user-feedback/*.md` and `tools/**/*.md` above the code they describe),
+/// not the implementation. `.txt` is left out: `CMakeLists.txt` and
+/// `requirements.txt` are build inputs, and plain-text sources ride it.
+const PROSE_MARKUP_EXTENSIONS: &[&str] =
+    &[".md", ".markdown", ".mdx", ".rst", ".adoc", ".asciidoc"];
+
 /// True for a README (any extension, any translation: `README.zh-CN.md`),
-/// a file under `docs/`, `demo/`, `*demo*/`, `samples/`, `sample/` or
-/// `icons/`, and an `.svg` asset. `path` may use `/` or `\`.
+/// a prose markup file anywhere ([`PROSE_MARKUP_EXTENSIONS`]: `.md`,
+/// `.rst`, `.adoc`, ...), a file under `docs/`, `demo/`, `*demo*/`,
+/// `samples/`, `sample/` or `icons/`, and an `.svg` asset. `path` may use
+/// `/` or `\`.
 pub fn path_is_doc_like(path: &str) -> bool {
     let lower = path.replace('\\', "/").to_lowercase();
     let segs: Vec<&str> = lower.split('/').filter(|s| !s.is_empty()).collect();
@@ -460,7 +473,12 @@ pub fn path_is_doc_like(path: &str) -> bool {
         return false;
     };
     let readme = *file == "readme" || file.starts_with("readme.");
-    readme || file.ends_with(".svg") || dirs.iter().any(|seg| is_doc_dir(seg))
+    readme
+        || file.ends_with(".svg")
+        || PROSE_MARKUP_EXTENSIONS
+            .iter()
+            .any(|ext| file.ends_with(ext))
+        || dirs.iter().any(|seg| is_doc_dir(seg))
 }
 
 /// An index whose name marks an icon or SVG asset dataset
@@ -2411,6 +2429,12 @@ mod tests {
             "packages/icons/src/IconUser.tsx",
             "assets/logo.svg",
             "docs\\guide.md",
+            "user-feedback/2026-11-03-agent.md",
+            "tools/xerj-code/SKILL.md",
+            "CHANGELOG.md",
+            "crates/xerj-wal/DESIGN.rst",
+            "site/pages/wal.mdx",
+            "notes/merge.adoc",
         ] {
             assert!(path_is_doc_like(doc), "{doc}");
         }
@@ -2420,6 +2444,10 @@ mod tests {
             "src/readme_parser.rs",
             "src/doc_values.rs",
             "lib/document.rs",
+            "src/markdown.rs",
+            "src/md/parser.rs",
+            "tools/release.py",
+            "CMakeLists.txt",
             "",
         ] {
             assert!(!path_is_doc_like(code), "{code}");
@@ -2448,6 +2476,8 @@ mod tests {
             "docs for WAL rotation",
             "demo of live orders",
             "svg icon for user",
+            "changelog for WAL rotation",
+            "markdown table rendering",
             "",
         ] {
             assert!(!query_prefers_implementation(q), "{q}");
@@ -2520,6 +2550,32 @@ mod tests {
         ];
         demote_doc_hits_for_question(&mut icons, "getUserInfo user info api");
         assert_eq!(paths(&icons), vec!["src/api/user.ts", "src/UserInfo.tsx"]);
+    }
+
+    /// #2513 follow-up: markdown outside a docs folder (`user-feedback/`,
+    /// `tools/`) sat above the implementation for a question, because only
+    /// README names and the listed directories were demoted.
+    #[test]
+    fn markdown_outside_docs_folders_falls_behind_the_implementation() {
+        let mut hits = vec![
+            scored("user-feedback/2026-11-03-autoindex-resume.md", 11.0),
+            scored("tools/xerj-code/SKILL.md", 10.5),
+            scored("engine/crates/xerj-autoindex/src/state.rs", 8.0),
+            scored("tools/release.py", 4.0),
+        ];
+        demote_doc_hits_for_question(&mut hits, "autoindex resume journal");
+        assert_eq!(
+            paths(&hits),
+            vec![
+                "engine/crates/xerj-autoindex/src/state.rs",
+                "user-feedback/2026-11-03-autoindex-resume.md",
+                "tools/xerj-code/SKILL.md",
+                "tools/release.py",
+            ]
+        );
+        let mut asked = vec![scored("CHANGELOG.md", 11.0), scored("src/wal.rs", 8.0)];
+        demote_doc_hits_for_question(&mut asked, "changelog for WAL rotation");
+        assert_eq!(paths(&asked), vec!["CHANGELOG.md", "src/wal.rs"]);
     }
 
     /// `demote_sparse_definition_hits` is the combined search pass; the

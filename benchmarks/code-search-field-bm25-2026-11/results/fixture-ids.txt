@@ -1,0 +1,8 @@
+== base
+RUSTSEC-2021-0003	src/release_2021.rs > src/advisory_gate.rs > src/audit_report.rs
+what does RUSTSEC-2021-0003 affect	src/release_2021.rs > src/audit_report.rs > src/advisory_gate.rs
+refuse vulnerable pin	src/advisory_gate.rs
+== new
+RUSTSEC-2021-0003	src/advisory_gate.rs > src/release_2021.rs > src/audit_report.rs
+what does RUSTSEC-2021-0003 affect	src/advisory_gate.rs > src/release_2021.rs > src/audit_report.rs
+refuse vulnerable pin	src/advisory_gate.rs

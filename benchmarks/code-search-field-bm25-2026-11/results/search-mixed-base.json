@@ -1,0 +1,5021 @@
+{
+  "k": 10,
+  "prefix": "mx",
+  "pattern": "mx-*",
+  "url": "http://localhost:24100",
+  "id_field": "ax_path",
+  "code_corpus": true,
+  "gain": "linear (trec_eval ndcg_cut)",
+  "queries_in_file": 300,
+  "queries_judged": 300,
+  "queries_scored": 300,
+  "skipped_no_relevant": 0,
+  "errors": [],
+  "mean": {
+    "ndcg": 0.6309640968430738,
+    "recall": 0.6866666666666666,
+    "mrr": 0.613818783068783,
+    "latency_ms": 163.25906910999996
+  },
+  "elapsed_ms": 48981.633459000004,
+  "queries": [
+    {
+      "qid": "A000",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/rbac.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-engine/src/audit.rs",
+        "crates/xerj-api/src/auth.rs",
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-api/src/share.rs",
+        "crates/xerj-storage/src/bundle.rs"
+      ],
+      "latency_ms": 1424.99954
+    },
+    {
+      "qid": "A001",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/reconcile_plan.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/sync.rs",
+        "crates/xerj-autoindex/src/refused_dataset_tests.rs",
+        "crates/xerj-autoindex/src/state.rs"
+      ],
+      "latency_ms": 482.518212
+    },
+    {
+      "qid": "A002",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/wal_tap.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-autoindex/src/init.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-api/src/router.rs"
+      ],
+      "latency_ms": 310.206751
+    },
+    {
+      "qid": "A003",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-server/src/grpc_hub.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-api/src/state.rs",
+        "crates/xerj-api/src/ask_api.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-api/src/authz.rs"
+      ],
+      "latency_ms": 307.199963
+    },
+    {
+      "qid": "A004",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/write_publication.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-hub/src/ask.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-hub/src/node.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-server/src/share.rs",
+        "crates/xerj-autoindex/src/harvest/identity.rs"
+      ],
+      "latency_ms": 210.28994500000002
+    },
+    {
+      "qid": "A005",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-autoindex/src/sync.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-fts/src/index.rs"
+      ],
+      "latency_ms": 189.902081
+    },
+    {
+      "qid": "A006",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-autoindex/src/generation_catalog.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-engine/src/aggs.rs"
+      ],
+      "latency_ms": 189.744987
+    },
+    {
+      "qid": "A007",
+      "ndcg": 0.38685280723454163,
+      "recall": 1.0,
+      "mrr": 0.2,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-console-api/src/bootstrap.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-server/src/brain.rs",
+        "crates/xerj-server/src/share.rs",
+        "crates/xerj-console-api/tests/phase1_boot_and_cluster_info.rs",
+        "crates/xerj-api/src/graph_api.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-api/tests/brain_is_a_security_boundary.rs",
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-api/src/share.rs"
+      ],
+      "latency_ms": 178.447907
+    },
+    {
+      "qid": "A008",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "content/answers/does-xerj-support-s3-alerting-plugins.md",
+        "landing/answers/does-xerj-support-s3-alerting-plugins.md",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-engine/src/engine.rs"
+      ],
+      "latency_ms": 419.254003
+    },
+    {
+      "qid": "A009",
+      "ndcg": 0.6309297535714575,
+      "recall": 1.0,
+      "mrr": 0.5,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-api/tests/rerank_stage_http.rs",
+        "crates/xerj-rerank/src/judge.rs",
+        "crates/xerj-autoindex/src/ignore_rules.rs",
+        "crates/xerj-rerank/src/lib.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "content/answers/rerank-search-results-calibrated-judge.md",
+        "crates/xerj-api/src/rerank_stage.rs",
+        "crates/xerj-mcp/src/lib.rs"
+      ],
+      "latency_ms": 159.07714
+    },
+    {
+      "qid": "A010",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-console-api/src/data_sources.rs",
+        "crates/xerj-cluster/src/coordinator.rs",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/10-serverless-search/realtime-streaming.md",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-autoindex/src/xc.rs"
+      ],
+      "latency_ms": 181.711144
+    },
+    {
+      "qid": "A011",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/objsource.rs",
+        "crates/xerj-rerank/src/lib.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/02-es-durability-sla/upgrade-migration-pain.md",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-server/src/grpc.rs",
+        "crates/xerj-autoindex/src/objwatch/run.rs"
+      ],
+      "latency_ms": 264.78338
+    },
+    {
+      "qid": "A012",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/src/sync/tests.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-hub/src/ask.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-api/src/hub_api.rs"
+      ],
+      "latency_ms": 296.818991
+    },
+    {
+      "qid": "A013",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-server/src/grpc_hub.rs",
+        "crates/xerj-console-api/src/error.rs",
+        "crates/xerj-autoindex/src/harvest/identity.rs",
+        "crates/xerj-api/src/state.rs",
+        "crates/xerj-wasm/src/pipeline.rs",
+        "crates/xerj-autoindex/src/objwatch/tests.rs",
+        "crates/xerj-console-api/src/auth/sessions.rs",
+        "crates/xerj-autoindex/src/reconcile_plan.rs"
+      ],
+      "latency_ms": 156.195958
+    },
+    {
+      "qid": "A014",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-server/src/brain.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-server/src/grpc.rs",
+        "crates/xerj-autoindex/src/detect/cratecite.rs",
+        "crates/xerj-autoindex/src/detect/pathcite.rs",
+        "crates/xerj-autoindex/src/detect/href.rs",
+        "crates/xerj-autoindex/src/detect/emailthread.rs"
+      ],
+      "latency_ms": 165.340052
+    },
+    {
+      "qid": "A015",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-console-api/src/bootstrap.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-hub/src/node.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/cluster_state.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-api/src/rerank_stage.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-engine/src/audit.rs"
+      ],
+      "latency_ms": 249.00676099999998
+    },
+    {
+      "qid": "A016",
+      "ndcg": 0.3333333333333333,
+      "recall": 1.0,
+      "mrr": 0.14285714285714285,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-api/tests/refresh_reports_flush_failure.rs",
+        "crates/xerj-cluster/src/replication.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-engine/src/engine.rs"
+      ],
+      "latency_ms": 236.250807
+    },
+    {
+      "qid": "A017",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-mcp/src/hub.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/init.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-autoindex/src/label.rs",
+        "crates/xerj-hub/src/ask.rs",
+        "crates/xerj-common/src/hub.rs",
+        "crates/xerj-api/src/hub_api.rs"
+      ],
+      "latency_ms": 255.378067
+    },
+    {
+      "qid": "A018",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/detect/e2e.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/bulk.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-autoindex/src/cli.rs"
+      ],
+      "latency_ms": 218.33244299999998
+    },
+    {
+      "qid": "A019",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/extract/code.rs"
+      ],
+      "latency_ms": 252.60216200000002
+    },
+    {
+      "qid": "A020",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-common/src/error.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/detect/e2e.rs",
+        "crates/xerj-autoindex/src/detect/e2e_mail.rs",
+        "crates/xerj-server/src/grpc.rs"
+      ],
+      "latency_ms": 267.520902
+    },
+    {
+      "qid": "A021",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-hub/src/ask.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-storage/src/index_store.rs"
+      ],
+      "latency_ms": 194.97406
+    },
+    {
+      "qid": "A022",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/label.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-engine/src/bulk.rs",
+        "crates/xerj-api/src/responses.rs",
+        "crates/xerj-api/src/ask_api.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-api/src/auth.rs"
+      ],
+      "latency_ms": 284.684531
+    },
+    {
+      "qid": "A023",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/html.rs",
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/wal_tap.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-engine/src/memtable.rs"
+      ],
+      "latency_ms": 195.327803
+    },
+    {
+      "qid": "A024",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/code_blocks.rs",
+        "crates/xerj-api/src/rerank_stage.rs",
+        "crates/xerj-storage/src/s3.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-hub/src/node.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs"
+      ],
+      "latency_ms": 421.216593
+    },
+    {
+      "qid": "A025",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/objsource_s3_tests.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/objsource.rs",
+        "landing/answers/search-files-in-an-s3-bucket.md",
+        "content/answers/search-files-in-an-s3-bucket.md",
+        "crates/xerj-autoindex/src/objwatch/tests.rs",
+        "crates/xerj-autoindex/src/objsource_minio_tests.rs"
+      ],
+      "latency_ms": 376.350086
+    },
+    {
+      "qid": "A026",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-hub/src/node.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/watch.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/sniff.rs"
+      ],
+      "latency_ms": 200.422936
+    },
+    {
+      "qid": "A027",
+      "ndcg": 0.3010299956639812,
+      "recall": 1.0,
+      "mrr": 0.1111111111111111,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-query/src/parser.rs",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/09-ai-workload-requirements/agentic-rag-requirements.md",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-query/src/planner.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-hub/src/cli.rs",
+        "crates/xerj-common/src/hub.rs",
+        "crates/xerj-common/src/types.rs",
+        "crates/xerj-engine/tests/integration.rs",
+        "crates/xerj-fts/src/search.rs"
+      ],
+      "latency_ms": 147.074017
+    },
+    {
+      "qid": "A028",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/detect/e2e_mail.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/extract/mbox.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-autoindex/src/infer/mod.rs",
+        "crates/xerj-api/src/hub_api.rs"
+      ],
+      "latency_ms": 505.429887
+    },
+    {
+      "qid": "A029",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/sql.rs",
+        "crates/xerj-fts/src/analyzer.rs",
+        "crates/xerj-hub/src/router.rs",
+        "crates/xerj-rerank/src/judge.rs",
+        "crates/xerj-api/src/ask_api.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "user-feedback/11-reference-coding-field-reports/2026-08-11-token-savings-reports.md",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/painless.rs"
+      ],
+      "latency_ms": 161.900634
+    },
+    {
+      "qid": "A030",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-hub/src/ask.rs",
+        "crates/xerj-hub/src/cli.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-hub/src/sync.rs",
+        "crates/xerj-api/src/router.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-common/src/hub.rs",
+        "crates/xerj-server/src/grpc_hub.rs"
+      ],
+      "latency_ms": 256.930517
+    },
+    {
+      "qid": "A031",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-wasm/src/pipeline.rs",
+        "crates/xerj-autoindex/src/objsource.rs",
+        "crates/xerj-engine/src/ingest_memory.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/esclient.rs"
+      ],
+      "latency_ms": 245.910357
+    },
+    {
+      "qid": "A032",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/dataset.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-vector/src/hnsw.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-api/src/memory_api.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs"
+      ],
+      "latency_ms": 220.535944
+    },
+    {
+      "qid": "A033",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-storage/src/wal.rs"
+      ],
+      "latency_ms": 266.2129
+    },
+    {
+      "qid": "A034",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/painless.rs",
+        "crates/xerj-api/src/share.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-engine/src/bulk.rs"
+      ],
+      "latency_ms": 192.209077
+    },
+    {
+      "qid": "A035",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/tests/admin_key_not_printed.rs",
+        "crates/xerj-autoindex/src/harvest/identity.rs",
+        "crates/xerj-autoindex/src/objwatch/tests.rs",
+        "crates/xerj-api/src/state.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-server/src/share.rs"
+      ],
+      "latency_ms": 262.79177599999997
+    },
+    {
+      "qid": "A036",
+      "ndcg": 0.31546487678572877,
+      "recall": 1.0,
+      "mrr": 0.125,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-engine/src/wal_shard_settings_tests.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-api/src/native.rs",
+        "crates/xerj-engine/tests/integration.rs",
+        "crates/xerj-api/src/audit_mw.rs",
+        "crates/xerj-engine/src/wal_tap.rs"
+      ],
+      "latency_ms": 144.103858
+    },
+    {
+      "qid": "A037",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/src/node.rs",
+        "crates/xerj-console-api/src/dashboards.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-cluster/src/regions.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-api/src/binary_protocol.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-server/src/main.rs"
+      ],
+      "latency_ms": 192.326947
+    },
+    {
+      "qid": "A038",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-server/src/ingest_memory_trace.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-engine/src/painless.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-engine/src/governor.rs",
+        "crates/xerj-hub/src/node.rs"
+      ],
+      "latency_ms": 296.532153
+    },
+    {
+      "qid": "A039",
+      "ndcg": 0.6309297535714575,
+      "recall": 1.0,
+      "mrr": 0.5,
+      "relevant": 1,
+      "retrieved": [
+        "CHANGELOG.md",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/detect/e2e_mail.rs",
+        "crates/xerj-ai/src/neural.rs",
+        "crates/xerj-autoindex/src/sync.rs"
+      ],
+      "latency_ms": 191.440255
+    },
+    {
+      "qid": "A040",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-cluster/src/regions.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-hub/src/cli.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-mcp/src/lib.rs"
+      ],
+      "latency_ms": 192.08315000000002
+    },
+    {
+      "qid": "A041",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/mbox.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-engine/src/governor.rs",
+        "crates/xerj-rerank/src/lib.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-common/src/config.rs"
+      ],
+      "latency_ms": 504.554385
+    },
+    {
+      "qid": "A042",
+      "ndcg": 0.5,
+      "recall": 1.0,
+      "mrr": 0.3333333333333333,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-engine/tests/product_experience.rs",
+        "crates/xerj-mcp/src/hub.rs",
+        "crates/xerj-console-api/src/lib.rs",
+        "crates/xerj-autoindex/src/harvest/identity.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-hub/src/ask.rs"
+      ],
+      "latency_ms": 147.123209
+    },
+    {
+      "qid": "A043",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-autoindex/src/objwatch/cost.rs",
+        "CHANGELOG.md",
+        "landing/answers/keep-s3-bucket-index-current.md",
+        "content/answers/keep-s3-bucket-index-current.md",
+        "crates/xerj-engine/src/ingest_memory.rs",
+        "crates/xerj-hub/src/sync/tests.rs"
+      ],
+      "latency_ms": 120.80756099999999
+    },
+    {
+      "qid": "A044",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/metrics.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-common/src/error.rs",
+        "crates/xerj-engine/src/code_blocks.rs",
+        "crates/xerj-api/src/native.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-query/src/executor.rs",
+        "crates/xerj-vector/src/quantizer.rs",
+        "crates/xerj-server/src/grpc_hub.rs"
+      ],
+      "latency_ms": 221.492227
+    },
+    {
+      "qid": "A045",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/tests/ask_endpoint.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/watch.rs",
+        "crates/xerj-engine/src/ingest_memory.rs",
+        "crates/xerj-autoindex/src/gain.rs",
+        "crates/xerj-autoindex/src/objwatch/s3.rs"
+      ],
+      "latency_ms": 70.68316800000001
+    },
+    {
+      "qid": "A046",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "CHANGELOG.md",
+        "crates/xerj-autoindex/src/sync.rs"
+      ],
+      "latency_ms": 647.559514
+    },
+    {
+      "qid": "A047",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/doc.rs",
+        "crates/xerj-autoindex/src/harvest/mod.rs",
+        "crates/xerj-autoindex/src/extract/ipynb.rs",
+        "crates/xerj-autoindex/src/init.rs",
+        "crates/xerj-common/src/xccode/fields.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-autoindex/src/detect/e2e.rs"
+      ],
+      "latency_ms": 257.878605
+    },
+    {
+      "qid": "A048",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/detect/emailthread.rs",
+        "crates/xerj-api/tests/hub_api.rs",
+        "crates/xerj-autoindex/src/detect/e2e_mail.rs",
+        "landing/answers/search-gmail-takeout-mbox-locally.md",
+        "content/answers/search-gmail-takeout-mbox-locally.md",
+        "crates/xerj-autoindex/src/extract/mbox.rs",
+        "crates/xerj-autoindex/src/lib.rs"
+      ],
+      "latency_ms": 134.09695699999997
+    },
+    {
+      "qid": "A049",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "CHANGELOG.md",
+        "crates/xerj-autoindex/src/objwatch/tests.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-hub/src/sync.rs",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/04-vector-db-qdrant/data-points.md"
+      ],
+      "latency_ms": 525.1723010000001
+    },
+    {
+      "qid": "A050",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/objwatch/run.rs",
+        "crates/xerj-autoindex/src/progress.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-autoindex/src/feedback.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/catalog.rs",
+        "content/answers/keep-s3-bucket-index-current.md",
+        "crates/xerj-autoindex/src/objwatch/tests.rs"
+      ],
+      "latency_ms": 165.979681
+    },
+    {
+      "qid": "A051",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/wal_tap.rs",
+        "crates/xerj-engine/src/governor.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs"
+      ],
+      "latency_ms": 180.064297
+    },
+    {
+      "qid": "A052",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-cluster/src/auth.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/objwatch/s3.rs",
+        "crates/xerj-autoindex/src/objwatch/tests.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-api/src/state.rs",
+        "crates/xerj-cluster/src/transport.rs",
+        "crates/xerj-engine/src/fast_aggs.rs"
+      ],
+      "latency_ms": 530.36179
+    },
+    {
+      "qid": "A053",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/src/node.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-server/src/grpc.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs"
+      ],
+      "latency_ms": 325.82142400000004
+    },
+    {
+      "qid": "A054",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/bulk.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-api/src/rerank_stage.rs",
+        "crates/xerj-common/src/xccode/fields.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-engine/src/painless.rs",
+        "crates/xerj-engine/src/engine.rs"
+      ],
+      "latency_ms": 478.494718
+    },
+    {
+      "qid": "A055",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-storage/src/segment.rs",
+        "crates/xerj-storage/src/doc_values.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-fts/src/postings.rs",
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-engine/src/fast_aggs.rs"
+      ],
+      "latency_ms": 185.704171
+    },
+    {
+      "qid": "A056",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-autoindex/src/detect/e2e_mail.rs"
+      ],
+      "latency_ms": 748.8735989999999
+    },
+    {
+      "qid": "A057",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/detect/e2e_mail.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-server/src/grpc.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/fast_aggs.rs"
+      ],
+      "latency_ms": 379.709655
+    },
+    {
+      "qid": "A058",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "user-feedback/kibana/themes/top-pains.md",
+        "landing/answers/improve-basic-faiss-rag-pipeline.md",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-server/src/main.rs",
+        "CHANGELOG.md",
+        "crates/xerj-server/src/share.rs",
+        "crates/xerj-engine/src/wal_tap.rs"
+      ],
+      "latency_ms": 129.350288
+    },
+    {
+      "qid": "A059",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-cluster/src/coordinator.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-cluster/src/lib.rs",
+        "crates/xerj-api/src/binary_protocol.rs",
+        "crates/xerj-cluster/src/search.rs",
+        "crates/xerj-console-api/src/data_sources.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-autoindex/src/xc.rs"
+      ],
+      "latency_ms": 176.33928400000002
+    },
+    {
+      "qid": "A060",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-common/src/xccode/render.rs",
+        "crates/xerj-autoindex/src/catalog.rs",
+        "crates/xerj-api/src/native.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "landing/answers/search-openapi-spec-for-agent.md",
+        "crates/xerj-autoindex/src/sync_executor.rs"
+      ],
+      "latency_ms": 168.85446100000001
+    },
+    {
+      "qid": "A061",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-autoindex/src/objwatch/tests.rs"
+      ],
+      "latency_ms": 213.95736000000002
+    },
+    {
+      "qid": "A062",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "CHANGELOG.md"
+      ],
+      "latency_ms": 157.968402
+    },
+    {
+      "qid": "A063",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/objsource.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/objwatch/tests.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-storage/src/s3.rs"
+      ],
+      "latency_ms": 159.024412
+    },
+    {
+      "qid": "A064",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-autoindex/src/watch.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/extract/code.rs"
+      ],
+      "latency_ms": 286.71116
+    },
+    {
+      "qid": "A065",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-query/src/executor.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-autoindex/src/ignore_rules.rs",
+        "crates/xerj-common/src/config.rs"
+      ],
+      "latency_ms": 292.625629
+    },
+    {
+      "qid": "A066",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-storage/src/lib.rs",
+        "crates/xerj-console-api/src/spa.rs",
+        "crates/xerj-common/src/config.rs",
+        "benchmarks/corpus-ab-2026-10/runs/p2/method.md",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-hub/src/pack.rs",
+        "crates/xerj-api/src/responses.rs"
+      ],
+      "latency_ms": 136.837154
+    },
+    {
+      "qid": "A067",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-query/src/ast.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-api/src/ask_api.rs",
+        "crates/xerj-query/src/planner.rs",
+        "crates/xerj-fts/src/analyzer.rs",
+        "crates/xerj-fts/src/index.rs"
+      ],
+      "latency_ms": 196.69057800000002
+    },
+    {
+      "qid": "A068",
+      "ndcg": 0.43067655807339306,
+      "recall": 1.0,
+      "mrr": 0.25,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-console-api/build.rs",
+        "crates/xerj-api/src/main.rs",
+        "crates/xerj-mcp/src/main.rs",
+        "crates/xerj-engine/tests/docs_do_not_promise_the_next_release.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-engine/src/wal_tap.rs",
+        "crates/xerj-server/build.rs"
+      ],
+      "latency_ms": 93.302836
+    },
+    {
+      "qid": "A069",
+      "ndcg": 0.3562071871080222,
+      "recall": 1.0,
+      "mrr": 0.16666666666666666,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-engine/tests/es_compat_tests.rs",
+        "crates/xerj-autoindex/src/detect/e2e.rs",
+        "crates/xerj-api/src/binary_protocol.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/label_http_tests.rs"
+      ],
+      "latency_ms": 429.06310399999995
+    },
+    {
+      "qid": "A070",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-autoindex/src/feedback.rs",
+        "crates/xerj-api/src/systemone_api.rs",
+        "crates/xerj-hub/src/node.rs",
+        "crates/xerj-query/src/ast.rs",
+        "crates/xerj-autoindex/src/detect/e2e_mail.rs",
+        "crates/xerj-cluster/src/metadata.rs",
+        "crates/xerj-ai/src/onnx.rs",
+        "crates/xerj-rerank/src/lib.rs"
+      ],
+      "latency_ms": 22.465659
+    },
+    {
+      "qid": "A071",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/extract/pdf.rs",
+        "crates/xerj-engine/src/wal_tap.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/generation_catalog.rs",
+        "crates/xerj-api/src/share.rs",
+        "crates/xerj-autoindex/src/watch.rs"
+      ],
+      "latency_ms": 331.81126500000005
+    },
+    {
+      "qid": "A072",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/12-user-migration-stories/twitter-posts.md",
+        "scripts/seo/testdata/factcheck/bad_misc_overclaims.md",
+        "user-feedback/kibana/themes/top-asks.md",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/03-es-operations-cost/team-burden.md",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/09-ai-workload-requirements/data-points.md",
+        "crates/xerj-autoindex/src/cli.rs",
+        "engine/README.md"
+      ],
+      "latency_ms": 84.25598500000001
+    },
+    {
+      "qid": "A073",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs"
+      ],
+      "latency_ms": 139.724618
+    },
+    {
+      "qid": "A074",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/audit.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/bulk.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-autoindex/src/extract/code.rs"
+      ],
+      "latency_ms": 474.78009399999996
+    },
+    {
+      "qid": "A075",
+      "ndcg": 0.3562071871080222,
+      "recall": 1.0,
+      "mrr": 0.16666666666666666,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-engine/tests/verify_window_terms_perf.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/extract/xlsx.rs",
+        "crates/xerj-autoindex/src/extract/xls.rs",
+        "crates/xerj-logs/src/query.rs"
+      ],
+      "latency_ms": 250.64687600000002
+    },
+    {
+      "qid": "A076",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/sync.rs",
+        "crates/xerj-autoindex/src/generation_catalog.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-autoindex/src/refused_dataset_tests.rs",
+        "crates/xerj-autoindex/src/generation_catalog_http_tests.rs",
+        "crates/xerj-engine/src/aggs.rs"
+      ],
+      "latency_ms": 190.876177
+    },
+    {
+      "qid": "A077",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/painless.rs",
+        "CHANGELOG.md",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "landing/answers/search-sql-dump-file.md",
+        "crates/xerj-autoindex/src/lib.rs",
+        "content/answers/search-sql-dump-file.md",
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-api/src/hub_api.rs"
+      ],
+      "latency_ms": 193.82815200000002
+    },
+    {
+      "qid": "A078",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/objsource_minio_tests.rs",
+        "crates/xerj-logs/src/query.rs",
+        "crates/xerj-autoindex/src/extract/txt.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-storage/src/s3.rs",
+        "crates/xerj-engine/src/turbo_ingest.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "CHANGELOG.md"
+      ],
+      "latency_ms": 223.43621199999998
+    },
+    {
+      "qid": "A079",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-wasm/src/pipeline.rs",
+        "crates/xerj-autoindex/src/catalog.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "CHANGELOG.md",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/cli.rs"
+      ],
+      "latency_ms": 104.747653
+    },
+    {
+      "qid": "A080",
+      "ndcg": 0.38685280723454163,
+      "recall": 1.0,
+      "mrr": 0.2,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/systemone_api.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-autoindex/src/objwatch/cost.rs",
+        "crates/xerj-ai/src/decide.rs",
+        "crates/xerj-api/tests/decide_flywheel.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-autoindex/src/pool.rs",
+        "crates/xerj-autoindex/src/objsource.rs",
+        "crates/xerj-api/tests/systemone_http.rs",
+        "CHANGELOG.md"
+      ],
+      "latency_ms": 129.201649
+    },
+    {
+      "qid": "A081",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/stored_codec/row_hydration.rs",
+        "crates/xerj-autoindex/src/extract/xls.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-autoindex/src/catalog.rs",
+        "crates/xerj-hub/src/cli.rs"
+      ],
+      "latency_ms": 185.05107700000002
+    },
+    {
+      "qid": "A082",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-rerank/src/lib.rs",
+        "crates/xerj-common/src/config.rs"
+      ],
+      "latency_ms": 174.099544
+    },
+    {
+      "qid": "A083",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/objwatch/tests.rs",
+        "crates/xerj-autoindex/src/harvest/source.rs",
+        "crates/xerj-autoindex/src/objsource.rs",
+        "crates/xerj-console-api/tests/spa_assets.rs",
+        "crates/xerj-hub/src/node.rs",
+        "crates/xerj-autoindex/src/feedback.rs"
+      ],
+      "latency_ms": 125.12869300000001
+    },
+    {
+      "qid": "A084",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/catalog.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/cli.rs"
+      ],
+      "latency_ms": 226.725949
+    },
+    {
+      "qid": "A085",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-cluster/src/transport.rs",
+        "crates/xerj-rerank/src/lib.rs",
+        "user-feedback/ROADMAP-TO-GA.md",
+        "crates/xerj-api/src/native.rs",
+        "crates/xerj-console-api/src/bootstrap.rs",
+        "crates/xerj-console-api/src/lib.rs"
+      ],
+      "latency_ms": 116.775012
+    },
+    {
+      "qid": "A086",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/harvest/mod.rs",
+        "crates/xerj-autoindex/src/extract/pdf.rs",
+        "crates/xerj-engine/src/audit.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/extract/ipynb.rs",
+        "crates/xerj-autoindex/src/cli.rs"
+      ],
+      "latency_ms": 385.065125
+    },
+    {
+      "qid": "A087",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/wal_tap.rs",
+        "crates/xerj-engine/src/turbo_ingest.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/bulk.rs",
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-autoindex/src/lib.rs"
+      ],
+      "latency_ms": 357.77402
+    },
+    {
+      "qid": "A088",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/ask_api.rs",
+        "crates/xerj-common/src/error.rs",
+        "crates/xerj-hub/src/sync/tests.rs",
+        "crates/xerj-server/src/main.rs",
+        "content/compare/xerj-vs-localsynapse.md",
+        "landing/compare/xerj-vs-localsynapse.md",
+        "landing/compare/xerj-vs-docfetcher.md",
+        "content/compare/xerj-vs-docfetcher.md",
+        "crates/xerj-autoindex/src/lib.rs"
+      ],
+      "latency_ms": 121.20801200000001
+    },
+    {
+      "qid": "A089",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/objwatch/s3.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/esclient.rs"
+      ],
+      "latency_ms": 371.598138
+    },
+    {
+      "qid": "A090",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/sync.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-server/src/grpc.rs",
+        "crates/xerj-autoindex/src/generation_catalog_http_tests.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/generation_catalog.rs"
+      ],
+      "latency_ms": 208.917863
+    },
+    {
+      "qid": "A091",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-query/src/planner.rs",
+        "crates/xerj-query/src/ast.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-query/src/sort.rs",
+        "crates/xerj-logs/src/query.rs",
+        "crates/xerj-autoindex/src/detect/e2e.rs",
+        "crates/xerj-query/src/parser.rs"
+      ],
+      "latency_ms": 210.299834
+    },
+    {
+      "qid": "A092",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-query/src/ast.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-engine/src/painless.rs",
+        "CHANGELOG.md",
+        "crates/xerj-server/src/main.rs",
+        "user-feedback/07-query-and-performance/production-incidents.md"
+      ],
+      "latency_ms": 127.646063
+    },
+    {
+      "qid": "A093",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/schema.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-autoindex/src/extract/xlsx.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-storage/src/stored_codec.rs"
+      ],
+      "latency_ms": 393.27149099999997
+    },
+    {
+      "qid": "A094",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/detect/e2e_mail.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-engine/src/wal_tap.rs"
+      ],
+      "latency_ms": 174.96911500000002
+    },
+    {
+      "qid": "A095",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-api/src/auth.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs"
+      ],
+      "latency_ms": 493.455357
+    },
+    {
+      "qid": "A096",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-autoindex/src/objwatch/cost.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-server/src/share.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs"
+      ],
+      "latency_ms": 178.569305
+    },
+    {
+      "qid": "A097",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-engine/src/cluster_state.rs",
+        "crates/xerj-autoindex/src/watch.rs",
+        "crates/xerj-autoindex/src/progress.rs",
+        "crates/xerj-engine/src/audit.rs"
+      ],
+      "latency_ms": 340.006329
+    },
+    {
+      "qid": "A098",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-cluster/src/replication.rs",
+        "crates/xerj-cluster/src/node.rs",
+        "crates/xerj-cluster/src/transport.rs",
+        "crates/xerj-engine/src/wal_tap.rs",
+        "crates/xerj-api/src/router.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-api/src/wal_tap_api.rs",
+        "crates/xerj-cluster/src/lib.rs"
+      ],
+      "latency_ms": 100.902263
+    },
+    {
+      "qid": "A099",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-query/src/ast.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-hub/src/build_catalogue.rs",
+        "crates/xerj-autoindex/src/gate.rs",
+        "crates/xerj-hub/src/flock.rs",
+        "crates/xerj-mcp/src/lib.rs"
+      ],
+      "latency_ms": 430.52700799999997
+    },
+    {
+      "qid": "B100",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-api/src/router.rs",
+        "crates/xerj-autoindex/src/extract/mbox.rs",
+        "crates/xerj-autoindex/src/objwatch/tests.rs",
+        "crates/xerj-api/src/state.rs",
+        "crates/xerj-ai/src/decide.rs",
+        "crates/xerj-api/src/stub.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "demo/playbooks/ES_API_AUDIT.md"
+      ],
+      "latency_ms": 96.26072099999999
+    },
+    {
+      "qid": "B101",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/painless.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-console-api/src/auth/rate_limit.rs",
+        "crates/xerj-autoindex/src/objsource.rs",
+        "crates/xerj-autoindex/src/extract/opc.rs",
+        "crates/xerj-storage/src/backend.rs",
+        "crates/xerj-engine/tests/painless_cpu_budget.rs",
+        "crates/xerj-api/src/share.rs",
+        "crates/xerj-vector/src/hnsw.rs"
+      ],
+      "latency_ms": 116.69160500000001
+    },
+    {
+      "qid": "B102",
+      "ndcg": 0.6309297535714575,
+      "recall": 1.0,
+      "mrr": 0.5,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "CHANGELOG.md",
+        "crates/xerj-autoindex/src/walk.rs",
+        "crates/xerj-query/src/ast.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/sync.rs"
+      ],
+      "latency_ms": 161.81554400000002
+    },
+    {
+      "qid": "B103",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/xlsx.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/extract/opc.rs",
+        "crates/xerj-api/src/ask_api.rs",
+        "crates/xerj-autoindex/src/extract/xls.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/gate.rs",
+        "crates/xerj-autoindex/src/extract/mbox.rs",
+        "crates/xerj-engine/src/painless.rs"
+      ],
+      "latency_ms": 594.649758
+    },
+    {
+      "qid": "B104",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/sync.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "landing/answers/search-openapi-spec-for-agent.md"
+      ],
+      "latency_ms": 217.06805200000002
+    },
+    {
+      "qid": "B105",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "CHANGELOG.md",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-engine/src/bulk.rs",
+        "crates/xerj-api/src/graph_api.rs"
+      ],
+      "latency_ms": 180.57357199999998
+    },
+    {
+      "qid": "B106",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/wal_tap.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-mcp/src/lib.rs"
+      ],
+      "latency_ms": 312.23380099999997
+    },
+    {
+      "qid": "B107",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-storage/src/doc_values.rs",
+        "crates/xerj-engine/src/wal_tap.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-server/src/main.rs"
+      ],
+      "latency_ms": 129.135806
+    },
+    {
+      "qid": "B108",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/painless.rs",
+        "CHANGELOG.md",
+        "crates/xerj-query/src/ast.rs",
+        "crates/xerj-autoindex/src/harvest/mod.rs",
+        "crates/xerj-autoindex/src/harvest/recipe.rs",
+        "crates/xerj-common/src/types.rs",
+        "crates/xerj-common/src/schema.rs",
+        "crates/xerj-wasm/src/builtins.rs"
+      ],
+      "latency_ms": 225.56908
+    },
+    {
+      "qid": "B109",
+      "ndcg": 0.6309297535714575,
+      "recall": 1.0,
+      "mrr": 0.5,
+      "relevant": 1,
+      "retrieved": [
+        "ROADMAP.md",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-api/src/memory_api.rs",
+        "CHANGELOG.md",
+        "user-feedback/16-agent-field-reports/2026-10-06-swebench-code-localization.md",
+        "tools/xerj-code/SKILL.md",
+        "content/answers/hybrid-search-quality-measured-ndcg.md",
+        "crates/xerj-autoindex/src/xc.rs"
+      ],
+      "latency_ms": 141.37261800000002
+    },
+    {
+      "qid": "B110",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-api/src/native.rs",
+        "crates/xerj-autoindex/src/objsource_s3_tests.rs",
+        "crates/xerj-api/src/binary_protocol.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-storage/src/s3.rs",
+        "crates/xerj-storage/src/backend.rs",
+        "crates/xerj-autoindex/src/objsource_minio_tests.rs",
+        "crates/xerj-engine/src/rbac.rs"
+      ],
+      "latency_ms": 471.23958700000003
+    },
+    {
+      "qid": "B111",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/src/flock.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-storage/src/backend.rs",
+        "crates/xerj-autoindex/src/objwatch/journal.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/watch.rs",
+        "crates/xerj-autoindex/src/sync.rs"
+      ],
+      "latency_ms": 47.308785
+    },
+    {
+      "qid": "B112",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/detect/e2e.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/watch.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-api/src/authz.rs"
+      ],
+      "latency_ms": 373.846363
+    },
+    {
+      "qid": "B113",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/sync.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-storage/src/segment.rs",
+        "crates/xerj-engine/src/secret_hash.rs",
+        "crates/xerj-storage/src/doc_values.rs",
+        "crates/xerj-autoindex/src/extract/mod.rs"
+      ],
+      "latency_ms": 149.195413
+    },
+    {
+      "qid": "B114",
+      "ndcg": 0.6309297535714575,
+      "recall": 1.0,
+      "mrr": 0.5,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/detect/e2e_mail.rs",
+        "crates/xerj-autoindex/src/walk.rs",
+        "content/answers/search-gmail-takeout-mbox-locally.md",
+        "crates/xerj-autoindex/src/lib.rs",
+        "landing/answers/search-gmail-takeout-mbox-locally.md",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/detect/emailthread.rs"
+      ],
+      "latency_ms": 446.368809
+    },
+    {
+      "qid": "B115",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/schema.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-console-api/src/data_sources.rs",
+        "crates/xerj-autoindex/src/extract/eml.rs",
+        "crates/xerj-autoindex/src/gate.rs",
+        "crates/xerj-common/src/xccode/fields.rs",
+        "crates/xerj-autoindex/src/detect/e2e.rs",
+        "crates/xerj-server/src/grpc.rs",
+        "crates/xerj-autoindex/src/init.rs",
+        "crates/xerj-api/src/binary_protocol.rs"
+      ],
+      "latency_ms": 221.153612
+    },
+    {
+      "qid": "B116",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-hub/src/test_support.rs",
+        "crates/xerj-engine/src/code_blocks.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-common/src/resource.rs",
+        "crates/xerj-engine/src/ingest_memory.rs",
+        "crates/xerj-autoindex/src/extract/pdf.rs",
+        "crates/xerj-autoindex/src/progress.rs",
+        "crates/xerj-engine/src/aggs.rs"
+      ],
+      "latency_ms": 221.04093
+    },
+    {
+      "qid": "B117",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-fts/src/postings.rs",
+        "crates/xerj-fts/src/index.rs",
+        "CHANGELOG.md",
+        "crates/xerj-compress/src/field_codec.rs",
+        "crates/xerj-compress/src/lib.rs",
+        "crates/xerj-compress/src/dictionary.rs",
+        "crates/xerj-storage/src/doc_values.rs",
+        "crates/xerj-logs/src/columnar.rs",
+        "benchmarks/index-size/DESIGN.md"
+      ],
+      "latency_ms": 125.128403
+    },
+    {
+      "qid": "B118",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/binary_protocol.rs",
+        "crates/xerj-vector/src/search.rs",
+        "crates/xerj-engine/src/lib.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-engine/src/bulk.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-engine/src/wal_tap.rs",
+        "content/answers/keep-s3-bucket-index-current.md"
+      ],
+      "latency_ms": 139.318096
+    },
+    {
+      "qid": "B119",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-query/src/ast.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-api/src/router.rs",
+        "crates/xerj-api/src/cat.rs",
+        "crates/xerj-vector/src/hnsw.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-storage/src/index_store.rs"
+      ],
+      "latency_ms": 193.79028100000002
+    },
+    {
+      "qid": "B120",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/src/node.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-common/src/xccode/licence.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-api/src/ask_api.rs",
+        "crates/xerj-common/src/config.rs"
+      ],
+      "latency_ms": 207.041926
+    },
+    {
+      "qid": "B121",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/detect/e2e.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-server/src/main.rs"
+      ],
+      "latency_ms": 359.011901
+    },
+    {
+      "qid": "B122",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/src/sync.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-autoindex/src/extract/man.rs",
+        "crates/xerj-console-api/src/bootstrap.rs",
+        "crates/xerj-hub/src/ask.rs",
+        "crates/xerj-wasm/src/pipeline.rs",
+        "crates/xerj-hub/src/router.rs",
+        "crates/xerj-logs/src/query.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-compress/src/codec.rs"
+      ],
+      "latency_ms": 496.30022099999996
+    },
+    {
+      "qid": "B123",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/objsource_minio_tests.rs",
+        "crates/xerj-storage/src/s3.rs",
+        "crates/xerj-autoindex/src/objsource.rs",
+        "crates/xerj-api/src/systemone_api.rs",
+        "crates/xerj-common/src/types.rs",
+        "crates/xerj-autoindex/src/lib.rs"
+      ],
+      "latency_ms": 206.726314
+    },
+    {
+      "qid": "B124",
+      "ndcg": 0.6309297535714575,
+      "recall": 1.0,
+      "mrr": 0.5,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/generation_catalog.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-autoindex/src/extract/mod.rs",
+        "crates/xerj-autoindex/src/extract/xlsx.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/extract/xls.rs",
+        "crates/xerj-storage/src/index_store.rs"
+      ],
+      "latency_ms": 156.87724599999999
+    },
+    {
+      "qid": "B125",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-console-api/src/graph.rs",
+        "crates/xerj-console-api/src/auth/magic.rs",
+        "crates/xerj-autoindex/src/sync.rs",
+        "crates/xerj-console-api/src/dashboards.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-common/src/config.rs"
+      ],
+      "latency_ms": 137.88916600000002
+    },
+    {
+      "qid": "B126",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/sync.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-engine/src/index_guard.rs",
+        "crates/xerj-wasm/src/pipeline.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/extract/pdf.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-storage/src/wal.rs"
+      ],
+      "latency_ms": 184.032978
+    },
+    {
+      "qid": "B127",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/xccode/state.rs",
+        "crates/xerj-hub/src/build_catalogue.rs",
+        "crates/xerj-autoindex/src/detect/e2e_mail.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-autoindex/src/watch.rs",
+        "crates/xerj-common/src/xccode/render.rs",
+        "crates/xerj-hub/src/ask.rs",
+        "crates/xerj-autoindex/src/harvest/mod.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-server/src/grpc_hub.rs"
+      ],
+      "latency_ms": 242.69099
+    },
+    {
+      "qid": "B128",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-api/src/native.rs",
+        "crates/xerj-autoindex/src/label_http_tests.rs",
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-hub/src/sync.rs",
+        "crates/xerj-fts/src/search.rs"
+      ],
+      "latency_ms": 296.529999
+    },
+    {
+      "qid": "B129",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-console-api/src/data_sources.rs",
+        "crates/xerj-server/src/grpc.rs",
+        "crates/xerj-cluster/src/lib.rs",
+        "crates/xerj-cluster/src/coordinator.rs"
+      ],
+      "latency_ms": 135.168706
+    },
+    {
+      "qid": "B130",
+      "ndcg": 0.43067655807339306,
+      "recall": 1.0,
+      "mrr": 0.25,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/painless.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-rerank/src/lib.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-engine/src/memtable.rs"
+      ],
+      "latency_ms": 613.082987
+    },
+    {
+      "qid": "B131",
+      "ndcg": 0.6309297535714575,
+      "recall": 1.0,
+      "mrr": 0.5,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-storage/src/bundle.rs",
+        "crates/xerj-autoindex/src/detect/mod.rs",
+        "crates/xerj-autoindex/src/detect/sharedterm.rs",
+        "crates/xerj-autoindex/src/source.rs",
+        "crates/xerj-engine/src/vector_column.rs"
+      ],
+      "latency_ms": 276.353992
+    },
+    {
+      "qid": "B132",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "CHANGELOG.md",
+        "crates/xerj-engine/src/wal_tap.rs",
+        "crates/xerj-autoindex/src/watch.rs",
+        "crates/xerj-autoindex/src/generation_catalog.rs",
+        "crates/xerj-autoindex/src/gain.rs",
+        "crates/xerj-autoindex/src/harvest/pack.rs",
+        "crates/xerj-autoindex/src/extract/bvh.rs",
+        "crates/xerj-autoindex/src/extract/sqlite_x.rs"
+      ],
+      "latency_ms": 120.192188
+    },
+    {
+      "qid": "B133",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/bulk.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-api/src/native.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-api/src/graph_api.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-api/src/router.rs"
+      ],
+      "latency_ms": 388.151902
+    },
+    {
+      "qid": "B134",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/progress.rs",
+        "content/answers/does-xerj-support-s3-alerting-plugins.md",
+        "landing/answers/does-xerj-support-s3-alerting-plugins.md",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/watch.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-autoindex/src/objwatch/journal.rs"
+      ],
+      "latency_ms": 103.012199
+    },
+    {
+      "qid": "B135",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/objsource.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-api/src/state.rs",
+        "crates/xerj-api/src/memory_api.rs",
+        "crates/xerj-server/src/share.rs",
+        "crates/xerj-engine/src/rbac.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/objwatch/s3.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-api/src/router.rs"
+      ],
+      "latency_ms": 194.103888
+    },
+    {
+      "qid": "B136",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/infer/mod.rs",
+        "crates/xerj-compress/src/field_codec.rs",
+        "crates/xerj-api/src/share.rs",
+        "crates/xerj-api/src/ask_api.rs",
+        "landing/answers/audit-php-codebase-with-an-index.md",
+        "content/answers/audit-php-codebase-with-an-index.md",
+        "crates/xerj-common/src/field_coercion.rs"
+      ],
+      "latency_ms": 128.88669099999998
+    },
+    {
+      "qid": "B137",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/systemone_api.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/label.rs",
+        "crates/xerj-engine/src/code_blocks.rs",
+        "crates/xerj-common/src/fsio.rs",
+        "crates/xerj-autoindex/src/label_http_tests.rs",
+        "crates/xerj-server/src/grpc_hub.rs",
+        "crates/xerj-hub/src/ask.rs",
+        "crates/xerj-common/src/hub.rs",
+        "crates/xerj-query/src/dates.rs"
+      ],
+      "latency_ms": 231.445054
+    },
+    {
+      "qid": "B138",
+      "ndcg": 0.2890648263178879,
+      "recall": 1.0,
+      "mrr": 0.1,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-autoindex/src/search.rs"
+      ],
+      "latency_ms": 308.307314
+    },
+    {
+      "qid": "B139",
+      "ndcg": 0.43067655807339306,
+      "recall": 1.0,
+      "mrr": 0.25,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/order.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "content/answers/autoindex-server-back-pressure-429.md",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs"
+      ],
+      "latency_ms": 149.034799
+    },
+    {
+      "qid": "B140",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "CHANGELOG.md",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/ignore_rules.rs",
+        "crates/xerj-engine/src/painless.rs",
+        "crates/xerj-autoindex/src/detect/mod.rs",
+        "crates/xerj-engine/src/governor.rs"
+      ],
+      "latency_ms": 134.470083
+    },
+    {
+      "qid": "B141",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-autoindex/src/progress.rs",
+        "crates/xerj-engine/src/governor.rs",
+        "crates/xerj-autoindex/src/infer/mod.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-common/src/config.rs"
+      ],
+      "latency_ms": 117.334575
+    },
+    {
+      "qid": "B142",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-hub/src/node.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-api/src/auth.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-server/src/brain.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs"
+      ],
+      "latency_ms": 427.730088
+    },
+    {
+      "qid": "B143",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-rerank/src/lib.rs",
+        "crates/xerj-api/src/extract.rs",
+        "crates/xerj-api/src/authz.rs"
+      ],
+      "latency_ms": 259.93545
+    },
+    {
+      "qid": "B144",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-server/src/share.rs",
+        "crates/xerj-engine/src/pools.rs",
+        "crates/xerj-autoindex/src/detect/pathcite.rs",
+        "crates/xerj-autoindex/src/detect/wikilink.rs",
+        "crates/xerj-query/src/dates.rs",
+        "crates/xerj-autoindex/src/content.rs"
+      ],
+      "latency_ms": 139.362142
+    },
+    {
+      "qid": "B145",
+      "ndcg": 0.3010299956639812,
+      "recall": 1.0,
+      "mrr": 0.1111111111111111,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-fts/src/postings.rs",
+        "crates/xerj-autoindex/src/extract/bvh.rs",
+        "crates/xerj-autoindex/src/extract/eml.rs",
+        "crates/xerj-autoindex/src/extract/txt.rs",
+        "crates/xerj-autoindex/src/extract/json.rs",
+        "crates/xerj-autoindex/src/extract/unity.rs",
+        "crates/xerj-autoindex/src/catalog.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/fast_aggs.rs"
+      ],
+      "latency_ms": 141.06094099999999
+    },
+    {
+      "qid": "B146",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/vector_column.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-autoindex/src/reconcile_plan.rs",
+        "content/answers/filter-knn-exact-scan-caveat.md",
+        "landing/answers/filter-knn-exact-scan-caveat.md",
+        "crates/xerj-autoindex/src/objwatch/mod.rs"
+      ],
+      "latency_ms": 191.351137
+    },
+    {
+      "qid": "B147",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/objsource.rs",
+        "crates/xerj-autoindex/src/progress.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/extract/mbox.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-api/src/rerank_stage.rs",
+        "crates/xerj-hub/src/ask.rs"
+      ],
+      "latency_ms": 224.564183
+    },
+    {
+      "qid": "B148",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-query/src/rewriter.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-query/src/ast.rs",
+        "crates/xerj-autoindex/src/search.rs"
+      ],
+      "latency_ms": 176.831866
+    },
+    {
+      "qid": "B149",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-query/src/dates.rs",
+        "crates/xerj-engine/src/painless.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-api/src/systemone_api.rs",
+        "crates/xerj-api/src/ask_api.rs",
+        "crates/xerj-rerank/src/lib.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/progress.rs"
+      ],
+      "latency_ms": 475.811308
+    },
+    {
+      "qid": "B150",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "benchmarks/corpus-ab-2026-10/protocol.md",
+        "crates/xerj-engine/src/write_publication.rs",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/05-vector-db-milvus/data-points.md",
+        "user-feedback/01-operational-complexity/monitoring-overhead.md",
+        "crates/xerj-api/src/hub_api.rs",
+        "CHANGELOG.md"
+      ],
+      "latency_ms": 108.53920000000001
+    },
+    {
+      "qid": "B151",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/painless.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-rerank/src/lib.rs",
+        "crates/xerj-ai/src/decide.rs",
+        "crates/xerj-api/src/systemone_api.rs"
+      ],
+      "latency_ms": 85.082118
+    },
+    {
+      "qid": "B152",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-rerank/src/lib.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-query/src/parser.rs"
+      ],
+      "latency_ms": 214.08397300000001
+    },
+    {
+      "qid": "B153",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-api/src/systemone_api.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-autoindex/src/gate.rs",
+        "crates/xerj-engine/src/bulk.rs",
+        "crates/xerj-server/src/brain.rs"
+      ],
+      "latency_ms": 169.925257
+    },
+    {
+      "qid": "B154",
+      "ndcg": 0.43067655807339306,
+      "recall": 1.0,
+      "mrr": 0.25,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/lib.rs",
+        "crates/xerj-common/src/lib.rs",
+        "crates/xerj-api/src/ask_api.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-common/src/metrics.rs",
+        "crates/xerj-api/src/native.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-vector/src/hnsw.rs",
+        "crates/xerj-query/src/parser.rs"
+      ],
+      "latency_ms": 378.201278
+    },
+    {
+      "qid": "B155",
+      "ndcg": 0.3010299956639812,
+      "recall": 1.0,
+      "mrr": 0.1111111111111111,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/graph.rs",
+        "crates/xerj-engine/src/segment_cache_budget.rs",
+        "crates/xerj-engine/src/ingest_memory.rs",
+        "crates/xerj-storage/src/stored_codec/row_hydration.rs",
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-autoindex/src/sync.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/cluster_state.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/fast_aggs.rs"
+      ],
+      "latency_ms": 189.09277899999998
+    },
+    {
+      "qid": "B156",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/html.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/extract/mbox.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/extract/opc.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "CHANGELOG.md",
+        "crates/xerj-autoindex/src/gate.rs",
+        "crates/xerj-autoindex/src/sync.rs",
+        "crates/xerj-engine/src/cluster_state.rs"
+      ],
+      "latency_ms": 340.311346
+    },
+    {
+      "qid": "B157",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-wasm/src/builtins.rs",
+        "crates/xerj-wasm/src/pipeline.rs",
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-api/src/native.rs",
+        "crates/xerj-engine/tests/integration.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-wasm/examples/example_custom_plugin.rs",
+        "crates/xerj-wasm/tests/integration.rs",
+        "crates/xerj-query/src/ast.rs",
+        "content/answers/how-xerj-combines-search.md"
+      ],
+      "latency_ms": 96.86762
+    },
+    {
+      "qid": "B158",
+      "ndcg": 0.43067655807339306,
+      "recall": 1.0,
+      "mrr": 0.25,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/infer/mod.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "engine/reports/FEATURE_FAIRNESS_REVIEW_v0.6.0_2026-04-25.md",
+        "user-feedback/ROADMAP-TO-GA.md",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/14-sla-durability-benchmarks/performance-benchmarks.md",
+        "crates/xerj-query/src/parser.rs"
+      ],
+      "latency_ms": 89.31494099999999
+    },
+    {
+      "qid": "B159",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-logs/src/columnar.rs",
+        "crates/xerj-api/src/responses.rs",
+        "crates/xerj-logs/src/ingest.rs",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/11-compute-storage-separation/edge-hybrid-cloud.md",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/10-serverless-search/lifecycle-retention.md",
+        "crates/xerj-engine/src/governor.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "landing/answers/rerank-search-results-calibrated-judge.md"
+      ],
+      "latency_ms": 117.85196400000001
+    },
+    {
+      "qid": "B160",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-api/src/memory_api.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-engine/src/painless.rs"
+      ],
+      "latency_ms": 270.062307
+    },
+    {
+      "qid": "B161",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-console-api/src/client_ip.rs",
+        "crates/xerj-server/src/share.rs",
+        "crates/xerj-console-api/src/spa.rs",
+        "crates/xerj-cluster/src/raft.rs",
+        "CHANGELOG.md",
+        "crates/xerj-server/src/grpc.rs",
+        "crates/xerj-api/src/share.rs"
+      ],
+      "latency_ms": 128.12151899999998
+    },
+    {
+      "qid": "B162",
+      "ndcg": 0.5,
+      "recall": 1.0,
+      "mrr": 0.3333333333333333,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/infer/mod.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-query/src/ast.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/extract/xlsx.rs"
+      ],
+      "latency_ms": 136.691572
+    },
+    {
+      "qid": "B163",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-ai/src/chunker.rs",
+        "crates/xerj-ai/src/neural.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-engine/src/vector_column.rs",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/09-ai-workload-requirements/hybrid-search-expectations.md",
+        "crates/xerj-server/src/main.rs"
+      ],
+      "latency_ms": 254.904672
+    },
+    {
+      "qid": "B164",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-api/src/router.rs",
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-api/src/graph_api.rs",
+        "crates/xerj-fts/src/index.rs",
+        "scripts/seo/testdata/factcheck/good_tldr_bucket_not_backup.md",
+        "crates/xerj-autoindex/src/lib.rs",
+        "CHANGELOG.md",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/04-vector-db-qdrant/data-points.md"
+      ],
+      "latency_ms": 86.986863
+    },
+    {
+      "qid": "B165",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/painless.rs",
+        "crates/xerj-rerank/src/lib.rs",
+        "crates/xerj-autoindex/src/objsource.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/progress.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs"
+      ],
+      "latency_ms": 465.741146
+    },
+    {
+      "qid": "B166",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-console-api/src/spa.rs",
+        "crates/xerj-api/src/cat.rs",
+        "crates/xerj-autoindex/src/extract/html.rs",
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-server/src/share.rs",
+        "content/answers/read-indexed-email-and-pdf-folder.md",
+        "landing/answers/read-indexed-email-and-pdf-folder.md",
+        "crates/xerj-autoindex/src/lib.rs"
+      ],
+      "latency_ms": 189.800043
+    },
+    {
+      "qid": "B167",
+      "ndcg": 0.3010299956639812,
+      "recall": 1.0,
+      "mrr": 0.1111111111111111,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-mcp/src/map.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-engine/src/bulk.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-api/src/rerank_stage.rs",
+        "crates/xerj-autoindex/src/detect/e2e.rs",
+        "crates/xerj-query/src/ast.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-api/src/ask_api.rs",
+        "crates/xerj-api/src/authz.rs"
+      ],
+      "latency_ms": 311.056309
+    },
+    {
+      "qid": "B168",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/painless.rs",
+        "crates/xerj-hub/src/cli.rs",
+        "crates/xerj-autoindex/src/extract/man.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-autoindex/src/extract/html.rs",
+        "crates/xerj-engine/src/ingest_memory.rs",
+        "crates/xerj-api/src/cat.rs",
+        "crates/xerj-common/src/net.rs",
+        "crates/xerj-autoindex/src/progress.rs"
+      ],
+      "latency_ms": 96.93693999999999
+    },
+    {
+      "qid": "B169",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-hub/src/cli.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/sniff.rs"
+      ],
+      "latency_ms": 191.82232900000002
+    },
+    {
+      "qid": "B170",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-rerank/src/judge.rs",
+        "crates/xerj-fts/src/postings.rs",
+        "crates/xerj-common/src/types.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/detect/sharedterm.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-engine/src/aggs.rs"
+      ],
+      "latency_ms": 189.590241
+    },
+    {
+      "qid": "B171",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-common/src/xccode/fields.rs",
+        "crates/xerj-common/src/types.rs",
+        "crates/xerj-api/src/binary_protocol.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-api/src/share.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs"
+      ],
+      "latency_ms": 305.977753
+    },
+    {
+      "qid": "B172",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/cluster_state.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-api/src/error.rs"
+      ],
+      "latency_ms": 201.220543
+    },
+    {
+      "qid": "B173",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-console-api/src/lib.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-console-api/src/spa.rs",
+        "crates/xerj-storage/src/lib.rs",
+        "crates/xerj-api/src/lib.rs",
+        "crates/xerj-cluster/src/lib.rs",
+        "engine/reports/PLAYGROUND_DEMO_2026-04-25.md"
+      ],
+      "latency_ms": 86.36906699999999
+    },
+    {
+      "qid": "B174",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-api/src/systemone_api.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-autoindex/src/catalog.rs"
+      ],
+      "latency_ms": 205.335366
+    },
+    {
+      "qid": "B175",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/router.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-server/src/grpc_hub.rs",
+        "crates/xerj-console-api/src/client_ip.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-console-api/src/spa.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-mcp/src/token_budget.rs"
+      ],
+      "latency_ms": 203.82773400000002
+    },
+    {
+      "qid": "B176",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs",
+        "benchmarks/corpus-ab-2026-10/DEVIATIONS.md",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "content/answers/rerank-search-results-calibrated-judge.md",
+        "crates/xerj-autoindex/src/detect/sharedterm.rs",
+        "landing/answers/rerank-search-results-calibrated-judge.md",
+        "benchmarks/corpus-ab-2026-10/RESULTS.md",
+        "CHANGELOG.md"
+      ],
+      "latency_ms": 83.99338900000001
+    },
+    {
+      "qid": "B177",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/calibration.rs",
+        "CHANGELOG.md",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/progress.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-autoindex/src/extract/xls.rs",
+        "crates/xerj-autoindex/src/extract/man.rs"
+      ],
+      "latency_ms": 87.211363
+    },
+    {
+      "qid": "B178",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-autoindex/src/extract/xlsx.rs",
+        "crates/xerj-storage/src/doc_values.rs",
+        "crates/xerj-autoindex/src/extract/xls.rs",
+        "crates/xerj-engine/src/graph.rs"
+      ],
+      "latency_ms": 117.128559
+    },
+    {
+      "qid": "B179",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-autoindex/src/catalog.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-autoindex/src/objwatch/tests.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs"
+      ],
+      "latency_ms": 258.60862499999996
+    },
+    {
+      "qid": "B180",
+      "ndcg": 0.38685280723454163,
+      "recall": 1.0,
+      "mrr": 0.2,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/catalog.rs",
+        "crates/xerj-autoindex/src/generation_catalog.rs",
+        "crates/xerj-console-api/src/seed.rs",
+        "crates/xerj-engine/src/index_guard.rs",
+        "crates/xerj-vector/src/sq8_codes.rs",
+        "crates/xerj-autoindex/src/feedback.rs",
+        "crates/xerj-common/src/xccode/passage.rs"
+      ],
+      "latency_ms": 188.577735
+    },
+    {
+      "qid": "B181",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-api/src/ask_api.rs",
+        "crates/xerj-autoindex/src/objsource.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/objwatch/tests.rs",
+        "crates/xerj-api/src/share.rs"
+      ],
+      "latency_ms": 246.71650400000001
+    },
+    {
+      "qid": "B182",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-engine/src/painless.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-hub/src/node.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/sniff.rs"
+      ],
+      "latency_ms": 231.28691800000001
+    },
+    {
+      "qid": "B183",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "AGENTS.md",
+        "crates/xerj-api/src/share.rs",
+        "crates/xerj-common/src/xccode/manifest.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-fts/src/bm25.rs",
+        "crates/xerj-autoindex/src/objwatch/mod.rs",
+        "crates/xerj-autoindex/src/objwatch/tests.rs",
+        "crates/xerj-autoindex/src/objwatch/s3.rs",
+        "crates/xerj-common/src/resource.rs"
+      ],
+      "latency_ms": 114.942016
+    },
+    {
+      "qid": "B184",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/objsource.rs",
+        "CHANGELOG.md",
+        "crates/xerj-rerank/src/lib.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-api/src/share.rs"
+      ],
+      "latency_ms": 237.02839600000001
+    },
+    {
+      "qid": "B185",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-mcp/src/lib.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-hub/src/node.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-hub/src/sync.rs",
+        "crates/xerj-hub/src/cli.rs",
+        "crates/xerj-hub/src/sync/tests.rs",
+        "crates/xerj-hub/src/catalogue.rs",
+        "crates/xerj-autoindex/src/lib.rs"
+      ],
+      "latency_ms": 167.826448
+    },
+    {
+      "qid": "B186",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-storage/src/s3.rs",
+        "crates/xerj-storage/src/backend.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-server/src/share.rs",
+        "crates/xerj-autoindex/src/progress.rs"
+      ],
+      "latency_ms": 262.383112
+    },
+    {
+      "qid": "B187",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/logs.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-autoindex/src/dataset.rs",
+        "crates/xerj-autoindex/src/extract/man.rs",
+        "crates/xerj-common/src/xccode/mod.rs",
+        "crates/xerj-autoindex/src/extract/eml.rs",
+        "crates/xerj-autoindex/src/objwatch/cost.rs",
+        "crates/xerj-autoindex/src/extract/html.rs",
+        "crates/xerj-autoindex/src/gate.rs",
+        "crates/xerj-server/src/brain.rs"
+      ],
+      "latency_ms": 202.05954400000002
+    },
+    {
+      "qid": "B188",
+      "ndcg": 0.43067655807339306,
+      "recall": 1.0,
+      "mrr": 0.25,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-api/src/ask_api.rs",
+        "crates/xerj-autoindex/src/xc.rs",
+        "crates/xerj-autoindex/src/search.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-server/src/brain.rs",
+        "crates/xerj-mcp/src/map.rs",
+        "crates/xerj-autoindex/src/state.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-server/src/share.rs"
+      ],
+      "latency_ms": 151.02104799999998
+    },
+    {
+      "qid": "B189",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-hub/src/ask.rs",
+        "crates/xerj-hub/src/sync.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-hub/src/cli.rs",
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+        "crates/xerj-autoindex/src/cli.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-hub/src/build_catalogue.rs",
+        "crates/xerj-autoindex/src/source.rs"
+      ],
+      "latency_ms": 255.59018500000002
+    },
+    {
+      "qid": "B190",
+      "ndcg": 0.5,
+      "recall": 1.0,
+      "mrr": 0.3333333333333333,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/merge.rs",
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-storage/src/segment.rs",
+        "crates/xerj-engine/src/turbo_ingest.rs",
+        "crates/xerj-storage/src/cache.rs",
+        "crates/xerj-query/src/executor.rs",
+        "crates/xerj-fts/src/postings.rs",
+        "crates/xerj-storage/src/version_map.rs",
+        "crates/xerj-engine/src/vector_column.rs",
+        "crates/xerj-vector/src/sq8_codes.rs"
+      ],
+      "latency_ms": 210.08682000000002
+    },
+    {
+      "qid": "B191",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/gain.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/memtable.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/estimate.rs",
+        "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+        "crates/xerj-autoindex/src/label_http_tests.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/engine.rs",
+        "crates/xerj-autoindex/src/detect/e2e.rs"
+      ],
+      "latency_ms": 228.580532
+    },
+    {
+      "qid": "B192",
+      "ndcg": 0.38685280723454163,
+      "recall": 1.0,
+      "mrr": 0.2,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-autoindex/src/reconcile_plan.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/extract/code.rs",
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-api/src/share.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-autoindex/src/extract/pdf.rs",
+        "crates/xerj-autoindex/src/catalog.rs"
+      ],
+      "latency_ms": 297.622541
+    },
+    {
+      "qid": "B193",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-common/src/types.rs",
+        "crates/xerj-autoindex/src/objwatch/cost.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-autoindex/src/harvest/mod.rs",
+        "crates/xerj-hub/src/router.rs",
+        "crates/xerj-autoindex/src/init.rs",
+        "crates/xerj-autoindex/src/objsource.rs",
+        "crates/xerj-autoindex/src/extract/mbox.rs",
+        "crates/xerj-autoindex/src/extract/opc.rs"
+      ],
+      "latency_ms": 254.78623
+    },
+    {
+      "qid": "B194",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/rbac.rs",
+        "crates/xerj-console-api/src/lib.rs",
+        "crates/xerj-api/src/router.rs",
+        "crates/xerj-api/src/authz.rs",
+        "crates/xerj-server/src/grpc.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-common/src/config.rs",
+        "crates/xerj-api/src/auth.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "user-feedback/ROADMAP-TO-GA.md"
+      ],
+      "latency_ms": 495.480339
+    },
+    {
+      "qid": "B195",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/rerank_stage.rs",
+        "crates/xerj-autoindex/src/sync_executor.rs",
+        "crates/xerj-autoindex/src/objsource_s3_tests.rs",
+        "crates/xerj-fts/src/analyzer.rs",
+        "crates/xerj-fts/src/search.rs",
+        "crates/xerj-autoindex/src/lib.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-autoindex/src/esclient.rs",
+        "crates/xerj-storage/src/wal.rs"
+      ],
+      "latency_ms": 199.331477
+    },
+    {
+      "qid": "B196",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs",
+        "content/compare/xerj-vs-elasticsearch-local.md",
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-server/src/main.rs",
+        "crates/xerj-query/src/parser.rs",
+        "crates/xerj-server/src/share.rs",
+        "landing/answers/hybrid-search-quality-measured-ndcg.md",
+        "content/answers/hybrid-search-quality-measured-ndcg.md",
+        "CHANGELOG.md"
+      ],
+      "latency_ms": 118.946362
+    },
+    {
+      "qid": "B197",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-query/src/ast.rs",
+        "crates/xerj-engine/src/write_publication.rs",
+        "crates/xerj-api/src/state.rs",
+        "user-feedback/15-clustering-durability-expectations-2025-2026/14-sla-durability-benchmarks/performance-benchmarks.md",
+        "crates/xerj-storage/src/index_store.rs",
+        "crates/xerj-hub/src/lockfile.rs",
+        "crates/xerj-storage/src/version_map.rs",
+        "crates/xerj-engine/src/aggs.rs",
+        "CHANGELOG.md",
+        "crates/xerj-common/src/config.rs"
+      ],
+      "latency_ms": 115.1046
+    },
+    {
+      "qid": "B198",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/tests/pack_roundtrip.rs",
+        "crates/xerj-hub/src/lib.rs",
+        "crates/xerj-mcp/src/hub.rs",
+        "crates/xerj-hub/src/cli.rs",
+        "crates/xerj-hub/src/sync/tests.rs",
+        "crates/xerj-autoindex/src/harvest/mod.rs",
+        "crates/xerj-hub/src/build_catalogue.rs",
+        "crates/xerj-hub/src/sync.rs",
+        "crates/xerj-server/src/grpc_hub.rs",
+        "crates/xerj-hub/src/ask.rs"
+      ],
+      "latency_ms": 132.594472
+    },
+    {
+      "qid": "B199",
+      "ndcg": 0.38685280723454163,
+      "recall": 1.0,
+      "mrr": 0.2,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/stored_codec/row_hydration.rs",
+        "crates/xerj-storage/src/doc_values.rs",
+        "crates/xerj-fts/src/postings.rs",
+        "crates/xerj-autoindex/src/sniff.rs",
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-fts/src/index.rs",
+        "crates/xerj-storage/src/wal.rs",
+        "crates/xerj-storage/src/index_store.rs",
+        "CHANGELOG.md"
+      ],
+      "latency_ms": 142.234529
+    },
+    {
+      "qid": "C200",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/router.rs"
+      ],
+      "latency_ms": 5.077064
+    },
+    {
+      "qid": "C201",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/painless.rs"
+      ],
+      "latency_ms": 6.4918830000000005
+    },
+    {
+      "qid": "C202",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs"
+      ],
+      "latency_ms": 13.101747
+    },
+    {
+      "qid": "C203",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/xlsx.rs"
+      ],
+      "latency_ms": 14.615871
+    },
+    {
+      "qid": "C204",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-mcp/tests/published_schema_drift.rs"
+      ],
+      "latency_ms": 5.680143999999999
+    },
+    {
+      "qid": "C205",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/tests/prefix_keyword_case_flush_parity.rs"
+      ],
+      "latency_ms": 5.512079
+    },
+    {
+      "qid": "C206",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/tests/wal_tap_push.rs"
+      ],
+      "latency_ms": 4.268351
+    },
+    {
+      "qid": "C207",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/wal.rs"
+      ],
+      "latency_ms": 5.776935000000001
+    },
+    {
+      "qid": "C208",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 63.582479
+    },
+    {
+      "qid": "C209",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/xccode/mod.rs"
+      ],
+      "latency_ms": 4.974242
+    },
+    {
+      "qid": "C210",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/tests/cat_common_params_and_real_segments.rs"
+      ],
+      "latency_ms": 7.162849
+    },
+    {
+      "qid": "C211",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/hub_api.rs",
+        "crates/xerj-api/src/router.rs",
+        "crates/xerj-api/tests/hub_api.rs"
+      ],
+      "latency_ms": 7.543081
+    },
+    {
+      "qid": "C212",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/memtable.rs"
+      ],
+      "latency_ms": 8.941208000000001
+    },
+    {
+      "qid": "C213",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/sync.rs",
+        "crates/xerj-autoindex/src/state.rs"
+      ],
+      "latency_ms": 6.830096
+    },
+    {
+      "qid": "C214",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/walk.rs"
+      ],
+      "latency_ms": 8.454537
+    },
+    {
+      "qid": "C215",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/hub_api.rs"
+      ],
+      "latency_ms": 5.712253
+    },
+    {
+      "qid": "C216",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/code.rs"
+      ],
+      "latency_ms": 5.940601
+    },
+    {
+      "qid": "C217",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-fts/src/postings.rs"
+      ],
+      "latency_ms": 3.190863
+    },
+    {
+      "qid": "C218",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "CHANGELOG.md",
+        "crates/xerj-console-api/tests/knowledge_surface.rs",
+        "crates/xerj-api/src/binary_protocol.rs",
+        "crates/xerj-console-api/tests/console_graph_read.rs"
+      ],
+      "latency_ms": 11.679094
+    },
+    {
+      "qid": "C219",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 4.389928
+    },
+    {
+      "qid": "C220",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/src/node.rs"
+      ],
+      "latency_ms": 5.627756000000001
+    },
+    {
+      "qid": "C221",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 4.282496999999999
+    },
+    {
+      "qid": "C222",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/src/sync.rs"
+      ],
+      "latency_ms": 3.9679379999999997
+    },
+    {
+      "qid": "C223",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs"
+      ],
+      "latency_ms": 8.106626
+    },
+    {
+      "qid": "C224",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs"
+      ],
+      "latency_ms": 11.058863
+    },
+    {
+      "qid": "C225",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-console-api/tests/console_graph_read.rs"
+      ],
+      "latency_ms": 3.047806
+    },
+    {
+      "qid": "C226",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/sync.rs"
+      ],
+      "latency_ms": 4.721579
+    },
+    {
+      "qid": "C227",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/xccode/state.rs"
+      ],
+      "latency_ms": 2.961665
+    },
+    {
+      "qid": "C228",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 4.799575000000001
+    },
+    {
+      "qid": "C229",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/engine.rs"
+      ],
+      "latency_ms": 5.2577229999999995
+    },
+    {
+      "qid": "C230",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-server/src/main.rs"
+      ],
+      "latency_ms": 5.943897
+    },
+    {
+      "qid": "C231",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs"
+      ],
+      "latency_ms": 8.729442
+    },
+    {
+      "qid": "C232",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs"
+      ],
+      "latency_ms": 12.472158
+    },
+    {
+      "qid": "C233",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/tests/numeric_fields_enforce_their_type.rs"
+      ],
+      "latency_ms": 7.123205
+    },
+    {
+      "qid": "C234",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 3.690128
+    },
+    {
+      "qid": "C235",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 4.287136
+    },
+    {
+      "qid": "C236",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs"
+      ],
+      "latency_ms": 13.004054
+    },
+    {
+      "qid": "C237",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/tests/decide_flywheel.rs"
+      ],
+      "latency_ms": 25.688429
+    },
+    {
+      "qid": "C238",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/search.rs"
+      ],
+      "latency_ms": 4.603759
+    },
+    {
+      "qid": "C239",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/failure_resume_http_tests.rs"
+      ],
+      "latency_ms": 5.171361
+    },
+    {
+      "qid": "C240",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 5.380943
+    },
+    {
+      "qid": "C241",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/fast_aggs.rs"
+      ],
+      "latency_ms": 15.573685000000001
+    },
+    {
+      "qid": "C242",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/esclient.rs"
+      ],
+      "latency_ms": 6.798165999999999
+    },
+    {
+      "qid": "C243",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 5.16577
+    },
+    {
+      "qid": "C244",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-query/src/parser.rs"
+      ],
+      "latency_ms": 7.682112
+    },
+    {
+      "qid": "C245",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs"
+      ],
+      "latency_ms": 68.522036
+    },
+    {
+      "qid": "C246",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 4.591615
+    },
+    {
+      "qid": "C247",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-compress/src/block.rs"
+      ],
+      "latency_ms": 6.919334
+    },
+    {
+      "qid": "C248",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 6.304220999999999
+    },
+    {
+      "qid": "C249",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-query/src/dates.rs"
+      ],
+      "latency_ms": 7.103318
+    },
+    {
+      "qid": "C250",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [
+        "demo/playbooks/ES_API_AUDIT.md",
+        "crates/xerj-api/src/router.rs"
+      ],
+      "latency_ms": 8.40822
+    },
+    {
+      "qid": "C251",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-vector/src/search.rs"
+      ],
+      "latency_ms": 6.060035
+    },
+    {
+      "qid": "C252",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-rerank/src/lib.rs"
+      ],
+      "latency_ms": 4.308756000000001
+    },
+    {
+      "qid": "C253",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/tests/systemone_http.rs"
+      ],
+      "latency_ms": 6.356971000000001
+    },
+    {
+      "qid": "C254",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs"
+      ],
+      "latency_ms": 13.372214
+    },
+    {
+      "qid": "C255",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/memtable.rs"
+      ],
+      "latency_ms": 7.570963
+    },
+    {
+      "qid": "C256",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/html.rs"
+      ],
+      "latency_ms": 73.21197599999999
+    },
+    {
+      "qid": "C257",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-wasm/src/builtins.rs"
+      ],
+      "latency_ms": 5.051717
+    },
+    {
+      "qid": "C258",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/fast_aggs.rs",
+        "crates/xerj-engine/src/aggs.rs"
+      ],
+      "latency_ms": 16.596739
+    },
+    {
+      "qid": "C259",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/slow_query.rs"
+      ],
+      "latency_ms": 5.753861
+    },
+    {
+      "qid": "C260",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 4.860499
+    },
+    {
+      "qid": "C261",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-server/src/main.rs"
+      ],
+      "latency_ms": 6.045297
+    },
+    {
+      "qid": "C262",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-query/src/parser.rs"
+      ],
+      "latency_ms": 6.823634
+    },
+    {
+      "qid": "C263",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 4.313924999999999
+    },
+    {
+      "qid": "C264",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/index_store.rs"
+      ],
+      "latency_ms": 8.844578
+    },
+    {
+      "qid": "C265",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/painless.rs"
+      ],
+      "latency_ms": 6.437131
+    },
+    {
+      "qid": "C266",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-console-api/src/spa.rs"
+      ],
+      "latency_ms": 5.593782
+    },
+    {
+      "qid": "C267",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/ask_api.rs"
+      ],
+      "latency_ms": 12.857559
+    },
+    {
+      "qid": "C268",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/sql.rs"
+      ],
+      "latency_ms": 8.334451999999999
+    },
+    {
+      "qid": "C269",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/init.rs"
+      ],
+      "latency_ms": 4.79157
+    },
+    {
+      "qid": "C270",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-rerank/src/judge.rs"
+      ],
+      "latency_ms": 6.7305
+    },
+    {
+      "qid": "C271",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/tests/index_false_is_honoured.rs"
+      ],
+      "latency_ms": 5.935791999999999
+    },
+    {
+      "qid": "C272",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/mbox.rs"
+      ],
+      "latency_ms": 4.928677
+    },
+    {
+      "qid": "C273",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-console-api/tests/spa_assets.rs"
+      ],
+      "latency_ms": 7.176615
+    },
+    {
+      "qid": "C274",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/src/ask.rs"
+      ],
+      "latency_ms": 5.689561
+    },
+    {
+      "qid": "C275",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/src/router.rs"
+      ],
+      "latency_ms": 5.198703
+    },
+    {
+      "qid": "C276",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs"
+      ],
+      "latency_ms": 15.260398
+    },
+    {
+      "qid": "C277",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-common/src/calibration.rs"
+      ],
+      "latency_ms": 11.857377000000001
+    },
+    {
+      "qid": "C278",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/fast_aggs.rs"
+      ],
+      "latency_ms": 7.2914
+    },
+    {
+      "qid": "C279",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/lib.rs"
+      ],
+      "latency_ms": 13.26873
+    },
+    {
+      "qid": "C280",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/generation_catalog.rs"
+      ],
+      "latency_ms": 9.621332
+    },
+    {
+      "qid": "C281",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/source.rs"
+      ],
+      "latency_ms": 4.784326999999999
+    },
+    {
+      "qid": "C282",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/xc.rs"
+      ],
+      "latency_ms": 6.941485
+    },
+    {
+      "qid": "C283",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/generation_catalog.rs"
+      ],
+      "latency_ms": 3.785015
+    },
+    {
+      "qid": "C284",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/objsource_s3_tests.rs"
+      ],
+      "latency_ms": 8.319725
+    },
+    {
+      "qid": "C285",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/src/lockfile.rs"
+      ],
+      "latency_ms": 4.485728
+    },
+    {
+      "qid": "C286",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 8.001068
+    },
+    {
+      "qid": "C287",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/logs.rs"
+      ],
+      "latency_ms": 11.621646
+    },
+    {
+      "qid": "C288",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/search.rs"
+      ],
+      "latency_ms": 5.454661000000001
+    },
+    {
+      "qid": "C289",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/src/sync/tests.rs"
+      ],
+      "latency_ms": 4.617724
+    },
+    {
+      "qid": "C290",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/segment.rs",
+        "crates/xerj-storage/src/version_map.rs"
+      ],
+      "latency_ms": 6.869189
+    },
+    {
+      "qid": "C291",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/tests/bool_filter_is_non_scoring.rs"
+      ],
+      "latency_ms": 6.382498
+    },
+    {
+      "qid": "C292",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-autoindex/src/extract/code.rs"
+      ],
+      "latency_ms": 6.335430000000001
+    },
+    {
+      "qid": "C293",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-api/tests/savings_stat_is_honest.rs"
+      ],
+      "latency_ms": 6.523903
+    },
+    {
+      "qid": "C294",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/rbac.rs"
+      ],
+      "latency_ms": 64.976288
+    },
+    {
+      "qid": "C295",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 5.636151
+    },
+    {
+      "qid": "C296",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-engine/src/aggs.rs",
+        "crates/xerj-engine/src/fast_aggs.rs"
+      ],
+      "latency_ms": 20.370083
+    },
+    {
+      "qid": "C297",
+      "ndcg": 0.0,
+      "recall": 0.0,
+      "mrr": 0.0,
+      "relevant": 1,
+      "retrieved": [],
+      "latency_ms": 6.721152
+    },
+    {
+      "qid": "C298",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-hub/tests/pack_roundtrip.rs"
+      ],
+      "latency_ms": 5.039313999999999
+    },
+    {
+      "qid": "C299",
+      "ndcg": 1.0,
+      "recall": 1.0,
+      "mrr": 1.0,
+      "relevant": 1,
+      "retrieved": [
+        "crates/xerj-storage/src/stored_codec.rs",
+        "crates/xerj-storage/src/stored_codec/row_hydration.rs"
+      ],
+      "latency_ms": 7.975441
+    }
+  ]
+}

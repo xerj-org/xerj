@@ -1,0 +1,200 @@
+H000	A TokenFilter that applies ArabicNormalizer to normalize the orthography
+H001	A TokenFilter that applies ArabicStemmer to stem Arabic words
+H002	A TokenFilter that applies BulgarianStemmer to stem Bulgarian words
+H003	Base utility class for implementing a CharFilter
+H004	Forms bigrams of CJK terms that are generated from StandardTokenizer or ICUTokenizer
+H005	Filters ClassicTokenizer with ClassicFilter, LowerCaseFilter and StopFilter, using a list of English stop words
+H006	Normalizes tokens extracted with ClassicTokenizer
+H007	Wrap a CommonGramsFilter optimizing phrase queries by only returning single words when they are not a member of a bigram
+H008	Base class for decomposition token filters
+H009	This tree structure stores the hyphenation patterns in an efficient way for fast lookup
+H010	Folds all Unicode digits in [:General_Category=Decimal_Number:] to Basic Latin digits (0-9)
+H011	"Tokenizes" the entire stream as a single token
+H012	Filters LetterTokenizer with LowerCaseFilter and StopFilter
+H013	An Analyzer that uses UnicodeWhitespaceTokenizer
+H014	A UnicodeWhitespaceTokenizer is a tokenizer that divides text at whitespace
+H015	Normalizes German characters according to the heuristics of the German snowball algorithm 
+H016	A high-performance kstem filter for english
+H017	A TokenFilter that applies FinnishLightStemmer to stem Finnish words
+H018	An object representing homonym dictionary entries
+H019	Suggestion to add/edit dictionary entries to generate a given list of words created by compress
+H020	A spell checker based on Hunspell dictionaries
+H021	A TokenFilter that applies IndonesianStemmer to stem Indonesian words
+H022	A TokenFilter that applies ItalianLightStemmer to stem Italian words
+H023	Generate min hash tokens from an incoming stream of tokens
+H024	Concatenates/Joins every incoming token with a separator into one output token for every path through the token stream (which is a graph)
+H025	Allows skipping TokenFilters based on the current set of attributes
+H026	Filter outputs a single token which is a concatenation of the sorted and de-duplicated set of input tokens
+H027	A TokenFilter that only keeps tokens with text contained in the required words
+H028	High-level dictionary interface for morphological analyzers
+H029	This tokenizer uses regex pattern matching to construct distinct tokens for the input stream
+H030	Factory for SimplePatternSplitTokenizer, for producing tokens by splitting according to the provided regexp
+H031	Mainly for use with the DelimitedPayloadTokenFilter, converts char buffers to BytesRef
+H032	Base class for stemmers that use a set of RSLP-like stemming steps
+H033	Reverse token string, for example "country" =&gt; "yrtnuoc"
+H034	A FixedShingleFilter constructs shingles (token n-grams) from a token stream
+H035	A TokenFilter that applies SwedishLightStemmer to stem Swedish words
+H036	A TokenFilter that applies SwedishMinimalStemmer to stem Swedish words
+H037	A map of synonyms, keys and values are phrases
+H038	Supply Word2Vec Word2VecSynonymProvider cache avoiding that multiple instances of Word2VecSynonymFilterFactory will instantiate multiple instances of the same SynonymProvider
+H039	Extension of StandardTokenizer that is aware of Wikipedia syntax
+H040	Internal class used by Snowball stemmers
+H041	Parent class of all snowball stemmers, which must implement stem
+H042	This class implements the stemming algorithm defined by a snowball script
+H043	This class implements the stemming algorithm defined by a snowball script
+H044	This class implements the stemming algorithm defined by a snowball script
+H045	This class implements the stemming algorithm defined by a snowball script
+H046	This class implements the stemming algorithm defined by a snowball script
+H047	This class implements the stemming algorithm defined by a snowball script
+H048	This class implements the stemming algorithm defined by a snowball script
+H049	This class implements the stemming algorithm defined by a snowball script
+H050	This class implements the stemming algorithm defined by a snowball script
+H051	Factory for ICUNormalizer2Filter Supports the following attributes: form: A Unicode Normalization Form , one of 'nfc','nfkc', 'nfkc_cf', 'nfkc_scf'
+H052	A TokenFilter that normalizes Korean numbers to regular Arabic decimal numbers in half-width characters
+H053	Replaces term text with the ReadingAttribute which is the Hangul transcription of Hanja characters
+H054	Part of speech classification for Korean based on Sejong corpus classification
+H055	Attribute for Korean reading data
+H056	Iterate through sentence tokens and cache their attributes
+H057	Supply OpenNLP Named Entity Resolution tool Requires binary models from OpenNLP project on SourceForge
+H058	Filter for DoubleMetaphone (supporting secondary codes)
+H059	Manages analysis data configuration for SmartChineseAnalyzer SmartChineseAnalyzer has a built-in dictionary and stopword list out-of-box
+H060	Filters a SegToken by converting full-width latin to half-width, then lowercasing latin
+H061	The Compile class is used to compile a stemmer table
+H062	The Lift class is a data structure that is a variation of a Patricia trie
+H063	The Optimizer class is a Trie that will be reduced (have empty rows removed)
+H064	The Reduce object is used to remove gaps in a Trie which stores a dictionary
+H065	Inspired from https://fulmicoton.com/posts/bitpacking/ Encodes multiple integers in a Java int to get SIMD-like speedups
+H066	A vectors format that uses HNSW graph to store and search for vectors
+H067	Lucene 9.0 vector format, which encodes numeric vector values and an optional associated graph connecting the documents having values
+H068	Concrete class that reads docId(maybe frq,pos,offset,payloads) list with postings format
+H069	A helper class for an hnsw graph that serves as a comparator of the currently set bound value with a new value
+H070	Concrete class that reads docId(maybe frq,pos,offset,payloads) list with postings format
+H071	Lucene 9.2 vector format, which encodes numeric vector values and an optional associated graph connecting the documents having values
+H072	Implements the Lucene 9.5 index format If you want to reuse functionality of this codec in another codec, extend FilterCodec
+H073	Lucene 9.5 vector format, which encodes numeric vector values and an optional associated graph connecting the documents having values
+H074	Reads Scalar Quantized vectors from the index segments along with index data structures
+H075	Implements the skip list reader for block postings format that stores positions and payloads
+H076	A k-Nearest Neighbor classifier (see http://en.wikipedia.org/wiki/K-nearest_neighbors ) based on MoreLikeThis
+H077	A simplistic Lucene based NaiveBayes classifier, see http://en.wikipedia.org/wiki/Naive_Bayes_classifier
+H078	A k-Nearest Neighbor Document classifier (see http://en.wikipedia.org/wiki/K-nearest_neighbors ) based on org.apache.lucene.queries.mlt.MoreLikeThis 
+H079	utility class for converting Lucene org.apache.lucene.document.Documents to Double vectors
+H080	BlockTermsReader interacts with an instance of this class to manage its terms index
+H081	FST-based term dict, using metadata as FST output
+H082	plain text term vectors format
+H083	Immutable stateless index dictionary kept in RAM
+H084	Shows example usage of category associations
+H085	Computes drill down and sideways counts for the provided DrillDownQuery
+H086	Per-segment, per-document long values, which can be calculated at search-time
+H087	Collects hits for subsequent faceting, using sampling if needed
+H088	Holds a set of facet dimension values
+H089	A FacetSet which encodes float dimension values
+H090	Methods to create dynamic ranges for numeric fields
+H091	Represents counts for double range on range faceting
+H092	Represents counts for long range on range faceting
+H093	A org.apache.lucene.index.FilterLeafReader for updating facets ordinal references, based on an ordinal map
+H094	Aggregates int values previously indexed with IntAssociationFacetField, assuming the default encoding
+H095	TaxonomyReader is the read-only interface with which the faceted-search library uses the taxonomy during search time
+H096	A TaxonomyReader which retrieves stored taxonomy information from a Directory
+H097	A GroupSelector implementation that groups via SortedDocValues
+H098	Formats text with different color intensity depending on the score of the term
+H099	Marks up highlighted terms found in the best sections of text, using configurable Fragmenter, Scorer, Formatter, Encoder and tokenizers
+H100	Exception thrown if TokenStream Tokens are incompatible with provided text
+H101	Utility class used to extract the terms used in a query, plus any weights
+H102	A Scorer is responsible for scoring a stream of tokens
+H103	Fragmenter implementation which breaks text up into same-size fragments with no concerns over spotting sentence boundaries
+H104	Formats text with different color intensity depending on the score of the term using the span tag
+H105	An example highlighter that combines several lower-level utility classes in this package into a fully featured, ready-to-use component
+H106	This strategy applies to fields with stored positions but no offsets
+H107	A passage is a fragment of source text, scored and possibly with a list of sub-offsets (markers) to be highlighted
+H108	Wraps another BreakIterator to skip past breaks that would result in passages that are too short
+H109	Uses an Analyzer on content to get offsets and then populates a MemoryIndex
+H110	Represents a passage (typically a sentence of the document)
+H111	Creates a formatted snippet from the top passages
+H112	Uses term vectors that contain offsets
+H113	Analyzes the text, producing a single OffsetsEnum wrapping the TokenStream filtered to terms in the query, including wildcards
+H114	A parameter object to hold the components a FieldOffsetStrategy needs
+H115	FragListBuilder is an interface for FieldFragList builder classes
+H116	A weighted implementation of FieldFragList
+H117	A weighted implementation of FragListBuilder
+H118	kNN byte vector query that joins matching children vector documents with their parent doc id
+H119	kNN float vector query that joins matching children vector documents with their parent doc id
+H120	This query requires that you index children and parent docs as a single block, using the addDocuments or updateDocuments API
+H121	High-performance single-document main memory Apache Lucene fulltext search index
+H122	Utility to get document frequency and total number of occurrences (sum of the tf for each doc) of a term
+H123	This tool splits input index into multiple equal parts
+H124	A TopDocsCollector that controls diversity in results by ensuring no more than maxHitsPerKey results from a common source are collected in the final results
+H125	Holds statistics for a DocValues field
+H126	Tracks dynamic allocations/deallocations of memory for transient objects
+H127	Defines a query to be stored in a Monitor
+H128	Class exposing static helper methods for generating DoubleValuesSource instances over some IndexReader statistics
+H129	Abstract FunctionValues implementation which supports retrieving long values
+H130	An implementation for retrieving FunctionValues instances for string based fields
+H131	Function that returns a constant float vector value for every document
+H132	ValueSource implementation which only returns the values from the provided ValueSources which are available for a particular docId
+H133	Obtains double field values from getNumericDocValues and makes those values available as other numeric types, casting as needed
+H134	Abstract ValueSource implementation which wraps multiple ValueSources and applies an extendable boolean function to their values
+H135	A function with a single argument
+H136	SumFloatFunction returns the sum of its components
+H137	VectorSimilarityFunction returns a similarity function between two knn vectors
+H138	Wraps an IntervalIterator and passes through those intervals that match the accept() function
+H139	A simple wrapper for MoreLikeThis for use in scenarios where a Query object is required eg in custom QueryParser extensions
+H140	Wrapper to allow SpanQuery objects participate in composite single-field SpanQueries by 'lying' about their search field
+H141	Matches spans which are near one another
+H142	A basic Scorer over Spans
+H143	A QueryParser which constructs queries to search multiple fields
+H144	This exception is thrown when parse errors are encountered
+H145	This class is generated by JavaCC
+H146	A AndQueryNode represents an AND boolean operation performed on a list of nodes
+H147	A AnyQueryNode represents an ANY operator performed on a list of nodes
+H148	A FuzzyQueryNode represents a element that contains field/text/similarity tuple
+H149	Query node for PhraseQuery's slop factor
+H150	This interface should be implemented by a QueryNode that represents some kind of range query
+H151	Interface for a node that has text as a CharSequence
+H152	A TokenizedPhraseQueryNode represents a node created by a code that tokenizes/lemmatizes/analyzes
+H153	A NoChildOptimizationQueryNodeProcessor removes every BooleanQueryNode, BoostQueryNode, TokenizedPhraseQueryNode or ModifierQueryNode that do not have a valid children
+H154	Allow joining 2 QueryNode Trees, into one
+H155	Builds a BooleanQuery of SHOULD clauses, possibly with some minimum number to match
+H156	This class should be extended by nodes intending to represent range queries
+H157	Token literal values and constants
+H158	This processor makes sure that ANALYZER is defined in the QueryConfigHandler and injects this analyzer into org.apache.lucene.queryparser.flexible.standard.nodes.IntervalQueryNodes
+H159	This processor converts every WildcardQueryNode that is "*:*" to MatchAllDocsQueryNode
+H160	This class is generated by JavaCC
+H161	Assembles a QueryBuilder which uses only core Lucene Query objects
+H162	Handles copying one set of files, e.g
+H163	Replica node, that pulls index changes from the primary node by copying newly flushed or merged index files
+H164	Builder for multi range queries for DoublePoints
+H165	CollectorManager that computes a histogram of the distribution of the values of a field
+H166	FacetRecorder that contains multiple FacetRecorders
+H167	Utility class to orchestrate FacetBuilders to setup and exec collection for multiple facets
+H168	This class is the internal representation of a profiled Query, corresponding to a single node in the query tree
+H169	Abstract class for range queries involving multiple ranges against physical points such as IntPoints All ranges are logically ORed together
+H170	A record of timings for the various operations that may happen during query execution
+H171	The algorithm is implemented as envelope on envelope (rect on rect) overlays rather than complex polygon on complex polygon overlays
+H172	A SpatialStrategy for indexing and searching Rectangles by storing its coordinates in numeric fields
+H173	A spatial Intersects predicate that distinguishes an approximated match from an exact match based on which cells are within the query shape
+H174	Implementation of ShapeFieldCacheProvider designed for PrefixTreeStrategys that index points (AND ONLY POINTS!)
+H175	Grid cells that share nothing with other cells when calling getNextLevelCells(Shape) might implement this interface
+H176	A SpatialPrefixTree based on Geohashes 
+H177	A spatial Prefix Tree, or Trie, which decomposes shapes into prefixed strings at variable lengths corresponding to variable precision
+H178	Principally holds the query Shape and the SpatialOperation
+H179	A predicate that compares a stored geometry to a supplied geometry
+H180	Transforms a DoubleValuesSource using the formula v = k / (v + k)
+H181	Simple SpatialStrategy which represents Points in two numeric fields
+H182	A GeoArea represents a standard 2-D breakdown of a part of sphere
+H183	Base class to create a composite of GeoShapes
+H184	Generic shape that supports bounds
+H185	Interface describing circular area with a center and radius
+H186	Distance shapes have capabilities of both geohashing and distance computation (which also includes point membership determination)
+H187	Implemented by Geo3D shapes that can compute the distance from a point to the closest outside edge
+H188	Interface describing a GeoPointShape shape.It may represents a degenerated bounding box or a degenerated circle, hence it extends such interfaces
+H189	Some shapes can compute radii of a geocircle in which they are inscribed
+H190	Indicates that a geo3d object can be serialized and deserialized
+H191	Interface for a family of 3D rectangles, bounded on six sides by X,Y,Z limits
+H192	A simple interface representing a Dictionary
+H193	This wrapper buffers incoming elements
+H194	Dictionary with terms and optionally payload and optionally contexts information taken from stored fields in a Lucene index
+H195	Simple Lookup interface for CharSequence suggestions
+H196	A PostingsFormat which supports document suggestion based on indexed SuggestFields
+H197	SuggestField which additionally takes in a set of contexts
+H198	A CompletionQuery which takes an Analyzer to analyze the prefix of the query term
+H199	The class creates a TST node

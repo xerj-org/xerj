@@ -279,6 +279,9 @@ pub fn run_code_query(
         None => {}
     }
 
+    // #1788: field lanes beside the measured multi_match, from the same read.
+    let lanes = FieldLanes::from_mapping(mapping.as_ref());
+
     let mut note: Option<String> = None;
     let mut rrf_scores = false;
     // Any leg that comes back `timed_out` makes the page partial. The flag is
@@ -290,8 +293,10 @@ pub fn run_code_query(
     let fetch = diversity_fetch(params.k);
 
     let (mut resp, hits) = match params.mode {
-        Mode::Bm25 => match http.search(&pattern, &bm25_body(&query, fetch, &params.lang, &fields))
-        {
+        Mode::Bm25 => match http.search(
+            &pattern,
+            &bm25_body(&query, fetch, &params.lang, &fields, lanes.as_ref()),
+        ) {
             Ok(mut r) => {
                 note_deadline(&r, &mut deadline_hit);
                 let mut h = hit_list(&r);
@@ -391,7 +396,10 @@ pub fn run_code_query(
                     "BM25 only — no usable semantic_text mapping for `body` could be \
                      discovered under '{pattern}'"
                 ));
-                match http.search(&pattern, &bm25_body(&query, fetch, &params.lang, &fields)) {
+                match http.search(
+                    &pattern,
+                    &bm25_body(&query, fetch, &params.lang, &fields, lanes.as_ref()),
+                ) {
                     Ok(r) => {
                         note_deadline(&r, &mut deadline_hit);
                         (r.clone(), hit_list(&r))
@@ -402,7 +410,10 @@ pub fn run_code_query(
                 // BM25 preflight: the lexical embedder returns confident
                 // neighbours for ANY input, so a BM25 miss is the corpus's
                 // only honest "no" — vector hits must not launder it.
-                match http.search(&pattern, &bm25_body(&query, 1, &params.lang, &fields)) {
+                match http.search(
+                    &pattern,
+                    &bm25_body(&query, 1, &params.lang, &fields, lanes.as_ref()),
+                ) {
                     Ok(pre)
                         if {
                             note_deadline(&pre, &mut deadline_hit);
@@ -498,7 +509,13 @@ pub fn run_code_query(
                                 ));
                                 match http.search(
                                     &pattern,
-                                    &bm25_body(&query, fetch, &params.lang, &fields),
+                                    &bm25_body(
+                                        &query,
+                                        fetch,
+                                        &params.lang,
+                                        &fields,
+                                        lanes.as_ref(),
+                                    ),
                                 ) {
                                     Ok(r) => {
                                         note_deadline(&r, &mut deadline_hit);
@@ -868,10 +885,33 @@ pub(crate) fn diversify(hits: Vec<Value>, want: usize) -> (Vec<Value>, usize, us
 /// a highlight block (issue #177: highlight changes ranking on this engine),
 /// and no `_source` projection on the corpus path — passage selection needs
 /// `body` and `symbols`.
-pub(crate) fn bm25_body(query: &str, k: usize, lang: &Option<String>, fields: &[String]) -> Value {
-    let mut must = vec![serde_json::json!({
+///
+/// `lanes` (#1788) adds the field lanes a read mapping allows: the exact
+/// advisory/package ID clauses and the identifier spellings, which may match
+/// on their own (a record whose ID or name is only in a keyword field).
+/// `None` (mapping unreadable) keeps the historical body. There is no
+/// file-name wildcard lane on `title`: it cost +138% `took` p50 on a
+/// 188k-record corpus for +0.023 nDCG@10 on held-out questions
+/// (benchmarks/code-search-field-bm25-2026-11, round 7).
+pub(crate) fn bm25_body(
+    query: &str,
+    k: usize,
+    lang: &Option<String>,
+    fields: &[String],
+    lanes: Option<&FieldLanes>,
+) -> Value {
+    let multi_match = serde_json::json!({
         "multi_match": { "query": query, "fields": fields }
-    })];
+    });
+    let exact: Vec<Value> = lanes.map_or_else(Vec::new, |l| l.exact_clauses(query, fields));
+    let recall = if exact.is_empty() {
+        multi_match
+    } else {
+        let mut either = vec![multi_match];
+        either.extend(exact);
+        serde_json::json!({ "bool": { "should": either, "minimum_should_match": 1 } })
+    };
+    let mut must = vec![recall];
     if let Some(lg) = lang {
         must.push(serde_json::json!({ "match": { "language": lg } }));
     }
@@ -885,6 +925,63 @@ pub(crate) fn bm25_body(query: &str, k: usize, lang: &Option<String>, fields: &[
     });
     attach_coverage_clauses(&mut body, query, fields);
     body
+}
+
+/// What a read mapping lets the `xerj code` BM25 body name beside its
+/// `multi_match` (#1788). Built once per query from the same `_mapping`
+/// read that resolves the fields.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct FieldLanes {
+    mapped: std::collections::BTreeSet<String>,
+    numeric: std::collections::BTreeSet<String>,
+}
+
+impl FieldLanes {
+    /// `None` when the mapping was not read or names no field: a lane on a
+    /// field the strict autoindex mapping does not hold is HTTP 400.
+    pub(crate) fn from_mapping(mapping: Option<&Value>) -> Option<FieldLanes> {
+        let mapping = mapping?;
+        let mapped = crate::code_query::mapped_property_names(mapping)?;
+        if mapped.is_empty() {
+            return None;
+        }
+        Some(FieldLanes {
+            numeric: crate::code_query::numeric_property_names(mapping),
+            mapped,
+        })
+    }
+
+    fn usable(&self, field: &str) -> bool {
+        self.mapped.contains(field) && !self.numeric.contains(field)
+    }
+
+    /// Clauses that may match on their own: [`crate::code_query::exact_id_clauses`]
+    /// over the analyzed content fields the `multi_match` already names, and
+    /// a `name` term per [`crate::code_query::identifier_spellings`] of the
+    /// query (`cat pending tasks` → the `cat_pending_tasks` symbol record).
+    fn exact_clauses(&self, query: &str, fields: &[String]) -> Vec<Value> {
+        let content: Vec<&str> = fields
+            .iter()
+            .map(|f| f.split('^').next().unwrap_or(f))
+            .filter(|base| crate::code_query::PHRASE_CONTENT_FIELDS.contains(base))
+            .collect();
+        let mut out = crate::code_query::exact_id_clauses(
+            query,
+            Some(&self.mapped),
+            Some(&self.numeric),
+            &content,
+            crate::code_query::IdCitation::Constant,
+        );
+        if self.usable("name") {
+            for ident in crate::code_query::identifier_spellings(query) {
+                out.push(serde_json::json!({ "constant_score": {
+                    "filter": { "term": { "name": ident } },
+                    "boost": crate::code_query::IDENT_SPELLING_BOOST
+                }}));
+            }
+        }
+        out
+    }
 }
 
 /// #1237: second BM25 leg over symbol-record `impl` fields. Excludes `impl`
@@ -2417,5 +2514,174 @@ mod tests {
             Some(3),
             "winning symbol end_line stamped onto file record's symbols entry"
         );
+    }
+
+    /// An autoindex code corpus: `title` and `name` are keywords.
+    fn code_corpus_mapping(extra: Value) -> Value {
+        let mut props = serde_json::json!({
+            "body": { "type": "text" }, "defs": { "type": "text" },
+            "title": { "type": "keyword" }, "name": { "type": "keyword" },
+            "ax_path": { "type": "keyword" }
+        });
+        if let (Some(p), Some(e)) = (props.as_object_mut(), extra.as_object()) {
+            for (k, v) in e {
+                p.insert(k.clone(), v.clone());
+            }
+        }
+        serde_json::json!({ "xc-kv-b1-000": { "mappings": { "properties": props } } })
+    }
+
+    fn first_body(root: &Path, http: &FakeHttp, query: &str) -> Value {
+        let out = run_code_query(
+            root,
+            http,
+            "http://localhost:9200",
+            &CodeParams::new("kv", query),
+            "`--stale-ok`",
+        );
+        assert_ne!(out.exit, 2, "{}", out.text);
+        http.searches.lock().unwrap()[0].1.clone()
+    }
+
+    /// #1788 round 7: the file-name wildcard lane on a keyword `title` was
+    /// dropped (+138% `took` p50 on a 188k-record corpus). A keyword title
+    /// gets no wildcard clause; the measured `multi_match` and the coverage
+    /// tiers are unchanged.
+    #[test]
+    fn a_keyword_title_gets_no_wildcard_name_lane() {
+        let root = root_with_state();
+        let mut http = FakeHttp::new();
+        http.mapping = code_corpus_mapping(serde_json::json!({}));
+        let body = first_body(&root, &http, "When does the HNSW graph builder link nodes?");
+        assert_eq!(
+            body.pointer("/query/bool/must/0/multi_match/query"),
+            Some(&serde_json::json!(
+                "When does the HNSW graph builder link nodes?"
+            )),
+            "the measured multi_match is still the recall clause"
+        );
+        assert!(
+            !body.to_string().contains("\"wildcard\""),
+            "no wildcard clause: {body}"
+        );
+        assert!(body
+            .pointer("/query/bool/should/0/constant_score/boost")
+            .is_some_and(|b| b.as_f64() == Some(crate::code_query::COVERAGE_MATCH_BOOST)));
+    }
+
+    /// An unreadable mapping keeps the historical body: a lane on a field a
+    /// strict index does not map is HTTP 400.
+    #[test]
+    fn no_lanes_without_a_read_mapping() {
+        let root = root_with_state();
+        let http = FakeHttp::new();
+        let body = first_body(&root, &http, "graph builder");
+        assert!(body.pointer("/query/bool/should").is_none(), "{body}");
+        let fields = vec!["body".to_string(), "title".to_string()];
+        let plain = bm25_body("graph builder", 5, &None, &fields, None);
+        assert!(plain.pointer("/query/bool/should").is_none(), "{plain}");
+        assert!(FieldLanes::from_mapping(None).is_none());
+        assert!(FieldLanes::from_mapping(Some(&serde_json::json!({}))).is_none());
+    }
+
+    /// #1788: a symbol record has no `body`, so `cat pending tasks` never
+    /// reached the `cat_pending_tasks` record through the `multi_match`. Its
+    /// spellings are `name` terms that may match alone.
+    #[test]
+    fn spaced_words_reach_the_symbol_record_by_name() {
+        let root = root_with_state();
+        let mut http = FakeHttp::new();
+        http.mapping = code_corpus_mapping(serde_json::json!({}));
+        let body = first_body(&root, &http, "cat pending tasks");
+        let alts = body
+            .pointer("/query/bool/must/0/bool/should")
+            .and_then(Value::as_array)
+            .unwrap();
+        let names: Vec<&str> = alts
+            .iter()
+            .filter_map(|c| c.pointer("/constant_score/filter/term/name")?.as_str())
+            .collect();
+        assert_eq!(
+            names,
+            vec![
+                "CAT_PENDING_TASKS",
+                "CatPendingTasks",
+                "catPendingTasks",
+                "cat_pending_tasks"
+            ]
+        );
+        assert!(alts.iter().all(|c| c.get("multi_match").is_some()
+            || c.pointer("/constant_score/boost").and_then(Value::as_f64)
+                == Some(crate::code_query::IDENT_SPELLING_BOOST)));
+
+        // No `name` in the mapping: no term on it (strict indices 400).
+        let mut http = FakeHttp::new();
+        http.mapping = serde_json::json!({ "xc-kv-b1-000": { "mappings": { "properties": {
+            "body": { "type": "text" }, "title": { "type": "keyword" }
+        }}}});
+        let body = first_body(&root, &http, "cat pending tasks");
+        assert!(
+            body.pointer("/query/bool/must/0/multi_match").is_some(),
+            "{body}"
+        );
+    }
+
+    /// #1788 in `xerj code`: an advisory ID gets the exact lane `xerj search`
+    /// got in #3336, and it may match alone (an ID held only in a keyword
+    /// field). The `multi_match` stays one of the alternatives.
+    #[test]
+    fn an_advisory_id_gets_an_exact_lane_that_can_match_alone() {
+        let root = root_with_state();
+        let mut http = FakeHttp::new();
+        http.mapping = code_corpus_mapping(serde_json::json!({
+            "id": { "type": "keyword" }, "aliases": { "type": "keyword" }
+        }));
+        let body = first_body(&root, &http, "what does RUSTSEC-2021-0003 affect");
+        let recall = body.pointer("/query/bool/must/0/bool").unwrap();
+        assert_eq!(recall["minimum_should_match"], serde_json::json!(1));
+        let alts = recall["should"].as_array().unwrap();
+        assert!(alts[0].get("multi_match").is_some());
+        let terms: Vec<(String, f64)> = alts
+            .iter()
+            .filter_map(|c| {
+                let t = c.pointer("/constant_score/filter/term")?.as_object()?;
+                let (field, value) = t.iter().next()?;
+                assert_eq!(value, "RUSTSEC-2021-0003");
+                Some((field.clone(), c.pointer("/constant_score/boost")?.as_f64()?))
+            })
+            .collect();
+        let b = crate::code_query::EXACT_ID_TERM_BOOST;
+        assert_eq!(
+            terms,
+            vec![
+                ("id".to_string(), b),
+                ("aliases".to_string(), b),
+                ("name".to_string(), b)
+            ]
+        );
+        let cited: Vec<(&Value, f64)> = alts
+            .iter()
+            .filter_map(|c| {
+                Some((
+                    c.pointer("/constant_score/filter/match_phrase/body")?,
+                    c.pointer("/constant_score/boost")?.as_f64()?,
+                ))
+            })
+            .collect();
+        assert_eq!(
+            cited,
+            vec![(
+                &serde_json::json!("RUSTSEC-2021-0003"),
+                crate::code_query::EXACT_ID_CITED_BOOST
+            )],
+            "a body that cites the ID outranks both coverage boosts"
+        );
+
+        // No ID (and not a spaced-out name): the recall clause is the bare
+        // multi_match, as before.
+        let mut http = FakeHttp::new();
+        http.mapping = code_corpus_mapping(serde_json::json!({ "id": { "type": "keyword" } }));
+        let body = first_body(&root, &http, "which builds does the advisory affect?");
+        assert!(body.pointer("/query/bool/must/0/multi_match").is_some());
     }
 }

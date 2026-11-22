@@ -1,0 +1,200 @@
+I000	get hyphenation points
+I001	search patterns
+I002	has more elements
+I003	get stop types
+I004	get flag
+I005	get ignore case
+I006	unique stems
+I007	with dictionary suggester
+I008	set inner filters
+I009	get back word pos
+I010	get forward type
+I011	get node right
+I012	get min shingle size
+I013	get token separator
+I014	set token type
+I015	get current
+I016	get current buffer
+I017	parse medium kanji numeral
+I018	is lowercase alphabets
+I019	get inflected form translation
+I020	get inflection type translation
+I021	clear models
+I022	get tokenizer
+I023	get to count
+I024	get cnt
+I025	quantized length
+I026	wrap data output
+I027	get number of evaluated docs
+I028	get point count
+I029	read level length
+I030	get lines count
+I031	write incrementally encoded term
+I032	write line
+I033	add block key
+I034	update stats
+I035	is linear state
+I036	seek first block
+I037	check intersect automaton type
+I038	create dictionary browser supplier
+I039	read encoded fields metadata
+I040	read fields metadata
+I041	read unencoded fields metadata
+I042	seek fields metadata
+I043	write field terms
+I044	collect fields
+I045	read term state for field
+I046	set posting flags
+I047	run custom range matching
+I048	run range matching
+I049	enter every rule
+I050	exit every rule
+I051	visit error node
+I052	get rule index
+I053	amortize facet counts
+I054	get sampling rate
+I055	from doubles
+I056	bytes ref to float
+I057	int to bytes ref
+I058	insert into queue
+I059	get group count
+I060	set caching
+I061	set include max score
+I062	get background color string
+I063	get foreground color string
+I064	get fragment scorer
+I065	set encoder
+I066	get weighted span term
+I067	new term extractor
+I068	all fragments processed
+I069	get frag num
+I070	always fetch fields
+I071	create offsets enums weight matcher
+I072	pre span query rewrite
+I073	set formatter
+I074	set highlight phrases strictly
+I075	set passage relevancy over speed
+I076	should highlight phrases strictly
+I077	with masked fields func
+I078	with max no highlight passages
+I079	with scorer
+I080	accept phrase
+I081	is discrete multi value highlighting
+I082	is field match
+I083	is terminal
+I084	is valid term or phrase
+I085	next parent
+I086	get collector terms
+I087	fill docs and scores
+I088	add child score
+I089	get term info
+I090	set hyperbolic tf factors
+I091	create delete selector from index
+I092	get query ids
+I093	decompose boolean
+I094	collect term states
+I095	get high freq boost
+I096	get lower val
+I097	get upper val
+I098	long to object
+I099	get sources
+I100	max width
+I101	is boost
+I102	set min term frequency
+I103	set percent terms to match
+I104	get span score
+I105	set freq current doc
+I106	add multi term clauses
+I107	get auto generate phrase queries
+I108	new match all docs query
+I109	set begin column
+I110	set error token
+I111	set non localized message
+I112	set syntax parser
+I113	unset tag
+I114	check distance sub queries
+I115	get term query
+I116	get trunc query
+I117	check max
+I118	get nr queries made
+I119	get bracket close
+I120	infix to string
+I121	is operator infix
+I122	get span near query
+I123	add span query
+I124	add span query weighted
+I125	make span clause
+I126	get prefix
+I127	get weight string
+I128	is weighted
+I129	get lucene term
+I130	get attribute or fail
+I131	get child by tag name
+I132	insert child
+I133	new copy one file
+I134	run blocking
+I135	set verbose files
+I136	get primary gen
+I137	get remote close timeout ms
+I138	pre copy merged segment files
+I139	delete unknown files
+I140	force delete file
+I141	is copying
+I142	launch pre copy merge
+I143	maybe new primary
+I144	get current infos
+I145	create sample reader
+I146	get bytes per dim
+I147	get num dims
+I148	are all terms matching
+I149	collect single term data
+I150	create terms data
+I151	early stop weight
+I152	get term data
+I153	get term states for segment
+I154	inc segment skip count
+I155	inc single term analysis count
+I156	no match weight
+I157	should optimize segments
+I158	to breakdown map
+I159	get query total time
+I160	get query profiler result
+I161	get profile breakdown
+I162	create ord ranges
+I163	make overlap ratio value source
+I164	get index strategy
+I165	is optimize predicates
+I166	set optimize predicates
+I167	buffer shape
+I168	new cell stack
+I169	to string unit raw
+I170	init max levels
+I171	set operation
+I172	new spatial args
+I173	parse map
+I174	read bool
+I175	write circle
+I176	write collection
+I177	write point
+I178	write rect
+I179	build or rect
+I180	end hole
+I181	multi polygon
+I182	norm dist
+I183	init calculator
+I184	get within
+I185	new outside polygon sort
+I186	create geo complex polygon
+I187	reverse modify
+I188	verify point
+I189	safe acos
+I190	get lower case terms
+I191	set max inspections
+I192	set min prefix
+I193	set min query length
+I194	set threshold
+I195	get max evaluations
+I196	get min suggestion frequency
+I197	finish query
+I198	calculate coefficient
+I199	get max weight
