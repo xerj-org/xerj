@@ -1,17 +1,19 @@
 //! Structure-first writing packets assembled from verified Corpus Hub evidence
 //! (`write.outline` #2763 and `write.section` #2764, Epic #2769).
 //!
-//! `write.outline(topic, audience, length)` deterministically clusters supplied
-//! hub evidence into schema-valid chapters (`thesis`, `evidence`, `source_ids`),
+//! `write.outline(topic, audience, length)` deterministically groups supplied
+//! hub evidence by theme and partitions the groups into schema-valid chapters
+//! (`thesis`, `evidence`, `source_ids`),
 //! scales chapter count with [`OutlineLength`], emits a content-addressed
 //! `outline_id`, and refuses insufficient evidence rather than padding.
 //!
 //! `write.section(outline_id, chapter)` resolves the chapter's sources (`facts`,
 //! `quotes`, `counterpoints`, `style_rules`) with citable `source_id` and
 //! `file:line`/byte-span provenance, includes at least one counterpoint when
-//! the evidence pool contains one, fails loudly on unknown `outline_id` or
-//! `chapter`, and bounds/measures output size in tokens with an RFC 8785 (JCS)
-//! SHA-256 receipt.
+//! the evidence pool contains one (never repeated as a fact or quote), fails
+//! loudly on unknown `outline_id` or `chapter`, and bounds the packet in tokens
+//! measured on its own RFC 8785 (JCS) serialization, sealed with a SHA-256
+//! receipt.
 
 use crate::hub_evidence::{sha256, PinnedCitation};
 use serde::{Deserialize, Serialize};
@@ -68,7 +70,9 @@ fn canonical<T: Serialize>(value: &T) -> Result<Vec<u8>> {
     Ok(serde_json_canonicalizer::to_vec(value)?)
 }
 
-/// Deterministic token estimate: one token per four UTF-8 bytes, rounded up.
+/// Token estimate for one string: one token per four UTF-8 bytes, rounded up.
+/// A section's token budget is not a sum of these: it is measured on the whole
+/// serialized packet (see `packet_token_count`).
 pub fn estimated_token_count(text: &str) -> usize {
     text.len().div_ceil(4).max(1)
 }
@@ -172,16 +176,61 @@ impl WriteSourceItem {
         )
     }
 
+    /// The theme a source is grouped under: its first four alphanumeric
+    /// tokens (fact, then quote), lower-cased. Short tokens and digits are
+    /// kept, so "theme 1" and "theme 2" are different themes.
     fn theme_key(&self) -> String {
         self.fact
             .split(|c: char| !c.is_alphanumeric())
             .chain(self.quote.split(|c: char| !c.is_alphanumeric()))
-            .filter(|word| word.len() >= 4)
+            .filter(|word| !word.is_empty())
             .map(str::to_ascii_lowercase)
             .take(4)
             .collect::<Vec<_>>()
             .join(" ")
     }
+}
+
+/// Chapter boundaries over `keys`, the theme key of each source in sorted
+/// order. Returns `chapter_count + 1` indices (`0` first, `keys.len()` last).
+///
+/// Sources sharing a theme key are consecutive and stay in one chapter: a
+/// boundary falls between themes, as close as it can get to an even split. Only
+/// when there are fewer themes than chapters is a theme split, the largest
+/// first, so that no chapter is empty and none is padded. The caller has checked
+/// that `keys.len() >= chapter_count`.
+fn chapter_bounds(keys: &[String], chapter_count: usize) -> Vec<usize> {
+    let total = keys.len();
+    let mut cuts: Vec<usize> = (1..total).filter(|&i| keys[i] != keys[i - 1]).collect();
+    while cuts.len() + 1 < chapter_count {
+        let mut bounds = vec![0];
+        bounds.extend(&cuts);
+        bounds.push(total);
+        let (start, len) =
+            bounds
+                .windows(2)
+                .map(|w| (w[0], w[1] - w[0]))
+                .fold(
+                    (0, 0),
+                    |best, next| if next.1 > best.1 { next } else { best },
+                );
+        let cut = start + len / 2;
+        let at = cuts.partition_point(|&c| c < cut);
+        cuts.insert(at, cut);
+    }
+    let mut bounds = vec![0];
+    let mut next_candidate = 0;
+    for k in 1..chapter_count {
+        let target = (total * k).div_ceil(chapter_count);
+        let last_allowed = cuts.len() - (chapter_count - k);
+        let best = (next_candidate..=last_allowed)
+            .min_by_key(|&j| (cuts[j].abs_diff(target), j))
+            .unwrap_or(next_candidate);
+        bounds.push(cuts[best]);
+        next_candidate = best + 1;
+    }
+    bounds.push(total);
+    bounds
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -258,14 +307,11 @@ impl WriteOutline {
         let unique_sources: HashSet<_> = sources.iter().map(|s| &s.source_id).collect();
         require(unique_sources.len() == sources.len(), "duplicate source id")?;
 
-        let base = sources.len() / chapter_count;
-        let remainder = sources.len() % chapter_count;
-        let mut offset = 0;
+        let keys: Vec<String> = sources.iter().map(WriteSourceItem::theme_key).collect();
+        let bounds = chapter_bounds(&keys, chapter_count);
         let mut chapters = Vec::with_capacity(chapter_count);
         for index in 0..chapter_count {
-            let width = base + usize::from(index < remainder);
-            let cluster = &sources[offset..offset + width];
-            offset += width;
+            let cluster = &sources[bounds[index]..bounds[index + 1]];
             let primary = cluster
                 .iter()
                 .find(|s| s.stance == Stance::Supporting)
@@ -524,31 +570,31 @@ struct SectionPayload<'a> {
     estimated_tokens: usize,
 }
 
-fn packet_token_count(packet: &WriteSectionPacket) -> usize {
-    let evidence_tokens = |items: &[CitedEvidence]| {
-        items
-            .iter()
-            .map(|item| {
-                estimated_token_count(&item.source_id)
-                    + estimated_token_count(&item.corpus)
-                    + estimated_token_count(&item.file)
-                    + estimated_token_count(&item.text)
-                    + 8
-            })
-            .sum::<usize>()
-    };
-    12 + estimated_token_count(&packet.outline_id)
-        + estimated_token_count(&packet.chapter_id)
-        + estimated_token_count(&packet.title)
-        + estimated_token_count(&packet.thesis)
-        + packet
-            .style_rules
-            .iter()
-            .map(|s| estimated_token_count(s))
-            .sum::<usize>()
-        + evidence_tokens(&packet.facts)
-        + evidence_tokens(&packet.quotes)
-        + evidence_tokens(&packet.counterpoints)
+/// Length of the `report_sha256` digest, hex.
+const DIGEST_HEX_LEN: usize = 64;
+
+/// The packet's size in tokens, measured on what `to_jcs` emits: one token per
+/// four bytes of its RFC 8785 JSON, rounded up. Every key, every
+/// `pinned_citation` and the receipt count, so the figure is what a consumer of
+/// the packet pays, not an estimate of its prose.
+///
+/// `estimated_tokens` is a field of the packet it measures, so its own digits
+/// are part of the bytes: the count is the fixed point of that, found by
+/// iterating up from zero (it settles in one or two rounds). The digest is a
+/// fixed-length hex string, so it is measured as a placeholder.
+fn packet_token_count(packet: &WriteSectionPacket) -> Result<usize> {
+    let mut sized = packet.clone();
+    sized.report_sha256 = "0".repeat(DIGEST_HEX_LEN);
+    let mut estimate = 0usize;
+    for _ in 0..8 {
+        sized.estimated_tokens = estimate;
+        let next = canonical(&sized)?.len().div_ceil(4);
+        if next == estimate {
+            return Ok(estimate);
+        }
+        estimate = next;
+    }
+    Err(WritingPackError::Invalid("token count did not settle"))
 }
 
 impl WriteSectionPacket {
@@ -569,16 +615,18 @@ impl WriteSectionPacket {
     }
 
     fn validate(&self) -> Result<()> {
+        let supported = !self.facts.is_empty() && !self.quotes.is_empty();
+        let counterpoint_only =
+            self.facts.is_empty() && self.quotes.is_empty() && !self.counterpoints.is_empty();
         require(
             self.report_version == SECTION_VERSION
                 && !self.outline_id.trim().is_empty()
                 && !self.chapter_id.trim().is_empty()
                 && !self.title.trim().is_empty()
                 && !self.thesis.trim().is_empty()
-                && !self.facts.is_empty()
-                && !self.quotes.is_empty()
+                && (supported || counterpoint_only)
                 && !self.style_rules.is_empty()
-                && self.estimated_tokens == packet_token_count(self)
+                && self.estimated_tokens == packet_token_count(self)?
                 && self.estimated_tokens <= self.token_budget,
             "section metadata, facts, quotes, token count, or budget",
         )?;
@@ -593,7 +641,12 @@ impl WriteSectionPacket {
         require(
             self.counterpoints
                 .iter()
-                .all(|item| item.stance == Stance::Counterpoint),
+                .all(|item| item.stance == Stance::Counterpoint)
+                && self
+                    .facts
+                    .iter()
+                    .chain(&self.quotes)
+                    .all(|item| item.stance != Stance::Counterpoint),
             "counterpoint classification",
         )
     }
@@ -605,6 +658,10 @@ impl WriteSectionPacket {
             "section report digest mismatch",
         )?;
         let bytes = canonical(self)?;
+        require(
+            bytes.len().div_ceil(4) <= self.token_budget,
+            "serialized section exceeds its token budget",
+        )?;
         require(bytes.len() <= MAX_REPORT_BYTES, "report byte limit")?;
         Ok(bytes)
     }
@@ -656,21 +713,27 @@ pub fn write_section(
         .filter(|source| source.stance != Stance::Counterpoint)
         .collect();
     supporting_sources.sort_by_key(fact_rank);
-    if supporting_sources.is_empty() {
-        supporting_sources.push(chapter_sources[0]);
-    }
-    let primary_source = supporting_sources[0];
-    let counterpoint = chapter_sources
-        .iter()
-        .copied()
-        .find(|source| source.stance == Stance::Counterpoint)
-        .or_else(|| {
-            outline
-                .sources
-                .iter()
-                .find(|source| source.stance == Stance::Counterpoint)
-        });
-    let style_rules = vec![
+    // A chapter whose sources are all counterpoints has nothing to support its
+    // thesis. Its counterpoints are listed once, as counterpoints: they are not
+    // also presented as the fact and the quote.
+    let counterpoint_only = supporting_sources.is_empty();
+    let counterpoints: Vec<&WriteSourceItem> = if counterpoint_only {
+        chapter_sources.clone()
+    } else {
+        chapter_sources
+            .iter()
+            .copied()
+            .find(|source| source.stance == Stance::Counterpoint)
+            .or_else(|| {
+                outline
+                    .sources
+                    .iter()
+                    .find(|source| source.stance == Stance::Counterpoint)
+            })
+            .into_iter()
+            .collect()
+    };
+    let mut style_rules = vec![
         "Ground every factual sentence in the chapter thesis and cited sources.".into(),
         "Cite every factual claim or quote with [source:<id>] and preserve file:line provenance."
             .into(),
@@ -678,6 +741,12 @@ pub fn write_section(
             .into(),
         format!("Calibrate depth and terminology for audience: {}.", outline.audience),
     ];
+    if counterpoint_only {
+        style_rules.push(
+            "This chapter has only counterpoint evidence: present it as a limitation and make no supported claim."
+                .into(),
+        );
+    }
 
     let mut packet = WriteSectionPacket {
         report_version: SECTION_VERSION.into(),
@@ -685,9 +754,16 @@ pub fn write_section(
         chapter_id: resolved_chapter.chapter_id.clone(),
         title: resolved_chapter.title.clone(),
         thesis: resolved_chapter.thesis.clone(),
-        facts: vec![CitedEvidence::fact_from(primary_source)],
-        quotes: vec![CitedEvidence::quote_from(primary_source)],
-        counterpoints: counterpoint
+        facts: supporting_sources
+            .first()
+            .map(|source| vec![CitedEvidence::fact_from(source)])
+            .unwrap_or_default(),
+        quotes: supporting_sources
+            .first()
+            .map(|source| vec![CitedEvidence::quote_from(source)])
+            .unwrap_or_default(),
+        counterpoints: counterpoints
+            .first()
             .map(|source| vec![CitedEvidence::quote_from(source)])
             .unwrap_or_default(),
         style_rules,
@@ -695,23 +771,36 @@ pub fn write_section(
         estimated_tokens: 0,
         report_sha256: String::new(),
     };
-    packet.estimated_tokens = packet_token_count(&packet);
+    packet.estimated_tokens = packet_token_count(&packet)?;
     if packet.estimated_tokens > token_budget {
         return Err(WritingPackError::TokenBudgetTooSmall {
             budget: token_budget,
             minimum: packet.estimated_tokens,
         });
     }
+    // Lower-ranked items are added while the packet, as `to_jcs` serializes it,
+    // still fits: the first one that does not fit ends the list.
     for source in supporting_sources.into_iter().skip(1) {
         packet.facts.push(CitedEvidence::fact_from(source));
         packet.quotes.push(CitedEvidence::quote_from(source));
-        let candidate_count = packet_token_count(&packet);
+        let candidate_count = packet_token_count(&packet)?;
         if candidate_count > token_budget {
             packet.facts.pop();
             packet.quotes.pop();
             break;
         }
         packet.estimated_tokens = candidate_count;
+    }
+    if counterpoint_only {
+        for source in counterpoints.into_iter().skip(1) {
+            packet.counterpoints.push(CitedEvidence::quote_from(source));
+            let candidate_count = packet_token_count(&packet)?;
+            if candidate_count > token_budget {
+                packet.counterpoints.pop();
+                break;
+            }
+            packet.estimated_tokens = candidate_count;
+        }
     }
     packet.report_sha256 = packet.digest()?;
     packet.validate()?;
@@ -727,6 +816,10 @@ mod tests {
             "Evidence theme {} establishes bounded determinism for section synthesis.",
             index % 3
         );
+        source_with_fact(index, fact, stance)
+    }
+
+    fn source_with_fact(index: usize, fact: String, stance: Stance) -> WriteSourceItem {
         let quote = format!(
             "\"Evidence theme {} supports a qualified statement about topic safety.\"",
             index % 3
@@ -869,5 +962,184 @@ mod tests {
             .replacen("\"audience\":\"audience\"", "\"audience\":\"changed\"", 1)
             .into_bytes();
         assert!(WriteOutline::verify_json(&changed).is_err());
+    }
+
+    fn themed(index: usize, theme: &str, stance: Stance) -> WriteSourceItem {
+        source_with_fact(
+            index,
+            format!("{theme} establishes bounded determinism for section synthesis."),
+            stance,
+        )
+    }
+
+    fn chapter_of<'a>(outline: &'a WriteOutline, id: &str) -> &'a OutlineChapter {
+        outline
+            .chapters
+            .iter()
+            .find(|c| c.source_ids.iter().any(|s| s == id))
+            .unwrap()
+    }
+
+    #[test]
+    fn the_theme_key_keeps_short_tokens_and_digits() {
+        let one = themed(1, "Rule 1 of the set", Stance::Supporting);
+        let two = themed(2, "Rule 2 of the set", Stance::Supporting);
+        let short = themed(3, "An id is not a key", Stance::Supporting);
+        assert_eq!(one.theme_key(), "rule 1 of the");
+        assert_ne!(one.theme_key(), two.theme_key());
+        assert_eq!(short.theme_key(), "an id is not");
+    }
+
+    #[test]
+    fn a_theme_stays_in_one_chapter_and_boundaries_fall_between_themes() {
+        // Three themes of two sources each, three chapters: one theme per chapter.
+        let mut grouped = Vec::new();
+        for (n, theme) in ["alpha one", "beta two", "gamma three"].iter().enumerate() {
+            grouped.push(themed(n * 2 + 1, theme, Stance::Supporting));
+            grouped.push(themed(n * 2 + 2, theme, Stance::Neutral));
+        }
+        let outline = write_outline("Topic", "audience", OutlineLength::Standard, grouped).unwrap();
+        for chapter in &outline.chapters {
+            assert_eq!(chapter.source_ids.len(), 2, "{chapter:?}");
+            let keys: BTreeSet<_> = chapter
+                .source_ids
+                .iter()
+                .map(|id| {
+                    outline
+                        .sources
+                        .iter()
+                        .find(|s| &s.source_id == id)
+                        .unwrap()
+                        .theme_key()
+                })
+                .collect();
+            assert_eq!(keys.len(), 1, "a theme was split across chapters: {keys:?}");
+        }
+
+        // Sources that differ only by a digit are different themes.
+        let numbered: Vec<_> = (1..=3)
+            .map(|n| themed(n, &format!("Section {n} covers"), Stance::Supporting))
+            .collect();
+        let outline =
+            write_outline("Topic", "audience", OutlineLength::Standard, numbered).unwrap();
+        assert!(outline.chapters.iter().all(|c| c.source_ids.len() == 1));
+    }
+
+    #[test]
+    fn fewer_themes_than_chapters_split_the_largest_theme_and_never_pad() {
+        let mut few = Vec::new();
+        for n in 1..=4 {
+            few.push(themed(n, "alpha one", Stance::Supporting));
+        }
+        few.push(themed(5, "beta two", Stance::Supporting));
+        let outline =
+            write_outline("Topic", "audience", OutlineLength::Comprehensive, few).unwrap();
+        assert_eq!(outline.chapters.len(), 5);
+        assert!(outline.chapters.iter().all(|c| c.source_ids.len() == 1));
+        let all: BTreeSet<_> = outline
+            .chapters
+            .iter()
+            .flat_map(|c| c.source_ids.clone())
+            .collect();
+        assert_eq!(all.len(), 5, "every source in exactly one chapter");
+    }
+
+    #[test]
+    fn the_token_budget_bounds_the_serialized_packet_not_a_sum_of_prose() {
+        let twelve: Vec<_> = (1..=12)
+            .map(|n| {
+                source(
+                    n,
+                    if n % 4 == 3 {
+                        Stance::Counterpoint
+                    } else {
+                        Stance::Supporting
+                    },
+                )
+            })
+            .collect();
+        let outline = write_outline("Topic", "audience", OutlineLength::Brief, twelve).unwrap();
+        let id = outline.outline_id.clone();
+
+        // The review probe: 12 sources and a 600-token budget. The prose-only
+        // estimate said 569; the serialized packet is several times that.
+        let floor = match write_section(&outline, &id, "chapter-01", 600).unwrap_err() {
+            WritingPackError::TokenBudgetTooSmall { budget, minimum } => {
+                assert_eq!(budget, 600);
+                minimum
+            }
+            other => panic!("{other}"),
+        };
+        assert!(floor > 600, "{floor}");
+
+        let full = write_section(&outline, &id, "chapter-01", 1_000_000).unwrap();
+        assert_eq!(full.facts.len(), 9);
+        let full_bytes = full.to_jcs().unwrap();
+        assert_eq!(full.estimated_tokens, full_bytes.len().div_ceil(4));
+
+        let core = write_section(&outline, &id, "chapter-01", floor).unwrap();
+        assert_eq!(core.facts.len(), 1, "only the mandatory core fits");
+        assert_eq!(core.counterpoints.len(), 1);
+        assert_eq!(core.estimated_tokens, floor);
+        assert_eq!(core.to_jcs().unwrap().len().div_ceil(4), floor);
+
+        let middle = (floor + full.estimated_tokens) / 2;
+        let partial = write_section(&outline, &id, "chapter-01", middle).unwrap();
+        assert!(partial.facts.len() > 1 && partial.facts.len() < full.facts.len());
+        let partial_bytes = partial.to_jcs().unwrap();
+        assert!(partial_bytes.len().div_ceil(4) <= middle);
+        assert_eq!(partial.facts.len(), partial.quotes.len());
+
+        // A packet whose budget was lowered after sealing no longer verifies.
+        let lowered = String::from_utf8(full_bytes).unwrap().replacen(
+            "\"token_budget\":1000000",
+            "\"token_budget\":10",
+            1,
+        );
+        assert!(WriteSectionPacket::verify_json(lowered.as_bytes()).is_err());
+    }
+
+    #[test]
+    fn a_counterpoint_only_chapter_lists_its_source_once() {
+        let sources = vec![
+            themed(1, "alpha one", Stance::Supporting),
+            themed(2, "alpha one", Stance::Neutral),
+            themed(3, "beta two", Stance::Supporting),
+            themed(4, "gamma three", Stance::Counterpoint),
+        ];
+        let outline = write_outline("Topic", "audience", OutlineLength::Standard, sources).unwrap();
+        let only = chapter_of(&outline, "source-04");
+        assert_eq!(only.source_ids, vec!["source-04".to_string()]);
+
+        let packet =
+            write_section(&outline, &outline.outline_id, &only.chapter_id, 100_000).unwrap();
+        assert!(packet.facts.is_empty() && packet.quotes.is_empty());
+        assert_eq!(packet.counterpoints.len(), 1);
+        assert_eq!(packet.counterpoints[0].source_id, "source-04");
+        assert!(packet
+            .style_rules
+            .iter()
+            .any(|rule| rule.contains("only counterpoint evidence")));
+        WriteSectionPacket::verify_json(&packet.to_jcs().unwrap()).unwrap();
+
+        // A chapter with supporting evidence never repeats a counterpoint as
+        // its fact or quote.
+        let mixed = write_section(
+            &outline,
+            &outline.outline_id,
+            &chapter_of(&outline, "source-01").chapter_id,
+            100_000,
+        )
+        .unwrap();
+        let in_facts: BTreeSet<_> = mixed
+            .facts
+            .iter()
+            .chain(&mixed.quotes)
+            .map(|e| e.source_id.clone())
+            .collect();
+        assert!(mixed
+            .counterpoints
+            .iter()
+            .all(|c| !in_facts.contains(&c.source_id)));
     }
 }
