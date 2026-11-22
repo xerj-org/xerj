@@ -17,6 +17,20 @@ def http(url, method, path, body=None, content_type="application/json", timeout=
         return {"_err": e.code, "body": e.read().decode()[:400]}
 
 
+def require_ok(res, what):
+    """`res` unchanged, or exit when `http` returned an HTTP failure.
+
+    A failed request is not a result: scored, it reads as "no hits" and drags
+    nDCG down; timed, an error page is fast and flatters latency. Either way
+    the printed number would describe failures, not search (#2075 items 11
+    and 13), so the probe stops and says which request failed.
+    """
+    if "_err" in res:
+        raise SystemExit(f"{what}: HTTP {res['_err']} {res.get('body', '')[:200]!r} "
+                         "- a failed request is neither a result nor a latency sample; nothing reported")
+    return res
+
+
 def load_beir(data_dir):
     """Returns (queries, qrels) for the BEIR *test* split under data_dir."""
     queries = {}

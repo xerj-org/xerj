@@ -3911,7 +3911,8 @@ fn run_terms(
 
             let mut bucket = json!({
                 "key": typed_key,
-                "doc_count": count
+                "doc_count": count,
+                "__xy_terms_key__": key
             });
             if let Some(kas) = key_as_string {
                 bucket["key_as_string"] = json!(kas);

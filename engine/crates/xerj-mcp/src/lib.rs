@@ -109,13 +109,16 @@
 mod batch;
 mod batch_cli;
 mod def;
+mod http;
 mod hub;
 mod map;
+mod references;
 mod status;
 mod token_budget;
 mod vectors;
 
 pub use batch_cli::run_batch_cli;
+pub use http::{HttpOptions, READ_ONLY_TOOLS as HTTP_READ_ONLY_TOOLS};
 
 use std::time::Duration;
 
@@ -169,7 +172,8 @@ xerj mcp — Model Context Protocol (MCP) stdio server for XERJ
 USAGE:
     xerj mcp [OPTIONS]              (or the standalone binary: xerj-mcp [OPTIONS])
 
-Speaks MCP over stdio (newline-delimited JSON-RPC 2.0 on stdin/stdout) and
+Speaks MCP over stdio (newline-delimited JSON-RPC 2.0 on stdin/stdout), or over
+Streamable HTTP with --http (see REMOTE AGENTS below), and
 @@TOOLS@@
 OPTIONS:
     --url <URL>     Base URL of the XERJ ES-compatible listener.
@@ -179,6 +183,26 @@ OPTIONS:
                     loopback URL. Env: XERJ_NO_AUTOSTART=1
     --auth <VALUE>  Authorization header sent verbatim on every proxied
                     request (e.g. 'ApiKey <token>'). Overrides XERJ_AUTH.
+    --http          Serve MCP over Streamable HTTP (spec 2025-06-18) instead
+                    of stdio: one endpoint, http://<bind>/mcp, JSON-RPC over
+                    POST. For agents that only take a server URL. Serves the
+                    read-only tools unless --allow-writes.
+    --bind <ADDR:PORT>
+                    Listen address for --http. Default: 127.0.0.1:9330. A
+                    non-loopback address refuses to start without a token.
+    --token-file <PATH>
+                    Bearer token for --http, read from PATH (at least 16
+                    characters; `openssl rand -hex 32`). Clients send
+                    `Authorization: Bearer <token>`. Never the node's admin
+                    key, never printed. Env: XERJ_MCP_TOKEN
+    --allow-writes  With --http, also serve the tools that store, link,
+                    delete or send (memory_store, brain_link/unlink, sources,
+                    autoindex_remove, index_budget, field_report,
+                    corpus_feedback, hub_ask, hub_def).
+    --allow-origin <ORIGIN>
+                    With --http, admit browser requests from ORIGIN
+                    (scheme://host[:port]); repeatable. Requests with no
+                    Origin and loopback origins are always admitted.
     -h, --help      Show this help
     -V, --version   Print version and exit
     --disable-feedback
@@ -193,6 +217,7 @@ ENVIRONMENT:
     XERJ_URL        Same as --url
     XERJ_AUTH       Same as --auth
     XERJ_NO_AUTOSTART=1  Same as --no-autostart
+    XERJ_MCP_TOKEN  Bearer token for --http (--token-file wins)
 
 MCP CLIENT CONFIG (Claude Desktop, IDE agents, any mcpServers-shaped config):
 
@@ -218,6 +243,18 @@ fails there with no useful error. When the node is not running --insecure, add
 For a loopback node (localhost / 127.0.0.1 / [::1]) that step is optional:
 with no XERJ_AUTH given, the server reads <data-dir>/admin.key itself (the
 same locations `xerj autoindex` checks) and says which file on stderr.
+
+REMOTE AGENTS (URL-only MCP clients, cloud agents):
+
+    export XERJ_MCP_TOKEN=\"$(openssl rand -hex 32)\"
+    xerj mcp --http                       # http://127.0.0.1:9330/mcp
+    tailscale serve --bg 9330             # or: cloudflared tunnel --url
+                                          # http://127.0.0.1:9330, ngrok http 9330
+
+Give the agent https://<tunnel-host>/mcp and the header
+`Authorization: Bearer <token>`. Set the token BEFORE starting a tunnel:
+behind one, a loopback bind is reachable from the internet.
+Guide: https://xerj.org/docs/agents/endpoints#remote-mcp
 
 Diagnostics go to stderr; stdout carries only the JSON-RPC stream.
 ";
@@ -345,6 +382,11 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
     let mut url_override: Option<String> = None;
     let mut auth_override: Option<String> = None;
     let mut no_autostart = false;
+    let mut http_mode = false;
+    let mut bind: Option<String> = None;
+    let mut token_file: Option<String> = None;
+    let mut allow_writes = false;
+    let mut allowed_origins: Vec<String> = Vec::new();
 
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -377,6 +419,27 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
                 );
             }
             "--no-autostart" => no_autostart = true,
+            "--http" => http_mode = true,
+            "--bind" => {
+                bind = Some(
+                    it.next()
+                        .ok_or_else(|| anyhow::anyhow!("--bind requires ADDR:PORT"))?
+                        .clone(),
+                );
+            }
+            "--token-file" => {
+                token_file = Some(
+                    it.next()
+                        .ok_or_else(|| anyhow::anyhow!("--token-file requires a path"))?
+                        .clone(),
+                );
+            }
+            "--allow-writes" => allow_writes = true,
+            "--allow-origin" => allowed_origins.push(
+                it.next()
+                    .ok_or_else(|| anyhow::anyhow!("--allow-origin requires an origin"))?
+                    .clone(),
+            ),
             other => {
                 // Fail loudly: a typo'd flag that is silently ignored leaves the
                 // agent talking to the wrong node with no way to notice.
@@ -384,6 +447,63 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
             }
         }
     }
+
+    // The HTTP-only flags mean nothing on stdio; accepting them silently would
+    // leave an operator believing a write filter or a token was in force.
+    if !http_mode {
+        for (set, flag) in [
+            (bind.is_some(), "--bind"),
+            (token_file.is_some(), "--token-file"),
+            (allow_writes, "--allow-writes"),
+            (!allowed_origins.is_empty(), "--allow-origin"),
+        ] {
+            if set {
+                anyhow::bail!("{flag} applies to the HTTP transport only: add --http");
+            }
+        }
+    }
+    let http_setup = if http_mode {
+        let addr: std::net::SocketAddr = bind
+            .as_deref()
+            .unwrap_or(http::DEFAULT_BIND)
+            .parse()
+            .map_err(|e| anyhow::anyhow!("--bind wants ADDR:PORT such as 127.0.0.1:9330: {e}"))?;
+        let (token, token_source) = match token_file {
+            Some(path) => {
+                let text = std::fs::read_to_string(&path)
+                    .map_err(|e| anyhow::anyhow!("--token-file {path}: {e}"))?;
+                // An empty file must not silently mean "no auth".
+                if text.trim().is_empty() {
+                    anyhow::bail!("--token-file {path} is empty: write the token into it");
+                }
+                (
+                    Some(text.trim().to_string()),
+                    format!("--token-file {path}"),
+                )
+            }
+            None => (
+                std::env::var(http::TOKEN_ENV)
+                    .ok()
+                    .map(|t| t.trim().to_string())
+                    .filter(|t| !t.is_empty()),
+                http::TOKEN_ENV.to_string(),
+            ),
+        };
+        let token = token.filter(|t| !t.is_empty());
+        // Before the socket is opened: a refused bind never listens at all.
+        http::check_bind(&addr, token.as_deref())?;
+        Some((
+            addr,
+            token_source,
+            http::HttpOptions {
+                token,
+                allow_writes,
+                allowed_origins,
+            },
+        ))
+    } else {
+        None
+    };
 
     let base_url = url_override
         .or_else(|| std::env::var("XERJ_URL").ok())
@@ -410,6 +530,45 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
         auth,
     };
 
+    if let Some((addr, token_source, opts)) = http_setup {
+        announce_key_file(auth_key_file.as_ref());
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
+            .map_err(|e| anyhow::anyhow!("cannot listen on {addr}: {e}"))?;
+        let local = listener.local_addr()?;
+        let served = tool_specs()
+            .as_array()
+            .map(|t| {
+                t.iter()
+                    .filter_map(|t| t.get("name").and_then(Value::as_str))
+                    .filter(|n| opts.allow_writes || http::READ_ONLY_TOOLS.contains(n))
+                    .count()
+            })
+            .unwrap_or(0);
+        eprintln!(
+            "xerj-mcp v{} — MCP Streamable HTTP server at http://{local}/mcp, proxying to {}",
+            env!("CARGO_PKG_VERSION"),
+            ctx.base_url,
+        );
+        eprintln!(
+            "xerj-mcp: {served} tools served ({}); auth: {}",
+            if opts.allow_writes {
+                "every tool, --allow-writes"
+            } else {
+                "read-only; --allow-writes serves the rest"
+            },
+            if opts.token.is_some() {
+                format!("bearer token required (from {token_source})")
+            } else {
+                format!(
+                    "none, loopback only. Set {} before putting a tunnel in front of it",
+                    http::TOKEN_ENV
+                )
+            }
+        );
+        return http::serve(ctx, listener, opts).await;
+    }
+
     eprintln!(
         "xerj-mcp v{} — MCP stdio server, proxying to {}{}",
         env!("CARGO_PKG_VERSION"),
@@ -427,7 +586,15 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
     // user needs to see when it works here and not there. The provenance and
     // the outside-the-working-tree warning are what make the "another
     // project's node answered" case visible instead of invisible (#2578).
-    if let Some(found) = &auth_key_file {
+    announce_key_file(auth_key_file.as_ref());
+
+    // stdout is the JSON-RPC channel; stderr is for logs only.
+    serve(ctx, BufReader::new(tokio::io::stdin()), tokio::io::stdout()).await
+}
+
+/// Say on stderr which `admin.key` the loopback fallback used, never silent.
+fn announce_key_file(found: Option<&xerj_common::localauth::DiscoveredKey>) {
+    if let Some(found) = found {
         eprintln!(
             "xerj-mcp: no --auth/XERJ_AUTH given; using the admin key at {} ({})",
             found.path.display(),
@@ -437,9 +604,27 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
             eprintln!("xerj-mcp: warning: {warning}");
         }
     }
+}
 
-    // stdout is the JSON-RPC channel; stderr is for logs only.
-    serve(ctx, BufReader::new(tokio::io::stdin()), tokio::io::stdout()).await
+/// Serve `/mcp` over HTTP on an already bound listener, against the node at
+/// `base_url` — for the end-to-end tests in `tests/`. Not a supported API.
+#[doc(hidden)]
+pub async fn serve_http_for_test(
+    listener: tokio::net::TcpListener,
+    base_url: &str,
+    auth: Option<String>,
+    opts: http::HttpOptions,
+) -> anyhow::Result<()> {
+    let base_url = base_url.trim_end_matches('/').to_string();
+    let client = node_http_builder(&base_url)
+        .timeout(REQUEST_TIMEOUT)
+        .build()?;
+    let ctx = Ctx {
+        client,
+        base_url,
+        auth,
+    };
+    http::serve(ctx, listener, opts).await
 }
 
 /// The JSON-RPC loop over newline-delimited messages, apart from the process'
@@ -929,7 +1114,8 @@ fn max_tokens_arg_schema() -> Value {
         "default": token_budget::DEFAULT_MAX_TOKENS,
         "description": format!(
             "Word budget for the successful search payload. Errors and mandatory \
-             xerj_search staleness hints are outside this budget. Tokens are \
+             xerj_search staleness hints are outside this budget, as is the \
+             `_xerj.embed_mode` note. Tokens are \
              counted with {} — the same word split the engine's own analyzer uses for BM25. \
              Honest scope: that under-counts model-context subwords (snake_case is ONE token \
              here), so treat it as a deterministic proxy, not a BPE count. The budget covers \
@@ -969,6 +1155,7 @@ pub fn tool_specs() -> Value {
 pub fn tool_specs_with(include_hub: bool) -> Value {
     let mut specs = json!([
         def::spec(),
+        references::spec(),
         batch::spec(),
         {
             "name": "xerj_search",
@@ -1001,7 +1188,11 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                  the response adds `_xerj.hints` code `index_stale` with the last index \
                  time and a reindex command. Hits are returned with that hint. The check \
                  stats at most 4096 entries, stops after 100ms, and skips hidden and \
-                 ignored paths.",
+                 ignored paths. \
+                 The response's `_xerj.embed_mode` names the embedder the node runs \
+                 (`lexical` feature hashing unless it was started with --embed-mode); a \
+                 natural-language query on a lexical node adds `_xerj.hints` code \
+                 `lexical_embedder` (words match, not meaning).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1059,6 +1250,10 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                  embedded SERVER-SIDE by XERJ's built-in lexical embedder (no external \
                  API key), then matched by vector similarity. Proxies POST /{index}/_search \
                  with {\"query\":{\"semantic\":{...}}}. \
+                 The response's `_xerj.embed_mode` names the embedder the node runs \
+                 (`lexical` feature hashing unless it was started with --embed-mode); a \
+                 natural-language query on a lexical node adds `_xerj.hints` code \
+                 `lexical_embedder` (words match, not meaning). \
                  Pass `max_tokens` to override the default word budget (see that argument \
                  for the tokenizer, exceptions and locator-only rule).",
             "inputSchema": {
@@ -1121,6 +1316,10 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                  Optional `judge` re-judges the fused hits LOCALLY (zero tokens, \
                  nothing leaves the node); `judge.query` is REQUIRED for the same \
                  reason. \
+                 The response's `_xerj.embed_mode` names the embedder the node runs \
+                 (`lexical` feature hashing unless it was started with --embed-mode); a \
+                 natural-language query on a lexical node adds `_xerj.hints` code \
+                 `lexical_embedder` (words match, not meaning). \
                  Pass `max_tokens` to override the default word budget (see that argument \
                  for the tokenizer, exceptions and locator-only rule).",
             "inputSchema": {
@@ -2270,6 +2469,8 @@ async fn call_tool_inner(ctx: &Ctx, msg: &Value) -> Value {
             // before the token budget, then attaches the hint after it.
             return def::run(ctx, &args).await;
         }
+        // #1791: exact-identifier occurrences minus definitions.
+        "xerj_references" => return references::run(ctx, &args).await,
         // Keep the batch state machine off the shared dispatcher future's
         // stack: single-item tools must not inherit its larger frame.
         "xerj_batch_search" => return Box::pin(batch::run(ctx, &args)).await,
@@ -2401,10 +2602,86 @@ async fn call_tool_inner(ctx: &Ctx, msg: &Value) -> Value {
             } else {
                 search_staleness(ctx, name, &args).await
             };
-            apply_staleness(result, hint)
+            let result = apply_staleness(result, hint);
+            // #2513: name the node's embedder on the search tools, and say
+            // when a question ran on lexical feature hashing.
+            if embed_mode_reported(name) && result.get("isError") != Some(&Value::Bool(true)) {
+                let mode = node_embed_mode(ctx).await;
+                apply_embed_mode(result, mode.as_deref(), name, &args)
+            } else {
+                result
+            }
         }
         Err(msg) => tool_text(msg, true),
     }
+}
+
+/// The search tools whose results carry `_xerj.embed_mode` (#2513).
+fn embed_mode_reported(name: &str) -> bool {
+    matches!(
+        name,
+        "xerj_search" | "xerj_semantic_search" | "xerj_hybrid_search"
+    )
+}
+
+/// The node's embedder backend from `GET /v1/embedding/identity`. A refused
+/// key, an old node or a malformed body is `None`, and the response then
+/// says nothing about the embedder instead of guessing.
+async fn node_embed_mode(ctx: &Ctx) -> Option<String> {
+    use xerj_autoindex::search::{embed_mode_from_identity, EMBED_IDENTITY_PATH};
+    let (code, text) = status::get(ctx, EMBED_IDENTITY_PATH).await.ok()?;
+    if !(200..300).contains(&code) {
+        return None;
+    }
+    embed_mode_from_identity(&serde_json::from_str::<Value>(&text).ok()?)
+}
+
+/// The text a search tool's query asks in words: `query` for `xerj_search`
+/// (a plain string only) and `xerj_semantic_search`, and the first string
+/// `query` inside a hybrid sub-query.
+fn query_words(name: &str, args: &Value) -> Option<String> {
+    fn first_query(v: &Value) -> Option<&str> {
+        match v {
+            Value::Object(map) => {
+                if let Some(Value::String(q)) = map.get("query") {
+                    return Some(q.as_str());
+                }
+                // `{"match": {"body": "words"}}`: the field's value is the text.
+                for key in ["match", "match_phrase"] {
+                    if let Some(Value::Object(fields)) = map.get(key) {
+                        if let Some(q) = fields.values().find_map(Value::as_str) {
+                            return Some(q);
+                        }
+                    }
+                }
+                map.values().find_map(first_query)
+            }
+            Value::Array(items) => items.iter().find_map(first_query),
+            _ => None,
+        }
+    }
+    let text = match name {
+        "xerj_hybrid_search" => first_query(args.get("queries")?)?,
+        _ => args.get("query")?.as_str()?,
+    };
+    Some(text.to_string()).filter(|t| !t.trim().is_empty())
+}
+
+/// Add `_xerj.embed_mode` (and the `lexical_embedder` hint) to a successful
+/// JSON search result. Outside the word budget, like the staleness hint.
+fn apply_embed_mode(result: Value, mode: Option<&str>, name: &str, args: &Value) -> Value {
+    if mode.is_none() || result.get("isError") == Some(&Value::Bool(true)) {
+        return result;
+    }
+    let Some(text) = result.pointer("/content/0/text").and_then(Value::as_str) else {
+        return result;
+    };
+    let Ok(mut resp) = serde_json::from_str::<Value>(text) else {
+        return result;
+    };
+    let query = query_words(name, args);
+    xerj_autoindex::search::attach_embed_mode(&mut resp, mode, query.as_deref(), name);
+    tool_text(resp.to_string(), false)
 }
 
 /// Plain-word `xerj_search` on a code corpus (#2122).
@@ -3677,13 +3954,13 @@ fn env_proxy_label(base_url: &str) -> Option<String> {
     if xerj_common::localauth::url_is_loopback(base_url) {
         return None;
     }
-    let uri = base_url.parse::<http::Uri>().ok()?;
+    let uri = base_url.parse::<::http::Uri>().ok()?;
     let intercept = hyper_util::client::proxy::matcher::Matcher::from_env().intercept(&uri)?;
     Some(redact_proxy(intercept.uri()))
 }
 
 /// `http://proxy:8080`, never `http://user:secret@proxy:8080`.
-fn redact_proxy(uri: &http::Uri) -> String {
+fn redact_proxy(uri: &::http::Uri) -> String {
     let scheme = uri.scheme_str().unwrap_or("http");
     let Some(authority) = uri.authority() else {
         return uri.to_string();
@@ -3905,7 +4182,7 @@ fn search_match_query(name: &str, args: &Value) -> Option<String> {
 /// `index_stale` hint: passages (`xerj_search`, #2345) and definitions
 /// (`xerj_def`, #2426).
 fn staleness_checked(name: &str) -> bool {
-    matches!(name, "xerj_search" | "xerj_def")
+    matches!(name, "xerj_search" | "xerj_def" | "xerj_references")
 }
 
 /// Catalog + mtime check for `xerj_search` and `xerj_def`, after the lookup
@@ -4215,12 +4492,12 @@ mod tests {
 
     #[test]
     fn proxy_label_drops_userinfo() {
-        let uri: http::Uri = "http://user:secret@proxy.internal:8888".parse().unwrap();
+        let uri: ::http::Uri = "http://user:secret@proxy.internal:8888".parse().unwrap();
         let label = redact_proxy(&uri);
         assert_eq!(label, "http://proxy.internal:8888");
         assert!(!label.contains("secret"), "{label}");
         assert!(!label.contains("user"), "{label}");
-        let socks: http::Uri = "socks5://127.0.0.1:1080".parse().unwrap();
+        let socks: ::http::Uri = "socks5://127.0.0.1:1080".parse().unwrap();
         assert_eq!(redact_proxy(&socks), "socks5://127.0.0.1:1080");
     }
 
@@ -5833,6 +6110,14 @@ mod tests {
                 assert!(d.contains("ordered item outcomes"), "{d}");
                 assert!(d.contains("Refuses"), "{d}");
                 assert_eq!(prop["minimum"], token_budget::MIN_MAX_TOKENS);
+            } else if name == "xerj_references" {
+                // #1791: trims its own page from the end, not locator-only.
+                let d = prop["description"].as_str().expect("described");
+                assert!(d.contains(token_budget::TOKENIZER_NAME), "{d}");
+                assert!(d.contains("dropped from the end of the page"), "{d}");
+                assert!(!d.contains("LOCATORS ONLY"), "{d}");
+                assert_eq!(prop["minimum"], token_budget::MIN_MAX_TOKENS);
+                assert_eq!(prop["default"], token_budget::DEFAULT_MAX_TOKENS);
             } else if name == "xerj_hub_ask" {
                 // The hub's own budget (docs/hub-v2-grpc-mcp-notes.md): the
                 // `xerj ask --max-tokens` cap, a SOFT ~4-chars-a-token trim of
@@ -6838,10 +7123,12 @@ mod tests {
             .iter()
             .map(|t| t["name"].as_str().unwrap())
             .collect();
-        assert_eq!(names.len(), 24);
+        assert_eq!(names.len(), 25);
         for n in [
             "xerj_sources",
             "xerj_def",
+            // #1791: exact-identifier references.
+            "xerj_references",
             "xerj_search",
             "xerj_semantic_search",
             "xerj_vector_search",
@@ -7061,23 +7348,23 @@ mod tests {
                 .collect()
         };
         let without = names(false);
-        assert_eq!(without.len(), 21, "{without:?}");
+        assert_eq!(without.len(), 22, "{without:?}");
         assert!(
             without.iter().all(|n| !n.starts_with("xerj_hub_")),
             "{without:?}"
         );
         let with = names(true);
-        assert_eq!(with.len(), 24, "{with:?}");
+        assert_eq!(with.len(), 25, "{with:?}");
         for n in ["xerj_hub_find", "xerj_hub_def", "xerj_hub_ask"] {
             assert!(with.iter().any(|name| name == n), "missing {n}");
         }
 
         let help = tools_paragraph(false);
-        assert!(help.contains("proxies 21 tools"), "{help}");
+        assert!(help.contains("proxies 22 tools"), "{help}");
         assert!(!help.contains("xerj_hub_"), "{help}");
         assert!(help.contains("~/xerj-data"), "{help}");
         let help = tools_paragraph(true);
-        assert!(help.contains("proxies 24 tools"), "{help}");
+        assert!(help.contains("proxies 25 tools"), "{help}");
         assert!(help.contains("xerj_hub_ask"), "{help}");
         assert!(help.contains("serves 3 Corpus Hub tools"), "{help}");
     }
@@ -7720,6 +8007,120 @@ mod tests {
                 .iter()
                 .any(|r| r.contains("_cat/indices")),
             "a page with hits reads no index list"
+        );
+    }
+
+    fn identity(backend: &str) -> String {
+        json!({"data": {"version": 1, "backend": backend,
+            "identity_sha256": "a".repeat(64), "dimensions": 384,
+            "semantic_contract": "x", "resumable": true}})
+        .to_string()
+    }
+
+    /// #2513: a question on a lexical node says so, with the node's mode.
+    #[test]
+    fn a_question_on_a_lexical_node_names_the_embedder_and_hints_once() {
+        let page = r#"{"hits":{"total":{"value":1},"hits":[{"_index":"docs","_id":"1","_source":{"body":"x"}}]}}"#;
+        let (url, seen) = serve_routes(vec![
+            ("POST /docs/_search", page.to_string()),
+            ("GET /v1/embedding/identity", identity("lexical")),
+        ]);
+        let ctx = ctx_for(url);
+        let result = call(
+            &ctx,
+            "xerj_search",
+            json!({"index": "docs", "query": "when is a worktree path allowed"}),
+        );
+        assert_eq!(result["isError"], false, "{result}");
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["_xerj"]["embed_mode"], "lexical", "{body}");
+        let hints = body["_xerj"]["hints"].as_array().unwrap();
+        let lexical: Vec<_> = hints
+            .iter()
+            .filter(|h| h["code"] == "lexical_embedder")
+            .collect();
+        assert_eq!(lexical.len(), 1, "{body}");
+        let reason = lexical[0]["reason"].as_str().unwrap();
+        assert!(reason.contains("keyword search"), "{reason}");
+        assert!(reason.contains("--embed-mode neural"), "{reason}");
+        assert_eq!(body["hits"]["total"]["value"], 1);
+        // The identity read follows the search; it never replaces it.
+        let requests = seen.lock().unwrap().clone();
+        assert!(requests.iter().any(|r| r.starts_with("POST /docs/_search")));
+        assert!(requests
+            .iter()
+            .any(|r| r.starts_with("GET /v1/embedding/identity")));
+    }
+
+    /// An identifier is a lookup: the mode is reported, the hint is not.
+    #[test]
+    fn an_identifier_lookup_reports_the_mode_without_the_hint() {
+        let page = r#"{"hits":{"total":{"value":1},"hits":[{"_index":"docs","_id":"1","_source":{"body":"x"}}]}}"#;
+        let (url, _) = serve_routes(vec![
+            ("POST /docs/_search", page.to_string()),
+            ("GET /v1/embedding/identity", identity("lexical")),
+        ]);
+        let result = call(
+            &ctx_for(url),
+            "xerj_search",
+            json!({"index": "docs", "query": "parse_config"}),
+        );
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["_xerj"]["embed_mode"], "lexical", "{body}");
+        let lexical_hint = body
+            .pointer("/_xerj/hints")
+            .and_then(Value::as_array)
+            .is_some_and(|h| h.iter().any(|h| h["code"] == "lexical_embedder"));
+        assert!(!lexical_hint, "{body}");
+    }
+
+    /// A neural node gets its mode and no lexical hint; a node that does not
+    /// answer the identity read gets nothing, not a guessed "lexical".
+    #[test]
+    fn semantic_search_reports_a_neural_node_and_an_unknown_node_says_nothing() {
+        let page = r#"{"hits":{"total":{"value":0},"hits":[]}}"#;
+        let (url, _) = serve_routes(vec![
+            ("POST /docs/_search", page.to_string()),
+            ("GET /v1/embedding/identity", identity("neural")),
+        ]);
+        let args = json!({"index": "docs", "field": "body",
+            "query": "how do I roll back a bad deployment"});
+        let result = call(&ctx_for(url), "xerj_semantic_search", args.clone());
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["_xerj"]["embed_mode"], "neural", "{body}");
+        assert!(body["_xerj"].get("hints").is_none(), "{body}");
+
+        let (url, _) = serve_routes(vec![("POST /docs/_search", page.to_string())]);
+        let result = call(&ctx_for(url), "xerj_semantic_search", args);
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert!(body.get("_xerj").is_none(), "{body}");
+    }
+
+    /// Hybrid reads the question out of its sub-queries, and the reason
+    /// names the vector leg.
+    #[test]
+    fn hybrid_on_a_lexical_node_reads_the_question_from_its_sub_queries() {
+        let page = r#"{"hits":{"total":{"value":0},"hits":[]}}"#;
+        let (url, _) = serve_routes(vec![
+            ("POST /notes/_search", page.to_string()),
+            ("GET /v1/embedding/identity", identity("lexical")),
+        ]);
+        let args = json!({"index": "notes", "queries": [
+            {"match": {"body": "uniqueness and clone naming rules"}},
+            {"semantic": {"field": "body", "query": "uniqueness and clone naming rules"}}
+        ]});
+        let result = call(&ctx_for(url), "xerj_hybrid_search", args);
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["_xerj"]["embed_mode"], "lexical", "{body}");
+        let reason = body["_xerj"]["hints"][0]["reason"].as_str().unwrap();
+        assert!(reason.contains("vector leg"), "{reason}");
+        assert_eq!(
+            query_words(
+                "xerj_hybrid_search",
+                &json!({"queries": [{"query": {"match": {"body": "a b c"}}}]})
+            )
+            .as_deref(),
+            Some("a b c")
         );
     }
 

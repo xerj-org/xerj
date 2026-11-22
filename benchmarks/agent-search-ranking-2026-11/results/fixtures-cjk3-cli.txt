@@ -1,0 +1,16 @@
+== base [cr] 雷同
+  1.     2.857  b-noise.md  kind= name= line=1
+  2.     2.826  c-noise.md  kind= name= line=1
+  3.     2.506  a-target.md  kind= name= line=1
+== new [cr] 雷同
+  1.    12.532  a-target.md  kind= name= line=1
+  2.     2.857  b-noise.md  kind= name= line=1
+  3.     2.826  c-noise.md  kind= name= line=1
+== base [cr] 无名小炒
+  1.     5.492  e-noise.md  kind= name= line=1
+  2.     4.874  d-target-dish.md  kind= name= line=1
+  3.     3.975  f-noise.md  kind= name= line=1
+== new [cr] 无名小炒
+  1.    24.371  d-target-dish.md  kind= name= line=1
+  2.     5.492  e-noise.md  kind= name= line=1
+  3.     3.975  f-noise.md  kind= name= line=1

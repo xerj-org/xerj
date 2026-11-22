@@ -13,10 +13,14 @@
 //! and the fallback's input is the column serialised as `[row,row,…]`. So
 //! this reader parses each row only down to its `_source` keys, keeps every
 //! value as borrowed JSON text, and parses into `Value`s only the columns
-//! that hold a scalar somewhere. A column whose rows are all arrays/objects
-//! (or null/absent) stays text: each row is checked to be exactly what
-//! `serde_json` writes for its parsed value, so the encoded bytes match the
-//! tree build. A row that is not canonical uses the re-serialised form.
+//! whose rows are all scalars. A column with at least one array/object row
+//! stays text, whether its other rows are containers, null/absent or
+//! scalars (a mixed `"tag"` / `["a","b"]` keyword field, #2427): one
+//! container row already rules out the dictionary (`dict_key` takes only
+//! scalars), cross-dep and typed-int codecs for the whole column. Each row
+//! is checked to be exactly what `serde_json` writes for its parsed value,
+//! so the encoded bytes match the tree build. A row that is not canonical
+//! uses the re-serialised form.
 //!
 //! Anything this reader does not model returns `None`, and the caller runs
 //! the tree build unchanged: a top-level element that is not an object, a
@@ -239,6 +243,13 @@ fn canonical_row<'a>(cell: Cell<'a>) -> Option<Option<Cow<'a, [u8]>>> {
     }
 }
 
+/// A `_source` column is kept as row text when any row is an array or
+/// object (#2917), including a mixed scalar/container column (#2427). The
+/// synthetic `__id` / `__seq_no` columns (0 and 1) are never text.
+fn stays_text(cix: usize, column: &[Cell<'_>]) -> bool {
+    cix >= 2 && column.iter().any(|cell| cell.is_container())
+}
+
 fn parsed_row(cell: Cell<'_>) -> Option<Value> {
     match cell {
         Cell::Absent => Some(Value::Null),
@@ -313,16 +324,12 @@ pub(super) fn encode(
         column.resize(num_docs, Cell::Absent);
     }
 
-    // Containers-only columns stay text; the rest are parsed.
+    // A column with at least one array/object row stays text, including a
+    // mixed scalar/container column (#2427); all-scalar columns are parsed.
     let mut json_columns: Vec<Option<JsonColumn<'_>>> = Vec::with_capacity(cells.len());
     let mut parsed_columns: Vec<Vec<Value>> = Vec::with_capacity(cells.len());
     for (cix, column) in cells.iter().enumerate() {
-        let text_only = cix >= 2
-            && column.iter().any(|cell| cell.is_container())
-            && column
-                .iter()
-                .all(|cell| matches!(cell, Cell::Absent) || cell.is_null() || cell.is_container());
-        if text_only {
+        if stays_text(cix, column) {
             let rows = column
                 .par_iter()
                 .map(|cell| canonical_row(*cell))
@@ -567,6 +574,102 @@ mod tests {
                 String::from_utf8(values).unwrap()
             );
         }
+    }
+
+    /// Rows whose fields are sometimes a scalar and sometimes an array, with
+    /// every scalar kind and the non-canonical number/string spellings the
+    /// tree build normalises.
+    fn mixed_scalar_array_text(n: usize) -> String {
+        let mut text = String::from("[");
+        for i in 0..n {
+            if i > 0 {
+                text.push(',');
+            }
+            let tag = match i % 9 {
+                0 => format!(r#""t{}""#, i % 40),
+                1 => format!(r#"["t{}","t{}"]"#, i % 40, (i + 1) % 40),
+                2 => format!("{i}"),
+                3 => format!("{i}.25"),
+                4 => "1.0e2".to_string(),
+                5 => r#""café \"q\"""#.to_string(),
+                6 => "true".to_string(),
+                7 => "null".to_string(),
+                _ => format!(r#"[ {i} , "x" , {{ "k" : [ ] }} ]"#),
+            };
+            let notes = if i % 2 == 0 {
+                format!(r#""note {i}""#)
+            } else {
+                format!(r#"["note {i}","more"]"#)
+            };
+            let scores = if i % 4 == 0 {
+                format!("{}", i as f64 / 7.0)
+            } else {
+                format!("[{},{}]", i as f64 / 7.0, i)
+            };
+            let one_array = if i == n / 2 {
+                "[1]".to_string()
+            } else {
+                format!(r#""s{}""#, i % 3)
+            };
+            text.push_str(&format!(
+                r#"{{"_id":"d{i}","_seq_no":{i},"_source":{{"tag":{tag},"twin_a":{notes},"twin_b":{notes},"scores":{scores},"one_array":{one_array},"kw":"k{}","n":{i}}}}}"#,
+                i % 7
+            ));
+        }
+        text.push(']');
+        text
+    }
+
+    #[test]
+    fn mixed_scalar_array_columns_stay_text_2427() {
+        let text = mixed_scalar_array_text(64);
+        let docs: Vec<super::LazyDoc<'_>> = serde_json::from_str(&text).unwrap();
+        let fields: Vec<super::DocFields<'_>> = docs
+            .iter()
+            .map(|doc| super::doc_fields(doc).unwrap())
+            .collect();
+        let column = |name: &str| -> Vec<super::Cell<'_>> {
+            fields
+                .iter()
+                .map(|doc| match doc {
+                    super::DocFields::Lazy(pairs) => pairs
+                        .iter()
+                        .find(|(key, _)| key == name)
+                        .map_or(super::Cell::Absent, |(_, raw)| super::Cell::Raw(raw)),
+                    _ => super::Cell::Absent,
+                })
+                .collect()
+        };
+        for name in ["tag", "twin_a", "scores", "one_array"] {
+            assert!(super::stays_text(2, &column(name)), "{name} is mixed");
+        }
+        for name in ["kw", "n"] {
+            assert!(!super::stays_text(2, &column(name)), "{name} is all scalar");
+        }
+        assert!(
+            !super::stays_text(1, &column("tag")),
+            "synthetic columns parse"
+        );
+    }
+
+    #[test]
+    fn mixed_scalar_array_encode_is_byte_identical_to_the_tree_build_2427() {
+        let text = mixed_scalar_array_text(900);
+        for long in [None, Some(RAW_LONG_LEVEL)] {
+            let lazy = super::encode(text.as_bytes(), STORED_ZSTD_LEVEL, long)
+                .expect("lazy path handles mixed columns");
+            let tree = encode_stored_v2_tree(text.as_bytes(), STORED_ZSTD_LEVEL, long);
+            assert_eq!(lazy, tree, "long effort {long:?}");
+        }
+        let encoded = encode_stored_v2_at_level(text.as_bytes(), STORED_ZSTD_LEVEL);
+        let decoded: Value = serde_json::from_slice(&decode_stored(&encoded).unwrap()).unwrap();
+        let original: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(decoded, original);
+        let forced = encode_stored_v2_forcemerge_at_level(text.as_bytes(), STORED_ZSTD_LEVEL);
+        assert_eq!(
+            forced,
+            encode_stored_v2_tree(text.as_bytes(), STORED_ZSTD_LEVEL, Some(RAW_LONG_LEVEL))
+        );
     }
 
     #[test]

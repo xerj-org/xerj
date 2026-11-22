@@ -9,8 +9,8 @@
 //! Endpoints (mounted on the ES-compat router):
 //! ```text
 //! GET    /_memory?from&size              list_ns — {count, namespaces:[{namespace, count, graph}], from, size, next}
-//! POST   /_memory/{namespace}            store   — {text, metadata?, vector?, id?, dedup?, dedup_threshold?} → {id, created} | {id, created:false, deduplicated:true}
-//! POST   /_memory/{namespace}/_recall    recall  — {query?, vector?, semantic?, hybrid?, fusion?, k?, filter?, recency_weight?} → {hits:[…]}
+//! POST   /_memory/{namespace}            store   — {text, metadata?, vector?, id?, dedup?, dedup_threshold?, valid_from?, valid_to?} → {id, created} | {id, created:false, deduplicated:true}
+//! POST   /_memory/{namespace}/_recall    recall  — {query?, vector?, semantic?, hybrid?, fusion?, k?, filter?, recency_weight?, graph?, as_of?} → {hits:[…], as_of?}
 //! GET    /_memory/{namespace}?from&size  list    — {count, entries:[…], next} (paged, recent first)
 //! DELETE /_memory/{namespace}/{id}       forget  — delete one entry
 //! DELETE /_memory/{namespace}            drop    — drop the whole namespace
@@ -31,6 +31,19 @@
 //! (the true total) and a `next` cursor (`{from, size}` for the next page, or
 //! `null` on the last page). Deep offsets are bounded by the backing index's
 //! `max_result_window`; for exhaustive retrieval prefer `_recall`.
+//!
+//! ## Validity windows and as-of recall (#1792)
+//!
+//! A memory may carry a valid-time window `[valid_from, valid_to)` (epoch-ms
+//! or RFC3339 on input, epoch-ms on output) next to its transaction time:
+//! `stored_at` (when this version was written) and `recorded_at` (when the
+//! fact was first recorded; kept across re-stores of the same `id`).
+//! `_recall` takes a top-level `as_of` (default now) and returns only
+//! memories valid at that instant; a memory with no bounds is always valid.
+//! Retract a fact by storing the same `id` again with `valid_to`: bounds the
+//! request omits are carried over, so the fact stays visible to an `as_of`
+//! before the retraction. `graph.as_of` defaults to the top-level `as_of`.
+//! A namespace that never stored a bound runs recall with no extra filter.
 //!
 //! ## Authorization model (item 12)
 //!
@@ -332,6 +345,82 @@ pub struct StoreBody {
     /// Ignored unless `dedup` is `true`.
     #[serde(default)]
     pub dedup_threshold: Option<f32>,
+    /// Start of the record's validity window (valid time, #1792), inclusive.
+    /// Epoch-ms number or RFC3339 string, same parser as `graph.as_of`.
+    /// Absent → valid since forever. A record with neither bound is always
+    /// valid, so callers that never send these see no change.
+    #[serde(default)]
+    pub valid_from: Option<Value>,
+    /// End of the record's validity window, exclusive (`[valid_from,
+    /// valid_to)`). Absent → still valid. Retract a fact by storing the same
+    /// `id` again with `valid_to` set: bounds the new request omits are
+    /// carried over from the stored version, and so is `recorded_at`.
+    #[serde(default)]
+    pub valid_to: Option<Value>,
+}
+
+/// Parse one optional validity bound (`valid_from` / `valid_to` / `as_of`).
+/// JSON `null` counts as absent; anything else must be an epoch-ms number or
+/// an RFC3339 string, or the request is a 400 naming the field.
+fn parse_time_bound(v: Option<&Value>, field: &str) -> Result<Option<i64>, Box<Response>> {
+    match v {
+        None | Some(Value::Null) => Ok(None),
+        Some(v) => parse_epoch_ms(v).map(Some).ok_or_else(|| {
+            Box::new(error_response(
+                StatusCode::BAD_REQUEST,
+                format!("`{field}` must be an epoch-ms number or an RFC3339 string"),
+            ))
+        }),
+    }
+}
+
+/// True when any record in the backing index has carried a validity bound
+/// (the dynamically mapped `valid_from` / `valid_to` fields exist). Namespaces
+/// that never used validity skip the as-of filter entirely, so their recall
+/// query is unchanged.
+async fn schema_has_validity(state: &AppState, index: &str) -> bool {
+    match state.engine.get_index(index) {
+        Ok(idx) => {
+            let schema = idx.schema().await;
+            schema.has_field("valid_from") || schema.has_field("valid_to")
+        }
+        Err(_) => false,
+    }
+}
+
+/// `_source` of the stored version of `id`, or `None` when absent.
+async fn existing_source(state: &AppState, index: &str, id: &str) -> Option<Value> {
+    let resp = es_compat::get_doc(
+        State(state.clone()),
+        Path((index.to_string(), id.to_string())),
+        axum::extract::Query(es_compat::GetDocParams::default()),
+    )
+    .await
+    .into_response();
+    let (status, body) = drain_json(resp).await;
+    if !status.is_success() || body.get("found") != Some(&Value::Bool(true)) {
+        return None;
+    }
+    body.get("_source").cloned()
+}
+
+/// Filter clause matching records valid at instant `t`: `valid_from` absent
+/// or `<= t`, and `valid_to` absent or `> t` (half-open window). The
+/// "missing bound = open-ended" shape follows the empty-or-range pattern of
+/// qdrant (`IsEmptyCondition`, lib/segment/src/types.rs:3780) and
+/// meilisearch's `NOT EXISTS` filter (crates/filter-parser/src/lib.rs:53),
+/// written here as plain bool/exists/range clauses.
+fn validity_filter(t: i64) -> Value {
+    json!({ "bool": { "filter": [
+        { "bool": { "should": [
+            { "bool": { "must_not": [ { "exists": { "field": "valid_from" } } ] } },
+            { "range": { "valid_from": { "lte": t } } }
+        ], "minimum_should_match": 1 } },
+        { "bool": { "should": [
+            { "bool": { "must_not": [ { "exists": { "field": "valid_to" } } ] } },
+            { "range": { "valid_to": { "gt": t } } }
+        ], "minimum_should_match": 1 } }
+    ] } })
 }
 
 /// Best-effort semantic-dedup probe. Returns the single nearest existing memory
@@ -411,11 +500,64 @@ pub async fn store(
         );
     }
 
+    let mut valid_from = match parse_time_bound(body.valid_from.as_ref(), "valid_from") {
+        Ok(v) => v,
+        Err(resp) => return *resp,
+    };
+    let mut valid_to = match parse_time_bound(body.valid_to.as_ref(), "valid_to") {
+        Ok(v) => v,
+        Err(resp) => return *resp,
+    };
+    let sent_validity = valid_from.is_some() || valid_to.is_some();
+    if let (Some(f), Some(t)) = (valid_from, valid_to) {
+        if t <= f {
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                "empty validity window: `valid_to` must be later than `valid_from`",
+            );
+        }
+    }
+
     let index = backing_index(&namespace);
     let dims = body.vector.as_ref().map(|v| v.len());
     if let Err(resp) = ensure_backing_index(&state, &index, dims).await {
         return resp;
     }
+
+    // #1792: re-storing an existing id keeps the record's validity history.
+    // Bounds this request omits come from the stored version, and
+    // `recorded_at` (first time the fact was recorded) is never reset, so a
+    // retraction is just `{id, text, valid_to}`. Only runs when the request
+    // or the namespace uses validity, so plain stores do no extra read.
+    let mut recorded_at: Option<i64> = None;
+    if let Some(explicit) = body.id.as_deref() {
+        if sent_validity || schema_has_validity(&state, &index).await {
+            if let Some(prev) = existing_source(&state, &index, explicit).await {
+                if valid_from.is_none() {
+                    valid_from = prev.get("valid_from").and_then(Value::as_i64);
+                }
+                if valid_to.is_none() {
+                    valid_to = prev.get("valid_to").and_then(Value::as_i64);
+                }
+                recorded_at = prev
+                    .get("recorded_at")
+                    .and_then(Value::as_i64)
+                    .or_else(|| prev.get("stored_at").and_then(Value::as_i64));
+            }
+        }
+    }
+    if let (Some(f), Some(t)) = (valid_from, valid_to) {
+        if t <= f {
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                format!(
+                    "empty validity window: `valid_to` ({t}) must be later than \
+                     `valid_from` ({f}) of the stored version"
+                ),
+            );
+        }
+    }
+    let has_validity = valid_from.is_some() || valid_to.is_some();
 
     // Opt-in semantic dedup: skip the write when a near-identical memory already
     // exists. Off by default; only runs when the caller sets `dedup: true`.
@@ -430,7 +572,10 @@ pub async fn store(
         )
         .await
         {
-            if score >= threshold {
+            // A versioned re-store of the same id (a retraction) is an
+            // update, not a duplicate of itself.
+            let self_update = has_validity && body.id.as_deref() == Some(existing_id.as_str());
+            if score >= threshold && !self_update {
                 return (
                     StatusCode::OK,
                     Json(json!({
@@ -447,10 +592,20 @@ pub async fn store(
     }
 
     let id = body.id.unwrap_or_else(|| Uuid::new_v4().to_string());
+    let now_ms = chrono::Utc::now().timestamp_millis();
     let mut doc = json!({
         "text": body.text,
-        "stored_at": chrono::Utc::now().timestamp_millis(),
+        "stored_at": now_ms,
     });
+    if has_validity {
+        if let Some(f) = valid_from {
+            doc["valid_from"] = json!(f);
+        }
+        if let Some(t) = valid_to {
+            doc["valid_to"] = json!(t);
+        }
+        doc["recorded_at"] = json!(recorded_at.unwrap_or(now_ms));
+    }
     if let Some(md) = body.metadata {
         doc["metadata"] = md;
     }
@@ -553,6 +708,12 @@ pub struct RecallBody {
     /// graph-less recall.
     #[serde(default)]
     pub graph: Option<GraphRecallOpts>,
+    /// Valid-time cut (#1792): return only memories whose `[valid_from,
+    /// valid_to)` window contains this instant. Epoch-ms number or RFC3339
+    /// string; default now. Memories stored without bounds are always valid.
+    /// Also the default for `graph.as_of` when that is absent.
+    #[serde(default)]
+    pub as_of: Option<Value>,
 }
 
 /// Graph coupling options for `_recall` (SECOND_BRAIN_SPEC §5).
@@ -693,7 +854,12 @@ pub async fn recall(
     // Optional graph coupling (SECOND_BRAIN_SPEC §5): validate up front so a
     // bad mode / out-of-bounds hops fails fast (with the §4.6 wording), before
     // any search runs.
-    let graph_ctx = match parse_graph_opts(body.graph.as_ref()) {
+    let as_of_explicit = match parse_time_bound(body.as_of.as_ref(), "as_of") {
+        Ok(v) => v,
+        Err(resp) => return *resp,
+    };
+    let as_of_ms = as_of_explicit.unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
+    let graph_ctx = match parse_graph_opts(body.graph.as_ref(), as_of_explicit) {
         Ok(g) => g,
         Err(resp) => return *resp,
     };
@@ -729,7 +895,7 @@ pub async fn recall(
     // agent must be able to opt into graph recall before its first link
     // exists).
     let mut restrict_expansion: Option<GraphExpansion> = None;
-    let filter_opt: Option<Value> = match &graph_ctx {
+    let mut filter_opt: Option<Value> = match &graph_ctx {
         Some(g) if g.restrict => {
             let seeds = g.seeds.clone().unwrap_or_default(); // validated non-empty
             match expand_graph(&state, &edges_index_name, &seeds, g) {
@@ -756,6 +922,9 @@ pub async fn recall(
     // absent — for blend with explicit seeds that means actually expanding.
     if !index_exists(&state, &index) {
         let mut resp = json!({ "hits": [], "namespace": namespace });
+        if as_of_explicit.is_some() {
+            resp["as_of"] = json!(as_of_ms);
+        }
         if let Some(g) = &graph_ctx {
             let seeds = g.seeds.clone().unwrap_or_default();
             let expansion = if g.restrict {
@@ -775,6 +944,17 @@ pub async fn recall(
             resp["graph"] = graph_obj(g, &seeds, expansion.as_ref());
         }
         return Json(resp).into_response();
+    }
+
+    // #1792: valid-time cut. Folded in as one more `filter` clause so every
+    // recall mode (kNN, hybrid, semantic, BM25) narrows the same way.
+    let validity_applied = schema_has_validity(&state, &index).await;
+    if validity_applied {
+        let vf = validity_filter(as_of_ms);
+        filter_opt = Some(match filter_opt {
+            Some(f) => json!({ "bool": { "filter": [f, vf] } }),
+            None => vf,
+        });
     }
 
     // Build the search body, reusing the proven kNN / BM25 / filter paths.
@@ -961,6 +1141,9 @@ pub async fn recall(
         }
     };
     let mut resp = json!({ "hits": hits, "namespace": namespace });
+    if validity_applied || as_of_explicit.is_some() {
+        resp["as_of"] = json!(as_of_ms);
+    }
     if let Some(gobj) = graph_out {
         resp["graph"] = gobj;
     }
@@ -998,7 +1181,10 @@ struct GraphExpansion {
 /// Validate the `graph` options (400s carry the memory_error shape — this
 /// endpoint keeps its existing error type; the hops bound carries the §4.6
 /// not-a-graph-database wording).
-fn parse_graph_opts(opts: Option<&GraphRecallOpts>) -> Result<Option<GraphCtx>, Box<Response>> {
+fn parse_graph_opts(
+    opts: Option<&GraphRecallOpts>,
+    default_as_of: Option<i64>,
+) -> Result<Option<GraphCtx>, Box<Response>> {
     let Some(o) = opts else { return Ok(None) };
     let restrict = match o.mode.as_str() {
         "restrict" => true,
@@ -1024,7 +1210,7 @@ fn parse_graph_opts(opts: Option<&GraphRecallOpts>) -> Result<Option<GraphCtx>, 
         )));
     }
     let as_of_ms = match &o.as_of {
-        None => chrono::Utc::now().timestamp_millis(),
+        None => default_as_of.unwrap_or_else(|| chrono::Utc::now().timestamp_millis()),
         Some(v) => match parse_epoch_ms(v) {
             Some(ms) => ms,
             None => {
@@ -1157,7 +1343,7 @@ fn graph_obj(g: &GraphCtx, seeds: &[String], exp: Option<&GraphExpansion>) -> Va
 /// Map a single ES search hit into the agent-memory hit shape.
 fn map_hit(h: &Value) -> Value {
     let src = h.get("_source");
-    json!({
+    let mut out = json!({
         "id": h.get("_id").cloned().unwrap_or(Value::Null),
         "text": src.and_then(|s| s.get("text")).cloned().unwrap_or(Value::Null),
         "metadata": src
@@ -1165,7 +1351,15 @@ fn map_hit(h: &Value) -> Value {
             .cloned()
             .unwrap_or(Value::Null),
         "score": h.get("_score").cloned().unwrap_or(Value::Null),
-    })
+    });
+    // #1792: validity fields only appear on records that carry them, so
+    // hits from validity-free namespaces keep their old shape.
+    for key in ["valid_from", "valid_to", "recorded_at"] {
+        if let Some(v) = src.and_then(|s| s.get(key)) {
+            out[key] = v.clone();
+        }
+    }
+    out
 }
 
 /// Map an ES search response into the agent-memory hit shape.
@@ -2745,5 +2939,240 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("/_memory only supports GET"));
+    }
+
+    // ── #1792: validity windows + as-of recall ─────────────────────────────
+
+    const T0: i64 = 1_700_000_000_000; // 2023-11-14T22:13:20Z
+    const DAY: i64 = 86_400_000;
+
+    fn ids_of(body: &Value) -> Vec<String> {
+        let mut ids: Vec<String> = body["hits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|h| h["id"].as_str().unwrap().to_string())
+            .collect();
+        ids.sort();
+        ids
+    }
+
+    async fn asof_ids(state: &AppState, ns: &str, as_of: Value) -> Vec<String> {
+        let (s, body) = recall_mem(
+            state,
+            ns,
+            json!({"query": "office", "k": 10, "as_of": as_of}),
+        )
+        .await;
+        assert_eq!(s, StatusCode::OK, "{body}");
+        ids_of(&body)
+    }
+
+    #[tokio::test]
+    async fn recall_as_of_overlapping_windows() {
+        let state = test_state();
+        let ns = "asof-overlap";
+        // Two facts whose windows overlap on [T0+5d, T0+10d), plus one
+        // timeless fact that must be visible at every instant.
+        for b in [
+            json!({"id":"berlin","text":"the office is in berlin",
+                   "valid_from": T0, "valid_to": T0 + 10 * DAY}),
+            json!({"id":"paris","text":"the office is in paris",
+                   "valid_from": T0 + 5 * DAY}),
+            json!({"id":"always","text":"the office opens at nine"}),
+        ] {
+            let (s, body) = store_mem(&state, ns, b).await;
+            assert_eq!(s, StatusCode::CREATED, "{body}");
+        }
+
+        // Before every window: only the timeless fact.
+        assert_eq!(asof_ids(&state, ns, json!(T0 - 1)).await, vec!["always"]);
+        // valid_from is inclusive.
+        assert_eq!(
+            asof_ids(&state, ns, json!(T0)).await,
+            vec!["always", "berlin"]
+        );
+        // Overlap: both windows contain the instant.
+        assert_eq!(
+            asof_ids(&state, ns, json!(T0 + 7 * DAY)).await,
+            vec!["always", "berlin", "paris"]
+        );
+        // valid_to is exclusive.
+        assert_eq!(
+            asof_ids(&state, ns, json!(T0 + 10 * DAY)).await,
+            vec!["always", "paris"]
+        );
+        // RFC3339 input parses to the same instant as epoch-ms.
+        assert_eq!(
+            asof_ids(&state, ns, json!("2023-11-21T22:13:20Z")).await,
+            vec!["always", "berlin", "paris"]
+        );
+        // Default as_of is now: berlin's window closed in 2023.
+        let (_, body) = recall_mem(&state, ns, json!({"query": "office"})).await;
+        assert_eq!(ids_of(&body), vec!["always", "paris"]);
+        assert!(body["as_of"].as_i64().unwrap() > T0 + 10 * DAY);
+
+        // Hits carry the window and the transaction time.
+        let (_, body) = recall_mem(&state, ns, json!({"query": "berlin", "as_of": T0 + DAY})).await;
+        let hit = &body["hits"][0];
+        assert_eq!(hit["id"], "berlin");
+        assert_eq!(hit["valid_from"], json!(T0));
+        assert_eq!(hit["valid_to"], json!(T0 + 10 * DAY));
+        assert!(hit["recorded_at"].as_i64().is_some());
+        assert_eq!(body["as_of"], json!(T0 + DAY));
+
+        // Every recall mode narrows the same way (semantic leg carries the
+        // filter inside the `semantic` node; hybrid on both legs).
+        for mode in [json!({"semantic": true}), json!({"hybrid": true})] {
+            let mut b = json!({"query": "office", "k": 10, "as_of": T0 - 1});
+            b.as_object_mut()
+                .unwrap()
+                .extend(mode.as_object().unwrap().clone());
+            let (s, body) = recall_mem(&state, ns, b).await;
+            assert_eq!(s, StatusCode::OK, "{body}");
+            assert_eq!(ids_of(&body), vec!["always"], "mode {mode}");
+        }
+        // A caller filter composes with the validity cut.
+        let (_, body) = recall_mem(
+            &state,
+            ns,
+            json!({"query": "office", "as_of": T0 + 7 * DAY,
+                   "filter": {"ids": {"values": ["berlin", "always"]}}}),
+        )
+        .await;
+        assert_eq!(ids_of(&body), vec!["always", "berlin"]);
+    }
+
+    #[tokio::test]
+    async fn recall_as_of_retracted_fact() {
+        let state = test_state();
+        let ns = "asof-retract";
+        let (s, _) = store_mem(
+            &state,
+            ns,
+            json!({"id":"ceo","text":"alice is the ceo of the office","valid_from": T0}),
+        )
+        .await;
+        assert_eq!(s, StatusCode::CREATED);
+        let (_, first) = recall_mem(&state, ns, json!({"query": "ceo", "as_of": T0})).await;
+        let recorded = first["hits"][0]["recorded_at"].as_i64().unwrap();
+
+        // Retract later: same id, only valid_to. valid_from and recorded_at
+        // are carried over from the stored version.
+        let (s, body) = store_mem(
+            &state,
+            ns,
+            json!({"id":"ceo","text":"alice is the ceo of the office",
+                   "valid_to": T0 + 30 * DAY, "dedup": true}),
+        )
+        .await;
+        assert_eq!(s, StatusCode::CREATED, "retraction must write: {body}");
+
+        // Before the retraction instant the fact is still true...
+        let (_, body) =
+            recall_mem(&state, ns, json!({"query": "ceo", "as_of": T0 + 29 * DAY})).await;
+        assert_eq!(ids_of(&body), vec!["ceo"]);
+        let hit = &body["hits"][0];
+        assert_eq!(hit["valid_from"], json!(T0), "valid_from carried over");
+        assert_eq!(hit["valid_to"], json!(T0 + 30 * DAY));
+        assert_eq!(hit["recorded_at"], json!(recorded), "recorded_at kept");
+        // ...not before it started, and not after it was retracted.
+        assert!(asof_ids(&state, ns, json!(T0 - 1)).await.is_empty());
+        let (_, body) =
+            recall_mem(&state, ns, json!({"query": "ceo", "as_of": T0 + 30 * DAY})).await;
+        assert!(ids_of(&body).is_empty());
+        let (_, body) = recall_mem(&state, ns, json!({"query": "ceo"})).await;
+        assert!(ids_of(&body).is_empty(), "retracted fact gone by default");
+
+        // A retraction that would end before the carried-over start is a 400.
+        let (s, body) = store_mem(
+            &state,
+            ns,
+            json!({"id":"ceo","text":"alice is the ceo","valid_to": T0 - DAY}),
+        )
+        .await;
+        assert_eq!(s, StatusCode::BAD_REQUEST, "{body}");
+        assert!(body.to_string().contains("empty validity window"));
+    }
+
+    #[tokio::test]
+    async fn validity_input_errors_and_validity_free_namespaces() {
+        let state = test_state();
+        let ns = "asof-errors";
+        for (b, needle) in [
+            (
+                json!({"text":"x","valid_from":"yesterday"}),
+                "`valid_from` must be",
+            ),
+            (json!({"text":"x","valid_to":true}), "`valid_to` must be"),
+            (
+                json!({"text":"x","valid_from": T0, "valid_to": T0}),
+                "empty validity window",
+            ),
+        ] {
+            let (s, body) = store_mem(&state, ns, b).await;
+            assert_eq!(s, StatusCode::BAD_REQUEST, "{body}");
+            assert!(body.to_string().contains(needle), "{body}");
+        }
+
+        // A namespace that never stored a bound: as_of is accepted and
+        // everything is valid; no `as_of` echo unless asked for.
+        store_mem(&state, ns, json!({"id":"plain","text":"plain office note"})).await;
+        let (_, body) = recall_mem(&state, ns, json!({"query": "office"})).await;
+        assert_eq!(ids_of(&body), vec!["plain"]);
+        assert!(body.get("as_of").is_none());
+        assert!(body["hits"][0].get("valid_from").is_none());
+        assert_eq!(asof_ids(&state, ns, json!(0)).await, vec!["plain"]);
+        let (s, body) = recall_mem(&state, ns, json!({"query": "office", "as_of": "soon"})).await;
+        assert_eq!(s, StatusCode::BAD_REQUEST);
+        assert!(body.to_string().contains("`as_of` must be"));
+    }
+
+    #[tokio::test]
+    async fn validity_fields_do_not_bypass_namespace_authz() {
+        let state = test_state();
+        let unscoped = Principal::Unscoped {
+            key_id: "k1".into(),
+        };
+        let b: StoreBody =
+            serde_json::from_value(json!({"text":"x","valid_from": T0, "valid_to": T0 + DAY}))
+                .unwrap();
+        let resp = store(
+            State(state.clone()),
+            Path("asof-authz".to_string()),
+            unscoped.clone(),
+            OptionalJson(Some(b)),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        let b: RecallBody = serde_json::from_value(json!({"query":"x","as_of": T0})).unwrap();
+        let resp = recall(
+            State(state.clone()),
+            Path("asof-authz".to_string()),
+            unscoped,
+            OptionalJson(Some(b)),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn graph_as_of_defaults_to_top_level_as_of() {
+        let g = GraphRecallOpts {
+            mode: "blend".into(),
+            seeds: None,
+            hops: None,
+            types: None,
+            weight: None,
+            as_of: None,
+        };
+        let ctx = parse_graph_opts(Some(&g), Some(T0)).ok().flatten().unwrap();
+        assert_eq!(ctx.as_of_ms, T0);
+        let g = GraphRecallOpts {
+            as_of: Some(json!(T0 + DAY)),
+            ..g
+        };
+        let ctx = parse_graph_opts(Some(&g), Some(T0)).ok().flatten().unwrap();
+        assert_eq!(ctx.as_of_ms, T0 + DAY, "explicit graph.as_of wins");
     }
 }

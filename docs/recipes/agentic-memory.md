@@ -73,8 +73,8 @@ can reach it. The enforcement details are in
 
 | Verb + path | What it does | Body / result |
 |---|---|---|
-| `POST /_memory/{ns}` | store a memory | `{text, vector?, metadata?, id?}` → `{id, namespace, created}` |
-| `POST /_memory/{ns}/_recall` | recall top-k | `{vector? \| query?, semantic?, hybrid?, fusion?, k?, filter?, recency_weight?}` → `{hits:[{id,text,metadata,score}]}` |
+| `POST /_memory/{ns}` | store a memory | `{text, vector?, metadata?, id?, valid_from?, valid_to?}` → `{id, namespace, created}` |
+| `POST /_memory/{ns}/_recall` | recall top-k | `{vector? \| query?, semantic?, hybrid?, fusion?, k?, filter?, recency_weight?, as_of?}` → `{hits:[{id,text,metadata,score}]}` |
 | `GET /_memory/{ns}` | list recent (bounded) | → `{count, entries:[…]}` |
 | `DELETE /_memory/{ns}/{id}` | forget one | → `{id, forgotten}` |
 | `DELETE /_memory/{ns}` | drop the namespace | → `{namespace, dropped}` |
@@ -122,6 +122,53 @@ curl -XPOST localhost:9200/_memory/agent-ada/_recall -H 'content-type: applicati
 
 Note `metadata.kind` filters straight out of the box — nested metadata subfields
 are queryable with a normal `term` clause, no explicit mapping needed.
+
+### What was true when the agent acted: as-of recall
+
+A memory can carry a validity window, `valid_from` (inclusive) to `valid_to`
+(exclusive). Send each bound as epoch-ms or RFC3339; the response always gives
+epoch-ms. Two more timestamps are kept as well: `stored_at`, when this version
+was written, and `recorded_at`, when the fact was first recorded. `_recall`
+takes a top-level `as_of` (default: now) and returns only the memories valid at
+that instant. A memory stored without bounds is valid at every instant, so a
+namespace that never uses validity behaves exactly as before.
+
+To retract a fact, store the same `id` again with `valid_to`. Bounds the
+request leaves out are copied from the stored version, and `recorded_at` stays
+the same. The fact is then still visible to any `as_of` before the retraction.
+
+```bash
+U=localhost:9200
+curl -XPOST $U/_memory/agent-ops -H 'content-type: application/json' -d '{
+  "id": "deploy-target", "text": "Production deploys go to the eu-west-1 cluster.",
+  "valid_from": "2026-03-01T00:00:00Z"}'
+curl -XPOST $U/_memory/agent-ops -H 'content-type: application/json' -d '{
+  "id": "deploy-target-v2", "text": "Production deploys go to the eu-central-1 cluster.",
+  "valid_from": "2026-09-15T00:00:00Z"}'
+# retract the first fact on the day the second one starts
+curl -XPOST $U/_memory/agent-ops -H 'content-type: application/json' -d '{
+  "id": "deploy-target", "text": "Production deploys go to the eu-west-1 cluster.",
+  "valid_to": "2026-09-15T00:00:00Z"}'
+
+curl -XPOST $U/_memory/agent-ops/_recall -H 'content-type: application/json' -d '{
+  "query": "where do production deploys go", "as_of": "2026-06-01T00:00:00Z"}'
+```
+```json
+{"hits":[{"id":"deploy-target","text":"Production deploys go to the eu-west-1 cluster.",
+          "metadata":null,"score":0.4005943,
+          "valid_from":1772323200000,"valid_to":1789430400000,"recorded_at":1795227559672}],
+ "namespace":"agent-ops","as_of":1780272000000}
+```
+
+The same recall with no `as_of` returns only `deploy-target-v2`. With
+`"as_of": "2026-01-01T00:00:00Z"`, before either window opens, it returns
+`{"hits": []}`. (Output above is from a run on a local node, 2026-11-20.)
+
+`as_of` narrows every recall mode (`vector`, `semantic`, `hybrid`, BM25) and
+combines with `filter`. It is also the default for `graph.as_of`. A bad value is
+a 400, and so is a window whose `valid_to` is not later than its `valid_from`.
+Writing or reading validity needs the same namespace privilege as any other
+store or recall.
 
 ---
 

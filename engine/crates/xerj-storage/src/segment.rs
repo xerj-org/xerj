@@ -480,12 +480,11 @@ impl SegmentWriter {
         let seg_filename = format!("{}.seg", self.id);
         let seg_path = self.dir.join(&seg_filename);
         let seg_tmp = seg_path.with_extension("tmp");
-        {
+        let seg_file = {
             let mut f = File::create(&seg_tmp)?;
             f.write_all(&buf)?;
-            f.sync_all()?;
-        }
-        std::fs::rename(&seg_tmp, &seg_path)?;
+            f
+        };
 
         // Write .sidx side-car (simple: N*(doc_ordinal:u64, offset:u64) pairs).
         // NOTE: emitted for format completeness only — the read path does NOT
@@ -495,7 +494,9 @@ impl SegmentWriter {
         // `stored_slices_cache`, so no reader ever opens this file.
         let sidx_filename = format!("{}.sidx", self.id);
         let sidx_path = self.dir.join(&sidx_filename);
-        let sidx_tmp = sidx_path.with_extension("tmp");
+        // Not `with_extension("tmp")`: that is `<id>.tmp`, the name the
+        // `.seg` temp still holds until both are synced and renamed.
+        let sidx_tmp = self.dir.join(format!("{}.sidx.tmp", self.id));
         {
             let mut f = BufWriter::new(File::create(&sidx_tmp)?);
             // Minimal skip index: one entry pointing to the stored section
@@ -507,8 +508,22 @@ impl SegmentWriter {
                 f.write_u64::<LittleEndian>(stored.offset)?; // file offset
             }
             f.flush()?;
-            f.get_ref().sync_all()?;
+            let sidx_file = f.into_inner().map_err(|e| e.into_error())?;
+            // #3324: sync both temps at once. Two concurrent fsyncs on ext4
+            // join one journal commit; back to back they waited for two, and
+            // the flush finalize holds its gate permit across both. Both are
+            // still durable before either rename.
+            let sidx_sync = std::thread::scope(|scope| {
+                let sidx = scope.spawn(|| sidx_file.sync_all());
+                let seg = seg_file.sync_all();
+                let sidx = sidx
+                    .join()
+                    .unwrap_or_else(|_| Err(std::io::Error::other("sidx sync thread panicked")));
+                seg.and(sidx)
+            });
+            sidx_sync?;
         }
+        std::fs::rename(&seg_tmp, &seg_path)?;
         std::fs::rename(&sidx_tmp, &sidx_path)?;
 
         // RC4 W1 #10 — make the renames themselves power-loss durable.

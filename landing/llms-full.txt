@@ -2,7 +2,7 @@
 
 XERJ: the search engine for AI agents. A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.
 
-Last updated: 2026-10-23 (canonical description, ES-YAML and MCP tool counts synced; hub section run on v1.0.0-rc.97). When this file and the binary disagree, the binary wins:
+Last updated: 2026-11-21 (MCP tool counts synced to 25 on main, `xerj mcp --http` added; hub section run on v1.0.0-rc.97). When this file and the binary disagree, the binary wins:
 `xerj --help` and `xerj <command> --help` outrank this file and every page it links.
 
 > XERJ is the unified search engine for AI, written in Rust: connect it, run
@@ -1412,11 +1412,12 @@ already indexed, and does not walk or index):
   OpenAI .................. https://xerj.org/docs/agents/schemas/openai-tools.json
   Anthropic ............... https://xerj.org/docs/agents/schemas/anthropic-tools.json
 The OpenAI and Anthropic files carry the six HTTP operations above; the MCP file
-carries twenty-three (those six plus xerj_status, xerj_def, xerj_batch_search, xerj_brain_ego / _link / _unlink / _overview,
+carries twenty-five on main (those six plus xerj_status, xerj_sources, xerj_def, xerj_references, xerj_batch_search, xerj_brain_ego / _link / _unlink / _overview,
 xerj_map, xerj_code_search, xerj_plan, xerj_index_budget, xerj_autoindex_remove, xerj_field_report,
 xerj_corpus_feedback and the hub tools xerj_hub_find / _def / _ask) and is generated from a real
 tools/list of the server that serves them. A binary with no hub key omits the
-three hub tools and serves twenty of the twenty-three. (v1.0.0-rc.97 predates xerj_corpus_feedback
+three hub tools and serves twenty-two of the twenty-five. (v1.0.0-rc.104 serves twenty-four,
+without xerj_references; v1.0.0-rc.97 predates xerj_corpus_feedback
 and xerj_index_budget and serves seventeen.)
 Local definition lookup over MCP: xerj_def shares the query, lexical ranking
 and location deduplication of `xerj def --json`. Example arguments:
@@ -1430,14 +1431,23 @@ deduplication; no match is a successful empty hit list. Kind/language filters
 are ignored when no target index maps the field or any maps it as numeric,
 matching the CLI. This queries the configured node; xerj_hub_def instead
 searches a named Hub pack.
+xerj_references (on main; not in rc.104) takes the identifier xerj_def found and
+returns every indexed line that names it, definitions listed apart. It is lexical,
+not a call graph: comments and strings count, a call through an alias does not.
+Contract: https://xerj.org/docs/agents/endpoints#references
 The three schema files are therefore NOT interchangeable, and they are not even the same shape: the MCP file
-is an object, so count `.tools` in it (`jq '.tools | length'` → 23) and the bare
+is an object, so count `.tools` in it (`jq '.tools | length'` → 25 on main) and the bare
 array in the other two (`jq 'length'` → 6). `jq 'length'` on the MCP file returns
 1, the object's key count — not a tool count.
 If you can run a process, `xerj mcp` is that stdio server, inside the same binary
 since v1.0.0-rc.16, speaking newline-delimited JSON-RPC 2.0 on stdin/stdout; it
 does not start a node — point it at one you already started with --url or
-XERJ_URL.
+XERJ_URL. `xerj mcp --http` (on main; not in rc.104) serves the same tools over
+MCP Streamable HTTP at http://127.0.0.1:9330/mcp for cloud agents and URL-only
+clients: read-only unless --allow-writes, bearer token from XERJ_MCP_TOKEN
+(required on a non-loopback bind; set it before any tunnel). Verify: tools/list
+over HTTP returns 15 tools (14 with no hub key). Setup, tunnels and client
+shapes: https://xerj.org/docs/agents/endpoints#remote-mcp
 =====================================================================
 10. RUNNING AN INDEX FOR A HUMAN  (full protocol — the short version
     lives in /llms.txt)
@@ -1849,7 +1859,7 @@ ANSWERS FOR CODING AGENTS (measured 2026-10-19 on v1.0.0-rc.97; each page has a
 - Local code search MCP that uses fewer tokens than grep:
   https://xerj.org/answers/local-code-search-mcp-fewer-tokens-than-grep
   xerj autoindex <repo> --prefix req; xerj search --prefix req -k 3 --full 400 "<words in the code>";
-  xerj def --prefix req <symbol>; xerj init registers `xerj mcp` (24 tools on main).
+  xerj def --prefix req <symbol>; xerj init registers `xerj mcp` (25 tools on main).
   psf/requests: 1,303 bytes for the answer vs 25,150 bytes of `rg -n -i redirect`.
   rg is faster per call (6-7 ms vs 19-23 ms). No regex search in xerj.
 - Full-text search over JSONL and CSV from the CLI or MCP:

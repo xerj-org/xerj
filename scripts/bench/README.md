@@ -32,6 +32,13 @@ a client-side brute-force ground truth and `GET /_cat/ann` proves the HNSW
 graph (not a silent exact-scan fallback) served the queries; the rerank script
 counts the provider calls the node actually made, from the provider's side.
 
+They also stop instead of printing a number that describes something else:
+the latency repro exits on any non-2xx `_search` answer (an error page is fast
+and would flatter the mean), and the kNN repro refuses to score recall until
+`GET /_cat/ann` reports the graph `covered` (every vector graphed, not stale,
+not rebuilding; `ANN_WAIT_S`, default 120 s). `tests/test_bench_guards.py`
+checks both against a stub node (`tests/fake_xerj.py`), no engine build needed.
+
 ## The four repros
 
 | Headline claim (where it is quoted) | Claimed | Reproduce with |

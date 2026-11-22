@@ -110,13 +110,22 @@ const PATH = `/${idx}/_search?request_cache=false`;
 const BODY = JSON.stringify({ query: { match_all: {} }, size: 0, track_total_hits: true });
 
 const agent = new http.Agent({ keepAlive: true, maxSockets: 256 });
+// A non-2xx answer is not a latency sample: an error page is fast and would
+// flatter the number (#2075 item 11). Any failed request stops the run.
+const ok = (client, status) => {
+  if (status < 200 || status > 299) throw new Error(`${client}: POST ${PATH} -> HTTP ${status}; failed requests are not latency samples, nothing measured`);
+  return status;
+};
 const keepAliveReq = () => new Promise((resolve, reject) => {
   const r = http.request({ hostname: '127.0.0.1', port: +base.split(':')[2], path: PATH,
     method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(BODY) }, agent },
-    (res) => { let n = 0; res.on('data', (c) => { n += c.length; }); res.on('end', () => resolve(res.statusCode)); });
+    (res) => {
+      let n = 0; res.on('data', (c) => { n += c.length; });
+      res.on('end', () => { try { resolve(ok('keep-alive', res.statusCode)); } catch (e) { reject(e); } });
+    });
   r.on('error', reject); r.end(BODY);
 });
-const fetchReq = async () => { const r = await fetch(base + PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: BODY }); await r.text(); return r.status; };
+const fetchReq = async () => { const r = await fetch(base + PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: BODY }); await r.text(); return ok('fetch', r.status); };
 
 function pct(a, p) { const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor((p / 100) * s.length))]; }
 

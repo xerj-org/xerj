@@ -5677,6 +5677,31 @@ fn search_context_missing(scroll_id: &str) -> Response {
         .into_response()
 }
 
+/// ES 8.13 refuses a `collapse.inner_hits` object, or any entry of an
+/// `inner_hits` array, that has no `name` while it parses the body. Only the
+/// key's absence counts: an empty name passes, as in ES.
+fn collapse_has_unnamed_inner_hits(collapse: Option<&Value>) -> bool {
+    let unnamed = |spec: &Value| spec.as_object().is_some_and(|o| !o.contains_key("name"));
+    match collapse.and_then(|c| c.get("inner_hits")) {
+        Some(Value::Array(specs)) => specs.iter().any(unnamed),
+        Some(spec) => unnamed(spec),
+        None => false,
+    }
+}
+
+/// The 400 for [`collapse_has_unnamed_inner_hits`]: ES wraps the name
+/// refusal in the parse error of the `collapse` object.
+fn unnamed_inner_hits_refusal() -> Response {
+    es_bad_request(
+        "x_content_parse_exception",
+        "[collapse] failed to parse field [inner_hits]",
+        Some((
+            "illegal_argument_exception",
+            "inner_hits must have a [name]; set the [name] field in the inner_hits definition",
+        )),
+    )
+}
+
 /// Body extractor for `_search` that layers ES 8.13.4's deny-unknown-key
 /// behaviour on top of `OptionalJson<EsSearchBody>` (item 4a): a bogus
 /// top-level key is rejected with the exact ES `parsing_exception` instead of
@@ -5704,6 +5729,7 @@ pub enum EsSearchJsonRejection {
         col: usize,
     },
     IllegalArgument(String),
+    UnnamedInnerHits,
 }
 
 impl IntoResponse for EsSearchJsonRejection {
@@ -5717,6 +5743,7 @@ impl IntoResponse for EsSearchJsonRejection {
                 col,
             } => unknown_search_key_error(&key, token, line, col),
             EsSearchJsonRejection::IllegalArgument(reason) => illegal_argument(&reason),
+            EsSearchJsonRejection::UnnamedInnerHits => unnamed_inner_hits_refusal(),
         }
     }
 }
@@ -5789,6 +5816,11 @@ impl<S: Send + Sync> FromRequest<S> for EsSearchJson {
                 });
             }
         };
+        // Refused here, at parse time as in ES, so the cluster fan-out and
+        // every URL-parameter check after the extractor never see the body.
+        if collapse_has_unnamed_inner_hits(value.collapse.as_ref()) {
+            return Err(EsSearchJsonRejection::UnnamedInnerHits);
+        }
         Ok(EsSearchJson(Some(value)))
     }
 }
@@ -7544,6 +7576,714 @@ mod composite_coordinator_tests {
         assert_eq!(merged["c"]["buckets"].as_array().unwrap().len(), 1);
         assert_eq!(merged["c"]["buckets"][0]["key"]["d"], "31-12-2023");
         assert!(!merged.to_string().contains("__xy_"));
+    }
+}
+
+fn leaf_terms_orders(params: &Value) -> Option<Vec<(String, bool)>> {
+    let mut orders = Vec::new();
+    let mut append = |v: &Value| -> Option<()> {
+        let object = v.as_object()?;
+        if object.is_empty() {
+            return None;
+        }
+        for (key, direction) in object {
+            if key != "_count" && key != "_key" {
+                return None;
+            }
+            let asc = match direction.as_str()? {
+                "asc" => true,
+                "desc" => false,
+                _ => return None,
+            };
+            orders.push((key.clone(), asc));
+        }
+        Some(())
+    };
+    match params.get("order") {
+        None => orders.push(("_count".into(), false)),
+        Some(Value::Array(v)) => {
+            if v.is_empty() {
+                return None;
+            }
+            for item in v {
+                append(item)?;
+            }
+        }
+        Some(v) => append(v)?,
+    }
+    Some(orders)
+}
+
+fn leaf_terms_params(spec: &Value) -> Option<&Value> {
+    let spec = spec.as_object()?;
+    if spec.keys().any(|k| k != "terms" && k != "meta") {
+        return None;
+    }
+    let params = spec.get("terms")?;
+    let object = params.as_object()?;
+    if object.keys().any(|k| {
+        ![
+            "field",
+            "size",
+            "shard_size",
+            "min_doc_count",
+            "order",
+            "include",
+            "exclude",
+            "missing",
+        ]
+        .contains(&k.as_str())
+    }) {
+        return None;
+    }
+    params.get("field")?.as_str()?;
+    for key in ["size", "shard_size", "min_doc_count"] {
+        if params
+            .get(key)
+            .is_some_and(|value| value.as_u64().is_none())
+        {
+            return None;
+        }
+    }
+    leaf_terms_orders(params)?;
+    Some(params)
+}
+
+/// How many candidate terms each index returns for a leaf terms agg: the
+/// explicit `shard_size` (never below `size`), else `size * 3 / 2 + 10`.
+/// `0` means every term: `size: 0` asks for all of them, and a primary
+/// `_count: asc` order has no usable error bound once an index cuts its list.
+/// Clamped to the bucket cap, so per-index work is bounded by the request
+/// rather than by field cardinality.
+fn leaf_terms_fetch_size(params: &Value, cap: usize) -> u64 {
+    let size = params.get("size").and_then(Value::as_u64).unwrap_or(10);
+    let count_asc = leaf_terms_orders(params)
+        .and_then(|orders| orders.into_iter().next())
+        .is_some_and(|(key, asc)| key == "_count" && asc);
+    if size == 0 || count_asc {
+        return 0;
+    }
+    let fetch = match params.get("shard_size").and_then(Value::as_u64) {
+        Some(shard_size) => shard_size.max(size),
+        None => size.saturating_mul(3) / 2 + 10,
+    };
+    fetch.min(cap as u64)
+}
+
+/// Union bound for merging one leaf terms agg across indices. Only an
+/// all-terms request (fetch 0) returns the whole union, so only it is refused
+/// past the cap; a bounded request holds at most `indices x fetch` rows and
+/// emits at most `size`.
+fn leaf_terms_union_cap(request: Option<&Value>, name: &str, cap: usize) -> usize {
+    match request
+        .and_then(|r| r.get(name))
+        .and_then(leaf_terms_params)
+    {
+        Some(params) if leaf_terms_fetch_size(params, cap) != 0 => usize::MAX,
+        _ => cap,
+    }
+}
+
+fn prepare_leaf_terms_summaries(request: &Value) -> (Value, Vec<String>) {
+    let cap = xerj_engine::aggs::max_buckets();
+    let mut rewritten = request.clone();
+    let mut names = Vec::new();
+    if let Some(object) = rewritten.as_object_mut() {
+        for (name, spec) in object {
+            let Some(fetch) = leaf_terms_params(spec).map(|p| leaf_terms_fetch_size(p, cap)) else {
+                continue;
+            };
+            let params = spec
+                .get_mut("terms")
+                .and_then(Value::as_object_mut)
+                .unwrap();
+            params.insert("size".into(), json!(fetch));
+            params.remove("shard_size");
+            if params.get("min_doc_count").and_then(Value::as_u64) != Some(0) {
+                params.insert("min_doc_count".into(), json!(1));
+            }
+            names.push(name.clone());
+        }
+    }
+    (rewritten, names)
+}
+
+fn leaf_terms_limit_error(cap: usize) -> Value {
+    json!({"error":format!("Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",cap),"__error_status__":400})
+}
+
+fn leaf_terms_identity(bucket: &Value) -> String {
+    if let Some(raw) = bucket
+        .get("__xy_terms_key__")
+        .and_then(Value::as_str)
+        .filter(|_| !bucket["key"].is_number() || bucket.get("key_as_string").is_some())
+    {
+        let kind = match bucket.get("key") {
+            Some(Value::String(_)) => "string",
+            Some(Value::Number(_)) => "number",
+            Some(Value::Bool(_)) => "bool",
+            _ => "other",
+        };
+        return format!("raw:{kind}:{raw}");
+    }
+    // Exact integers never pass through f64. String and numeric keys stay distinct.
+    if let Some(text) = bucket.get("key_as_string").and_then(Value::as_str) {
+        // Boolean/date representations carry mapping-specific identity.
+        return format!("kas:{text}");
+    }
+    let key = &bucket["key"];
+    match key {
+        Value::Number(n) if !n.is_i64() && !n.is_u64() => {
+            if let Some(f) = n.as_f64() {
+                if f.fract() == 0.0 && f.abs() < (1u64 << 53) as f64 {
+                    return format!("n:{}", f as i64);
+                }
+            }
+            format!("n:{n}")
+        }
+        Value::Number(n) => format!("n:{n}"),
+        other => format!("j:{other}"),
+    }
+}
+
+const LEAF_TERMS_OTHER: &str = "__xy_terms_other__";
+const LEAF_TERMS_ERROR: &str = "__xy_terms_error__";
+
+/// Fold one index's own cut-off into private accumulators, once. `other` is
+/// the documents in terms that index cut; `error` is the count of its last
+/// returned term when it cut any (the most an unseen term can have there).
+fn leaf_terms_accumulate(summary: &mut Value) {
+    let Some(object) = summary.as_object_mut() else {
+        return;
+    };
+    if object.contains_key(LEAF_TERMS_OTHER) {
+        return;
+    }
+    let other = object
+        .get("sum_other_doc_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let error = if other > 0 {
+        object
+            .get("buckets")
+            .and_then(Value::as_array)
+            .and_then(|rows| rows.last())
+            .and_then(|b| b["doc_count"].as_u64())
+            .unwrap_or(0)
+    } else {
+        0
+    };
+    object.insert(LEAF_TERMS_OTHER.into(), json!(other));
+    object.insert(LEAF_TERMS_ERROR.into(), json!(error));
+}
+
+fn merge_leaf_terms_summary(old: &Value, new: &Value, cap: usize) -> Value {
+    if old.get("error").is_some() {
+        return old.clone();
+    }
+    if new.get("error").is_some() {
+        return new.clone();
+    }
+    let mut result = old.clone();
+    if result.get("buckets").and_then(Value::as_array).is_none() {
+        return new.clone();
+    }
+    let mut incoming_summary = new.clone();
+    leaf_terms_accumulate(&mut result);
+    leaf_terms_accumulate(&mut incoming_summary);
+    for key in [LEAF_TERMS_OTHER, LEAF_TERMS_ERROR] {
+        let a = result[key].as_u64().unwrap_or(0);
+        let b = incoming_summary[key].as_u64().unwrap_or(0);
+        result[key] = json!(a.saturating_add(b));
+    }
+    let Some(rows) = result.get_mut("buckets").and_then(Value::as_array_mut) else {
+        return new.clone();
+    };
+    if rows.len() > cap {
+        return leaf_terms_limit_error(cap);
+    }
+    let mut positions: HashMap<String, usize> = rows
+        .iter()
+        .enumerate()
+        .map(|(i, b)| (leaf_terms_identity(b), i))
+        .collect();
+    if let Some(incoming) = incoming_summary.get("buckets").and_then(Value::as_array) {
+        for bucket in incoming {
+            let key = leaf_terms_identity(bucket);
+            if let Some(&i) = positions.get(&key) {
+                let a = rows[i]["doc_count"].as_u64().unwrap_or(0);
+                let b = bucket["doc_count"].as_u64().unwrap_or(0);
+                let Some(total) = a.checked_add(b) else {
+                    return json!({"error":"terms document count overflow","__error_status__":400});
+                };
+                rows[i]["doc_count"] = json!(total);
+            } else {
+                if rows.len() >= cap {
+                    return leaf_terms_limit_error(cap);
+                }
+                positions.insert(key, rows.len());
+                rows.push(bucket.clone());
+            }
+        }
+    }
+    result
+}
+
+fn leaf_terms_key_text(key: &Value) -> String {
+    key.as_str()
+        .map(str::to_owned)
+        .unwrap_or_else(|| key.to_string())
+}
+fn compare_leaf_terms_keys(a: &Value, b: &Value) -> std::cmp::Ordering {
+    // Match the current engine terms comparator, including its numeric-looking
+    // text convention, rather than silently change single-index behavior here.
+    let a = leaf_terms_key_text(a);
+    let b = leaf_terms_key_text(b);
+    if let (Ok(x), Ok(y)) = (a.parse::<i64>(), b.parse::<i64>()) {
+        return x.cmp(&y);
+    }
+    let numeric = |s: &str| s.parse::<f64>().ok().filter(|n| n.is_finite());
+    match (numeric(&a), numeric(&b)) {
+        (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
+        _ => a.cmp(&b),
+    }
+}
+
+fn finalize_leaf_terms_summaries(
+    results: &mut Value,
+    request: &Value,
+    names: &[String],
+    cap: usize,
+) {
+    for name in names {
+        let Some(params) = request.get(name).and_then(leaf_terms_params) else {
+            continue;
+        };
+        let Some(result) = results.get_mut(name) else {
+            continue;
+        };
+        if result.get("error").is_some() {
+            continue;
+        }
+        if result.get("buckets").and_then(Value::as_array).is_none() {
+            continue;
+        }
+        leaf_terms_accumulate(result);
+        let Some(object) = result.as_object_mut() else {
+            continue;
+        };
+        let index_other = object
+            .remove(LEAF_TERMS_OTHER)
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let index_error = object
+            .remove(LEAF_TERMS_ERROR)
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let Some(rows) = result.get_mut("buckets").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        let minimum = params
+            .get("min_doc_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(1);
+        rows.retain(|b| b["doc_count"].as_u64().unwrap_or(0) >= minimum);
+        let orders = leaf_terms_orders(params).unwrap();
+        rows.sort_by(|a, b| {
+            for (key, asc) in &orders {
+                let cmp = if key == "_count" {
+                    a["doc_count"].as_u64().cmp(&b["doc_count"].as_u64())
+                } else {
+                    compare_leaf_terms_keys(
+                        a.get("__xy_terms_key__").unwrap_or(&a["key"]),
+                        b.get("__xy_terms_key__").unwrap_or(&b["key"]),
+                    )
+                };
+                let cmp = if *asc { cmp } else { cmp.reverse() };
+                if cmp != std::cmp::Ordering::Equal {
+                    return cmp;
+                }
+            }
+            compare_leaf_terms_keys(
+                a.get("__xy_terms_key__").unwrap_or(&a["key"]),
+                b.get("__xy_terms_key__").unwrap_or(&b["key"]),
+            )
+        });
+        let size = params.get("size").and_then(Value::as_u64).unwrap_or(10);
+        let size = if size == 0 {
+            usize::MAX
+        } else {
+            usize::try_from(size).unwrap_or(usize::MAX)
+        };
+        let other = rows.iter().skip(size).try_fold(index_other, |sum, b| {
+            sum.checked_add(b["doc_count"].as_u64().unwrap_or(0))
+        });
+        rows.truncate(size);
+        if rows.len() > cap {
+            *result = leaf_terms_limit_error(cap);
+            continue;
+        }
+        let Some(other) = other else {
+            *result = json!({"error":"terms document count overflow","__error_status__":400});
+            continue;
+        };
+        // Only a count-descending list has a meaningful bound: an unseen term
+        // has at most the last count each cutting index returned.
+        let count_desc = orders
+            .first()
+            .is_some_and(|(key, asc)| key == "_count" && !asc);
+        result["sum_other_doc_count"] = json!(other);
+        result["doc_count_error_upper_bound"] = json!(if count_desc { index_error } else { 0 });
+    }
+}
+
+#[cfg(test)]
+mod leaf_terms_coordinator_tests {
+    use super::*;
+    fn summary(rows: Value) -> Value {
+        json!({"buckets":rows,"sum_other_doc_count":0,"doc_count_error_upper_bound":0})
+    }
+    #[test]
+    fn plan_preserves_original_and_excludes_children_scripts_metric_order() {
+        let req = json!({"yes":{"terms":{"field":"k","size":1,"min_doc_count":2,"shard_size":1}},"child":{"terms":{"field":"k"},"aggs":{"s":{"sum":{"field":"n"}}}},"metric":{"terms":{"field":"k","order":{"s":"desc"}}},"script":{"terms":{"script":{"source":"x"}}}});
+        let (rewritten, names) = prepare_leaf_terms_summaries(&req);
+        assert_eq!(names, vec!["yes"]);
+        assert_eq!(req["yes"]["terms"]["size"], 1);
+        // An explicit shard_size is honoured but never below size.
+        assert_eq!(rewritten["yes"]["terms"]["size"], 1);
+        assert_eq!(rewritten["yes"]["terms"]["min_doc_count"], 1);
+        assert!(rewritten["yes"]["terms"].get("shard_size").is_none());
+        assert_eq!(rewritten["child"], req["child"]);
+    }
+    #[test]
+    fn hidden_global_winner_and_minimum_survive() {
+        let a = summary(
+            json!([{"key":"a","doc_count":10},{"key":"winner","doc_count":9},{"key":"low","doc_count":1}]),
+        );
+        let b = summary(
+            json!([{"key":"b","doc_count":10},{"key":"winner","doc_count":9},{"key":"low","doc_count":1}]),
+        );
+        for (a, b) in [(&a, &b), (&b, &a)] {
+            let mut r = json!({"t":merge_leaf_terms_summary(a,b,4)});
+            finalize_leaf_terms_summaries(
+                &mut r,
+                &json!({"t":{"terms":{"field":"k","size":1,"min_doc_count":2}}}),
+                &["t".into()],
+                4,
+            );
+            assert_eq!(r["t"]["buckets"], json!([{"key":"winner","doc_count":18}]));
+            assert_eq!(r["t"]["sum_other_doc_count"], 22);
+        }
+    }
+    #[test]
+    fn cap_and_errors_never_silently_drop() {
+        let a = summary(json!([{"key":"a","doc_count":1}]));
+        let b = summary(json!([{"key":"b","doc_count":1}]));
+        let e = merge_leaf_terms_summary(&a, &b, 1);
+        assert_eq!(e["__error_status__"], 400);
+        assert_eq!(merge_leaf_terms_summary(&e, &a, 1), e);
+        assert_eq!(merge_leaf_terms_summary(&a, &e, 1), e);
+    }
+    #[test]
+    fn large_integer_and_typed_identity_do_not_collapse() {
+        let a = summary(
+            json!([{"key":9007199254740992u64,"doc_count":1},{"key":"1","doc_count":1},{"key":1,"doc_count":2}]),
+        );
+        let b =
+            summary(json!([{"key":9007199254740993u64,"doc_count":1},{"key":1.0,"doc_count":3}]));
+        let r = merge_leaf_terms_summary(&a, &b, 4);
+        assert_eq!(r["buckets"].as_array().unwrap().len(), 4);
+        assert_eq!(r["buckets"][2]["doc_count"], 5);
+    }
+    #[test]
+    fn real_engine_leaf_summaries_match_union_counts_and_order() {
+        let a = vec![json!({"k":"a"}), json!({"k":"a"}), json!({"k":"winner"})];
+        let b = vec![
+            json!({"k":"b"}),
+            json!({"k":"b"}),
+            json!({"k":"winner"}),
+            json!({"k":"winner"}),
+        ];
+        let union: Vec<Value> = a.iter().chain(&b).cloned().collect();
+        for order in [
+            json!({"_count":"desc"}),
+            json!({"_count":"asc"}),
+            json!({"_key":"asc"}),
+            json!({"_key":"desc"}),
+        ] {
+            for minimum in [1, 2, 3] {
+                for size in [1, 2, 0] {
+                    let request = json!({"t":{"terms":{"field":"k","size":size,"min_doc_count":minimum,"order":order}}});
+                    let (summary_request, names) = prepare_leaf_terms_summaries(&request);
+                    let ar = xerj_engine::aggs::run_aggs(&summary_request, &a);
+                    let br = xerj_engine::aggs::run_aggs(&summary_request, &b);
+                    let expected = xerj_engine::aggs::run_aggs(&request, &union);
+                    for (left, right) in [(&ar, &br), (&br, &ar)] {
+                        let mut got =
+                            json!({"t":merge_leaf_terms_summary(&left["t"], &right["t"], 3)});
+                        finalize_leaf_terms_summaries(&mut got, &request, &names, 3);
+                        assert_eq!(got, expected, "order={order} minimum={minimum} size={size}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn real_engine_leaf_summaries_cover_filters_missing_and_typed_keys() {
+        for (a, b, params) in [
+            (
+                vec![json!({"k":"2024-01-01T00:00:00Z"})],
+                vec![json!({"k":"2024-01-01T01:00:00+01:00"})],
+                json!({"field":"k","size":0,"order":{"_key":"asc"}}),
+            ),
+            (
+                vec![json!({"k":2}), json!({"k":10})],
+                vec![json!({"k":3}), json!({"k":10})],
+                json!({"field":"k","size":2,"order":{"_key":"desc"}}),
+            ),
+            (
+                vec![json!({"k":"a"}), json!({})],
+                vec![json!({"k":"b"}), json!({})],
+                json!({"field":"k","size":1,"missing":"z"}),
+            ),
+            (
+                vec![json!({"k":"a"}), json!({"k":"x"})],
+                vec![json!({"k":"b"}), json!({"k":"x"})],
+                json!({"field":"k","size":1,"include":["a","x"],"exclude":["a"]}),
+            ),
+            (
+                vec![json!({"k":true}), json!({"k":false})],
+                vec![json!({"k":true})],
+                json!({"field":"k","size":1}),
+            ),
+            (
+                vec![],
+                vec![json!({"k":"a"})],
+                json!({"field":"k","size":1}),
+            ),
+        ] {
+            let request = json!({"t":{"terms":params}});
+            let (summary_request, names) = prepare_leaf_terms_summaries(&request);
+            let ar = xerj_engine::aggs::run_aggs(&summary_request, &a);
+            let br = xerj_engine::aggs::run_aggs(&summary_request, &b);
+            let union: Vec<Value> = a.iter().chain(&b).cloned().collect();
+            let expected = xerj_engine::aggs::run_aggs(&request, &union);
+            let mut got = json!({"t":merge_leaf_terms_summary(&ar["t"],&br["t"],10)});
+            finalize_leaf_terms_summaries(&mut got, &request, &names, 10);
+            assert_eq!(got, expected, "params={params}");
+        }
+    }
+
+    #[test]
+    fn raw_numeric_summaries_merge_equivalent_longs_and_doubles() {
+        let a = json!({"t":{"buckets":[
+            {"key":10,"__xy_terms_key__":"10","doc_count":1},
+            {"key":100,"__xy_terms_key__":"100","doc_count":1}
+        ]}});
+        let b = json!({"t":{"buckets":[
+            {"key":10.0,"__xy_terms_key__":"10.0","doc_count":1},
+            {"key":100.0,"__xy_terms_key__":"100.0","doc_count":1},
+            {"key":14.6,"__xy_terms_key__":"14.6","doc_count":1}
+        ]}});
+        for (left, right) in [(&a, &b), (&b, &a)] {
+            let mut got = json!({"t":merge_leaf_terms_summary(&left["t"],&right["t"],3)});
+            finalize_leaf_terms_summaries(
+                &mut got,
+                &json!({"t":{"terms":{"field":"number"}}}),
+                &["t".into()],
+                3,
+            );
+            assert_eq!(got["t"]["buckets"].as_array().unwrap().len(), 3);
+            assert_eq!(got["t"]["buckets"][0]["doc_count"], 2);
+            assert_eq!(got["t"]["buckets"][1]["doc_count"], 2);
+            assert_eq!(got["t"]["buckets"][2]["doc_count"], 1);
+            assert_eq!(got["t"]["buckets"][0]["key"].as_f64(), Some(10.0));
+            assert_eq!(got["t"]["buckets"][1]["key"].as_f64(), Some(100.0));
+        }
+    }
+
+    #[test]
+    fn raw_date_term_identity_preserves_distinct_spellings() {
+        let a = summary(
+            json!([{"key":1704067200000u64,"key_as_string":"2024-01-01T00:00:00.000Z","__xy_terms_key__":"2024-01-01T00:00:00Z","doc_count":1}]),
+        );
+        let b = summary(
+            json!([{"key":1704067200000u64,"key_as_string":"2024-01-01T00:00:00.000Z","__xy_terms_key__":"2024-01-01T01:00:00+01:00","doc_count":1}]),
+        );
+        let mut result = json!({"t":merge_leaf_terms_summary(&a,&b,2)});
+        finalize_leaf_terms_summaries(
+            &mut result,
+            &json!({"t":{"terms":{"field":"k","size":0,"order":{"_key":"asc"}}}}),
+            &["t".into()],
+            2,
+        );
+        assert_eq!(result["t"]["buckets"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            result["t"]["buckets"][0]["__xy_terms_key__"],
+            "2024-01-01T00:00:00Z"
+        );
+    }
+
+    #[test]
+    fn boolean_representation_does_not_merge_with_numeric_key() {
+        let a = summary(json!([{"key":1,"key_as_string":"true","doc_count":2}]));
+        let b = summary(json!([{"key":1,"doc_count":3}]));
+        let result = merge_leaf_terms_summary(&a, &b, 2);
+        assert_eq!(result["buckets"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn explicit_key_desc_minimum_and_zero_size() {
+        let mut r = json!({"t":summary(json!([{"key":2,"doc_count":2},{"key":10,"doc_count":1},{"key":3,"doc_count":2}]))});
+        finalize_leaf_terms_summaries(
+            &mut r,
+            &json!({"t":{"terms":{"field":"k","size":0,"min_doc_count":2,"order":{"_key":"desc"}}}}),
+            &["t".into()],
+            3,
+        );
+        assert_eq!(r["t"]["buckets"][0]["key"], 3);
+        assert_eq!(r["t"]["buckets"].as_array().unwrap().len(), 2);
+        assert_eq!(r["t"]["sum_other_doc_count"], 0);
+    }
+
+    #[test]
+    fn fetch_size_is_bounded_by_the_request_not_by_cardinality() {
+        let fetch = |p: Value| leaf_terms_fetch_size(&p, 65_536);
+        assert_eq!(fetch(json!({"field":"k","size":1})), 11);
+        assert_eq!(fetch(json!({"field":"k"})), 25);
+        assert_eq!(fetch(json!({"field":"k","size":10,"shard_size":50})), 50);
+        assert_eq!(fetch(json!({"field":"k","size":10,"shard_size":3})), 10);
+        assert_eq!(fetch(json!({"field":"k","size":0})), 0);
+        assert_eq!(
+            fetch(json!({"field":"k","size":5,"order":{"_count":"asc"}})),
+            0
+        );
+        assert_eq!(
+            fetch(json!({"field":"k","size":5,"order":{"_key":"desc"}})),
+            17
+        );
+        assert_eq!(
+            leaf_terms_fetch_size(&json!({"field":"k","size":100}), 40),
+            40
+        );
+        let req =
+            json!({"b":{"terms":{"field":"k","size":3}},"all":{"terms":{"field":"k","size":0}}});
+        assert_eq!(leaf_terms_union_cap(Some(&req), "b", 9), usize::MAX);
+        assert_eq!(leaf_terms_union_cap(Some(&req), "all", 9), 9);
+        assert_eq!(leaf_terms_union_cap(None, "b", 9), 9);
+    }
+
+    /// #2935 finding 4, the issue's own fixture: A = key1 x10 + key3 x9,
+    /// B = key2 x10 + key3 x9. The global winner is key3 x18 and `_key: desc`
+    /// is [3,2,1], in both index orders, equal to the one-index union.
+    #[test]
+    fn issue_2935_fixture_global_winner_and_key_order() {
+        let docs = |tags: &[(&str, usize)]| -> Vec<Value> {
+            tags.iter()
+                .flat_map(|(t, n)| std::iter::repeat_n(json!({ "tag": t }), *n))
+                .collect()
+        };
+        let a = docs(&[("1", 10), ("3", 9)]);
+        let b = docs(&[("2", 10), ("3", 9)]);
+        let union: Vec<Value> = a.iter().chain(&b).cloned().collect();
+        let request = json!({
+            "top":{"terms":{"field":"tag","size":1}},
+            "key_desc":{"terms":{"field":"tag","size":10,"order":{"_key":"desc"}}}
+        });
+        let (summary_request, names) = prepare_leaf_terms_summaries(&request);
+        assert_eq!(names.len(), 2);
+        let ar = xerj_engine::aggs::run_aggs(&summary_request, &a);
+        let br = xerj_engine::aggs::run_aggs(&summary_request, &b);
+        let expected = xerj_engine::aggs::run_aggs(&request, &union);
+        for (left, right) in [(&ar, &br), (&br, &ar)] {
+            let mut got = json!({
+                "top": merge_leaf_terms_summary(&left["top"], &right["top"], usize::MAX),
+                "key_desc": merge_leaf_terms_summary(&left["key_desc"], &right["key_desc"], usize::MAX),
+            });
+            finalize_leaf_terms_summaries(&mut got, &request, &names, 65_536);
+            assert_eq!(got, expected);
+            strip_internal_tracking(&mut got);
+            assert_eq!(got["top"]["buckets"], json!([{"key":"3","doc_count":18}]));
+            assert_eq!(got["top"]["sum_other_doc_count"], 20);
+            let keys: Vec<&str> = got["key_desc"]["buckets"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|b| b["key"].as_str().unwrap())
+                .collect();
+            assert_eq!(keys, ["3", "2", "1"]);
+        }
+    }
+
+    /// High cardinality: each index returns only its bounded candidate list,
+    /// yet the buckets and `sum_other_doc_count` equal the one-index union,
+    /// and the cut is disclosed in `doc_count_error_upper_bound` instead of a
+    /// false exact 0. Before the bounded fetch each index shipped every term.
+    #[test]
+    fn bounded_fetch_reports_cut_terms_in_other_and_error_bound() {
+        let mut a: Vec<Value> = std::iter::repeat_n(json!({"k":"hot"}), 50).collect();
+        let mut b: Vec<Value> = std::iter::repeat_n(json!({"k":"hot"}), 40).collect();
+        a.extend((0..200).map(|i| json!({ "k": format!("a{i:03}") })));
+        b.extend((0..200).map(|i| json!({ "k": format!("b{i:03}") })));
+        let union: Vec<Value> = a.iter().chain(&b).cloned().collect();
+        let request = json!({"t":{"terms":{"field":"k","size":3}}});
+        let (summary_request, names) = prepare_leaf_terms_summaries(&request);
+        assert_eq!(summary_request["t"]["terms"]["size"], 14);
+        let ar = xerj_engine::aggs::run_aggs(&summary_request, &a);
+        let br = xerj_engine::aggs::run_aggs(&summary_request, &b);
+        assert_eq!(ar["t"]["buckets"].as_array().unwrap().len(), 14);
+        let expected = xerj_engine::aggs::run_aggs(&request, &union);
+        for (left, right) in [(&ar, &br), (&br, &ar)] {
+            let mut got =
+                json!({"t":merge_leaf_terms_summary(&left["t"], &right["t"], usize::MAX)});
+            finalize_leaf_terms_summaries(&mut got, &request, &names, 65_536);
+            assert_eq!(got["t"]["buckets"], expected["t"]["buckets"]);
+            assert_eq!(got["t"]["buckets"][0]["doc_count"], 90);
+            assert_eq!(
+                got["t"]["sum_other_doc_count"],
+                expected["t"]["sum_other_doc_count"]
+            );
+            assert_eq!(got["t"]["sum_other_doc_count"], 398);
+            // Each index cut terms whose count was at most 1.
+            assert_eq!(got["t"]["doc_count_error_upper_bound"], 2);
+            assert!(got["t"].get(LEAF_TERMS_OTHER).is_none());
+            assert!(got["t"].get(LEAF_TERMS_ERROR).is_none());
+        }
+        // Key order is exact under the cut: no error bound is claimed.
+        let request = json!({"t":{"terms":{"field":"k","size":3,"order":{"_key":"desc"}}}});
+        let (summary_request, names) = prepare_leaf_terms_summaries(&request);
+        let ar = xerj_engine::aggs::run_aggs(&summary_request, &a);
+        let br = xerj_engine::aggs::run_aggs(&summary_request, &b);
+        let expected = xerj_engine::aggs::run_aggs(&request, &union);
+        let mut got = json!({"t":merge_leaf_terms_summary(&ar["t"], &br["t"], usize::MAX)});
+        finalize_leaf_terms_summaries(&mut got, &request, &names, 65_536);
+        assert_eq!(got, expected);
+    }
+
+    /// A bounded request emits at most `size`, so the union is not refused at
+    /// the cap; an emitted list larger than the cap still is.
+    #[test]
+    fn cap_binds_emitted_buckets_not_bounded_candidates() {
+        let a = summary(json!([{"key":"a","doc_count":2},{"key":"c","doc_count":1}]));
+        let b = summary(json!([{"key":"b","doc_count":3}]));
+        let mut r = json!({"t":merge_leaf_terms_summary(&a, &b, usize::MAX)});
+        finalize_leaf_terms_summaries(
+            &mut r,
+            &json!({"t":{"terms":{"field":"k","size":1}}}),
+            &["t".into()],
+            2,
+        );
+        assert_eq!(r["t"]["buckets"], json!([{"key":"b","doc_count":3}]));
+        assert_eq!(r["t"]["sum_other_doc_count"], 3);
+        let mut r = json!({"t":merge_leaf_terms_summary(&a, &b, usize::MAX)});
+        finalize_leaf_terms_summaries(
+            &mut r,
+            &json!({"t":{"terms":{"field":"k","size":3}}}),
+            &["t".into()],
+            2,
+        );
+        assert_eq!(r["t"]["__error_status__"], 400);
     }
 }
 
@@ -12691,6 +13431,13 @@ fn lexical_on_semantic_text_hint(
         if vectorised.iter().any(|f| *f == field || *f == companion) {
             continue;
         }
+        // #2497: a compound identifier (`RESERVE_MIN`, `svgTrend`) is an exact
+        // lookup. It has no paraphrase for the embedding to recall, so the
+        // hint was noise on every identifier search an agent made over a
+        // `semantic_text` field, and noise mutes the hint channel.
+        if xerj_common::xccode::render::compound_identifier(&text).is_some() {
+            continue;
+        }
         if flagged.iter().any(|(f, _)| *f == field) {
             continue;
         }
@@ -13502,6 +14249,46 @@ mod semantic_text_lexical_hint_tests {
             scores(&control_index),
             "identical BM25 scores prove the embedding is never consulted"
         );
+    }
+
+    /// #2497: an agent's exact identifier lookups (`RESERVE_MIN`) over a
+    /// `semantic_text` field got this hint on every call. A compound
+    /// identifier has no paraphrase to recall, so it is not flagged; a plain
+    /// word or phrase still is.
+    #[tokio::test]
+    async fn an_exact_identifier_lookup_is_not_flagged() {
+        let state = test_state();
+        build_index(
+            &state,
+            "sem-ident",
+            json!({"type": "semantic_text", "dimensions": 32}),
+        )
+        .await;
+        for ident in ["neighbour_edges", "RESERVE_MIN", "pruneGraph"] {
+            let (status, json) = request_json(
+                &state,
+                "POST",
+                "/sem-ident/_search",
+                json!({"query": {"match": {"ctx": ident}}, "_source": false}),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{json}");
+            assert!(
+                semantic_hint(&json).is_none(),
+                "{ident} is an exact lookup, not a paraphrase: {json}"
+            );
+        }
+        for words in ["graph", "graph edges"] {
+            let (status, json) = request_json(
+                &state,
+                "POST",
+                "/sem-ident/_search",
+                json!({"query": {"match": {"ctx": words}}, "_source": false}),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{json}");
+            assert!(semantic_hint(&json).is_some(), "{words}: {json}");
+        }
     }
 
     /// The fix: the response now says which question it answered and names
@@ -17952,6 +18739,26 @@ async fn search_impl(
     if pierce_explicit_source.is_some() {
         search_req.source = xerj_query::ast::SourceFilter::Enabled(true);
     }
+    // Leaf terms have no child payloads to expand. Ask each index for bounded
+    // complete counts, retaining the original definitions for global selection.
+    let mut leaf_terms_names = Vec::new();
+    if index_names.len() > 1 {
+        if let Some(request) = search_req.aggs.as_ref() {
+            let pipeline_dependency = request.as_object().is_some_and(|aggs| {
+                aggs.values().any(|spec| {
+                    spec.as_object().is_some_and(|spec| {
+                        spec.values()
+                            .any(|params| params.get("buckets_path").is_some())
+                    })
+                })
+            });
+            if !pipeline_dependency {
+                let (rewritten, names) = prepare_leaf_terms_summaries(request);
+                search_req.aggs = Some(rewritten);
+                leaf_terms_names = names;
+            }
+        }
+    }
     let search_req = search_req;
 
     // Execute search on each index and merge results.
@@ -17971,6 +18778,10 @@ async fn search_impl(
     // each per-index result, so collapse+track_scores reports ES `max_score`.
     let mut merged_population_max: Option<f64> = None;
     let mut any_timed_out = false;
+    // #3020: per-index whole-response cache outcome ("hit" / "miss" /
+    // "bypass"), reported by the engine on `profile: true` requests and
+    // emitted as `profile.shards[*].request_cache`.
+    let mut request_cache_by_index: HashMap<String, String> = HashMap::new();
 
     // Request-level index-resolution policy. Wildcards default to silently
     // skipping missing indices; literal names 404 unless the caller opted
@@ -18172,6 +18983,14 @@ async fn search_impl(
                 if result.timed_out {
                     any_timed_out = true;
                 }
+                if let Some(how) = result
+                    .profile
+                    .as_ref()
+                    .and_then(|p| p.get("request_cache"))
+                    .and_then(Value::as_str)
+                {
+                    request_cache_by_index.insert(idx_name.to_string(), how.to_string());
+                }
                 total_count += result.total.value;
                 if result.total.relation == xerj_query::executor::TotalHitsRelation::Gte {
                     total_relation = "gte".to_string();
@@ -18195,6 +19014,21 @@ async fn search_impl(
                                     // across indices rather than just the
                                     // first index's value.
                                     if let Some(old) = ex_obj.get(k).cloned() {
+                                        if leaf_terms_names.contains(k) {
+                                            let merged = merge_leaf_terms_summary(
+                                                &old,
+                                                v,
+                                                leaf_terms_union_cap(
+                                                    body.aggs
+                                                        .as_ref()
+                                                        .or(body.aggregations.as_ref()),
+                                                    k,
+                                                    xerj_engine::aggs::max_buckets(),
+                                                ),
+                                            );
+                                            ex_obj.insert(k.clone(), merged);
+                                            continue;
+                                        }
                                         if let Some(merged) = merge_metric_agg(&old, v) {
                                             ex_obj.insert(k.clone(), merged);
                                             continue;
@@ -18270,6 +19104,12 @@ async fn search_impl(
         if let Some(m) = merged_aggs.as_mut() {
             rebucket_auto_date_histograms(m, aggs_req);
             finalize_composite_aggs(m, aggs_req);
+            finalize_leaf_terms_summaries(
+                m,
+                aggs_req,
+                &leaf_terms_names,
+                xerj_engine::aggs::max_buckets(),
+            );
         }
     }
 
@@ -21983,6 +22823,13 @@ async fn search_impl(
             if let Some(dfs) = dfs_block.as_ref() {
                 if let Some(obj) = shard_obj.as_object_mut() {
                     obj.insert("dfs".to_string(), dfs.clone());
+                }
+            }
+            // #3020: whether this index's whole-response cache answered.
+            // Absent only when the engine reported nothing for the index.
+            if let Some(how) = request_cache_by_index.get(profile_index) {
+                if let Some(obj) = shard_obj.as_object_mut() {
+                    obj.insert("request_cache".to_string(), Value::String(how.clone()));
                 }
             }
             shard_profiles.push(shard_obj);
@@ -27394,17 +28241,131 @@ fn run_adhoc_analyze(
     Ok(pipeline.analyze(input))
 }
 
+/// #2580: `_analyze` offsets in ES's unit, UTF-16 code units (Java `char`
+/// indices into the input). The pipelines produce BYTE offsets into the UTF-8
+/// input, which is what highlighting and passage slicing need internally, so
+/// the conversion happens only here, at the `_analyze` response. For CJK
+/// `雷同` that is 雷 0-1 / 同 1-2 instead of 0-3 / 3-6; ASCII input is
+/// unchanged. Built once per response: `map[b]` is the UTF-16 length of the
+/// characters that start before byte `b` (a byte inside a character maps to
+/// that character's start). An offset past the input keeps its distance from
+/// the end, so a malformed offset is never silently clamped onto a real one.
+struct Utf16Offsets {
+    map: Option<Vec<u64>>,
+    len: usize,
+}
+
+impl Utf16Offsets {
+    fn new(input: &str) -> Self {
+        if input.is_ascii() {
+            return Self {
+                map: None,
+                len: input.len(),
+            };
+        }
+        let mut map = vec![0u64; input.len() + 1];
+        let mut units = 0u64;
+        for (b, ch) in input.char_indices() {
+            for slot in map.iter_mut().skip(b).take(ch.len_utf8()) {
+                *slot = units;
+            }
+            units += ch.len_utf16() as u64;
+        }
+        map[input.len()] = units;
+        Self {
+            map: Some(map),
+            len: input.len(),
+        }
+    }
+
+    fn convert(&self, byte: u64) -> u64 {
+        let Some(map) = &self.map else {
+            return byte;
+        };
+        match usize::try_from(byte) {
+            Ok(b) if b <= self.len => map[b],
+            _ => map[self.len] + (byte - self.len as u64),
+        }
+    }
+
+    /// Rewrite every `start_offset` / `end_offset` in an `_analyze` response
+    /// body (token lists, and the per-stage lists of an `explain`).
+    fn rewrite(&self, v: &mut Value) {
+        if self.map.is_none() {
+            return;
+        }
+        match v {
+            Value::Object(obj) => {
+                for key in ["start_offset", "end_offset"] {
+                    if let Some(n) = obj.get(key).and_then(Value::as_u64) {
+                        obj.insert(key.to_string(), Value::from(self.convert(n)));
+                    }
+                }
+                for child in obj.values_mut() {
+                    if child.is_object() || child.is_array() {
+                        self.rewrite(child);
+                    }
+                }
+            }
+            Value::Array(items) => {
+                for item in items {
+                    self.rewrite(item);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+#[cfg(test)]
+mod utf16_offsets_tests {
+    use super::Utf16Offsets;
+    use serde_json::json;
+
+    #[test]
+    fn byte_offsets_become_utf16_units() {
+        let o = Utf16Offsets::new("雷同");
+        assert_eq!((o.convert(0), o.convert(3), o.convert(6)), (0, 1, 2));
+        // A byte inside a character maps to that character's start.
+        assert_eq!(o.convert(4), 1);
+        // A supplementary-plane character is two UTF-16 units.
+        let o = Utf16Offsets::new("𠀀x 雷");
+        assert_eq!(
+            (o.convert(4), o.convert(5), o.convert(6), o.convert(9)),
+            (2, 3, 4, 5)
+        );
+        // Past the end keeps its distance from the end.
+        assert_eq!(o.convert(11), 7);
+        // ASCII is the identity.
+        let o = Utf16Offsets::new("quick fox");
+        assert_eq!(o.convert(6), 6);
+    }
+
+    #[test]
+    fn rewrite_walks_explain_stages() {
+        let o = Utf16Offsets::new("雷同");
+        let mut v = json!({"detail": {"tokenizer": {"tokens": [
+            {"token": "雷", "start_offset": 0, "end_offset": 3},
+            {"token": "同", "start_offset": 3, "end_offset": 6}
+        ]}}});
+        o.rewrite(&mut v);
+        assert_eq!(v["detail"]["tokenizer"]["tokens"][1]["start_offset"], 1);
+        assert_eq!(v["detail"]["tokenizer"]["tokens"][1]["end_offset"], 2);
+    }
+}
+
 /// ES `_analyze` token objects from real pipeline output. `type` stays the
-/// `word` this endpoint has always reported; offsets and positions are the
-/// pipeline's own.
-fn analyze_tokens_json(tokens: &[xerj_engine::Token]) -> Vec<Value> {
+/// `word` this endpoint has always reported; positions are the pipeline's
+/// own, offsets are converted to UTF-16 units (see [`Utf16Offsets`]).
+fn analyze_tokens_json(tokens: &[xerj_engine::Token], input: &str) -> Vec<Value> {
+    let offsets = Utf16Offsets::new(input);
     tokens
         .iter()
         .map(|t| {
             json!({
                 "token": t.text,
-                "start_offset": t.start_offset,
-                "end_offset": t.end_offset,
+                "start_offset": offsets.convert(t.start_offset as u64),
+                "end_offset": offsets.convert(t.end_offset as u64),
                 "type": "word",
                 "position": t.position,
             })
@@ -27471,7 +28432,9 @@ pub async fn analyze_text(
             idx.analysis_in_force().await
         };
         return match run_adhoc_analyze(&body, index_analysis.as_ref(), &input) {
-            Ok(tokens) => Json(json!({ "tokens": analyze_tokens_json(&tokens) })).into_response(),
+            Ok(tokens) => {
+                Json(json!({ "tokens": analyze_tokens_json(&tokens, &input) })).into_response()
+            }
             Err(reason) => analyze_illegal_argument(reason),
         };
     }
@@ -27488,12 +28451,14 @@ pub async fn analyze_text(
         if body.explain {
             // Step-by-step pipeline explanation (unchanged): stage-by-stage
             // for "standard"/"english", final tokens otherwise.
-            return Json(analyze_explain(&input, name)).into_response();
+            let mut explained = analyze_explain(&input, name);
+            Utf16Offsets::new(&input).rewrite(&mut explained);
+            return Json(explained).into_response();
         }
         let Some(pipeline) = xerj_engine::analyzer_registry().get_analyzer(name) else {
             return analyze_illegal_argument(format!("failed to find global analyzer [{name}]"));
         };
-        let tokens = analyze_tokens_json(&pipeline.analyze(&input));
+        let tokens = analyze_tokens_json(&pipeline.analyze(&input), &input);
         return Json(json!({ "tokens": tokens })).into_response();
     }
 
@@ -27512,7 +28477,7 @@ pub async fn analyze_text(
         .await
     {
         Ok((name, tokens)) => {
-            let tokens = analyze_tokens_json(&tokens);
+            let tokens = analyze_tokens_json(&tokens, &input);
             if body.explain {
                 return Json(json!({
                     "detail": {
@@ -32782,8 +33747,12 @@ mod flat_object_field_caps_tests {
 // POST /_msearch — Multi-Search API (NDJSON)
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn msearch(State(state): State<AppState>, body: bytes::Bytes) -> impl IntoResponse {
-    msearch_impl(state, body, None).await
+pub async fn msearch(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+    body: bytes::Bytes,
+) -> impl IntoResponse {
+    msearch_impl(state, body, None, &params).await
 }
 
 /// GET|POST /{index}/_msearch — index-scoped multi-search. The path index is
@@ -32791,19 +33760,76 @@ pub async fn msearch(State(state): State<AppState>, body: bytes::Bytes) -> impl 
 pub async fn msearch_index(
     State(state): State<AppState>,
     Path(index): Path<String>,
+    Query(params): Query<HashMap<String, String>>,
     body: bytes::Bytes,
 ) -> impl IntoResponse {
-    msearch_impl(state, body, Some(index)).await
+    msearch_impl(state, body, Some(index), &params).await
+}
+
+/// The engine's own deadline when a search names no `timeout`
+/// (`request.timeout_ms.unwrap_or(30_000)` in `xerj-engine`).
+const ENGINE_DEFAULT_SEARCH_TIMEOUT_MS: u64 = 30_000;
+
+/// #2497: what is left of an `_msearch?batch_timeout=` budget, as the
+/// `timeout_ms` one search may use. `None` = no budget, the request's own
+/// timeout stands. `Some(0)` = the budget is spent; the caller does not run
+/// the search.
+fn msearch_budget_ms(deadline: Option<Instant>, own_timeout_ms: Option<u64>) -> Option<u64> {
+    let left = deadline?
+        .saturating_duration_since(Instant::now())
+        .as_millis() as u64;
+    Some(left.min(own_timeout_ms.unwrap_or(ENGINE_DEFAULT_SEARCH_TIMEOUT_MS)))
+}
+
+/// One `_msearch` item the batch budget ran out before: nothing searched,
+/// reported as ES reports a search that hit its timeout with no hits yet
+/// (`timed_out: true`, a lower-bound total of 0), so a client never reads it
+/// as a complete empty answer.
+fn msearch_item_out_of_budget() -> Value {
+    json!({
+        "took": 0,
+        "timed_out": true,
+        "_shards": { "total": 1, "successful": 0, "skipped": 0, "failed": 0 },
+        "hits": {
+            "total": { "value": 0, "relation": "gte" },
+            "max_score": null,
+            "hits": [],
+        },
+        "status": 200,
+    })
 }
 
 async fn msearch_impl(
     state: AppState,
     body: bytes::Bytes,
     default_index: Option<String>,
+    params: &HashMap<String, String>,
 ) -> axum::response::Response {
     // Envelope `took` (#1288): ES 8.x reports the wall time of the whole
     // multi-search next to `responses`, as `msearch_template_impl` does.
     let msearch_started = Instant::now();
+    // #2497: `batch_timeout` (XERJ extension, ES time units) is one deadline
+    // for the whole request. Items run one after another, each with its own
+    // timeout (30 s by default), so a client that gives the whole call the
+    // time it gives one search lost every item when a few slow ones added
+    // up. Under a budget each item gets what is left (at most its own
+    // timeout); once it is spent the remaining items answer `timed_out`
+    // without running, and the completed items keep their hits.
+    let batch_deadline = match params.get("batch_timeout") {
+        None => None,
+        Some(raw) => match parse_time_to_millis(raw) {
+            Some(ms) => Some(msearch_started + Duration::from_millis(ms)),
+            None => {
+                return es_bad_request(
+                    "illegal_argument_exception",
+                    &format!(
+                        "failed to parse [batch_timeout] value [{raw}]: expected a time value such as 500ms or 25s"
+                    ),
+                    None,
+                );
+            }
+        },
+    };
     let text = match std::str::from_utf8(&body) {
         Ok(t) => t,
         Err(_) => {
@@ -32828,6 +33854,9 @@ async fn msearch_impl(
         if let Ok(item) = serde_json::from_str::<Value>(body.trim()) {
             if let Some(reason) = xerj_query::track_total_hits_refusal(&item) {
                 return es_bad_request("illegal_argument_exception", &reason, None);
+            }
+            if collapse_has_unnamed_inner_hits(item.get("collapse")) {
+                return unnamed_inner_hits_refusal();
             }
         }
     }
@@ -33120,6 +34149,12 @@ async fn msearch_impl(
         // the semantic field.
         let mut semantic_skips = ExpandedSemanticSkips::default();
         let search_node = state.engine.node_id.clone();
+        let own_timeout_ms = search_req.timeout_ms;
+        if msearch_budget_ms(batch_deadline, own_timeout_ms) == Some(0) {
+            responses.push(msearch_item_out_of_budget());
+            continue;
+        }
+        let mut item_timed_out = false;
 
         for idx_name in &index_names {
             let idx = match state.engine.get_index(idx_name) {
@@ -33129,9 +34164,22 @@ async fn msearch_impl(
                     break;
                 }
             };
+            // Each target index is searched with what is left of the batch
+            // budget, so a wildcard item cannot spend it once per index.
+            if let Some(left) = msearch_budget_ms(batch_deadline, own_timeout_ms) {
+                if left == 0 {
+                    item_timed_out = true;
+                    break;
+                }
+                search_req.timeout_ms = Some(left);
+            }
             semantic_skips.note_attempt();
             match idx.search(&search_req).await {
                 Ok(result) => {
+                    // #2497: a search that stopped at its deadline returns
+                    // partial hits; the item says so instead of reading as
+                    // complete (this renderer hardcoded `timed_out: false`).
+                    item_timed_out |= result.timed_out;
                     // A Painless resource limit tripped during scoring/aggs:
                     // the hits carry degraded scores. Report this sub-request
                     // as failed rather than merging wrong numbers in. Tracked
@@ -33246,9 +34294,13 @@ async fn msearch_impl(
             })
             .collect();
 
+        if item_timed_out {
+            // A partial count is a lower bound, as in `_search`.
+            total_relation = "gte";
+        }
         let mut resp = json!({
             "took": took_ms,
-            "timed_out": false,
+            "timed_out": item_timed_out,
             "_shards": { "total": 1, "successful": 1, "skipped": 0, "failed": 0 },
             "hits": {
                 "total": { "value": total_count, "relation": total_relation },
@@ -56656,9 +57708,13 @@ mod msearch_script_guard_tests {
         body.push('\n');
         assert!(body.len() > 240_000, "fixture must be the ~240 KB repro");
 
-        let resp = msearch(State(state), bytes::Bytes::from(body))
-            .await
-            .into_response();
+        let resp = msearch(
+            State(state),
+            Query(HashMap::new()),
+            bytes::Bytes::from(body),
+        )
+        .await
+        .into_response();
         let v = drain_json(resp).await;
         let items = v["responses"].as_array().expect("responses array");
         assert_eq!(items.len(), 4);
@@ -56697,9 +57753,13 @@ mod msearch_script_guard_tests {
                 }
             })
         );
-        let resp = msearch(State(state), bytes::Bytes::from(body))
-            .await
-            .into_response();
+        let resp = msearch(
+            State(state),
+            Query(HashMap::new()),
+            bytes::Bytes::from(body),
+        )
+        .await
+        .into_response();
         let v = drain_json(resp).await;
         assert_eq!(v["responses"][0]["status"], json!(200), "{v}");
     }
@@ -57523,5 +58583,157 @@ mod search_actor_class_tests {
         // A catalog-named DATA index must not be caught by the exact-name
         // match — only the maintenance index itself is machine.
         assert_eq!(search_actor_class(10, "autoindex-catalog-copy"), "user");
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #2497 — `_msearch` reports a timed-out item and honours `batch_timeout`.
+// Items run one after another, each with its own (30 s default) deadline; a
+// client that gave the whole call the time of one search lost every item
+// when a few slow ones added up, and an item that did stop at its deadline
+// came back `timed_out: false` with partial hits.
+// ─────────────────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod msearch_batch_budget_tests {
+    use super::*;
+    use axum::body::{to_bytes, Body};
+    use axum::http::Request;
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    const IDX: &str = "ms-budget";
+
+    async fn state_with_memtable_docs() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        engine.create_index(IDX, Schema::empty()).expect("create");
+        let idx = engine.get_index(IDX).expect("index");
+        for n in 0..1500u64 {
+            idx.index_document(Some(format!("d{n}")), json!({"a": n % 7, "b": n}))
+                .await
+                .expect("index doc");
+        }
+        AppState::new(config, engine, metrics)
+    }
+
+    /// A two-key sort is outside the bounded memtable sort path, so the
+    /// unflushed memtable goes through the per-document scan that polls the
+    /// deadline (`test_memtable_scan_stops_at_the_search_deadline`).
+    fn scan_body(timeout: Option<&str>) -> Value {
+        let mut body = json!({
+            "query": {"match_all": {}},
+            "sort": [{"a": "asc"}, {"b": "asc"}],
+            "size": 10
+        });
+        if let Some(t) = timeout {
+            body["timeout"] = json!(t);
+        }
+        body
+    }
+
+    async fn msearch(state: &AppState, query: &str, bodies: &[Value]) -> (StatusCode, Value) {
+        let mut ndjson = String::new();
+        for body in bodies {
+            ndjson.push_str(&format!("{}\n{}\n", json!({ "index": IDX }), body));
+        }
+        let resp = crate::router::build_es_compat_router(state.clone())
+            .oneshot(
+                Request::post(format!("/_msearch{query}"))
+                    .header("content-type", "application/x-ndjson")
+                    .body(Body::from(ndjson))
+                    .expect("msearch request"),
+            )
+            .await
+            .expect("msearch response");
+        let status = resp.status();
+        let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        (status, serde_json::from_slice(&bytes).expect("json"))
+    }
+
+    #[tokio::test]
+    async fn an_item_that_stops_at_its_deadline_reports_timed_out() {
+        let state = state_with_memtable_docs().await;
+        let (status, json) = msearch(
+            &state,
+            "",
+            &[scan_body(Some("0ms")), scan_body(Some("60s"))],
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        let items = json["responses"].as_array().expect("responses");
+        assert_eq!(items.len(), 2, "{json}");
+        assert_eq!(
+            items[0]["timed_out"], true,
+            "an expired item must not read as a complete answer: {json}"
+        );
+        assert_eq!(items[0]["hits"]["total"]["relation"], "gte", "{json}");
+        assert_eq!(items[1]["timed_out"], false, "{json}");
+        assert_eq!(items[1]["hits"]["total"]["value"], 1500, "{json}");
+        assert_eq!(items[1]["hits"]["hits"].as_array().unwrap().len(), 10);
+    }
+
+    #[tokio::test]
+    async fn a_live_batch_budget_leaves_items_whole() {
+        let state = state_with_memtable_docs().await;
+        let (status, json) = msearch(
+            &state,
+            "?batch_timeout=1h",
+            &[scan_body(None), scan_body(None)],
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        for item in json["responses"].as_array().expect("responses") {
+            assert_eq!(item["status"], 200, "{json}");
+            assert_eq!(item["timed_out"], false, "{json}");
+            assert_eq!(item["hits"]["total"]["value"], 1500, "{json}");
+        }
+    }
+
+    #[tokio::test]
+    async fn an_unparseable_batch_budget_is_refused() {
+        let state = state_with_memtable_docs().await;
+        let (status, json) = msearch(&state, "?batch_timeout=soon", &[scan_body(None)]).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{json}");
+        assert_eq!(json["error"]["type"], "illegal_argument_exception");
+        assert!(
+            json["error"]["reason"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("batch_timeout"),
+            "{json}"
+        );
+    }
+
+    #[test]
+    fn the_budget_caps_each_item_and_reports_when_it_is_spent() {
+        let now = Instant::now();
+        assert_eq!(msearch_budget_ms(None, Some(5)), None, "no budget, no cap");
+        let far = Some(now + Duration::from_secs(3600));
+        assert_eq!(
+            msearch_budget_ms(far, None),
+            Some(ENGINE_DEFAULT_SEARCH_TIMEOUT_MS),
+            "a long budget never raises the engine's own default"
+        );
+        assert_eq!(msearch_budget_ms(far, Some(5_000)), Some(5_000));
+        let near = Some(now + Duration::from_secs(2));
+        let left = msearch_budget_ms(near, Some(60_000)).unwrap();
+        assert!(left <= 2_000 && left > 0, "capped at what is left: {left}");
+        assert_eq!(
+            msearch_budget_ms(Some(now), Some(60_000)),
+            Some(0),
+            "a deadline that has passed is spent"
+        );
+        let skipped = msearch_item_out_of_budget();
+        assert_eq!(skipped["timed_out"], true);
+        assert_eq!(skipped["hits"]["total"]["relation"], "gte");
+        assert_eq!(skipped["hits"]["hits"], json!([]));
     }
 }

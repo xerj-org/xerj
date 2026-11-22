@@ -1,0 +1,181 @@
+{
+ "label": "new",
+ "binary_sha256": "05484d6432db3f1b5f065b671dfb2ef8054114e02c3e30a97eb6f46b1ddfd049",
+ "pack_sha256": "54f0419e6d944635eeaf9199923064278c36fd578213db60ca77cc85d2a69e3d",
+ "records": 2051,
+ "repeats": 3,
+ "trials": [
+  {
+   "load": [
+    "40.17",
+    "41.36",
+    "50.44"
+   ],
+   "pinned_ms": 796.3,
+   "pinned_by_kind": {
+    "canonical": [
+     15,
+     15
+    ],
+    "alias": [
+     15,
+     15
+    ],
+    "missing": [
+     10,
+     10
+    ],
+    "text": [
+     8,
+     8
+    ],
+    "duplicate": [
+     1,
+     1
+    ],
+    "invalid": [
+     1,
+     1
+    ]
+   },
+   "idq_ms": 351.9,
+   "idq_hit1": {
+    "bare": [
+     30,
+     30
+    ],
+    "sent": [
+     30,
+     30
+    ]
+   },
+   "idq_misses": []
+  },
+  {
+   "load": [
+    "40.17",
+    "41.36",
+    "50.44"
+   ],
+   "pinned_ms": 228.5,
+   "pinned_by_kind": {
+    "canonical": [
+     15,
+     15
+    ],
+    "alias": [
+     15,
+     15
+    ],
+    "missing": [
+     10,
+     10
+    ],
+    "text": [
+     8,
+     8
+    ],
+    "duplicate": [
+     1,
+     1
+    ],
+    "invalid": [
+     1,
+     1
+    ]
+   },
+   "idq_ms": 140.4,
+   "idq_hit1": {
+    "bare": [
+     30,
+     30
+    ],
+    "sent": [
+     30,
+     30
+    ]
+   },
+   "idq_misses": []
+  },
+  {
+   "load": [
+    "40.17",
+    "41.36",
+    "50.44"
+   ],
+   "pinned_ms": 201.7,
+   "pinned_by_kind": {
+    "canonical": [
+     15,
+     15
+    ],
+    "alias": [
+     15,
+     15
+    ],
+    "missing": [
+     10,
+     10
+    ],
+    "text": [
+     8,
+     8
+    ],
+    "duplicate": [
+     1,
+     1
+    ],
+    "invalid": [
+     1,
+     1
+    ]
+   },
+   "idq_ms": 121.9,
+   "idq_hit1": {
+    "bare": [
+     30,
+     30
+    ],
+    "sent": [
+     30,
+     30
+    ]
+   },
+   "idq_misses": []
+  }
+ ],
+ "summary": {
+  "pinned_correct": "50/50",
+  "pinned_by_kind": {
+   "canonical": [
+    15,
+    15
+   ],
+   "alias": [
+    15,
+    15
+   ],
+   "missing": [
+    10,
+    10
+   ],
+   "text": [
+    8,
+    8
+   ],
+   "duplicate": [
+    1,
+    1
+   ],
+   "invalid": [
+    1,
+    1
+   ]
+  },
+  "idq_bare_hit1": "30/30",
+  "idq_sentence_hit1": "30/30",
+  "pinned_ms_median": 228.5,
+  "idq_ms_median": 140.4,
+  "stable_across_repeats": true
+ }
+}

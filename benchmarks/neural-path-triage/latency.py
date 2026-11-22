@@ -14,14 +14,16 @@ import json
 import sys
 import time
 
-from common import bm25_query, http, hybrid_query, semantic_query
+from common import bm25_query, http, hybrid_query, require_ok, semantic_query
 
 url, index, data_dir, n, off = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]), int(sys.argv[5])
 qs = [json.loads(l)["text"] for l in open(data_dir + "/queries.jsonl")][off:off + n]
 
 
 def search(query, size=10):
-    return http(url, "POST", f"/{index}/_search", {"size": size, "_source": False, "query": query})
+    """A non-2xx answer exits here instead of becoming a latency sample."""
+    body = {"size": size, "_source": False, "query": query}
+    return require_ok(http(url, "POST", f"/{index}/_search", body), f"_search {json.dumps(query)[:120]}")
 
 
 def filtered(q):

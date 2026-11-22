@@ -1,0 +1,901 @@
+qid	arm	nDCG@10	R@1	ms	query
+1	plain	0.000000	0	13.4	0-dimensional biomaterials show inductive properties.
+1	default	0.000000	0	23.6	0-dimensional biomaterials show inductive properties.
+1	tiered	0.000000	0	23.6	0-dimensional biomaterials show inductive properties.
+3	plain	0.500000	0	4.7	1,000 genomes project enables mapping of genetic sequence variation consisting of rare variants with larger penetrance effects than common variants.
+3	default	0.430677	0	62.3	1,000 genomes project enables mapping of genetic sequence variation consisting of rare variants with larger penetrance effects than common variants.
+3	tiered	0.430677	0	29.4	1,000 genomes project enables mapping of genetic sequence variation consisting of rare variants with larger penetrance effects than common variants.
+5	plain	1.000000	1	3.1	1/2000 in UK have abnormal PrP positivity.
+5	default	1.000000	1	28.3	1/2000 in UK have abnormal PrP positivity.
+5	tiered	1.000000	1	23.9	1/2000 in UK have abnormal PrP positivity.
+13	plain	0.000000	0	3.9	5% of perinatal mortality is due to low birth weight.
+13	default	0.000000	0	97.1	5% of perinatal mortality is due to low birth weight.
+13	tiered	0.000000	0	23.3	5% of perinatal mortality is due to low birth weight.
+36	plain	0.204382	0	4.5	A deficiency of vitamin B12 increases blood levels of homocysteine.
+36	default	0.306574	0	26.4	A deficiency of vitamin B12 increases blood levels of homocysteine.
+36	tiered	0.306574	0	29.2	A deficiency of vitamin B12 increases blood levels of homocysteine.
+42	plain	0.630930	0	4.1	A high microerythrocyte count raises vulnerability to severe anemia in homozygous alpha (+)- thalassemia trait subjects.
+42	default	1.000000	1	26.9	A high microerythrocyte count raises vulnerability to severe anemia in homozygous alpha (+)- thalassemia trait subjects.
+42	tiered	1.000000	1	41.4	A high microerythrocyte count raises vulnerability to severe anemia in homozygous alpha (+)- thalassemia trait subjects.
+48	plain	0.630930	0	6.2	A total of 1,000 people in the UK are asymptomatic carriers of vCJD infection.
+48	default	0.630930	0	32.9	A total of 1,000 people in the UK are asymptomatic carriers of vCJD infection.
+48	tiered	0.630930	0	46.7	A total of 1,000 people in the UK are asymptomatic carriers of vCJD infection.
+49	plain	1.000000	1	3.4	ADAR1 binds to Dicer to cleave pre-miRNA.
+49	default	1.000000	1	23.6	ADAR1 binds to Dicer to cleave pre-miRNA.
+49	tiered	1.000000	1	21.7	ADAR1 binds to Dicer to cleave pre-miRNA.
+50	plain	1.000000	1	31.2	AIRE is expressed in some skin tumors.
+50	default	1.000000	1	22.1	AIRE is expressed in some skin tumors.
+50	tiered	1.000000	1	71.9	AIRE is expressed in some skin tumors.
+51	plain	0.630930	0	3.9	ALDH1 expression is associated with better breast cancer outcomes.
+51	default	0.430677	0	27.7	ALDH1 expression is associated with better breast cancer outcomes.
+51	tiered	0.430677	0	32.2	ALDH1 expression is associated with better breast cancer outcomes.
+53	plain	1.000000	1	4.2	ALDH1 expression is associated with poorer prognosis in breast cancer.
+53	default	1.000000	1	29.9	ALDH1 expression is associated with poorer prognosis in breast cancer.
+53	tiered	1.000000	1	30.6	ALDH1 expression is associated with poorer prognosis in breast cancer.
+54	plain	0.500000	0	4.1	AMP-activated protein kinase (AMPK) activation increases inflammation-related fibrosis in the lungs.
+54	default	0.000000	0	25.5	AMP-activated protein kinase (AMPK) activation increases inflammation-related fibrosis in the lungs.
+54	tiered	0.000000	0	129.3	AMP-activated protein kinase (AMPK) activation increases inflammation-related fibrosis in the lungs.
+56	plain	1.000000	1	4.4	APOE4 expression in iPSC-derived neurons increases AlphaBeta production and tau phosphorylation causing GABA neuron degeneration.
+56	default	1.000000	1	27.5	APOE4 expression in iPSC-derived neurons increases AlphaBeta production and tau phosphorylation causing GABA neuron degeneration.
+56	tiered	1.000000	1	25.1	APOE4 expression in iPSC-derived neurons increases AlphaBeta production and tau phosphorylation causing GABA neuron degeneration.
+57	plain	1.000000	1	4.0	APOE4 expression in iPSC-derived neurons increases AlphaBeta production and tau phosphorylation, delaying GABA neuron degeneration.
+57	default	1.000000	1	131.9	APOE4 expression in iPSC-derived neurons increases AlphaBeta production and tau phosphorylation, delaying GABA neuron degeneration.
+57	tiered	1.000000	1	25.9	APOE4 expression in iPSC-derived neurons increases AlphaBeta production and tau phosphorylation, delaying GABA neuron degeneration.
+70	plain	1.000000	1	3.0	Activation of PPM1D suppresses p53 function.
+70	default	1.000000	1	20.9	Activation of PPM1D suppresses p53 function.
+70	tiered	1.000000	1	22.2	Activation of PPM1D suppresses p53 function.
+72	plain	0.356207	0	2.4	Activator-inhibitor pairs are provided dorsally by Admpchordin.
+72	default	0.000000	0	20.9	Activator-inhibitor pairs are provided dorsally by Admpchordin.
+72	tiered	0.000000	0	20.7	Activator-inhibitor pairs are provided dorsally by Admpchordin.
+75	plain	0.500000	0	4.3	Active H. pylori urease has a polymeric structure that compromises two subunits, UreA and UreB.
+75	default	1.000000	1	355.1	Active H. pylori urease has a polymeric structure that compromises two subunits, UreA and UreB.
+75	tiered	1.000000	1	30.4	Active H. pylori urease has a polymeric structure that compromises two subunits, UreA and UreB.
+94	plain	1.000000	1	2.9	Albendazole is used to treat lymphatic filariasis.
+94	default	0.630930	0	20.7	Albendazole is used to treat lymphatic filariasis.
+94	tiered	0.630930	0	20.3	Albendazole is used to treat lymphatic filariasis.
+99	plain	1.000000	1	3.4	Alizarin forms hydrogen bonds with residues involved in PGAM1 substrate binding.
+99	default	0.500000	0	30.3	Alizarin forms hydrogen bonds with residues involved in PGAM1 substrate binding.
+99	tiered	0.500000	0	41.1	Alizarin forms hydrogen bonds with residues involved in PGAM1 substrate binding.
+100	plain	1.000000	1	2.2	All hematopoietic stem cells segregate their chromosomes randomly.
+100	default	1.000000	1	30.0	All hematopoietic stem cells segregate their chromosomes randomly.
+100	tiered	1.000000	1	24.4	All hematopoietic stem cells segregate their chromosomes randomly.
+113	plain	1.000000	1	4.2	Angiotensin converting enzyme inhibitors are associated with increased risk for functional renal insufficiency.
+113	default	0.630930	0	61.8	Angiotensin converting enzyme inhibitors are associated with increased risk for functional renal insufficiency.
+113	tiered	0.630930	0	62.0	Angiotensin converting enzyme inhibitors are associated with increased risk for functional renal insufficiency.
+115	plain	1.000000	1	4.1	Anthrax spores can be disposed of easily after they are dispersed.
+115	default	1.000000	1	47.4	Anthrax spores can be disposed of easily after they are dispersed.
+115	tiered	1.000000	1	22.0	Anthrax spores can be disposed of easily after they are dispersed.
+118	plain	1.000000	1	3.9	Antibiotic induced alterations in the gut microbiome reduce resistance against Clostridium difficile
+118	default	1.000000	1	58.3	Antibiotic induced alterations in the gut microbiome reduce resistance against Clostridium difficile
+118	tiered	1.000000	1	24.4	Antibiotic induced alterations in the gut microbiome reduce resistance against Clostridium difficile
+124	plain	1.000000	1	4.9	Antiretroviral therapy reduces rates of tuberculosis across a broad range of CD4 strata.
+124	default	1.000000	1	23.1	Antiretroviral therapy reduces rates of tuberculosis across a broad range of CD4 strata.
+124	tiered	1.000000	1	42.3	Antiretroviral therapy reduces rates of tuberculosis across a broad range of CD4 strata.
+127	plain	0.630930	0	5.2	Arginine 90 in p150n is important for interaction with EB1.
+127	default	0.430677	0	24.0	Arginine 90 in p150n is important for interaction with EB1.
+127	tiered	0.430677	0	27.8	Arginine 90 in p150n is important for interaction with EB1.
+128	plain	0.500000	0	2.7	Arterioles have a larger lumen diameter than venules.
+128	default	1.000000	1	26.1	Arterioles have a larger lumen diameter than venules.
+128	tiered	1.000000	1	25.9	Arterioles have a larger lumen diameter than venules.
+129	plain	1.000000	1	4.1	Articles published in open access format are less likely to be cited than traditional journals.
+129	default	1.000000	1	23.1	Articles published in open access format are less likely to be cited than traditional journals.
+129	tiered	1.000000	1	27.6	Articles published in open access format are less likely to be cited than traditional journals.
+130	plain	1.000000	1	4.2	Articles published in open access format are more likely to be cited than traditional journals.
+130	default	1.000000	1	26.3	Articles published in open access format are more likely to be cited than traditional journals.
+130	tiered	1.000000	1	30.2	Articles published in open access format are more likely to be cited than traditional journals.
+132	plain	0.000000	0	3.5	Aspirin inhibits the production of PGE2.
+132	default	0.000000	0	22.2	Aspirin inhibits the production of PGE2.
+132	tiered	0.000000	0	26.0	Aspirin inhibits the production of PGE2.
+133	plain	0.339160	1	7.7	Assembly of invadopodia is triggered by focal generation of phosphatidylinositol-3,4-biphosphate and the activation of the nonreceptor tyrosine kinase Src.
+133	default	0.339160	1	26.7	Assembly of invadopodia is triggered by focal generation of phosphatidylinositol-3,4-biphosphate and the activation of the nonreceptor tyrosine kinase Src.
+133	tiered	0.339160	1	23.3	Assembly of invadopodia is triggered by focal generation of phosphatidylinositol-3,4-biphosphate and the activation of the nonreceptor tyrosine kinase Src.
+137	plain	1.000000	1	3.8	Asymptomatic visual impairment screening in elderly populations does not lead to improved vision.
+137	default	1.000000	1	21.6	Asymptomatic visual impairment screening in elderly populations does not lead to improved vision.
+137	tiered	1.000000	1	175.2	Asymptomatic visual impairment screening in elderly populations does not lead to improved vision.
+141	plain	0.877215	1	3.7	Auditory entrainment is strengthened when people see congruent visual and auditory information.
+141	default	1.000000	1	23.6	Auditory entrainment is strengthened when people see congruent visual and auditory information.
+141	tiered	1.000000	1	22.1	Auditory entrainment is strengthened when people see congruent visual and auditory information.
+142	plain	1.000000	1	5.9	Autologous transplantation of mesenchymal stem cells causes a higher rate of opportunistic infections than induction therapy with anti-interleukin-2 receptor antibodies.
+142	default	1.000000	1	30.7	Autologous transplantation of mesenchymal stem cells causes a higher rate of opportunistic infections than induction therapy with anti-interleukin-2 receptor antibodies.
+142	tiered	1.000000	1	34.5	Autologous transplantation of mesenchymal stem cells causes a higher rate of opportunistic infections than induction therapy with anti-interleukin-2 receptor antibodies.
+143	plain	1.000000	1	4.9	Autologous transplantation of mesenchymal stem cells causes fewer opportunistic infections than induction therapy with anti-interleukin-2 receptor antibodies.
+143	default	1.000000	1	32.2	Autologous transplantation of mesenchymal stem cells causes fewer opportunistic infections than induction therapy with anti-interleukin-2 receptor antibodies.
+143	tiered	1.000000	1	34.4	Autologous transplantation of mesenchymal stem cells causes fewer opportunistic infections than induction therapy with anti-interleukin-2 receptor antibodies.
+146	plain	1.000000	1	5.1	Autologous transplantation of mesenchymal stem cells has lower rates of rejection than induction therapy with anti-interleukin-2 receptor antibodies.
+146	default	1.000000	1	36.2	Autologous transplantation of mesenchymal stem cells has lower rates of rejection than induction therapy with anti-interleukin-2 receptor antibodies.
+146	tiered	1.000000	1	37.3	Autologous transplantation of mesenchymal stem cells has lower rates of rejection than induction therapy with anti-interleukin-2 receptor antibodies.
+148	plain	1.000000	1	2.9	Autophagy declines in aged organisms.
+148	default	1.000000	1	21.7	Autophagy declines in aged organisms.
+148	tiered	1.000000	1	21.8	Autophagy declines in aged organisms.
+163	plain	1.000000	1	3.0	Bariatric surgery has a positive impact on mental health.
+163	default	1.000000	1	21.6	Bariatric surgery has a positive impact on mental health.
+163	tiered	1.000000	1	22.0	Bariatric surgery has a positive impact on mental health.
+171	plain	1.000000	1	4.0	Basophils counteract disease development in patients with systemic lupus erythematosus (SLE).
+171	default	1.000000	1	26.1	Basophils counteract disease development in patients with systemic lupus erythematosus (SLE).
+171	tiered	1.000000	1	33.9	Basophils counteract disease development in patients with systemic lupus erythematosus (SLE).
+179	plain	0.698415	1	3.0	Birth-weight is positively associated with breast cancer.
+179	default	0.558508	1	30.3	Birth-weight is positively associated with breast cancer.
+179	tiered	0.529436	1	27.4	Birth-weight is positively associated with breast cancer.
+180	plain	1.000000	1	5.5	Blocking the interaction between TDP-43 and respiratory complex I proteins ND3 and ND6 leads to increased TDP-43-induced neuronal loss.
+180	default	1.000000	1	303.7	Blocking the interaction between TDP-43 and respiratory complex I proteins ND3 and ND6 leads to increased TDP-43-induced neuronal loss.
+180	tiered	1.000000	1	34.0	Blocking the interaction between TDP-43 and respiratory complex I proteins ND3 and ND6 leads to increased TDP-43-induced neuronal loss.
+183	plain	0.000000	0	2.7	Bone marrow cells contribute to adult macrophage compartments.
+183	default	0.000000	0	23.3	Bone marrow cells contribute to adult macrophage compartments.
+183	tiered	0.000000	0	24.3	Bone marrow cells contribute to adult macrophage compartments.
+185	plain	0.500000	0	3.2	Breast cancer development is determined exclusively by genetic factors.
+185	default	0.430677	0	23.1	Breast cancer development is determined exclusively by genetic factors.
+185	tiered	0.430677	0	24.4	Breast cancer development is determined exclusively by genetic factors.
+198	plain	1.000000	1	1.9	CCL19 is absent within dLNs.
+198	default	1.000000	1	21.1	CCL19 is absent within dLNs.
+198	tiered	1.000000	1	20.3	CCL19 is absent within dLNs.
+208	plain	1.000000	1	3.3	CHEK2 is not associated with breast cancer.
+208	default	1.000000	1	24.5	CHEK2 is not associated with breast cancer.
+208	tiered	1.000000	1	26.9	CHEK2 is not associated with breast cancer.
+212	plain	0.315465	0	2.8	CR is associated with higher methylation age.
+212	default	0.630930	0	25.3	CR is associated with higher methylation age.
+212	tiered	0.630930	0	147.4	CR is associated with higher methylation age.
+213	plain	0.356207	0	3.5	CRP is not predictive of postoperative mortality following Coronary Artery Bypass Graft (CABG) surgery.
+213	default	0.356207	0	22.4	CRP is not predictive of postoperative mortality following Coronary Artery Bypass Graft (CABG) surgery.
+213	tiered	0.356207	0	22.4	CRP is not predictive of postoperative mortality following Coronary Artery Bypass Graft (CABG) surgery.
+216	plain	1.000000	1	3.6	CX3CR1 on the Th2 cells impairs T cell survival
+216	default	1.000000	1	103.9	CX3CR1 on the Th2 cells impairs T cell survival
+216	tiered	1.000000	1	28.5	CX3CR1 on the Th2 cells impairs T cell survival
+217	plain	1.000000	1	14.1	CX3CR1 on the Th2 cells promotes T cell survival
+217	default	1.000000	1	28.5	CX3CR1 on the Th2 cells promotes T cell survival
+217	tiered	1.000000	1	32.4	CX3CR1 on the Th2 cells promotes T cell survival
+218	plain	1.000000	1	3.4	CX3CR1 on the Th2 cells promotes airway inflammation.
+218	default	1.000000	1	27.4	CX3CR1 on the Th2 cells promotes airway inflammation.
+218	tiered	1.000000	1	24.8	CX3CR1 on the Th2 cells promotes airway inflammation.
+219	plain	1.000000	1	3.3	CX3CR1 on the Th2 cells suppresses airway inflammation.
+219	default	1.000000	1	29.7	CX3CR1 on the Th2 cells suppresses airway inflammation.
+219	tiered	1.000000	1	27.2	CX3CR1 on the Th2 cells suppresses airway inflammation.
+230	plain	1.000000	1	6.8	Carriers of the alcohol aldehyde dehydrogenase deficiency mutation drink less that non-carries.
+230	default	1.000000	1	30.0	Carriers of the alcohol aldehyde dehydrogenase deficiency mutation drink less that non-carries.
+230	tiered	1.000000	1	62.2	Carriers of the alcohol aldehyde dehydrogenase deficiency mutation drink less that non-carries.
+232	plain	0.630930	0	6.1	Cataract and trachoma are the primary cause of blindness in Southern Sudan.
+232	default	0.630930	0	26.7	Cataract and trachoma are the primary cause of blindness in Southern Sudan.
+232	tiered	0.630930	0	23.5	Cataract and trachoma are the primary cause of blindness in Southern Sudan.
+233	plain	1.000000	1	4.5	Cell autonomous sex determination in somatic cells does not occur in Galliformes.
+233	default	1.000000	1	38.5	Cell autonomous sex determination in somatic cells does not occur in Galliformes.
+233	tiered	1.000000	1	87.0	Cell autonomous sex determination in somatic cells does not occur in Galliformes.
+236	plain	1.000000	1	4.2	Cell autonomous sex determination in somatic cells occurs in Passeriformes.
+236	default	1.000000	1	26.3	Cell autonomous sex determination in somatic cells occurs in Passeriformes.
+236	tiered	1.000000	1	27.1	Cell autonomous sex determination in somatic cells occurs in Passeriformes.
+237	plain	1.000000	1	4.7	Cells lacking clpC have a defect in sporulation efficiency in Bacillus subtilis.
+237	default	0.630930	0	29.3	Cells lacking clpC have a defect in sporulation efficiency in Bacillus subtilis.
+237	tiered	0.630930	0	25.4	Cells lacking clpC have a defect in sporulation efficiency in Bacillus subtilis.
+238	plain	0.000000	0	1.9	Cells undergoing methionine restriction may activate miRNAs.
+238	default	0.000000	0	38.3	Cells undergoing methionine restriction may activate miRNAs.
+238	tiered	0.000000	0	26.4	Cells undergoing methionine restriction may activate miRNAs.
+239	plain	0.000000	0	2.9	Cellular aging closely links to an older appearance.
+239	default	0.000000	0	28.1	Cellular aging closely links to an older appearance.
+239	tiered	0.000000	0	25.7	Cellular aging closely links to an older appearance.
+248	plain	1.000000	1	1.4	Chenodeosycholic acid treatment increases whole-body energy expenditure.
+248	default	1.000000	1	45.3	Chenodeosycholic acid treatment increases whole-body energy expenditure.
+248	tiered	1.000000	1	24.1	Chenodeosycholic acid treatment increases whole-body energy expenditure.
+249	plain	1.000000	1	1.4	Chenodeosycholic acid treatment reduces whole-body energy expenditure.
+249	default	0.630930	0	22.0	Chenodeosycholic acid treatment reduces whole-body energy expenditure.
+249	tiered	0.630930	0	21.7	Chenodeosycholic acid treatment reduces whole-body energy expenditure.
+261	plain	0.237198	0	40.7	Chronic aerobic exercise alters endothelial function, improving vasodilating mechanisms mediated by NO.
+261	default	0.306574	0	24.3	Chronic aerobic exercise alters endothelial function, improving vasodilating mechanisms mediated by NO.
+261	tiered	0.306574	0	22.8	Chronic aerobic exercise alters endothelial function, improving vasodilating mechanisms mediated by NO.
+268	plain	0.630930	0	1.1	Cold exposure increases BAT recruitment.
+268	default	1.000000	1	38.9	Cold exposure increases BAT recruitment.
+268	tiered	1.000000	1	24.5	Cold exposure increases BAT recruitment.
+269	plain	0.630930	0	1.0	Cold exposure reduces BAT recruitment.
+269	default	1.000000	1	21.0	Cold exposure reduces BAT recruitment.
+269	tiered	1.000000	1	25.4	Cold exposure reduces BAT recruitment.
+274	plain	1.000000	1	29.6	Combination nicotine replacement therapies with varenicline or bupropion lead to significantly higher long-term abstinence rates at 52 weeks than varenicline monotherapy.
+274	default	1.000000	1	28.8	Combination nicotine replacement therapies with varenicline or bupropion lead to significantly higher long-term abstinence rates at 52 weeks than varenicline monotherapy.
+274	tiered	1.000000	1	29.7	Combination nicotine replacement therapies with varenicline or bupropion lead to significantly higher long-term abstinence rates at 52 weeks than varenicline monotherapy.
+275	plain	0.469279	1	4.0	Combining phosphatidylinositide 3-kinase and MEK 1/2 inhibitors is effective at treating KRAS mutant tumors.
+275	default	0.469279	1	28.4	Combining phosphatidylinositide 3-kinase and MEK 1/2 inhibitors is effective at treating KRAS mutant tumors.
+275	tiered	0.469279	1	126.2	Combining phosphatidylinositide 3-kinase and MEK 1/2 inhibitors is effective at treating KRAS mutant tumors.
+279	plain	1.000000	1	3.8	Commelina yellow mottle virus' (ComYMV) genome consists of 7489 baise pairs.
+279	default	1.000000	1	23.6	Commelina yellow mottle virus' (ComYMV) genome consists of 7489 baise pairs.
+279	tiered	1.000000	1	21.4	Commelina yellow mottle virus' (ComYMV) genome consists of 7489 baise pairs.
+294	plain	0.500000	0	3.8	Crossover hot spots are not found within gene promoters in Saccharomyces cerevisiae.
+294	default	0.630930	0	29.4	Crossover hot spots are not found within gene promoters in Saccharomyces cerevisiae.
+294	tiered	0.630930	0	55.2	Crossover hot spots are not found within gene promoters in Saccharomyces cerevisiae.
+295	plain	1.000000	1	7.1	Crosstalk between dendritic cells (DCs) and innate lymphoid cells (ILCs) is important in the regulation of intestinal homeostasis.
+295	default	1.000000	1	30.6	Crosstalk between dendritic cells (DCs) and innate lymphoid cells (ILCs) is important in the regulation of intestinal homeostasis.
+295	tiered	1.000000	1	60.9	Crosstalk between dendritic cells (DCs) and innate lymphoid cells (ILCs) is important in the regulation of intestinal homeostasis.
+298	plain	1.000000	1	4.7	Cytochrome c is released from the mitochondrial intermembrane space to cytosol during apoptosis.
+298	default	0.500000	0	26.0	Cytochrome c is released from the mitochondrial intermembrane space to cytosol during apoptosis.
+298	tiered	0.500000	0	30.6	Cytochrome c is released from the mitochondrial intermembrane space to cytosol during apoptosis.
+300	plain	0.430677	0	6.3	Cytosolic proteins bind to iron-responsive elements on mRNAs coding for DMT1. Cytosolic proteins bind to iron-responsive elements on mRNAs coding for proteins involved in iron uptake.
+300	default	0.500000	0	97.4	Cytosolic proteins bind to iron-responsive elements on mRNAs coding for DMT1. Cytosolic proteins bind to iron-responsive elements on mRNAs coding for proteins involved in iron uptake.
+300	tiered	0.500000	0	28.3	Cytosolic proteins bind to iron-responsive elements on mRNAs coding for DMT1. Cytosolic proteins bind to iron-responsive elements on mRNAs coding for proteins involved in iron uptake.
+303	plain	0.500000	0	5.5	DMRT1 is a sex-determining gene that is epigenetically regulated by the MHM region.
+303	default	0.000000	0	33.4	DMRT1 is a sex-determining gene that is epigenetically regulated by the MHM region.
+303	tiered	0.000000	0	86.1	DMRT1 is a sex-determining gene that is epigenetically regulated by the MHM region.
+312	plain	0.315465	0	4.2	De novo assembly of sequence data has more specific contigs than unassembled sequence data.
+312	default	0.430677	0	90.8	De novo assembly of sequence data has more specific contigs than unassembled sequence data.
+312	tiered	0.430677	0	31.3	De novo assembly of sequence data has more specific contigs than unassembled sequence data.
+314	plain	0.500000	0	9.5	Deamination of cytidine to uridine on the minus strand of viral DNA results in catastrophic G-to-A mutations in the viral genome.
+314	default	0.000000	0	36.3	Deamination of cytidine to uridine on the minus strand of viral DNA results in catastrophic G-to-A mutations in the viral genome.
+314	tiered	0.000000	0	67.6	Deamination of cytidine to uridine on the minus strand of viral DNA results in catastrophic G-to-A mutations in the viral genome.
+324	plain	0.430677	0	1.5	Deleting Raptor reduces G-CSF levels.
+324	default	0.289065	0	24.0	Deleting Raptor reduces G-CSF levels.
+324	tiered	0.289065	0	21.2	Deleting Raptor reduces G-CSF levels.
+327	plain	1.000000	1	5.0	Deletion of αvβ8 does not result in a spontaneous inflammatory phenotype.
+327	default	1.000000	1	93.5	Deletion of αvβ8 does not result in a spontaneous inflammatory phenotype.
+327	tiered	1.000000	1	27.1	Deletion of αvβ8 does not result in a spontaneous inflammatory phenotype.
+338	plain	1.000000	1	3.1	Dexamethasone decreases risk of postoperative bleeding.
+338	default	1.000000	1	21.9	Dexamethasone decreases risk of postoperative bleeding.
+338	tiered	1.000000	1	88.9	Dexamethasone decreases risk of postoperative bleeding.
+343	plain	0.624051	0	5.9	Diabetic patients with acute coronary syndrome experience increased short-term and long-term risk for bleeding events.
+343	default	0.693426	0	35.5	Diabetic patients with acute coronary syndrome experience increased short-term and long-term risk for bleeding events.
+343	tiered	0.693426	0	127.3	Diabetic patients with acute coronary syndrome experience increased short-term and long-term risk for bleeding events.
+350	plain	1.000000	1	5.3	Discrimination between the initiator and elongation tRNAs depends on the translation initiation factor IF3.
+350	default	0.630930	0	35.3	Discrimination between the initiator and elongation tRNAs depends on the translation initiation factor IF3.
+350	tiered	0.630930	0	26.3	Discrimination between the initiator and elongation tRNAs depends on the translation initiation factor IF3.
+354	plain	1.000000	1	4.8	Downregulation and mislocalization of Scribble prevents cell transformation and mammary tumorigenesis.
+354	default	1.000000	1	376.2	Downregulation and mislocalization of Scribble prevents cell transformation and mammary tumorigenesis.
+354	tiered	1.000000	1	26.0	Downregulation and mislocalization of Scribble prevents cell transformation and mammary tumorigenesis.
+362	plain	1.000000	1	6.4	During the primary early antibody response activated B cells migrate toward the inner-and outer paracortical areas where oxysterol accumulation is generated by stromal cells.
+362	default	1.000000	1	37.2	During the primary early antibody response activated B cells migrate toward the inner-and outer paracortical areas where oxysterol accumulation is generated by stromal cells.
+362	tiered	1.000000	1	39.6	During the primary early antibody response activated B cells migrate toward the inner-and outer paracortical areas where oxysterol accumulation is generated by stromal cells.
+380	plain	1.000000	1	5.1	Enhanced early production of inflammatory chemokines improves viral control in the lung.
+380	default	1.000000	1	30.5	Enhanced early production of inflammatory chemokines improves viral control in the lung.
+380	tiered	1.000000	1	28.1	Enhanced early production of inflammatory chemokines improves viral control in the lung.
+384	plain	0.000000	0	4.5	Epidemiological disease burden from noncommunicable diseases is more prevalent in low economic settings.
+384	default	0.430677	0	31.7	Epidemiological disease burden from noncommunicable diseases is more prevalent in low economic settings.
+384	tiered	0.430677	0	34.2	Epidemiological disease burden from noncommunicable diseases is more prevalent in low economic settings.
+385	plain	0.237198	0	4.4	Epigenetic modulating agents (EMAs) modulate antitumor immune response in a cancer model system.
+385	default	0.605260	0	27.3	Epigenetic modulating agents (EMAs) modulate antitumor immune response in a cancer model system.
+385	tiered	0.605260	0	26.8	Epigenetic modulating agents (EMAs) modulate antitumor immune response in a cancer model system.
+386	plain	1.000000	1	5.0	Errors in peripheral IV drug administration are most common during bolus administration and multiple-step medicine preparations.
+386	default	1.000000	1	27.1	Errors in peripheral IV drug administration are most common during bolus administration and multiple-step medicine preparations.
+386	tiered	1.000000	1	27.4	Errors in peripheral IV drug administration are most common during bolus administration and multiple-step medicine preparations.
+388	plain	0.430677	0	5.2	Ethanol stress decreases the expression of IBP in bacteria.
+388	default	0.356207	0	25.0	Ethanol stress decreases the expression of IBP in bacteria.
+388	tiered	0.356207	0	29.5	Ethanol stress decreases the expression of IBP in bacteria.
+399	plain	1.000000	1	3.9	Exposure to fine particulate air pollution is relate to anxiety prevalence.
+399	default	1.000000	1	26.4	Exposure to fine particulate air pollution is relate to anxiety prevalence.
+399	tiered	1.000000	1	27.7	Exposure to fine particulate air pollution is relate to anxiety prevalence.
+410	plain	1.000000	1	4.7	Febrile seizures increase the threshold for development of epilepsy.
+410	default	1.000000	1	31.5	Febrile seizures increase the threshold for development of epilepsy.
+410	tiered	1.000000	1	26.2	Febrile seizures increase the threshold for development of epilepsy.
+411	plain	1.000000	1	4.8	Febrile seizures reduce the threshold for development of epilepsy.
+411	default	1.000000	1	21.9	Febrile seizures reduce the threshold for development of epilepsy.
+411	tiered	1.000000	1	30.0	Febrile seizures reduce the threshold for development of epilepsy.
+415	plain	0.386853	0	5.5	Female carriers of the Apolipoprotein E4 (APOE4) allele have increased risk for dementia.
+415	default	0.430677	0	29.1	Female carriers of the Apolipoprotein E4 (APOE4) allele have increased risk for dementia.
+415	tiered	0.430677	0	29.6	Female carriers of the Apolipoprotein E4 (APOE4) allele have increased risk for dementia.
+421	plain	0.000000	0	3.9	Flexible molecules experience greater steric hindrance in the tumor microenviroment than rigid molecules.
+421	default	0.000000	0	31.9	Flexible molecules experience greater steric hindrance in the tumor microenviroment than rigid molecules.
+421	tiered	0.000000	0	22.7	Flexible molecules experience greater steric hindrance in the tumor microenviroment than rigid molecules.
+431	plain	0.000000	0	4.5	FoxO3a activation in neuronal death is mediated by reactive oxygen species (ROS).
+431	default	0.000000	0	31.4	FoxO3a activation in neuronal death is mediated by reactive oxygen species (ROS).
+431	tiered	0.000000	0	29.7	FoxO3a activation in neuronal death is mediated by reactive oxygen species (ROS).
+436	plain	1.000000	1	4.6	Free histones are degraded by a Rad53-dependent mechanism once DNA has been replicated.
+436	default	1.000000	1	25.0	Free histones are degraded by a Rad53-dependent mechanism once DNA has been replicated.
+436	tiered	1.000000	1	27.0	Free histones are degraded by a Rad53-dependent mechanism once DNA has been replicated.
+437	plain	0.000000	0	7.9	Functional consequences of genomic alterations due to Myelodysplastic syndrome (MDS) are poorly understood due to the lack of an animal model.
+437	default	0.000000	0	31.6	Functional consequences of genomic alterations due to Myelodysplastic syndrome (MDS) are poorly understood due to the lack of an animal model.
+437	tiered	0.000000	0	28.7	Functional consequences of genomic alterations due to Myelodysplastic syndrome (MDS) are poorly understood due to the lack of an animal model.
+439	plain	0.630930	0	4.9	Fz/PCP-dependent Pk localizes to the anterior membrane of neuroectoderm cells during zebrafish neuralation
+439	default	0.630930	0	24.4	Fz/PCP-dependent Pk localizes to the anterior membrane of neuroectoderm cells during zebrafish neuralation
+439	tiered	0.630930	0	28.7	Fz/PCP-dependent Pk localizes to the anterior membrane of neuroectoderm cells during zebrafish neuralation
+440	plain	0.630930	0	5.1	Fz/PCP-dependent Pk localizes to the anterior membrane of notochord cells during zebrafish neuralation.
+440	default	0.630930	0	32.8	Fz/PCP-dependent Pk localizes to the anterior membrane of notochord cells during zebrafish neuralation.
+440	tiered	0.630930	0	34.3	Fz/PCP-dependent Pk localizes to the anterior membrane of notochord cells during zebrafish neuralation.
+443	plain	1.000000	1	3.6	GATA-3 is important for hematopoietic stem cell (HSC) function.
+443	default	1.000000	1	27.0	GATA-3 is important for hematopoietic stem cell (HSC) function.
+443	tiered	1.000000	1	30.1	GATA-3 is important for hematopoietic stem cell (HSC) function.
+452	plain	0.204382	0	2.7	Gene expression does not vary appreciably across genetically identical cells.
+452	default	0.000000	0	24.5	Gene expression does not vary appreciably across genetically identical cells.
+452	tiered	0.000000	0	32.9	Gene expression does not vary appreciably across genetically identical cells.
+475	plain	0.000000	0	20.0	Glycolysis is one of the primary glycometabolic pathways in cells.
+475	default	0.000000	0	23.6	Glycolysis is one of the primary glycometabolic pathways in cells.
+475	tiered	0.000000	0	30.8	Glycolysis is one of the primary glycometabolic pathways in cells.
+478	plain	1.000000	1	8.6	Golli-deficient T-cells prefer to differentiate into an anergic phenotype in the adaptive immune response when there are increased levels of Ca2+ in the cytosol.
+478	default	0.630930	0	55.6	Golli-deficient T-cells prefer to differentiate into an anergic phenotype in the adaptive immune response when there are increased levels of Ca2+ in the cytosol.
+478	tiered	0.630930	0	36.8	Golli-deficient T-cells prefer to differentiate into an anergic phenotype in the adaptive immune response when there are increased levels of Ca2+ in the cytosol.
+491	plain	1.000000	1	6.1	HNF4A mutations can cause diabetes in mutant carriers by the age of 14 years
+491	default	0.500000	0	36.7	HNF4A mutations can cause diabetes in mutant carriers by the age of 14 years
+491	tiered	0.500000	0	28.7	HNF4A mutations can cause diabetes in mutant carriers by the age of 14 years
+501	plain	1.000000	1	3.3	Headaches are not correlated with cognitive impairment.
+501	default	0.356207	0	33.8	Headaches are not correlated with cognitive impairment.
+501	tiered	0.356207	0	31.2	Headaches are not correlated with cognitive impairment.
+502	plain	0.000000	0	44.7	Healthcare delivery efficiency in crowded delivery centers is impaired by improving structural, logistical, and interpersonal elements.
+502	default	0.000000	0	27.3	Healthcare delivery efficiency in crowded delivery centers is impaired by improving structural, logistical, and interpersonal elements.
+502	tiered	0.000000	0	27.1	Healthcare delivery efficiency in crowded delivery centers is impaired by improving structural, logistical, and interpersonal elements.
+507	plain	1.000000	1	4.6	Helminths interfere with immune system control of macrophages activated by IL-4 favor Mycobacterium tuberculosis replication.
+507	default	0.630930	0	30.0	Helminths interfere with immune system control of macrophages activated by IL-4 favor Mycobacterium tuberculosis replication.
+507	tiered	0.630930	0	33.6	Helminths interfere with immune system control of macrophages activated by IL-4 favor Mycobacterium tuberculosis replication.
+508	plain	0.000000	0	4.6	Hematopoietic Stem Cell purification reaches purity rate of up to 50%.
+508	default	0.000000	0	64.9	Hematopoietic Stem Cell purification reaches purity rate of up to 50%.
+508	tiered	0.000000	0	24.5	Hematopoietic Stem Cell purification reaches purity rate of up to 50%.
+513	plain	1.000000	1	1.8	High cardiopulmonary fitness causes increased mortality rate.
+513	default	0.630930	0	24.6	High cardiopulmonary fitness causes increased mortality rate.
+513	tiered	0.630930	0	26.1	High cardiopulmonary fitness causes increased mortality rate.
+514	plain	0.000000	0	5.9	High dietary calcium intakes are unnecessary for prevention of secondary hyperparathyroidism in subjects with 25(OH)D levels above 75 nmol/liter.
+514	default	0.315465	0	32.9	High dietary calcium intakes are unnecessary for prevention of secondary hyperparathyroidism in subjects with 25(OH)D levels above 75 nmol/liter.
+514	tiered	0.315465	0	32.8	High dietary calcium intakes are unnecessary for prevention of secondary hyperparathyroidism in subjects with 25(OH)D levels above 75 nmol/liter.
+516	plain	1.000000	1	5.9	High levels of CRP reduces the risk of exacerbations in chronic obstructive pulmonary disease (COPD).
+516	default	1.000000	1	33.7	High levels of CRP reduces the risk of exacerbations in chronic obstructive pulmonary disease (COPD).
+516	tiered	1.000000	1	29.7	High levels of CRP reduces the risk of exacerbations in chronic obstructive pulmonary disease (COPD).
+517	plain	0.000000	0	4.1	High levels of copeptin decrease risk of diabetes.
+517	default	0.000000	0	24.2	High levels of copeptin decrease risk of diabetes.
+517	tiered	0.000000	0	27.4	High levels of copeptin decrease risk of diabetes.
+521	plain	1.000000	1	6.0	High-sensitivity cardiac troponin T (HSCT-T) dosage may not be diagnostic if the onset of symptoms occurs less than 3 hours before acute myocardial injury (AMI).
+521	default	1.000000	1	33.6	High-sensitivity cardiac troponin T (HSCT-T) dosage may not be diagnostic if the onset of symptoms occurs less than 3 hours before acute myocardial injury (AMI).
+521	tiered	1.000000	1	34.9	High-sensitivity cardiac troponin T (HSCT-T) dosage may not be diagnostic if the onset of symptoms occurs less than 3 hours before acute myocardial injury (AMI).
+525	plain	1.000000	1	18.6	Histone demethylase recruitment and a transient decrease in histone methylation is necessary for ligand-dependent induction of transcription by nuclear receptors.
+525	default	1.000000	1	30.4	Histone demethylase recruitment and a transient decrease in histone methylation is necessary for ligand-dependent induction of transcription by nuclear receptors.
+525	tiered	1.000000	1	29.7	Histone demethylase recruitment and a transient decrease in histone methylation is necessary for ligand-dependent induction of transcription by nuclear receptors.
+527	plain	0.630930	0	5.1	Homozygous deletion of murine Sbds gene from osterix-expressing mesenchymal stem and progenitor cells (MPCs) prevents oxidative stress.
+527	default	1.000000	1	31.8	Homozygous deletion of murine Sbds gene from osterix-expressing mesenchymal stem and progenitor cells (MPCs) prevents oxidative stress.
+527	tiered	1.000000	1	30.7	Homozygous deletion of murine Sbds gene from osterix-expressing mesenchymal stem and progenitor cells (MPCs) prevents oxidative stress.
+528	plain	1.000000	1	4.5	Human T-lymphotropic virus type-I-associated myelopathy / tropical spastic paraparesis (HAM/TSP) patients produce Immunoglobulin G (IgG) antibodies which cross-react with an immunodominant epitope in Tax.
+528	default	1.000000	1	33.7	Human T-lymphotropic virus type-I-associated myelopathy / tropical spastic paraparesis (HAM/TSP) patients produce Immunoglobulin G (IgG) antibodies which cross-react with an immunodominant epitope in Tax.
+528	tiered	1.000000	1	41.2	Human T-lymphotropic virus type-I-associated myelopathy / tropical spastic paraparesis (HAM/TSP) patients produce Immunoglobulin G (IgG) antibodies which cross-react with an immunodominant epitope in Tax.
+532	plain	1.000000	1	3.3	Hyperfibrinogenemia decreases rates of femoropopliteal bypass thrombosis.
+532	default	1.000000	1	22.1	Hyperfibrinogenemia decreases rates of femoropopliteal bypass thrombosis.
+532	tiered	1.000000	1	23.9	Hyperfibrinogenemia decreases rates of femoropopliteal bypass thrombosis.
+533	plain	1.000000	1	3.1	Hyperfibrinogenemia increases rates of femoropopliteal bypass thrombosis.
+533	default	1.000000	1	28.5	Hyperfibrinogenemia increases rates of femoropopliteal bypass thrombosis.
+533	tiered	1.000000	1	22.3	Hyperfibrinogenemia increases rates of femoropopliteal bypass thrombosis.
+535	plain	0.000000	0	3.8	Hypertension is frequently observed in type 1 diabetes patients.
+535	default	0.000000	0	24.2	Hypertension is frequently observed in type 1 diabetes patients.
+535	tiered	0.000000	0	30.8	Hypertension is frequently observed in type 1 diabetes patients.
+536	plain	1.000000	1	3.2	Hypocretin neurones induce panicprone state in rats.
+536	default	0.630930	0	26.7	Hypocretin neurones induce panicprone state in rats.
+536	tiered	0.630930	0	26.0	Hypocretin neurones induce panicprone state in rats.
+539	plain	1.000000	1	4.0	Hypoglycemia increases the risk of dementia.
+539	default	1.000000	1	24.9	Hypoglycemia increases the risk of dementia.
+539	tiered	1.000000	1	24.2	Hypoglycemia increases the risk of dementia.
+540	plain	0.184576	0	3.2	Hypothalamic glutamate neurotransmission is crucial to energy balance.
+540	default	0.184576	0	26.9	Hypothalamic glutamate neurotransmission is crucial to energy balance.
+540	tiered	0.184576	0	25.8	Hypothalamic glutamate neurotransmission is crucial to energy balance.
+544	plain	0.000000	0	2.9	IFIT1 restricts viral replication by sequestrating mis-capped viral RNAs.
+544	default	0.000000	0	31.5	IFIT1 restricts viral replication by sequestrating mis-capped viral RNAs.
+544	tiered	0.000000	0	22.1	IFIT1 restricts viral replication by sequestrating mis-capped viral RNAs.
+549	plain	1.000000	1	1.8	IRG1 has antiviral effects against neurotropic viruses.
+549	default	1.000000	1	22.3	IRG1 has antiviral effects against neurotropic viruses.
+549	tiered	1.000000	1	22.4	IRG1 has antiviral effects against neurotropic viruses.
+551	plain	0.356207	0	9.6	ITAM phosphorylation prevents the transfer of the T cell receptor (TCR) signal from the echo-domain to the cytoplasmic tail of the T cell receptor (TCR).
+551	default	0.301030	0	34.1	ITAM phosphorylation prevents the transfer of the T cell receptor (TCR) signal from the echo-domain to the cytoplasmic tail of the T cell receptor (TCR).
+551	tiered	0.301030	0	33.7	ITAM phosphorylation prevents the transfer of the T cell receptor (TCR) signal from the echo-domain to the cytoplasmic tail of the T cell receptor (TCR).
+552	plain	1.000000	1	17.0	IgA plasma cells that are specific for transglutaminase 2 accumulate in the duodenal mucosa on commencement of a gluten-free diet.
+552	default	1.000000	1	33.3	IgA plasma cells that are specific for transglutaminase 2 accumulate in the duodenal mucosa on commencement of a gluten-free diet.
+552	tiered	1.000000	1	36.3	IgA plasma cells that are specific for transglutaminase 2 accumulate in the duodenal mucosa on commencement of a gluten-free diet.
+554	plain	0.315465	0	4.1	Immune complex triggered cell death leads to extracellular release of neutrophil protein HMGB1.
+554	default	0.315465	0	29.5	Immune complex triggered cell death leads to extracellular release of neutrophil protein HMGB1.
+554	tiered	0.315465	0	37.3	Immune complex triggered cell death leads to extracellular release of neutrophil protein HMGB1.
+560	plain	0.000000	0	7.3	Immune responses result in the development of inflammatory Th17 cells and anti-inflammatory iTregs.
+560	default	0.000000	0	39.3	Immune responses result in the development of inflammatory Th17 cells and anti-inflammatory iTregs.
+560	tiered	0.000000	0	31.1	Immune responses result in the development of inflammatory Th17 cells and anti-inflammatory iTregs.
+569	plain	1.000000	1	3.9	In adult tissue, most T cells are memory T cells.
+569	default	0.333333	0	30.6	In adult tissue, most T cells are memory T cells.
+569	tiered	0.333333	0	37.8	In adult tissue, most T cells are memory T cells.
+575	plain	0.289065	0	5.4	In domesticated populations of Saccharomyces cerevisiae, whole chromosome aneuploidy is very uncommon.
+575	default	0.430677	0	35.8	In domesticated populations of Saccharomyces cerevisiae, whole chromosome aneuploidy is very uncommon.
+575	tiered	0.430677	0	41.5	In domesticated populations of Saccharomyces cerevisiae, whole chromosome aneuploidy is very uncommon.
+577	plain	0.000000	0	6.7	In mice, P. chabaudi parasites are able to proliferate faster early in infection when inoculated at lower numbers than when inoculated at high numbers.
+577	default	0.000000	0	72.8	In mice, P. chabaudi parasites are able to proliferate faster early in infection when inoculated at lower numbers than when inoculated at high numbers.
+577	tiered	0.000000	0	39.1	In mice, P. chabaudi parasites are able to proliferate faster early in infection when inoculated at lower numbers than when inoculated at high numbers.
+578	plain	1.000000	1	6.0	In mouse models, the loss of CSF1R facilitates MOZ-TIF2-induced leuekmogenesis.
+578	default	0.000000	0	36.3	In mouse models, the loss of CSF1R facilitates MOZ-TIF2-induced leuekmogenesis.
+578	tiered	0.000000	0	38.7	In mouse models, the loss of CSF1R facilitates MOZ-TIF2-induced leuekmogenesis.
+587	plain	0.386853	0	11.2	In transgenic mice harboring green florescent protein under the control of the Sox2 promoter, less than ten percent of the cells with green florescent colocalize with cell proliferation markers.
+587	default	0.630930	0	40.7	In transgenic mice harboring green florescent protein under the control of the Sox2 promoter, less than ten percent of the cells with green florescent colocalize with cell proliferation markers.
+587	tiered	0.630930	0	48.9	In transgenic mice harboring green florescent protein under the control of the Sox2 promoter, less than ten percent of the cells with green florescent colocalize with cell proliferation markers.
+589	plain	1.000000	1	7.3	In young and middle-aged adults, current or remote uses of ADHD medications do not increase the risk of serious cardiovascular events.
+589	default	1.000000	1	34.7	In young and middle-aged adults, current or remote uses of ADHD medications do not increase the risk of serious cardiovascular events.
+589	tiered	1.000000	1	36.8	In young and middle-aged adults, current or remote uses of ADHD medications do not increase the risk of serious cardiovascular events.
+593	plain	1.000000	1	5.4	Incidence of heart failure decreased by 10% in women since 1979.
+593	default	1.000000	1	34.1	Incidence of heart failure decreased by 10% in women since 1979.
+593	tiered	1.000000	1	33.3	Incidence of heart failure decreased by 10% in women since 1979.
+597	plain	0.921787	1	4.0	Incidence rates of cervical cancer have decreased.
+597	default	0.885460	1	29.0	Incidence rates of cervical cancer have decreased.
+597	tiered	0.885460	1	29.2	Incidence rates of cervical cancer have decreased.
+598	plain	0.315465	0	5.0	Incidence rates of cervical cancer have increased due to nationwide screening programs based primarily on cytology to detect uterine cervical cancer.
+598	default	0.500000	0	29.1	Incidence rates of cervical cancer have increased due to nationwide screening programs based primarily on cytology to detect uterine cervical cancer.
+598	tiered	0.500000	0	38.1	Incidence rates of cervical cancer have increased due to nationwide screening programs based primarily on cytology to detect uterine cervical cancer.
+613	plain	1.000000	1	2.0	Increased microtubule acetylation repairs LRRK2 Roc-COR domain mutation induced locomotor deficits.
+613	default	1.000000	1	26.1	Increased microtubule acetylation repairs LRRK2 Roc-COR domain mutation induced locomotor deficits.
+613	tiered	1.000000	1	30.3	Increased microtubule acetylation repairs LRRK2 Roc-COR domain mutation induced locomotor deficits.
+619	plain	0.000000	0	6.0	Increased vessel density along with a reduction in fibrosis decreases the efficacy of chemotherapy treatments.
+619	default	0.000000	0	32.5	Increased vessel density along with a reduction in fibrosis decreases the efficacy of chemotherapy treatments.
+619	tiered	0.000000	0	40.6	Increased vessel density along with a reduction in fibrosis decreases the efficacy of chemotherapy treatments.
+623	plain	0.000000	0	5.0	Individuals with low serum vitamin D concentrations have increased risk of multiple sclerosis.
+623	default	0.000000	0	36.3	Individuals with low serum vitamin D concentrations have increased risk of multiple sclerosis.
+623	tiered	0.000000	0	38.6	Individuals with low serum vitamin D concentrations have increased risk of multiple sclerosis.
+628	plain	1.000000	1	6.5	Infection of human T-cell lymphotropic virus type 1 is most frequent in individuals of African origin.
+628	default	0.315465	0	32.3	Infection of human T-cell lymphotropic virus type 1 is most frequent in individuals of African origin.
+628	tiered	0.315465	0	39.0	Infection of human T-cell lymphotropic virus type 1 is most frequent in individuals of African origin.
+636	plain	1.000000	1	2.3	Inositol lipid 3-phosphatase PTEN converts Ptdlns(3,4)P 2 into phosphatidylinositol 4-phosphate.
+636	default	1.000000	1	25.1	Inositol lipid 3-phosphatase PTEN converts Ptdlns(3,4)P 2 into phosphatidylinositol 4-phosphate.
+636	tiered	1.000000	1	26.6	Inositol lipid 3-phosphatase PTEN converts Ptdlns(3,4)P 2 into phosphatidylinositol 4-phosphate.
+637	plain	0.333333	0	4.0	Input from  mental and physical health care professionals is effective at decreasing homelessness.
+637	default	0.500000	0	26.0	Input from  mental and physical health care professionals is effective at decreasing homelessness.
+637	tiered	0.500000	0	37.3	Input from  mental and physical health care professionals is effective at decreasing homelessness.
+641	plain	0.613147	1	2.9	Insomnia can be effectively treated with cognitive behavioral therapy.
+641	default	0.613147	1	31.4	Insomnia can be effectively treated with cognitive behavioral therapy.
+641	tiered	0.613147	1	33.3	Insomnia can be effectively treated with cognitive behavioral therapy.
+644	plain	0.630930	0	3.4	Insulin increases risk of severe kidney failure.
+644	default	1.000000	1	35.0	Insulin increases risk of severe kidney failure.
+644	tiered	1.000000	1	26.2	Insulin increases risk of severe kidney failure.
+649	plain	1.000000	1	11.4	Integrating classroom-based collaborative learning with Web-based collaborative learning leads to subpar class performance
+649	default	0.386853	0	24.1	Integrating classroom-based collaborative learning with Web-based collaborative learning leads to subpar class performance
+649	tiered	0.386853	0	32.2	Integrating classroom-based collaborative learning with Web-based collaborative learning leads to subpar class performance
+659	plain	1.000000	1	3.2	Ivermectin is used to treat lymphatic filariasis.
+659	default	0.630930	0	25.7	Ivermectin is used to treat lymphatic filariasis.
+659	tiered	0.630930	0	32.4	Ivermectin is used to treat lymphatic filariasis.
+660	plain	0.386853	0	3.1	Ivermectin is used to treat onchocerciasis.
+660	default	0.000000	0	33.9	Ivermectin is used to treat onchocerciasis.
+660	tiered	0.000000	0	36.9	Ivermectin is used to treat onchocerciasis.
+674	plain	1.000000	1	5.2	LDL cholesterol has no involvement in the development of cardiovascular disease.
+674	default	1.000000	1	26.4	LDL cholesterol has no involvement in the development of cardiovascular disease.
+674	tiered	1.000000	1	26.7	LDL cholesterol has no involvement in the development of cardiovascular disease.
+684	plain	1.000000	1	4.6	Lack of clpC does not affect sporulation efficiency in Bacillus subtilis cells.
+684	default	1.000000	1	30.1	Lack of clpC does not affect sporulation efficiency in Bacillus subtilis cells.
+684	tiered	1.000000	1	26.0	Lack of clpC does not affect sporulation efficiency in Bacillus subtilis cells.
+690	plain	0.000000	0	8.1	Less than 10% of the gabonese children with Schimmelpenning-Feuerstein-Mims syndrome (SFM) had a plasma lactate of more than 5mmol/L.
+690	default	0.630930	0	35.9	Less than 10% of the gabonese children with Schimmelpenning-Feuerstein-Mims syndrome (SFM) had a plasma lactate of more than 5mmol/L.
+690	tiered	0.630930	0	35.8	Less than 10% of the gabonese children with Schimmelpenning-Feuerstein-Mims syndrome (SFM) had a plasma lactate of more than 5mmol/L.
+691	plain	1.000000	1	4.1	Leukemia associated Rho guanine nucleotide-exchange factor represses RhoA in response to SRC activation.
+691	default	1.000000	1	28.8	Leukemia associated Rho guanine nucleotide-exchange factor represses RhoA in response to SRC activation.
+691	tiered	1.000000	1	32.9	Leukemia associated Rho guanine nucleotide-exchange factor represses RhoA in response to SRC activation.
+692	plain	0.630930	0	3.6	Leuko-increased blood increases infectious complications in red blood cell transfusion.
+692	default	1.000000	1	23.4	Leuko-increased blood increases infectious complications in red blood cell transfusion.
+692	tiered	1.000000	1	24.6	Leuko-increased blood increases infectious complications in red blood cell transfusion.
+693	plain	1.000000	1	3.3	Leuko-reduced blood reduces infectious complications in red blood cell transfusion.
+693	default	1.000000	1	24.4	Leuko-reduced blood reduces infectious complications in red blood cell transfusion.
+693	tiered	1.000000	1	29.9	Leuko-reduced blood reduces infectious complications in red blood cell transfusion.
+700	plain	0.630930	0	5.5	Localization of PIN1 in the Arabidopsis embryo does not require VPS9a
+700	default	0.500000	0	27.5	Localization of PIN1 in the Arabidopsis embryo does not require VPS9a
+700	tiered	0.500000	0	28.0	Localization of PIN1 in the Arabidopsis embryo does not require VPS9a
+702	plain	0.500000	0	6.2	Localization of PIN1 in the roots of Arabidopsis does not require VPS9a
+702	default	0.430677	0	32.6	Localization of PIN1 in the roots of Arabidopsis does not require VPS9a
+702	tiered	0.430677	0	30.7	Localization of PIN1 in the roots of Arabidopsis does not require VPS9a
+715	plain	0.000000	0	7.0	Low expression of miR7a does represses target genes and exerts a biological function in ovaries.
+715	default	0.000000	0	25.4	Low expression of miR7a does represses target genes and exerts a biological function in ovaries.
+715	tiered	0.000000	0	45.9	Low expression of miR7a does represses target genes and exerts a biological function in ovaries.
+716	plain	0.000000	0	5.7	Low expression of miR7a exerts a biological function in testis.
+716	default	0.000000	0	33.5	Low expression of miR7a exerts a biological function in testis.
+716	tiered	0.000000	0	38.2	Low expression of miR7a exerts a biological function in testis.
+718	plain	0.500000	0	3.4	Low nucleosome occupancy correlates with low methylation levels across species.
+718	default	0.333333	0	38.0	Low nucleosome occupancy correlates with low methylation levels across species.
+718	tiered	0.333333	0	34.9	Low nucleosome occupancy correlates with low methylation levels across species.
+721	plain	1.000000	1	4.7	Lupus-prone mice infected with curliproducing bacteria have higher autoantibody titers compared to controls.
+721	default	1.000000	1	37.2	Lupus-prone mice infected with curliproducing bacteria have higher autoantibody titers compared to controls.
+721	tiered	1.000000	1	41.8	Lupus-prone mice infected with curliproducing bacteria have higher autoantibody titers compared to controls.
+723	plain	1.000000	1	5.7	Ly49Q directs the organization of neutrophil migration to inflammation sites by regulating membrane raft functions.
+723	default	1.000000	1	26.2	Ly49Q directs the organization of neutrophil migration to inflammation sites by regulating membrane raft functions.
+723	tiered	1.000000	1	32.2	Ly49Q directs the organization of neutrophil migration to inflammation sites by regulating membrane raft functions.
+727	plain	0.630930	0	4.9	Ly6C hi monocytes have a lower inflammatory capacity compared to their Ly6C lo counterparts.
+727	default	0.301030	0	36.3	Ly6C hi monocytes have a lower inflammatory capacity compared to their Ly6C lo counterparts.
+727	tiered	0.301030	0	28.4	Ly6C hi monocytes have a lower inflammatory capacity compared to their Ly6C lo counterparts.
+728	plain	0.605260	0	3.6	Ly6C hi monocytes have a lower inflammatory capacity than Ly6C lo monocytes.
+728	default	0.790386	1	36.5	Ly6C hi monocytes have a lower inflammatory capacity than Ly6C lo monocytes.
+728	tiered	0.790386	1	34.7	Ly6C hi monocytes have a lower inflammatory capacity than Ly6C lo monocytes.
+729	plain	0.630930	0	6.3	Lymphadenopathy is observed in knockin mouse lacking the SHP-2 MAPK pathway.
+729	default	0.289065	0	30.6	Lymphadenopathy is observed in knockin mouse lacking the SHP-2 MAPK pathway.
+729	tiered	0.289065	0	33.3	Lymphadenopathy is observed in knockin mouse lacking the SHP-2 MAPK pathway.
+742	plain	1.000000	1	8.9	Macrolides have no protective effect against myocardial infarction.
+742	default	1.000000	1	33.7	Macrolides have no protective effect against myocardial infarction.
+742	tiered	1.000000	1	76.4	Macrolides have no protective effect against myocardial infarction.
+743	plain	1.000000	1	2.0	Macrolides protect against myocardial infarction.
+743	default	1.000000	1	31.9	Macrolides protect against myocardial infarction.
+743	tiered	1.000000	1	35.5	Macrolides protect against myocardial infarction.
+744	plain	1.000000	1	8.3	Macropinocytosis contributes to a cell's supply of amino acids via the intracellular uptake of protein.
+744	default	0.630930	0	40.8	Macropinocytosis contributes to a cell's supply of amino acids via the intracellular uptake of protein.
+744	tiered	0.630930	0	38.5	Macropinocytosis contributes to a cell's supply of amino acids via the intracellular uptake of protein.
+756	plain	0.301030	0	5.7	Many proteins in human cells can be post-translationally modified at lysine residues via acetylation.
+756	default	0.000000	0	37.7	Many proteins in human cells can be post-translationally modified at lysine residues via acetylation.
+756	tiered	0.000000	0	43.3	Many proteins in human cells can be post-translationally modified at lysine residues via acetylation.
+759	plain	1.000000	1	6.4	Mathematical models predict that using Artemisinin-based combination therapy over nongametocytocidal drugs have a dramatic impact in reducing malaria transmission.
+759	default	1.000000	1	57.6	Mathematical models predict that using Artemisinin-based combination therapy over nongametocytocidal drugs have a dramatic impact in reducing malaria transmission.
+759	tiered	1.000000	1	42.4	Mathematical models predict that using Artemisinin-based combination therapy over nongametocytocidal drugs have a dramatic impact in reducing malaria transmission.
+768	plain	0.386853	0	4.4	Mercaptopurine is anabolized into the inactive methylmercaptopurine by thiopurine methyltrasnferase (TPMT).
+768	default	0.333333	0	37.1	Mercaptopurine is anabolized into the inactive methylmercaptopurine by thiopurine methyltrasnferase (TPMT).
+768	tiered	0.333333	0	33.2	Mercaptopurine is anabolized into the inactive methylmercaptopurine by thiopurine methyltrasnferase (TPMT).
+770	plain	1.000000	1	10.3	Metastatic colorectal cancer treated with a single agent fluoropyrimidines resulted in reduced efficacy and lower quality of life when compared with oxaliplatin-based chemotherapy in elderly patients.
+770	default	1.000000	1	49.2	Metastatic colorectal cancer treated with a single agent fluoropyrimidines resulted in reduced efficacy and lower quality of life when compared with oxaliplatin-based chemotherapy in elderly patients.
+770	tiered	1.000000	1	51.9	Metastatic colorectal cancer treated with a single agent fluoropyrimidines resulted in reduced efficacy and lower quality of life when compared with oxaliplatin-based chemotherapy in elderly patients.
+775	plain	0.000000	0	4.5	Mice defective for deoxyribonucleic acid (DNA) polymerase I (polI) reveal increased sensitivity to ionizing radiation (IR).
+775	default	0.000000	0	35.0	Mice defective for deoxyribonucleic acid (DNA) polymerase I (polI) reveal increased sensitivity to ionizing radiation (IR).
+775	tiered	0.000000	0	40.0	Mice defective for deoxyribonucleic acid (DNA) polymerase I (polI) reveal increased sensitivity to ionizing radiation (IR).
+781	plain	0.630930	0	5.2	Mice that lack Interferon-γ or its receptor exhibit high resistance to experimental autoimmune myocarditis.
+781	default	1.000000	1	42.1	Mice that lack Interferon-γ or its receptor exhibit high resistance to experimental autoimmune myocarditis.
+781	tiered	1.000000	1	43.8	Mice that lack Interferon-γ or its receptor exhibit high resistance to experimental autoimmune myocarditis.
+783	plain	0.000000	0	5.0	Mice without IFN-γ or its receptor are resistant to EAM induced with α-MyHC/CFA.
+783	default	0.000000	0	42.8	Mice without IFN-γ or its receptor are resistant to EAM induced with α-MyHC/CFA.
+783	tiered	0.000000	0	43.2	Mice without IFN-γ or its receptor are resistant to EAM induced with α-MyHC/CFA.
+784	plain	1.000000	1	7.5	MicroRNA is involved in the regulation of Neural Stem Cell (NSC) differentiation and proliferation dynamic homeostasis
+784	default	1.000000	1	34.6	MicroRNA is involved in the regulation of Neural Stem Cell (NSC) differentiation and proliferation dynamic homeostasis
+784	tiered	1.000000	1	44.4	MicroRNA is involved in the regulation of Neural Stem Cell (NSC) differentiation and proliferation dynamic homeostasis
+785	plain	0.630930	0	7.9	Microarray results from culture-amplified mixtures of serotypes correlate poorly with microarray results from uncultured mixtures.
+785	default	0.630930	0	45.8	Microarray results from culture-amplified mixtures of serotypes correlate poorly with microarray results from uncultured mixtures.
+785	tiered	0.630930	0	41.3	Microarray results from culture-amplified mixtures of serotypes correlate poorly with microarray results from uncultured mixtures.
+793	plain	1.000000	1	4.5	Mitochondria are uninvolved in apoptosis.
+793	default	1.000000	1	42.4	Mitochondria are uninvolved in apoptosis.
+793	tiered	1.000000	1	31.4	Mitochondria are uninvolved in apoptosis.
+800	plain	0.000000	0	8.7	Modifying the epigenome in the brain affects the normal human aging process by affecting certain genes related to neurogenesis.
+800	default	0.000000	0	35.1	Modifying the epigenome in the brain affects the normal human aging process by affecting certain genes related to neurogenesis.
+800	tiered	0.000000	0	48.1	Modifying the epigenome in the brain affects the normal human aging process by affecting certain genes related to neurogenesis.
+805	plain	1.000000	1	4.2	Monoclonal antibody targeting of N-cadherin inhibits metastasis.
+805	default	1.000000	1	33.2	Monoclonal antibody targeting of N-cadherin inhibits metastasis.
+805	tiered	1.000000	1	26.5	Monoclonal antibody targeting of N-cadherin inhibits metastasis.
+808	plain	1.000000	1	3.7	Most termination events in Okazaki fragments are sequence specific.
+808	default	0.500000	0	38.6	Most termination events in Okazaki fragments are sequence specific.
+808	tiered	0.500000	0	39.6	Most termination events in Okazaki fragments are sequence specific.
+811	plain	1.000000	1	5.2	Mutant mice lacking SVCT2 have greatly increased ascorbic acid levels in both brain and adrenals.
+811	default	1.000000	1	32.3	Mutant mice lacking SVCT2 have greatly increased ascorbic acid levels in both brain and adrenals.
+811	tiered	1.000000	1	46.7	Mutant mice lacking SVCT2 have greatly increased ascorbic acid levels in both brain and adrenals.
+814	plain	1.000000	1	11.3	Mutations in G-Beta protein GNB2 are present in many cancers, resulting in loss of interaction with G-alpha subunits and concomitant activation of AKT pathway.
+814	default	1.000000	1	44.6	Mutations in G-Beta protein GNB2 are present in many cancers, resulting in loss of interaction with G-alpha subunits and concomitant activation of AKT pathway.
+814	tiered	1.000000	1	43.6	Mutations in G-Beta protein GNB2 are present in many cancers, resulting in loss of interaction with G-alpha subunits and concomitant activation of AKT pathway.
+820	plain	0.000000	0	2.4	N-terminal cleavage increases success identifying transcription start sites.
+820	default	0.000000	0	34.5	N-terminal cleavage increases success identifying transcription start sites.
+820	tiered	0.000000	0	32.4	N-terminal cleavage increases success identifying transcription start sites.
+821	plain	0.000000	0	1.7	N-terminal cleavage reduces success identifying transcription start sites.
+821	default	0.000000	0	30.4	N-terminal cleavage reduces success identifying transcription start sites.
+821	tiered	0.000000	0	34.9	N-terminal cleavage reduces success identifying transcription start sites.
+823	plain	1.000000	1	3.0	N348I mutations cause resistance to zidovudine (AZT).
+823	default	1.000000	1	33.9	N348I mutations cause resistance to zidovudine (AZT).
+823	tiered	1.000000	1	30.9	N348I mutations cause resistance to zidovudine (AZT).
+830	plain	0.333333	0	5.9	NF2 (Merlin) causes phosphorylation and subsequent cytoplasmic sequestration of YAP in Drosophila by activating LATS1/2 kinases.
+830	default	0.315465	0	31.5	NF2 (Merlin) causes phosphorylation and subsequent cytoplasmic sequestration of YAP in Drosophila by activating LATS1/2 kinases.
+830	tiered	0.315465	0	34.3	NF2 (Merlin) causes phosphorylation and subsequent cytoplasmic sequestration of YAP in Drosophila by activating LATS1/2 kinases.
+831	plain	0.000000	0	6.8	NF2 (Merlin) prevents phosphorylation and subsequent cytoplasmic sequestration of YAP in Drosophila.
+831	default	0.315465	0	36.2	NF2 (Merlin) prevents phosphorylation and subsequent cytoplasmic sequestration of YAP in Drosophila.
+831	tiered	0.315465	0	36.5	NF2 (Merlin) prevents phosphorylation and subsequent cytoplasmic sequestration of YAP in Drosophila.
+832	plain	1.000000	1	1.7	NFAT4 activation requires IP3R-mediated Ca2+ mobilization.
+832	default	1.000000	1	25.6	NFAT4 activation requires IP3R-mediated Ca2+ mobilization.
+832	tiered	1.000000	1	34.0	NFAT4 activation requires IP3R-mediated Ca2+ mobilization.
+834	plain	0.000000	0	3.7	NOX2-independent pathways can generate peroxynitrite by reacting with nitrogen intermediates.
+834	default	0.000000	0	37.8	NOX2-independent pathways can generate peroxynitrite by reacting with nitrogen intermediates.
+834	tiered	0.000000	0	40.0	NOX2-independent pathways can generate peroxynitrite by reacting with nitrogen intermediates.
+837	plain	1.000000	1	6.4	NR5A2 is important in development of endometrial tissues.
+837	default	1.000000	1	32.2	NR5A2 is important in development of endometrial tissues.
+837	tiered	1.000000	1	32.6	NR5A2 is important in development of endometrial tissues.
+839	plain	0.500000	0	3.9	Nanoparticles can be targeted against specific cell types by incorporating aptamers into lipid nanoparticles.
+839	default	1.000000	1	39.8	Nanoparticles can be targeted against specific cell types by incorporating aptamers into lipid nanoparticles.
+839	tiered	1.000000	1	38.3	Nanoparticles can be targeted against specific cell types by incorporating aptamers into lipid nanoparticles.
+845	plain	1.000000	1	3.3	Neutrophil extracellular traps (NETs) are released by ANCA-stimulated neutrophils.
+845	default	1.000000	1	29.8	Neutrophil extracellular traps (NETs) are released by ANCA-stimulated neutrophils.
+845	tiered	1.000000	1	27.9	Neutrophil extracellular traps (NETs) are released by ANCA-stimulated neutrophils.
+847	plain	1.000000	1	9.0	New drugs for tuberculosis often do not penetrate the necrotic portion of a tuberculosis lesion in high concentrations.
+847	default	1.000000	1	39.0	New drugs for tuberculosis often do not penetrate the necrotic portion of a tuberculosis lesion in high concentrations.
+847	tiered	1.000000	1	46.4	New drugs for tuberculosis often do not penetrate the necrotic portion of a tuberculosis lesion in high concentrations.
+852	plain	1.000000	1	107.4	Non-invasive ventilation use should be decreased if there is inadequate response to conventional treatment.
+852	default	0.000000	0	64.6	Non-invasive ventilation use should be decreased if there is inadequate response to conventional treatment.
+852	tiered	0.000000	0	42.6	Non-invasive ventilation use should be decreased if there is inadequate response to conventional treatment.
+859	plain	0.630930	0	4.6	Normal expression of RUNX1 has tumor-promoting effects.
+859	default	0.000000	0	34.8	Normal expression of RUNX1 has tumor-promoting effects.
+859	tiered	0.000000	0	40.6	Normal expression of RUNX1 has tumor-promoting effects.
+870	plain	0.000000	0	2.2	Obesity decreases life quality.
+870	default	0.000000	0	32.1	Obesity decreases life quality.
+870	tiered	0.000000	0	33.4	Obesity decreases life quality.
+873	plain	0.000000	0	3.7	Obesity is determined solely by environmental factors.
+873	default	0.000000	0	35.8	Obesity is determined solely by environmental factors.
+873	tiered	0.000000	0	39.2	Obesity is determined solely by environmental factors.
+879	plain	1.000000	1	26.1	Occupancy of ribosomes by IncRNAs do not make functional peptides.
+879	default	1.000000	1	33.0	Occupancy of ribosomes by IncRNAs do not make functional peptides.
+879	tiered	1.000000	1	44.1	Occupancy of ribosomes by IncRNAs do not make functional peptides.
+880	plain	1.000000	1	4.7	Occupancy of ribosomes by IncRNAs mirror 5 0-UTRs
+880	default	1.000000	1	34.5	Occupancy of ribosomes by IncRNAs mirror 5 0-UTRs
+880	tiered	1.000000	1	44.0	Occupancy of ribosomes by IncRNAs mirror 5 0-UTRs
+882	plain	1.000000	1	3.0	Omnivores produce less trimethylamine N-oxide from dietary I-carnitine than vegetarians.
+882	default	1.000000	1	43.8	Omnivores produce less trimethylamine N-oxide from dietary I-carnitine than vegetarians.
+882	tiered	1.000000	1	49.9	Omnivores produce less trimethylamine N-oxide from dietary I-carnitine than vegetarians.
+887	plain	0.000000	0	7.3	Only a minority of cells survive development after differentiation into stress-resistant spores.
+887	default	0.000000	0	38.6	Only a minority of cells survive development after differentiation into stress-resistant spores.
+887	tiered	0.000000	0	62.5	Only a minority of cells survive development after differentiation into stress-resistant spores.
+903	plain	1.000000	1	5.0	PD-1 triggering on monocytes reduces IL-10 production by monocytes.
+903	default	1.000000	1	34.4	PD-1 triggering on monocytes reduces IL-10 production by monocytes.
+903	tiered	1.000000	1	38.3	PD-1 triggering on monocytes reduces IL-10 production by monocytes.
+904	plain	1.000000	1	9.2	PDPN promotes efficient motility along stromal surfaces by activating the C-type lectin receptor to rearrange the actin cytoskeleton in dendritic cells.
+904	default	1.000000	1	40.9	PDPN promotes efficient motility along stromal surfaces by activating the C-type lectin receptor to rearrange the actin cytoskeleton in dendritic cells.
+904	tiered	1.000000	1	47.2	PDPN promotes efficient motility along stromal surfaces by activating the C-type lectin receptor to rearrange the actin cytoskeleton in dendritic cells.
+907	plain	1.000000	1	7.9	PGE 2 promotes intestinal tumor growth by altering the expression of tumor suppressing and DNA repair genes.
+907	default	1.000000	1	36.2	PGE 2 promotes intestinal tumor growth by altering the expression of tumor suppressing and DNA repair genes.
+907	tiered	1.000000	1	47.0	PGE 2 promotes intestinal tumor growth by altering the expression of tumor suppressing and DNA repair genes.
+911	plain	1.000000	1	8.5	PKG-la plays an essential role in expression of pain hypersensitivity in PGK-la knockout mice.
+911	default	1.000000	1	39.6	PKG-la plays an essential role in expression of pain hypersensitivity in PGK-la knockout mice.
+911	tiered	1.000000	1	42.0	PKG-la plays an essential role in expression of pain hypersensitivity in PGK-la knockout mice.
+913	plain	0.000000	0	3.2	PPAR-RXRs are inhibited by PPAR ligands.
+913	default	0.000000	0	40.0	PPAR-RXRs are inhibited by PPAR ligands.
+913	tiered	0.000000	0	38.8	PPAR-RXRs are inhibited by PPAR ligands.
+914	plain	0.000000	0	3.2	PPAR-RXRs can be activated by PPAR ligands.
+914	default	0.000000	0	34.0	PPAR-RXRs can be activated by PPAR ligands.
+914	tiered	0.000000	0	32.2	PPAR-RXRs can be activated by PPAR ligands.
+921	plain	0.630930	0	5.3	Participating in six months of physical activity improves cognitive functioning.
+921	default	1.000000	1	48.4	Participating in six months of physical activity improves cognitive functioning.
+921	tiered	1.000000	1	100.2	Participating in six months of physical activity improves cognitive functioning.
+922	plain	1.000000	1	6.4	Patients in stable partnerships have a faster progression from HIV to AIDS.
+922	default	1.000000	1	55.7	Patients in stable partnerships have a faster progression from HIV to AIDS.
+922	tiered	1.000000	1	39.1	Patients in stable partnerships have a faster progression from HIV to AIDS.
+936	plain	1.000000	1	6.3	Peroxynitrite is required for nitration of TCR/CD8.
+936	default	1.000000	1	40.5	Peroxynitrite is required for nitration of TCR/CD8.
+936	tiered	1.000000	1	31.5	Peroxynitrite is required for nitration of TCR/CD8.
+956	plain	0.386853	0	6.5	Pleiotropic coupling of GLP-1R to intracellular effectors promotes distinct profiles of cellular signaling.
+956	default	0.333333	0	30.9	Pleiotropic coupling of GLP-1R to intracellular effectors promotes distinct profiles of cellular signaling.
+956	tiered	0.333333	0	37.7	Pleiotropic coupling of GLP-1R to intracellular effectors promotes distinct profiles of cellular signaling.
+957	plain	0.630930	0	7.0	Podocytes are motile and migrate in the presence of injury.
+957	default	0.500000	0	40.0	Podocytes are motile and migrate in the presence of injury.
+957	tiered	0.500000	0	35.5	Podocytes are motile and migrate in the presence of injury.
+960	plain	1.000000	1	1.5	Polymeal nutrition reduces cardiovascular mortality.
+960	default	0.430677	0	40.8	Polymeal nutrition reduces cardiovascular mortality.
+960	tiered	0.430677	0	31.1	Polymeal nutrition reduces cardiovascular mortality.
+967	plain	1.000000	1	4.4	Pretreatment with the Arp2/3 inhibitor CK-666 affects lamelliopodia formation.
+967	default	0.790386	1	39.4	Pretreatment with the Arp2/3 inhibitor CK-666 affects lamelliopodia formation.
+967	tiered	0.790386	1	43.8	Pretreatment with the Arp2/3 inhibitor CK-666 affects lamelliopodia formation.
+971	plain	0.632500	0	5.5	Primary cervical cancer screening with HPV detection has higher longitudinal sensitivity than conventional cytology to detect cervical intraepithelial neoplasia grade 2.
+971	default	0.653393	0	46.6	Primary cervical cancer screening with HPV detection has higher longitudinal sensitivity than conventional cytology to detect cervical intraepithelial neoplasia grade 2.
+971	tiered	0.653393	0	47.9	Primary cervical cancer screening with HPV detection has higher longitudinal sensitivity than conventional cytology to detect cervical intraepithelial neoplasia grade 2.
+975	plain	0.000000	0	4.6	Primary pro-inflammatory cytokines induce secondary pro- and anti-inflammatory mediators.
+975	default	0.000000	0	30.7	Primary pro-inflammatory cytokines induce secondary pro- and anti-inflammatory mediators.
+975	tiered	0.000000	0	32.0	Primary pro-inflammatory cytokines induce secondary pro- and anti-inflammatory mediators.
+982	plain	1.000000	1	7.2	Proteins synthesized at the growth cone are ubiquitinated at a higher rate than proteins from the cell body.
+982	default	0.430677	0	38.9	Proteins synthesized at the growth cone are ubiquitinated at a higher rate than proteins from the cell body.
+982	tiered	0.430677	0	55.7	Proteins synthesized at the growth cone are ubiquitinated at a higher rate than proteins from the cell body.
+985	plain	1.000000	1	6.9	Pseudogene PTENP1 regulates the expression of PTEN by functioning as an miRNA decoy.
+985	default	1.000000	1	36.1	Pseudogene PTENP1 regulates the expression of PTEN by functioning as an miRNA decoy.
+985	tiered	1.000000	1	40.0	Pseudogene PTENP1 regulates the expression of PTEN by functioning as an miRNA decoy.
+993	plain	0.630930	0	5.8	Pyridostatin destabilizes the G - quadruplex in the telomeric region.
+993	default	1.000000	1	34.7	Pyridostatin destabilizes the G - quadruplex in the telomeric region.
+993	tiered	1.000000	1	35.5	Pyridostatin destabilizes the G - quadruplex in the telomeric region.
+1012	plain	1.000000	1	3.9	Radioiodine treatment of non-toxic multinodular goitre reduces thyroid volume.
+1012	default	1.000000	1	30.6	Radioiodine treatment of non-toxic multinodular goitre reduces thyroid volume.
+1012	tiered	1.000000	1	31.7	Radioiodine treatment of non-toxic multinodular goitre reduces thyroid volume.
+1014	plain	0.630930	0	6.4	Rapamycin decreases the concentration of triacylglycerols in fruit flies.
+1014	default	1.000000	1	23.1	Rapamycin decreases the concentration of triacylglycerols in fruit flies.
+1014	tiered	1.000000	1	36.7	Rapamycin decreases the concentration of triacylglycerols in fruit flies.
+1019	plain	0.630930	0	4.5	Rapid phosphotransfer rates govern fidelity in two component systems
+1019	default	0.630930	0	28.9	Rapid phosphotransfer rates govern fidelity in two component systems
+1019	tiered	0.630930	0	34.8	Rapid phosphotransfer rates govern fidelity in two component systems
+1020	plain	0.630930	0	9.3	Rapid up-regulation and higher basal expression of interferon-induced genes increase survival of granule cell neurons that are infected by West Nile virus.
+1020	default	0.289065	0	47.3	Rapid up-regulation and higher basal expression of interferon-induced genes increase survival of granule cell neurons that are infected by West Nile virus.
+1020	tiered	0.289065	0	52.3	Rapid up-regulation and higher basal expression of interferon-induced genes increase survival of granule cell neurons that are infected by West Nile virus.
+1021	plain	0.630930	0	8.7	Rapid up-regulation and higher basal expression of interferon-induced genes reduce survival of granule cell neurons that are infected by West Nile virus.
+1021	default	0.301030	0	42.2	Rapid up-regulation and higher basal expression of interferon-induced genes reduce survival of granule cell neurons that are infected by West Nile virus.
+1021	tiered	0.301030	0	43.0	Rapid up-regulation and higher basal expression of interferon-induced genes reduce survival of granule cell neurons that are infected by West Nile virus.
+1024	plain	1.000000	1	3.4	Recurrent mutations occur frequently within CTCF anchor sites adjacent to oncogenes.
+1024	default	1.000000	1	34.6	Recurrent mutations occur frequently within CTCF anchor sites adjacent to oncogenes.
+1024	tiered	1.000000	1	35.5	Recurrent mutations occur frequently within CTCF anchor sites adjacent to oncogenes.
+1029	plain	0.839570	1	9.1	Reduced responsiveness to interleukin-2 in regulatory T cells is associated with greater resistance to autoimmune diseases such as Type 1 Diabetes.
+1029	default	0.765361	1	47.1	Reduced responsiveness to interleukin-2 in regulatory T cells is associated with greater resistance to autoimmune diseases such as Type 1 Diabetes.
+1029	tiered	0.765361	1	50.8	Reduced responsiveness to interleukin-2 in regulatory T cells is associated with greater resistance to autoimmune diseases such as Type 1 Diabetes.
+1041	plain	0.483813	0	6.8	Replacement of histone H2A with H2A.Z slows gene activation in yeasts by stabilizing +1 nucleosomes.
+1041	default	0.543771	0	39.4	Replacement of histone H2A with H2A.Z slows gene activation in yeasts by stabilizing +1 nucleosomes.
+1041	tiered	0.543771	0	41.5	Replacement of histone H2A with H2A.Z slows gene activation in yeasts by stabilizing +1 nucleosomes.
+1049	plain	0.000000	0	6.6	Ribosomopathies have a low degree of cell and tissue specific pathology.
+1049	default	0.000000	0	37.7	Ribosomopathies have a low degree of cell and tissue specific pathology.
+1049	tiered	0.000000	0	38.6	Ribosomopathies have a low degree of cell and tissue specific pathology.
+1062	plain	1.000000	1	1.6	S-nitrosylated GAPDH physiologically transnitrosylates histone deacetylases.
+1062	default	1.000000	1	32.4	S-nitrosylated GAPDH physiologically transnitrosylates histone deacetylases.
+1062	tiered	1.000000	1	33.6	S-nitrosylated GAPDH physiologically transnitrosylates histone deacetylases.
+1086	plain	1.000000	1	8.6	Sildenafil improves erectile function in men who experience sexual dysfunction as a result of the use of SSRI antidepressants.
+1086	default	1.000000	1	41.4	Sildenafil improves erectile function in men who experience sexual dysfunction as a result of the use of SSRI antidepressants.
+1086	tiered	1.000000	1	40.2	Sildenafil improves erectile function in men who experience sexual dysfunction as a result of the use of SSRI antidepressants.
+1088	plain	0.315465	0	8.2	Silencing of Bcl2 is important for the maintenance and progression of tumors.
+1088	default	0.000000	0	37.5	Silencing of Bcl2 is important for the maintenance and progression of tumors.
+1088	tiered	0.000000	0	35.0	Silencing of Bcl2 is important for the maintenance and progression of tumors.
+1089	plain	1.000000	1	5.2	Smc5/6 engagment drives the activation of SUMO E3 ligase Mms21 by ATP-dependent remolding.
+1089	default	1.000000	1	35.0	Smc5/6 engagment drives the activation of SUMO E3 ligase Mms21 by ATP-dependent remolding.
+1089	tiered	1.000000	1	37.3	Smc5/6 engagment drives the activation of SUMO E3 ligase Mms21 by ATP-dependent remolding.
+1099	plain	0.430677	0	2.3	Statins decrease blood cholesterol.
+1099	default	0.500000	0	34.2	Statins decrease blood cholesterol.
+1099	tiered	0.500000	0	29.7	Statins decrease blood cholesterol.
+1100	plain	0.500000	0	1.7	Statins increase blood cholesterol.
+1100	default	0.630930	0	29.0	Statins increase blood cholesterol.
+1100	tiered	0.630930	0	35.5	Statins increase blood cholesterol.
+1104	plain	1.000000	1	30.4	Stroke patients with prior use of direct oral anticoagulants have a lower risk of in-hospital mortality than stroke patients with prior use of warfarin.
+1104	default	1.000000	1	47.1	Stroke patients with prior use of direct oral anticoagulants have a lower risk of in-hospital mortality than stroke patients with prior use of warfarin.
+1104	tiered	1.000000	1	54.9	Stroke patients with prior use of direct oral anticoagulants have a lower risk of in-hospital mortality than stroke patients with prior use of warfarin.
+1107	plain	1.000000	1	2.2	Subcutaneous fat depots undergo extensive browning processes after cold exposure.
+1107	default	1.000000	1	27.5	Subcutaneous fat depots undergo extensive browning processes after cold exposure.
+1107	tiered	1.000000	1	33.4	Subcutaneous fat depots undergo extensive browning processes after cold exposure.
+1110	plain	0.000000	0	5.5	Suboptimal nutrition is not predictive of chronic disease
+1110	default	0.000000	0	39.4	Suboptimal nutrition is not predictive of chronic disease
+1110	tiered	0.000000	0	28.9	Suboptimal nutrition is not predictive of chronic disease
+1121	plain	0.630930	0	4.2	Synaptic activity enhances local release of brain derived neurotrophic factor from postsynaptic dendrites.
+1121	default	0.500000	0	29.0	Synaptic activity enhances local release of brain derived neurotrophic factor from postsynaptic dendrites.
+1121	tiered	0.500000	0	37.1	Synaptic activity enhances local release of brain derived neurotrophic factor from postsynaptic dendrites.
+1130	plain	1.000000	1	3.9	T regulatory cells (tTregs) lacking αvβ8 are more adept at suppressing pathogenic T-cell responses during active inflammation.
+1130	default	1.000000	1	36.0	T regulatory cells (tTregs) lacking αvβ8 are more adept at suppressing pathogenic T-cell responses during active inflammation.
+1130	tiered	1.000000	1	43.9	T regulatory cells (tTregs) lacking αvβ8 are more adept at suppressing pathogenic T-cell responses during active inflammation.
+1132	plain	0.264068	0	5.8	TCR/CD3 microdomains are a required to induce the immunologic synapse to activate T cells.
+1132	default	0.193426	0	32.9	TCR/CD3 microdomains are a required to induce the immunologic synapse to activate T cells.
+1132	tiered	0.193426	0	28.9	TCR/CD3 microdomains are a required to induce the immunologic synapse to activate T cells.
+1137	plain	1.000000	1	4.4	TNFAIP3 is a tumor suppressor in glioblastoma.
+1137	default	1.000000	1	26.5	TNFAIP3 is a tumor suppressor in glioblastoma.
+1137	tiered	1.000000	1	25.0	TNFAIP3 is a tumor suppressor in glioblastoma.
+1140	plain	0.333333	0	4.5	Taking 400mg of α-tocopheryl acetate helps to prevent prostate cancer.
+1140	default	0.000000	0	29.8	Taking 400mg of α-tocopheryl acetate helps to prevent prostate cancer.
+1140	tiered	0.000000	0	26.3	Taking 400mg of α-tocopheryl acetate helps to prevent prostate cancer.
+1144	plain	1.000000	1	7.9	Taxation of sugar-sweetened beverages had no effect on the incidence rate of type II diabetes in India.
+1144	default	1.000000	1	28.4	Taxation of sugar-sweetened beverages had no effect on the incidence rate of type II diabetes in India.
+1144	tiered	1.000000	1	28.4	Taxation of sugar-sweetened beverages had no effect on the incidence rate of type II diabetes in India.
+1146	plain	1.000000	1	2.4	Teaching hospitals do not provide better care than non-teaching hospitals.
+1146	default	1.000000	1	32.4	Teaching hospitals do not provide better care than non-teaching hospitals.
+1146	tiered	1.000000	1	26.6	Teaching hospitals do not provide better care than non-teaching hospitals.
+1150	plain	1.000000	1	6.5	Tetraspanin-3 is a causative factor in the development of acute myelogenous leukemia
+1150	default	1.000000	1	35.2	Tetraspanin-3 is a causative factor in the development of acute myelogenous leukemia
+1150	tiered	1.000000	1	36.2	Tetraspanin-3 is a causative factor in the development of acute myelogenous leukemia
+1163	plain	1.000000	1	5.3	The DdrB protein from Deinococcus radiodurans is an alternative SSB.
+1163	default	1.000000	1	37.1	The DdrB protein from Deinococcus radiodurans is an alternative SSB.
+1163	tiered	1.000000	1	40.7	The DdrB protein from Deinococcus radiodurans is an alternative SSB.
+1175	plain	0.000000	0	3.3	The PPR MDA5 has two N-terminal CARD domains.
+1175	default	0.000000	0	32.9	The PPR MDA5 has two N-terminal CARD domains.
+1175	tiered	0.000000	0	35.8	The PPR MDA5 has two N-terminal CARD domains.
+1179	plain	0.289065	0	4.3	The PRR MDA5 has a central DExD/H RNA helices domain.
+1179	default	0.000000	0	32.6	The PRR MDA5 has a central DExD/H RNA helices domain.
+1179	tiered	0.000000	0	32.0	The PRR MDA5 has a central DExD/H RNA helices domain.
+1180	plain	0.430677	0	6.2	The PRR MDA5 is a sensor of RNA virus infection.
+1180	default	0.315465	0	29.4	The PRR MDA5 is a sensor of RNA virus infection.
+1180	tiered	0.315465	0	32.4	The PRR MDA5 is a sensor of RNA virus infection.
+1185	plain	1.000000	1	8.0	The US health care system can save up to $750 million if 7% of patients waiting for kidney transplants participate in the optimized national kidney paired donation program.
+1185	default	1.000000	1	39.7	The US health care system can save up to $750 million if 7% of patients waiting for kidney transplants participate in the optimized national kidney paired donation program.
+1185	tiered	1.000000	1	36.7	The US health care system can save up to $750 million if 7% of patients waiting for kidney transplants participate in the optimized national kidney paired donation program.
+1187	plain	1.000000	1	8.0	The YAP1 and TEAD complex tanslocates into the nucleus where it interacts with transcription factors and DNA-binding proteins that modulate target gene transcription.
+1187	default	1.000000	1	42.4	The YAP1 and TEAD complex tanslocates into the nucleus where it interacts with transcription factors and DNA-binding proteins that modulate target gene transcription.
+1187	tiered	1.000000	1	42.2	The YAP1 and TEAD complex tanslocates into the nucleus where it interacts with transcription factors and DNA-binding proteins that modulate target gene transcription.
+1191	plain	0.000000	0	4.8	The amount of publicly available DNA data doubles every 10 years.
+1191	default	0.000000	0	33.1	The amount of publicly available DNA data doubles every 10 years.
+1191	tiered	0.000000	0	39.1	The amount of publicly available DNA data doubles every 10 years.
+1194	plain	0.630930	0	7.4	The arm density of TatAd complexes is due to structural rearrangements within Class1 TatAd complexes such as the 'charge zipper mechanism'.
+1194	default	1.000000	1	36.1	The arm density of TatAd complexes is due to structural rearrangements within Class1 TatAd complexes such as the 'charge zipper mechanism'.
+1194	tiered	1.000000	1	37.3	The arm density of TatAd complexes is due to structural rearrangements within Class1 TatAd complexes such as the 'charge zipper mechanism'.
+1196	plain	0.000000	0	6.1	The availability of safe places to study is effective at decreasing homelessness.
+1196	default	0.000000	0	33.8	The availability of safe places to study is effective at decreasing homelessness.
+1196	tiered	0.000000	0	31.2	The availability of safe places to study is effective at decreasing homelessness.
+1197	plain	0.000000	0	5.7	The availability of safe places to study is not effective at decreasing homelessness.
+1197	default	0.000000	0	34.2	The availability of safe places to study is not effective at decreasing homelessness.
+1197	tiered	0.000000	0	32.4	The availability of safe places to study is not effective at decreasing homelessness.
+1199	plain	0.000000	0	6.2	The benefits of colchicine were achieved with effective widespread use of secondary prevention strategies such as high-dose statins.
+1199	default	0.000000	0	40.5	The benefits of colchicine were achieved with effective widespread use of secondary prevention strategies such as high-dose statins.
+1199	tiered	0.000000	0	43.1	The benefits of colchicine were achieved with effective widespread use of secondary prevention strategies such as high-dose statins.
+1200	plain	0.000000	0	8.6	The binding orientation of the ML-SA1 activator at hTRPML2 is different from the binding orientation of the ML-SA1 activator at hTRPML1.
+1200	default	0.000000	0	32.2	The binding orientation of the ML-SA1 activator at hTRPML2 is different from the binding orientation of the ML-SA1 activator at hTRPML1.
+1200	tiered	0.000000	0	38.6	The binding orientation of the ML-SA1 activator at hTRPML2 is different from the binding orientation of the ML-SA1 activator at hTRPML1.
+1202	plain	1.000000	1	7.5	The center of the granuloma in an immune cell induces a pro-inflammatory immune response.
+1202	default	1.000000	1	36.8	The center of the granuloma in an immune cell induces a pro-inflammatory immune response.
+1202	tiered	1.000000	1	34.7	The center of the granuloma in an immune cell induces a pro-inflammatory immune response.
+1204	plain	1.000000	1	8.0	The combination of H3K4me3 and H3K79me2 is found in quiescent hair follicle stem cells.
+1204	default	1.000000	1	38.9	The combination of H3K4me3 and H3K79me2 is found in quiescent hair follicle stem cells.
+1204	tiered	1.000000	1	41.3	The combination of H3K4me3 and H3K79me2 is found in quiescent hair follicle stem cells.
+1207	plain	1.000000	1	16.9	The composition of myosin-II isoform switches from the polarizable B isoform to the more homogenous A isoform during hematopoietic differentiation.
+1207	default	1.000000	1	35.8	The composition of myosin-II isoform switches from the polarizable B isoform to the more homogenous A isoform during hematopoietic differentiation.
+1207	tiered	1.000000	1	43.7	The composition of myosin-II isoform switches from the polarizable B isoform to the more homogenous A isoform during hematopoietic differentiation.
+1213	plain	0.000000	0	6.2	The deregulated and prolonged activation of monocytes has deleterious effects in inflammatory diseases.
+1213	default	0.000000	0	35.8	The deregulated and prolonged activation of monocytes has deleterious effects in inflammatory diseases.
+1213	tiered	0.000000	0	31.2	The deregulated and prolonged activation of monocytes has deleterious effects in inflammatory diseases.
+1216	plain	1.000000	1	5.4	The extracellular domain of TMEM27 is cleaved in human beta cells.
+1216	default	1.000000	1	32.6	The extracellular domain of TMEM27 is cleaved in human beta cells.
+1216	tiered	1.000000	1	34.3	The extracellular domain of TMEM27 is cleaved in human beta cells.
+1221	plain	0.000000	0	6.2	The genomic aberrations found in matasteses are very similar to those found in the primary tumor.
+1221	default	0.000000	0	28.4	The genomic aberrations found in matasteses are very similar to those found in the primary tumor.
+1221	tiered	0.000000	0	37.3	The genomic aberrations found in matasteses are very similar to those found in the primary tumor.
+1225	plain	1.000000	1	11.3	The locus rs647161 is associated with colorectal carcinoma.
+1225	default	1.000000	1	33.8	The locus rs647161 is associated with colorectal carcinoma.
+1225	tiered	1.000000	1	43.5	The locus rs647161 is associated with colorectal carcinoma.
+1226	plain	0.000000	0	5.9	The loss of the TET protein functions may have dire biological consequences, such as myeloid cancers.
+1226	default	0.000000	0	39.9	The loss of the TET protein functions may have dire biological consequences, such as myeloid cancers.
+1226	tiered	0.000000	0	32.8	The loss of the TET protein functions may have dire biological consequences, such as myeloid cancers.
+1232	plain	1.000000	1	5.5	The minor G allele of FOXO3 is related to more severe symptoms of Crohn's Disease.
+1232	default	1.000000	1	27.8	The minor G allele of FOXO3 is related to more severe symptoms of Crohn's Disease.
+1232	tiered	1.000000	1	36.9	The minor G allele of FOXO3 is related to more severe symptoms of Crohn's Disease.
+1241	plain	0.000000	0	3.9	The myocardial lineage develops from cardiac progenitors of mesodermal origin.
+1241	default	0.000000	0	26.9	The myocardial lineage develops from cardiac progenitors of mesodermal origin.
+1241	tiered	0.000000	0	30.7	The myocardial lineage develops from cardiac progenitors of mesodermal origin.
+1245	plain	0.000000	0	4.3	The one-child policy has been successful in lowering population growth.
+1245	default	0.000000	0	28.5	The one-child policy has been successful in lowering population growth.
+1245	tiered	0.000000	0	30.7	The one-child policy has been successful in lowering population growth.
+1259	plain	0.630930	0	7.2	The relationship between a breast cancer patient's capacity to metabolize tamoxifen and treatment outcome is dependent on the patient's genetic make-up.
+1259	default	1.000000	1	31.9	The relationship between a breast cancer patient's capacity to metabolize tamoxifen and treatment outcome is dependent on the patient's genetic make-up.
+1259	tiered	1.000000	1	39.6	The relationship between a breast cancer patient's capacity to metabolize tamoxifen and treatment outcome is dependent on the patient's genetic make-up.
+1262	plain	1.000000	1	5.6	The repair of Cas9-induced double strand breaks in human DNA is error-prone.
+1262	default	1.000000	1	34.8	The repair of Cas9-induced double strand breaks in human DNA is error-prone.
+1262	tiered	1.000000	1	39.3	The repair of Cas9-induced double strand breaks in human DNA is error-prone.
+1266	plain	1.000000	1	9.0	The risk of breast cancer among parous women increases with placental weight of pregnancies, and this association is strongest for premenopausal breast cancer.
+1266	default	0.630930	0	42.0	The risk of breast cancer among parous women increases with placental weight of pregnancies, and this association is strongest for premenopausal breast cancer.
+1266	tiered	0.630930	0	40.1	The risk of breast cancer among parous women increases with placental weight of pregnancies, and this association is strongest for premenopausal breast cancer.
+1270	plain	1.000000	1	5.5	The risk of male prisoners harming themselves is ten times that of female prisoners.
+1270	default	1.000000	1	30.7	The risk of male prisoners harming themselves is ten times that of female prisoners.
+1270	tiered	1.000000	1	36.1	The risk of male prisoners harming themselves is ten times that of female prisoners.
+1271	plain	1.000000	1	8.9	The severity of cardiac involvement in amyloidosis can be described by the degree of transmurality of late gadolinium enhancement in MRI.
+1271	default	1.000000	1	30.6	The severity of cardiac involvement in amyloidosis can be described by the degree of transmurality of late gadolinium enhancement in MRI.
+1271	tiered	1.000000	1	34.2	The severity of cardiac involvement in amyloidosis can be described by the degree of transmurality of late gadolinium enhancement in MRI.
+1272	plain	0.430677	0	5.8	The single flash-evoked ERG b-wave is generated by activity of ON-bipolar cells.
+1272	default	0.000000	0	36.6	The single flash-evoked ERG b-wave is generated by activity of ON-bipolar cells.
+1272	tiered	0.000000	0	31.8	The single flash-evoked ERG b-wave is generated by activity of ON-bipolar cells.
+1273	plain	1.000000	1	5.0	The sliding activity of kinesin-8 protein Kip3 promotes bipolar spindle assembly.
+1273	default	1.000000	1	33.0	The sliding activity of kinesin-8 protein Kip3 promotes bipolar spindle assembly.
+1273	tiered	1.000000	1	29.9	The sliding activity of kinesin-8 protein Kip3 promotes bipolar spindle assembly.
+1274	plain	0.697882	0	7.6	The tip of the inner tube of the toxic type VI secretion system (T6SS) antibacterial effector in Escherichia coli (E. coli) carries toxic effector proteins.
+1274	default	0.817981	1	34.6	The tip of the inner tube of the toxic type VI secretion system (T6SS) antibacterial effector in Escherichia coli (E. coli) carries toxic effector proteins.
+1274	tiered	0.817981	1	35.1	The tip of the inner tube of the toxic type VI secretion system (T6SS) antibacterial effector in Escherichia coli (E. coli) carries toxic effector proteins.
+1278	plain	0.000000	0	4.7	The treatment of cancer patients with co-IR blockade does not cause any adverse autoimmune events.
+1278	default	0.000000	0	29.7	The treatment of cancer patients with co-IR blockade does not cause any adverse autoimmune events.
+1278	tiered	0.000000	0	34.1	The treatment of cancer patients with co-IR blockade does not cause any adverse autoimmune events.
+1279	plain	0.000000	0	4.6	The treatment of cancer patients with co-IR blockade precipitates adverse autoimmune events.
+1279	default	0.000000	0	30.9	The treatment of cancer patients with co-IR blockade precipitates adverse autoimmune events.
+1279	tiered	0.000000	0	35.4	The treatment of cancer patients with co-IR blockade precipitates adverse autoimmune events.
+1280	plain	0.000000	0	3.8	The ureABIEFGH gene cluster encodes urease maturation proteins : UreD/UreH, UreE, UreF, and UreG.
+1280	default	0.000000	0	28.1	The ureABIEFGH gene cluster encodes urease maturation proteins : UreD/UreH, UreE, UreF, and UreG.
+1280	tiered	0.000000	0	29.3	The ureABIEFGH gene cluster encodes urease maturation proteins : UreD/UreH, UreE, UreF, and UreG.
+1281	plain	0.000000	0	4.1	The ureABIEFGH gene cluster is induced by nickel (II) ion.
+1281	default	0.000000	0	33.9	The ureABIEFGH gene cluster is induced by nickel (II) ion.
+1281	tiered	0.000000	0	32.6	The ureABIEFGH gene cluster is induced by nickel (II) ion.
+1282	plain	1.000000	1	5.6	Therapeutic use of the drug Dapsone to treat pyoderma gangrenous is based on anecdotal evidence.
+1282	default	0.500000	0	25.4	Therapeutic use of the drug Dapsone to treat pyoderma gangrenous is based on anecdotal evidence.
+1282	tiered	0.500000	0	26.4	Therapeutic use of the drug Dapsone to treat pyoderma gangrenous is based on anecdotal evidence.
+1290	plain	1.000000	1	4.1	There is an inverse relationship between hip fractures and statin use.
+1290	default	1.000000	1	24.8	There is an inverse relationship between hip fractures and statin use.
+1290	tiered	1.000000	1	25.8	There is an inverse relationship between hip fractures and statin use.
+1292	plain	1.000000	1	3.5	There is no association between HNF4A mutations and diabetes risks.
+1292	default	0.000000	0	22.2	There is no association between HNF4A mutations and diabetes risks.
+1292	tiered	0.000000	0	26.0	There is no association between HNF4A mutations and diabetes risks.
+1298	plain	1.000000	1	6.0	Thigh-length graduated compression stockings (GCS) did not reduce deep vein thrombosis in patients admitted to hospital who are immobile because of acute stroke.
+1298	default	1.000000	1	26.4	Thigh-length graduated compression stockings (GCS) did not reduce deep vein thrombosis in patients admitted to hospital who are immobile because of acute stroke.
+1298	tiered	1.000000	1	25.1	Thigh-length graduated compression stockings (GCS) did not reduce deep vein thrombosis in patients admitted to hospital who are immobile because of acute stroke.
+1303	plain	1.000000	1	2.1	Tirasemtiv has no effect on fast-twitch muscle.
+1303	default	1.000000	1	24.7	Tirasemtiv has no effect on fast-twitch muscle.
+1303	tiered	1.000000	1	25.0	Tirasemtiv has no effect on fast-twitch muscle.
+1316	plain	0.000000	0	5.1	Transferred UCB T cells acquire a memory-like phenotype in recipients.
+1316	default	0.000000	0	250.3	Transferred UCB T cells acquire a memory-like phenotype in recipients.
+1316	tiered	0.000000	0	25.1	Transferred UCB T cells acquire a memory-like phenotype in recipients.
+1319	plain	0.333333	0	3.5	Transplanted human glial cells can differentiate within the host animal.
+1319	default	1.000000	1	25.3	Transplanted human glial cells can differentiate within the host animal.
+1319	tiered	1.000000	1	30.6	Transplanted human glial cells can differentiate within the host animal.
+1320	plain	1.000000	1	4.9	Transplanted human glial progenitor cells are incapable of forming a neural network with host animals' neurons.
+1320	default	1.000000	1	28.7	Transplanted human glial progenitor cells are incapable of forming a neural network with host animals' neurons.
+1320	tiered	1.000000	1	31.0	Transplanted human glial progenitor cells are incapable of forming a neural network with host animals' neurons.
+1332	plain	0.000000	0	5.2	Tumor necrosis factor alpha (TNF-α) and interleukin-1 (IL-1) are pro-inflammatory cytokines that inhibit IL-6 and IL-10.
+1332	default	0.000000	0	30.3	Tumor necrosis factor alpha (TNF-α) and interleukin-1 (IL-1) are pro-inflammatory cytokines that inhibit IL-6 and IL-10.
+1332	tiered	0.000000	0	33.5	Tumor necrosis factor alpha (TNF-α) and interleukin-1 (IL-1) are pro-inflammatory cytokines that inhibit IL-6 and IL-10.
+1335	plain	1.000000	1	2.3	UCB T cells maintain high TCR diversity after transplantation.
+1335	default	1.000000	1	25.3	UCB T cells maintain high TCR diversity after transplantation.
+1335	tiered	1.000000	1	30.0	UCB T cells maintain high TCR diversity after transplantation.
+1336	plain	1.000000	1	1.9	UCB T cells reduce TCR diversity after transplantation.
+1336	default	1.000000	1	27.6	UCB T cells reduce TCR diversity after transplantation.
+1336	tiered	1.000000	1	31.1	UCB T cells reduce TCR diversity after transplantation.
+1337	plain	1.000000	1	2.9	Ubiquitin ligase UBC13 generates a K63-linked polyubiquitin moiety at PCNA K164.
+1337	default	1.000000	1	29.2	Ubiquitin ligase UBC13 generates a K63-linked polyubiquitin moiety at PCNA K164.
+1337	tiered	1.000000	1	26.1	Ubiquitin ligase UBC13 generates a K63-linked polyubiquitin moiety at PCNA K164.
+1339	plain	1.000000	1	4.0	Ultrasound guidance significantly raises the number of traumatic procedures when attempting needle insertion.
+1339	default	1.000000	1	25.2	Ultrasound guidance significantly raises the number of traumatic procedures when attempting needle insertion.
+1339	tiered	1.000000	1	22.5	Ultrasound guidance significantly raises the number of traumatic procedures when attempting needle insertion.
+1344	plain	0.630930	0	9.4	Up-regulation of the p53 pathway and related molecular events casues cancer resistance and results in a significantly shortened lifespan marked by senescent cells and accelerated organismal aging.
+1344	default	1.000000	1	31.5	Up-regulation of the p53 pathway and related molecular events casues cancer resistance and results in a significantly shortened lifespan marked by senescent cells and accelerated organismal aging.
+1344	tiered	1.000000	1	33.3	Up-regulation of the p53 pathway and related molecular events casues cancer resistance and results in a significantly shortened lifespan marked by senescent cells and accelerated organismal aging.
+1352	plain	1.000000	1	4.3	Upregulation of mosGCTL-1 is induced upon infection with West Nile virus.
+1352	default	1.000000	1	24.8	Upregulation of mosGCTL-1 is induced upon infection with West Nile virus.
+1352	tiered	1.000000	1	32.6	Upregulation of mosGCTL-1 is induced upon infection with West Nile virus.
+1359	plain	1.000000	1	5.7	Varenicline monotherapy is more effective after 12 weeks of treatment compared to combination nicotine replacement therapies with varenicline or bupropion.
+1359	default	1.000000	1	34.6	Varenicline monotherapy is more effective after 12 weeks of treatment compared to combination nicotine replacement therapies with varenicline or bupropion.
+1359	tiered	1.000000	1	36.5	Varenicline monotherapy is more effective after 12 weeks of treatment compared to combination nicotine replacement therapies with varenicline or bupropion.
+1362	plain	0.500000	0	3.2	Venules have a larger lumen diameter than arterioles.
+1362	default	1.000000	1	23.1	Venules have a larger lumen diameter than arterioles.
+1362	tiered	1.000000	1	26.7	Venules have a larger lumen diameter than arterioles.
+1363	plain	1.000000	1	3.7	Venules have a thinner or absent smooth layer compared to arterioles.
+1363	default	1.000000	1	24.3	Venules have a thinner or absent smooth layer compared to arterioles.
+1363	tiered	1.000000	1	27.8	Venules have a thinner or absent smooth layer compared to arterioles.
+1368	plain	0.000000	0	3.9	Vitamin D deficiency effects the term of delivery.
+1368	default	0.000000	0	22.0	Vitamin D deficiency effects the term of delivery.
+1368	tiered	0.000000	0	24.5	Vitamin D deficiency effects the term of delivery.
+1370	plain	0.430677	0	3.3	Vitamin D deficiency is unrelated to birth weight.
+1370	default	0.301030	0	29.3	Vitamin D deficiency is unrelated to birth weight.
+1370	tiered	0.301030	0	27.3	Vitamin D deficiency is unrelated to birth weight.
+1379	plain	0.414430	0	5.6	Women with a higher birth weight are more likely to develop breast cancer later in life.
+1379	default	0.346210	0	34.2	Women with a higher birth weight are more likely to develop breast cancer later in life.
+1379	tiered	0.346210	0	30.4	Women with a higher birth weight are more likely to develop breast cancer later in life.
+1382	plain	0.000000	0	2.3	aPKCz causes tumour enhancement by affecting glutamine metabolism.
+1382	default	0.000000	0	21.8	aPKCz causes tumour enhancement by affecting glutamine metabolism.
+1382	tiered	0.000000	0	20.4	aPKCz causes tumour enhancement by affecting glutamine metabolism.
+1385	plain	1.000000	1	1.0	cSMAC formation enhances weak ligand signalling.
+1385	default	1.000000	1	21.6	cSMAC formation enhances weak ligand signalling.
+1385	tiered	1.000000	1	22.5	cSMAC formation enhances weak ligand signalling.
+1389	plain	1.000000	1	1.8	mTORC2 regulates intracellular cysteine levels through xCT inhibition.
+1389	default	1.000000	1	23.1	mTORC2 regulates intracellular cysteine levels through xCT inhibition.
+1389	tiered	1.000000	1	23.9	mTORC2 regulates intracellular cysteine levels through xCT inhibition.
+1395	plain	0.000000	0	5.7	p16INK4A accumulation is  linked to an abnormal wound response caused by the microinvasive step of advanced Oral Potentially Malignant Lesions (OPMLs).
+1395	default	0.000000	0	22.1	p16INK4A accumulation is  linked to an abnormal wound response caused by the microinvasive step of advanced Oral Potentially Malignant Lesions (OPMLs).
+1395	tiered	0.000000	0	25.7	p16INK4A accumulation is  linked to an abnormal wound response caused by the microinvasive step of advanced Oral Potentially Malignant Lesions (OPMLs).

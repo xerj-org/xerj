@@ -632,7 +632,7 @@ the other direction: it hosts an MCP endpoint other agents connect to, and its s
 their servers from the harness underneath. Grok Bot has no documented local stdio registration; the
 Grok CLI does, which is the `grok` row above.
 
-On main, 24 tools are exposed when Hub tools are enabled (25 with `--facts-model-dir`, which adds `xerj_facts_ask`); the rc.101 release has 23 and 24, because `xerj_sources` arrives in rc.102. Twelve are thin proxies over an endpoint XERJ already serves:
+On main, 25 tools are exposed when Hub tools are enabled, and 22 in a build with no hub key; `--facts-model-dir` adds `xerj_facts_ask`. The rc.104 release serves 24, because `xerj_references` arrived after it; the rc.101 release has 23 and 24, because `xerj_sources` arrives in rc.102. Twelve are thin proxies over an endpoint XERJ already serves:
 
 | Tool | What it does |
 |---|---|
@@ -677,6 +677,11 @@ As in the CLI, kind/language filters are ignored when no target index maps the f
 or any target index maps it as numeric. Ranking is lexical. This tool queries the configured node;
 `xerj_hub_def` instead looks up definitions in a named Hub pack.
 
+`xerj_references` (on main, after rc.104) takes the identifier `xerj_def` found and returns
+every indexed line that names it, with the definitions listed apart: `{"symbol":"Cache","prefix":"project"}`.
+It is lexical, not a call graph: comments and strings count, and a call through an alias does not.
+Contract and measured precision/recall: [endpoint contract](https://xerj.org/docs/agents/endpoints#references).
+
 Two more are not plain proxies: `xerj_map` returns the per-index field map from the autoindex
 catalog (trimmed to a byte cap, otherwise verbatim), and `xerj_code_search` runs the `xerj code`
 reference-coding pipeline ([`tools/xerj-code/`](tools/xerj-code/)) and returns its rendered text.
@@ -697,6 +702,24 @@ tool schemas are published at
 generated from a live `tools/list`, never hand-written, and gated in CI
 (`scripts/mcp-schema-check.sh`) plus a unit test, so the published list cannot drift from the
 served one.
+
+Cloud agents and URL-only clients cannot start a local process. For them, `xerj mcp --http`
+(on main, after rc.104) serves the same tools over MCP Streamable HTTP at
+`http://127.0.0.1:9330/mcp`. Over HTTP only the 15 read tools are listed (14 with no hub key)
+unless you pass `--allow-writes`. A non-loopback bind refuses to start without a bearer token
+(`XERJ_MCP_TOKEN` or `--token-file`, at least 16 characters). Set the token before you put a
+tunnel in front of it. Verify:
+
+```sh
+export XERJ_MCP_TOKEN="$(openssl rand -hex 32)"
+xerj mcp --http &
+curl -s http://127.0.0.1:9330/mcp -H "Authorization: Bearer $XERJ_MCP_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+  | jq '.result.tools | length'     # 15
+```
+
+Tunnels, Origin rules and client shapes (`claude mcp add --transport http …`) are in
+[Remote MCP](https://xerj.org/docs/agents/endpoints#remote-mcp).
 
 ## Why it exists
 

@@ -310,7 +310,15 @@
  "_source": ["body"]}
 
 → top hit _id "2" — "Reverting a broken release to the previous version." (shares no words)</pre>
-  <p><strong>Honesty:</strong> the zero-config built-in embedder is deterministic and lexical, not a large neural model — great for offline, reproducible retrieval. For production semantic quality, map the field with an <code class="inline">inference_id</code> / <code class="inline">inference_endpoint</code> pointing at your own OpenAI-compatible embeddings service; the query shape is unchanged.</p>
+  <p><strong>Honesty:</strong> the zero-config built-in embedder is deterministic and lexical, not a large neural model — great for offline, reproducible retrieval. For meaning-based matching, start the node with <code class="inline">--embed-mode neural</code> (the built-in BERT encoder) or <code class="inline">--embed-mode proxy</code> (your own OpenAI-compatible embeddings service) and re-index; the query shape is unchanged. An <code class="inline">inference_id</code> / <code class="inline">inference_endpoint</code> in the mapping does not switch the embedder: the create response says so in a warning.</p>
+  <h3 id="embed-mode">Which embedder answered</h3>
+  <p><code class="inline">GET /v1/embedding/identity</code> names the node's embedder in <code class="inline">data.backend</code> (<code class="inline">lexical</code>, <code class="inline">neural</code>, <code class="inline">proxy</code>, <code class="inline">onnx-experimental</code>), with no model path, URL or key. On main (not in rc.104), the MCP tools <code class="inline">xerj_search</code>, <code class="inline">xerj_semantic_search</code>, <code class="inline">xerj_hybrid_search</code> and <code class="inline">xerj search --json</code> copy it into the response, and add one hint when a natural-language question ran on a lexical node:</p>
+<pre class="code">"_xerj": {
+  "embed_mode": "lexical",
+  "hints": [{"code": "lexical_embedder",
+             "reason": "This is a keyword search, and this node's embedder is lexical feature hashing (embed_mode: lexical, the default), so semantic and hybrid search would also match words, not meaning. …"}]
+}</pre>
+  <p>A lookup (<code class="inline">parse_config</code>, <code class="inline">Tree::flush</code>, one or two words) gets <code class="inline">embed_mode</code> and no hint. A node that does not answer the identity read (an old build, or a key without access) gets neither: the tools never guess the default. Rephrase with the words and identifiers the target text uses, or call <code class="inline">xerj_def</code> for a definition.</p>
 
   <h2 id="vector">xerj_vector_search — kNN</h2>
   <p>Bring your own embeddings: map a <code class="inline">dense_vector</code> field, store vectors on each doc, and pass a <code class="inline">query_vector</code> as a <strong>top-level</strong> <code class="inline">knn</code> block (ES 8.x shape).</p>
@@ -442,8 +450,82 @@ warning: approach-only licence (mixed: BSD-2 (lib) / GPL-2.0+ (rest)): read, do 
   <p><strong>The tools never download.</strong> A tool call does not wait on the network: it reads the catalogue already cached and the packs already on the machine. Until a human or a shell agent has run <code class="inline">xerj hub sync</code> once and <code class="inline">xerj hub pull &lt;slug&gt;</code> for the corpus, the call returns <code class="inline">isError: true</code> with the command to run:</p>
 <pre class="code">no hub catalogue is cached on this machine, and hub tools never fetch one (a tool call does not wait on the network); run `xerj hub sync` in a shell once, then call the tool again (…)
 no local pack for 'lz4' and --no-fetch forbids downloading it; run: xerj hub pull lz4 (5.5 MB)</pre>
-  <p>Report that line to the user; do not answer from memory instead. Registration per client, the routing rules and every other message: <a href="/docs/corpus-hub#mcp">Corpus Hub · MCP</a>. Schemas: <a href="/docs/agents/schemas/mcp-tools.json">mcp-tools.json</a>.</p>
+  <p>Report that line to the user; do not answer from memory instead. Registration per client, the routing rules and every other message: <a href="/docs/corpus-hub#mcp">Corpus Hub · MCP</a>. Schemas: <a href="#mcp-schema">per release, and for main</a>.</p>
   <p class="source-note">Tools: engine/crates/xerj-mcp/src/lib.rs · flow: engine/crates/xerj-hub/src/ask.rs</p>
+
+  <h2 id="references">xerj_references: where an identifier is used (MCP only)</h2>
+  <p>After <code class="inline">xerj_def</code> found a definition, <code class="inline">xerj_references</code> returns every indexed line that names the exact identifier, with the definitions listed apart. It is lexical, not a call graph: comments and strings count, a call through an alias does not, and two symbols with one name are not told apart. Callers, callees and impact need call edges from the parse; they are a follow-up (#1791).</p>
+<pre class="code">xerj_references  {symbol: string, prefix?: string, index?: string, from?: int, size?: 1..500, max_tokens?: int}
+→ {"symbol": "Opstamp", "total": 78, "files": 18, "from": 0, "size": 2,
+   "references": [{"path": "examples/index_from_multiple_threads.rs", "line": 33, "text": "use tantivy::{doc, Index, IndexWriter, Opstamp, TantivyError};"},
+                  {"path": "examples/index_from_multiple_threads.rs", "line": 93, "text": "let opstamp: Opstamp = {",
+                   "enclosing": {"name": "main", "kind": "function", "line": 35}}],
+   "definitions": [{"path": "src/lib.rs", "line": 308, "text": "pub type Opstamp = u64;"}],
+   "unlocated_total": 0, "unlocated": [], "next_from": 2, "truncated": false, …}</pre>
+  <p>How: the node finds the files whose stored text holds the identifier, as a phrase or inside a longer token such as <code class="inline">searcher.doc_freq</code>; each file is then scanned line by line, case-sensitive, with word boundaries as <code class="inline">grep -w</code> draws them. A line that declares the name (from the file's symbol catalogue) goes to <code class="inline">definitions</code>. A mention in a stored block whose lines cannot be mapped back to the file goes to <code class="inline">unlocated</code> with its path and text, never with a guessed line.</p>
+  <p><strong>Measured against ripgrep</strong> (<code class="inline">rg -n -w -F</code>, every line it prints counted as truth; ours = references + definitions), main <code class="inline">4b90a220e</code> + this change, 2026-11-20:</p>
+  <ul>
+    <li><strong>tantivy</strong> (Rust, 434 code files), 7 identifiers (<code class="inline">SegmentReader</code>, <code class="inline">DocId</code>, <code class="inline">TantivyError</code>, <code class="inline">TERMINATED</code>, <code class="inline">Opstamp</code>, <code class="inline">doc_freq</code>, <code class="inline">BitSet</code>), 1,813 grep lines: precision 1.000, recall 1.000.</li>
+    <li><strong>OPNsense core</strong> (PHP, JavaScript, Volt templates), 7 identifiers (<code class="inline">BootstrapDialog</code>, <code class="inline">ajaxCall</code>, <code class="inline">mapDataToFormUI</code>, <code class="inline">stdDialogRemoveItem</code>, <code class="inline">getModel</code>, <code class="inline">configdRun</code>, <code class="inline">ApiControllerBase</code>), 992 grep lines: precision 1.000, recall 0.811 with a line number. The misses: 185 lines in <code class="inline">.volt</code> templates and one in a <code class="inline">.inc</code> file, which autoindex stores as text blocks that drop blank lines (#3333), so they come back in <code class="inline">unlocated</code> (path and text, no line); one line in <code class="inline">bootstrap-dialog.min.js</code>, a minified file autoindex skips. Per identifier: <code class="inline">getModel</code> and <code class="inline">ApiControllerBase</code> 1.000, <code class="inline">configdRun</code> 0.996, <code class="inline">BootstrapDialog</code> 0.702, <code class="inline">stdDialogRemoveItem</code> 0.667, <code class="inline">ajaxCall</code> 0.540, <code class="inline">mapDataToFormUI</code> 0.118.</li>
+  </ul>
+  <p class="source-note">Tool: engine/crates/xerj-mcp/src/references.rs</p>
+
+  <h2 id="mcp-schema">MCP tool schemas, per release</h2>
+  <p>Two files, both generated from a real <code class="inline">tools/list</code>, never written by hand:</p>
+  <ul>
+    <li><a href="/docs/agents/schemas/mcp-tools-1.0.0-rc.104.json">mcp-tools-1.0.0-rc.104.json</a>: exactly what the rc.104 binary serves (24 tools). Each release adds <code class="inline">mcp-tools-&lt;version&gt;.json</code>, named by the version the binary itself reports, and attaches the same file to its GitHub release. A published one never changes.</li>
+    <li><a href="/docs/agents/schemas/mcp-tools.json">mcp-tools.json</a>: what main serves (25 tools; 22 with no hub key). It can list a tool your installed binary does not have yet.</li>
+  </ul>
+  <p>Read the file that matches <code class="inline">xerj --version</code>. To check it against the binary you hold, from a checkout of the release tag:</p>
+<pre class="code">XERJ_BIN="$(command -v xerj)" scripts/mcp-schema-check.sh --release
+→ RESULT: PASS — published schema matches the binary (24 tools)</pre>
+  <p>The <code class="inline">xerj_status</code> tool also lists the tools the running binary serves, with its version.</p>
+
+  <h2 id="desktop-agents">Computer-use tools and AI-coworker apps</h2>
+  <p><code class="inline">xerj mcp</code> is a stdio server. These setups were checked against each project's own docs on 2026-11-19; <code class="inline">xerj init</code> prints them with your binary's absolute path and writes none of them.</p>
+  <p><strong>agent-desktop and agent-browser</strong> (vercel-labs). Both are MCP servers themselves (<code class="inline">agent-desktop mcp</code>, <code class="inline">agent-browser mcp</code>), not clients: they run inside a coding agent. Register xerj in that agent's <code class="inline">mcpServers</code>, beside them, so the agent that drives the desktop or the browser can also search the project and the files it downloaded:</p>
+<pre class="code">{"mcpServers": {
+  "agent-browser": {"command": "agent-browser", "args": ["mcp"]},
+  "agent-desktop": {"command": "agent-desktop", "args": ["mcp"]},
+  "xerj": {"command": "/abs/path/to/xerj", "args": ["mcp"]}
+}}</pre>
+  <p>Index what they produce like any folder: <code class="inline">xerj autoindex ~/Downloads --prefix downloads</code>, then search with <code class="inline">--prefix downloads</code>. Restart the agent; success: <code class="inline">xerj_search</code> is in its tool list next to <code class="inline">desktop_snapshot</code> or the browser tools.</p>
+  <p><strong>OpenMausBot.</strong> Open Plugins → MCP servers → Add server and paste:</p>
+<pre class="code">{"mcpServers": {"xerj": {"command": "/abs/path/to/xerj", "args": ["mcp"]}}}</pre>
+  <p>Success: the row says <em>Connected: &lt;N&gt; tools</em>. The registry is <code class="inline">~/.openmausbot/config.json</code>. If xerj is already registered in Claude Code, OpenMausBot's first-run import copies it in <em>switched off</em>: turn <code class="inline">xerj</code> on in Plugins → MCP servers. For a node that is not on <code class="inline">localhost:9200</code>, add <code class="inline">"env": {"XERJ_URL": "http://host:port"}</code>, and <code class="inline">"XERJ_AUTH": "ApiKey &lt;key&gt;"</code> when it is not a loopback node.</p>
+  <p><strong>CopilotKit OpenBot.</strong> It adds MCP servers by URL only (Connections → Add server), and refuses <code class="inline">localhost</code>, IP literals and plain <code class="inline">http</code>. Serve <code class="inline">xerj mcp --http</code> with a token, publish it through a tunnel (<a href="#remote-mcp">Remote MCP</a> below), and enter <code class="inline">https://&lt;tunnel-host&gt;/mcp</code>. OpenBot first asks the server with no credential; xerj answers <code class="inline">401</code> with no OAuth sign-in, so OpenBot asks for a key: paste the token. In the team edition only an admin may give a key. <code class="inline">OPENBOT_ALLOW_LOOPBACK_MCP=1</code> admits <code class="inline">http://127.0.0.1:9330/mcp</code> for development only. Checked against OpenBot's <code class="inline">docs/plugins/mcp-by-url.md</code> on 2026-11-20, not yet against a running OpenBot.</p>
+  <p><strong>nightly-labs OpenBot.</strong> Not yet tested: whether its per-workspace Codex and Claude agents read a project <code class="inline">.mcp.json</code> is still open (#2756). Until then, register once per agent with that agent's own user-scope command (for Claude Code: <code class="inline">claude mcp add --scope user xerj -- /abs/path/to/xerj mcp</code>).</p>
+  <p class="source-note">Printed by: engine/crates/xerj-autoindex/src/init.rs (desktop_agent_registration, remote_registration)</p>
+
+  <h2 id="remote-mcp">Remote MCP: <code class="inline">xerj mcp --http</code> for cloud agents</h2>
+  <p>Cloud agents, hosted chat apps and URL-only clients cannot start a local process. <code class="inline">xerj mcp --http</code> serves the same tools over MCP Streamable HTTP (spec 2025-06-18): one endpoint, <code class="inline">/mcp</code>, JSON-RPC over <code class="inline">POST</code>, the same handlers as stdio. stdio stays the default.</p>
+<pre class="code">export XERJ_MCP_TOKEN="$(openssl rand -hex 32)"   # or --token-file &lt;path&gt;
+xerj mcp --http                                   # http://127.0.0.1:9330/mcp
+→ xerj-mcp v… — MCP Streamable HTTP server at http://127.0.0.1:9330/mcp, proxying to http://localhost:9200
+→ xerj-mcp: 15 tools served (read-only; --allow-writes serves the rest); auth: bearer token required (from XERJ_MCP_TOKEN)</pre>
+  <p>Verify from the same machine:</p>
+<pre class="code">curl -s http://127.0.0.1:9330/mcp -H "Authorization: Bearer $XERJ_MCP_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | jq '.result.tools | length'
+→ 15</pre>
+  <p><strong>What is enforced.</strong></p>
+  <ul>
+    <li><strong>Bind.</strong> Default <code class="inline">127.0.0.1:9330</code> (<code class="inline">--bind ADDR:PORT</code>). A non-loopback bind refuses to start without a token.</li>
+    <li><strong>Token.</strong> <code class="inline">XERJ_MCP_TOKEN</code> or <code class="inline">--token-file</code>, at least 16 characters, sent as <code class="inline">Authorization: Bearer &lt;token&gt;</code>. Its own secret: never the node's admin key, compared in constant time, never printed. A missing or wrong token gets <code class="inline">401</code>.</li>
+    <li><strong>Tunnels need the token.</strong> A tunnel in front of a loopback bind makes it reachable from the internet. Without a token, a request carrying a proxy header (<code class="inline">X-Forwarded-For</code>, <code class="inline">Forwarded</code>, <code class="inline">X-Real-IP</code>, <code class="inline">CF-Connecting-IP</code>, <code class="inline">Tailscale-User-Login</code>) gets <code class="inline">403</code>. That check is a backstop, not a substitute: set the token first.</li>
+    <li><strong>Origin.</strong> A request with no <code class="inline">Origin</code> (agents, curl) or a loopback origin passes; any other browser origin gets <code class="inline">403</code> unless named with <code class="inline">--allow-origin</code>. This blocks DNS rebinding.</li>
+    <li><strong>Read-only by default.</strong> The proxy talks to the node with the node's credential, so over HTTP only the read tools are listed and callable: <code class="inline">xerj_def</code>, <code class="inline">xerj_references</code>, <code class="inline">xerj_search</code>, <code class="inline">xerj_batch_search</code>, <code class="inline">xerj_semantic_search</code>, <code class="inline">xerj_vector_search</code>, <code class="inline">xerj_hybrid_search</code>, <code class="inline">xerj_memory_recall</code>, <code class="inline">xerj_brain_overview</code>, <code class="inline">xerj_brain_ego</code>, <code class="inline">xerj_map</code>, <code class="inline">xerj_status</code>, <code class="inline">xerj_code_search</code>, <code class="inline">xerj_plan</code>, <code class="inline">xerj_hub_find</code> (14 in a build without the hub signing key, which omits <code class="inline">xerj_hub_find</code>). <code class="inline">--allow-writes</code> adds the tools that store, link, delete or send. The published schema stays the full stdio list.</li>
+    <li><strong>Stateless.</strong> No SSE stream and no <code class="inline">Mcp-Session-Id</code>: <code class="inline">GET</code> and <code class="inline">DELETE</code> on <code class="inline">/mcp</code> answer <code class="inline">405</code>. A POST of notifications only answers <code class="inline">202</code>.</li>
+  </ul>
+  <p><strong>Publish it</strong> (pick one; each gives an <code class="inline">https://</code> host):</p>
+<pre class="code">tailscale serve --bg 9330                      # your tailnet only; `tailscale funnel 9330` for the internet
+cloudflared tunnel --url http://127.0.0.1:9330  # prints https://&lt;name&gt;.trycloudflare.com
+ngrok http 9330                                 # prints https://&lt;name&gt;.ngrok-free.app</pre>
+  <p>Give the agent <code class="inline">https://&lt;tunnel-host&gt;/mcp</code> and the header <code class="inline">Authorization: Bearer &lt;token&gt;</code>. Client shapes:</p>
+<pre class="code">claude mcp add --transport http xerj https://&lt;tunnel-host&gt;/mcp --header "Authorization: Bearer &lt;token&gt;"
+{"mcpServers": {"xerj": {"type": "http", "url": "https://&lt;tunnel-host&gt;/mcp",
+                         "headers": {"Authorization": "Bearer &lt;token&gt;"}}}}</pre>
+  <p>Verify through the tunnel with the same <code class="inline">curl</code>, host swapped; expect the same tool count. <code class="inline">xerj init</code> prints these lines with your binary's path. Clients that only do OAuth sign-in, with no way to send a static header, cannot use this endpoint yet.</p>
+  <p class="source-note">Transport: engine/crates/xerj-mcp/src/http.rs · flags: <code class="inline">xerj mcp --help</code></p>
 
   <div class="next">
       <div class="step"><span class="dir">◀ PREV</span><a href="/docs/agents/quickstart">Agent quickstart</a></div>

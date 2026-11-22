@@ -110,8 +110,10 @@ fn temp_sibling(path: &Path) -> std::path::PathBuf {
     path.with_file_name(format!("{file_name}.tmp.{:x}.{nonce}", std::process::id()))
 }
 
-/// Write `bytes` to a temp file beside `path` and sync it, for a later
-/// [`publish_staged`]. Nothing is visible at `path` until then.
+/// Write `bytes` to a temp file beside `path` for a later
+/// [`publish_staged`], which makes it durable before it renames it (on
+/// Linux the sync itself happens there, see [`DEFER_STAGED_SYNC`]). Nothing
+/// is visible at `path` until then.
 pub fn stage_file(path: &Path, bytes: &[u8]) -> std::io::Result<StagedFile> {
     let tmp = temp_sibling(path);
     require_same_directory(&tmp, path)?;
@@ -122,7 +124,7 @@ pub fn stage_file(path: &Path, bytes: &[u8]) -> std::io::Result<StagedFile> {
     };
     let mut f = std::fs::File::create(&staged.tmp)?;
     f.write_all(bytes)?;
-    sync_file_for_batch(&f)?;
+    sync_staged_at_stage(&f)?;
     Ok(staged)
 }
 
@@ -140,8 +142,72 @@ pub fn stage_written_file(
         published: false,
     };
     require_same_directory(&staged.tmp, &staged.dest)?;
-    sync_file_for_batch(file)?;
+    sync_staged_at_stage(file)?;
     Ok(staged)
+}
+
+/// Linux defers each staged file's `fsync` to [`publish_staged`], which
+/// issues them all at once (#3324).
+///
+/// Staging used to `fsync` every temp file the moment it was written. The FTS
+/// writer stages four files per field (postings, FST, meta, norms) one after
+/// another, so a segment paid four sequential journal commits per field, and
+/// the flush finalize held its `flush_finalize_gate` permit through all of
+/// them. On ext4 under I/O pressure a commit took 0.3 s at the median and
+/// 0.9 s at p90 (measured on the shared 32-core box, load average ~70), so
+/// the permit was held for seconds of disk wait, not CPU, and every other
+/// flush in the process queued behind it until `flush_admit_timeout_secs`.
+///
+/// Concurrent `fsync` calls on ext4 join the same journal transaction, so the
+/// batch costs about one commit instead of one per file. The guarantee is
+/// unchanged: every staged file's bytes are synced before the first rename,
+/// and the directory is synced after the last one. Other targets keep the
+/// per-file sync at stage time (Apple pairs it with one `F_FULLFSYNC`).
+const DEFER_STAGED_SYNC: bool = cfg!(target_os = "linux");
+
+/// Upper bound on the threads [`sync_staged_batch`] uses for one batch.
+const STAGED_SYNC_WORKERS: usize = 16;
+
+fn sync_staged_at_stage(file: &std::fs::File) -> std::io::Result<()> {
+    if DEFER_STAGED_SYNC {
+        Ok(())
+    } else {
+        sync_file_for_batch(file)
+    }
+}
+
+/// `fsync` every staged temp file, concurrently, before any rename.
+fn sync_staged_batch(files: &[StagedFile]) -> std::io::Result<()> {
+    let sync_one = |file: &StagedFile| -> std::io::Result<()> {
+        // A read-only descriptor is enough on Linux: `fsync` writes back the
+        // inode's dirty pages whichever descriptor asks.
+        sync_file_full(&std::fs::File::open(&file.tmp)?)
+    };
+    if files.len() <= 1 {
+        return files.iter().try_for_each(sync_one);
+    }
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let workers = files.len().min(STAGED_SYNC_WORKERS);
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..workers)
+            .map(|_| {
+                scope.spawn(|| -> std::io::Result<()> {
+                    loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some(file) = files.get(i) else {
+                            return Ok(());
+                        };
+                        sync_one(file)?;
+                    }
+                })
+            })
+            .collect();
+        handles.into_iter().try_for_each(|handle| {
+            handle
+                .join()
+                .unwrap_or_else(|_| Err(std::io::Error::other("staged-file sync thread panicked")))
+        })
+    })
 }
 
 /// Move every staged file in `dir` into place, durably, with the same
@@ -149,8 +215,9 @@ pub fn stage_written_file(
 ///
 /// 1. every staged file's bytes reach stable storage before any rename (on
 ///    Apple targets, one `F_FULLFSYNC`, which drains the device cache for
-///    every earlier `fsync`; elsewhere each file was already fully synced
-///    when it was staged);
+///    every earlier `fsync`; on Linux all staged files are `fsync`ed here,
+///    concurrently, see [`DEFER_STAGED_SYNC`]; elsewhere each file was
+///    already fully synced when it was staged);
 /// 2. each file replaces its target (rename on Unix, write-through
 ///    `MoveFileExW` on Windows);
 /// 3. one parent-directory fsync makes every rename durable (Unix).
@@ -186,6 +253,9 @@ pub fn publish_staged(dir: &Path, files: Vec<StagedFile>) -> std::io::Result<()>
     // hashes the common pairs before they reach here; this is the backstop
     // for a pair the layout still stores as two literals (`µ`/`μ`, `ς`/`σ`).
     reject_case_folded_duplicate_destinations(&files)?;
+    if DEFER_STAGED_SYNC {
+        sync_staged_batch(&files)?;
+    }
     #[cfg(target_vendor = "apple")]
     sync_file_full(&std::fs::File::open(dir)?)?;
     let mut published_dests = Vec::with_capacity(files.len());
@@ -644,6 +714,39 @@ mod tests {
             .file_name()
             .to_string_lossy()
             .contains(".tmp.")));
+    }
+
+    /// #3324: a wide batch (more files than sync workers) publishes every
+    /// file, and on Linux, where the per-file sync moved from staging to the
+    /// publish, a temp that cannot be synced fails the batch before any
+    /// rename, so no destination appears.
+    #[test]
+    fn a_wide_staged_batch_syncs_every_file_before_any_rename() {
+        let dir = tempfile::tempdir().unwrap();
+        let n = STAGED_SYNC_WORKERS * 3 + 1;
+        let paths: Vec<_> = (0..n)
+            .map(|i| dir.path().join(format!("f{i}.post")))
+            .collect();
+        let staged: Vec<_> = paths
+            .iter()
+            .enumerate()
+            .map(|(i, p)| stage_file(p, format!("v{i}").as_bytes()).unwrap())
+            .collect();
+        publish_staged(dir.path(), staged).unwrap();
+        for (i, p) in paths.iter().enumerate() {
+            assert_eq!(std::fs::read(p).unwrap(), format!("v{i}").as_bytes());
+        }
+
+        if DEFER_STAGED_SYNC {
+            let other = tempfile::tempdir().unwrap();
+            let a = other.path().join("a.post");
+            let b = other.path().join("b.post");
+            let staged = vec![stage_file(&a, b"a").unwrap(), stage_file(&b, b"b").unwrap()];
+            std::fs::remove_file(&staged[1].tmp).unwrap();
+            assert!(publish_staged(other.path(), staged).is_err());
+            assert!(!a.exists(), "no rename may run before every temp is synced");
+            assert!(!b.exists());
+        }
     }
 
     #[test]

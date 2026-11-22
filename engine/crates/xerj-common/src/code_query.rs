@@ -189,6 +189,40 @@ pub fn normalize_code_search_query(query: &str) -> String {
     }
 }
 
+/// True when `q` reads as a sentence or question rather than a lookup.
+///
+/// Three or more words, at least two of them plain words (letters only, no
+/// `_`, `::`, `.` or inner capital, so `getUserInfo` and `parse_config` are
+/// not), or any query ending in `?`. Scripts without case (Persian, CJK)
+/// count as plain words. One or two words are a lookup.
+pub fn looks_natural_language(q: &str) -> bool {
+    let q = q.trim();
+    if q.is_empty() {
+        return false;
+    }
+    if q.ends_with('?') && q.split_whitespace().count() >= 2 {
+        return true;
+    }
+    let words: Vec<&str> = q.split_whitespace().collect();
+    if words.len() < 3 {
+        return false;
+    }
+    let plain = words
+        .iter()
+        .filter(|w| {
+            let w = w.trim_matches(|c: char| matches!(c, ',' | ';' | ':' | '"' | '\'' | '(' | ')'));
+            let mut chars = w.chars();
+            match chars.next() {
+                Some(first) if first.is_alphabetic() => {
+                    chars.all(|c| c.is_alphabetic() && !c.is_uppercase())
+                }
+                _ => false,
+            }
+        })
+        .count();
+    plain >= 2
+}
+
 /// Boost on the exact-phrase clause `xerj search` and the plain-string
 /// `xerj_search` MCP tool put on content fields (`body`, and `text` /
 /// `message` / `impl` where mapped).
@@ -276,6 +310,284 @@ pub fn coverage_match_clauses(query: &str, fields: &[String]) -> Vec<Value> {
 pub fn exact_phrase_query(query: &str) -> Option<&str> {
     let trimmed = query.trim();
     trimmed.split_whitespace().nth(1).map(|_| trimmed)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CJK runs (#2580)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Boost on the `match_phrase` clause each CJK run of the query gets.
+///
+/// The default `standard` analyzer emits one token per Han character, so
+/// `雷同` is the bag `{雷, 同}`: a long note full of `雷` and `同` outscores
+/// a file that contains `雷同` itself (#2580 ranked it 4th). The phrase
+/// clause only matches the characters in order, which is what the agent
+/// typed. Same weight as [`EXACT_PHRASE_BOOST`] — the run is an exact
+/// phrase that happens to have no spaces.
+pub const CJK_RUN_PHRASE_BOOST: f64 = 4.0;
+
+/// At most this many runs get a phrase clause, so a pasted paragraph does
+/// not grow the body by one clause per phrase.
+pub const MAX_CJK_RUNS: usize = 8;
+
+/// Han (with extension A and compatibility ideographs), Hiragana, Katakana
+/// and Hangul syllables: the scripts written without spaces between words.
+pub fn is_cjk_char(c: char) -> bool {
+    matches!(c as u32,
+        0x3040..=0x309F     // Hiragana
+        | 0x30A0..=0x30FF   // Katakana
+        | 0x3400..=0x4DBF   // CJK Unified Ideographs Extension A
+        | 0x4E00..=0x9FFF   // CJK Unified Ideographs
+        | 0xAC00..=0xD7AF   // Hangul syllables
+        | 0xF900..=0xFAFF   // CJK Compatibility Ideographs
+    )
+}
+
+/// Contiguous runs of two or more CJK characters in `query`, first
+/// occurrence order, without duplicates, capped at [`MAX_CJK_RUNS`].
+///
+/// A single character is left to the recall clauses: as a phrase it would
+/// score the same documents as the `multi_match`.
+pub fn cjk_runs(query: &str) -> Vec<String> {
+    fn flush(current: &mut String, runs: &mut Vec<String>) {
+        if current.chars().count() >= 2 && !runs.contains(current) {
+            runs.push(std::mem::take(current));
+        } else {
+            current.clear();
+        }
+    }
+    let mut runs: Vec<String> = Vec::new();
+    let mut current = String::new();
+    for c in query.chars() {
+        if is_cjk_char(c) {
+            current.push(c);
+        } else {
+            flush(&mut current, &mut runs);
+        }
+    }
+    flush(&mut current, &mut runs);
+    runs.truncate(MAX_CJK_RUNS);
+    runs
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dotted member lookups (#2426)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// File extensions that make `name.ext` a file name, not `Type.member`.
+const FILE_EXTENSIONS: &[&str] = &[
+    "c", "cc", "cfg", "conf", "cpp", "cs", "css", "csv", "go", "h", "hpp", "html", "ini", "java",
+    "js", "json", "jsx", "kt", "lock", "log", "md", "mjs", "pdf", "php", "png", "py", "rb", "rs",
+    "sh", "sql", "svg", "swift", "toml", "ts", "tsx", "txt", "xml", "yaml", "yml", "zip",
+];
+
+fn is_identifier_part(s: &str) -> bool {
+    let mut chars = s.chars();
+    matches!(chars.next(), Some(c) if c.is_ascii_alphabetic() || c == '_' || c == '$')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+}
+
+/// `(Type, member)` when the query is one dotted or `::` member path:
+/// `Position.open_price`, `ActiveUtils.activeDialog`, `Tree::flush`.
+///
+/// The `standard` tokenizer keeps `position.open_price` as one token
+/// (UAX #29 does not break a word at `.` between letters), so the plain
+/// `multi_match` only finds documents that spell the dotted path out —
+/// never the `struct Position` that declares `open_price` (#2426). A longer
+/// path (`a.b.c`) uses its last two parts. File names (`search.rs`) and
+/// version strings are not member paths.
+pub fn dotted_member(query: &str) -> Option<(&str, &str)> {
+    let q = query.trim();
+    if q.is_empty() || q.contains(char::is_whitespace) {
+        return None;
+    }
+    let sep = if q.contains("::") { "::" } else { "." };
+    let parts: Vec<&str> = q.split(sep).collect();
+    if parts.len() < 2 || !parts.iter().all(|p| is_identifier_part(p)) {
+        return None;
+    }
+    let owner = parts[parts.len() - 2];
+    let member = parts[parts.len() - 1];
+    if sep == "." && FILE_EXTENSIONS.contains(&member.to_ascii_lowercase().as_str()) {
+        return None;
+    }
+    Some((owner, member))
+}
+
+/// Boost on `term name = <Type>` for a dotted member query: the owning
+/// type's own definition. Same weight as the whole-query `name` term.
+pub const MEMBER_OWNER_NAME_BOOST: f64 = 10.0;
+
+/// Boost on the file-level clause "defines `<Type>` and mentions
+/// `<member>`" — the file that holds the declaration.
+pub const MEMBER_OWNER_FILE_BOOST: f64 = 8.0;
+
+/// Boost on `term name = <member>`: a method or function of that name.
+/// Below the owner so `open` (a common method name) does not outrank the
+/// type the agent qualified it with.
+pub const MEMBER_NAME_BOOST: f64 = 4.0;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Exact advisory and package identifiers (#1788)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Constant score an exact advisory or package identifier match adds.
+///
+/// An ID names one record, so it must beat every other clause, including a
+/// question's two [`COVERAGE_MATCH_BOOST`]s: `what does advisory
+/// RUSTSEC-2021-0003 affect` ranked the advisory itself below records that
+/// share `advisory` and `affect` when this was a plain boost-20 `term`
+/// (measured on the rust-vulns pack, 2/30 at rank 1). A `constant_score`, so
+/// the keyword's IDF does not scale it.
+pub const EXACT_ID_TERM_BOOST: f64 = 3.0 * COVERAGE_MATCH_BOOST;
+const _: () = assert!(EXACT_ID_TERM_BOOST > 2.0 * COVERAGE_MATCH_BOOST);
+
+fn exact_id_clause(field: &str, id: &str) -> Value {
+    json!({ "constant_score": {
+        "filter": { "term": { field: id } },
+        "boost": EXACT_ID_TERM_BOOST
+    }})
+}
+
+/// Boost on the `match_phrase` of an identifier in a content field (the
+/// advisory body that cites `CVE-2024-1234`).
+pub const EXACT_ID_PHRASE_BOOST: f64 = 6.0;
+
+/// Keyword fields an exact identifier is looked up in, when a read mapping
+/// names them. `name` is handled with the code fields.
+pub const EXACT_ID_KEYWORD_FIELDS: &[&str] = &["id", "aliases"];
+
+fn all_digits(s: &str, min: usize, max: usize) -> bool {
+    (min..=max).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// Canonical form of one advisory ID token, or `None`.
+///
+/// `CVE-YYYY-NNNN+`, `RUSTSEC-YYYY-NNNN`, `PYSEC-YYYY-N+`, `GO-YYYY-NNNN`
+/// upper-cased; `GHSA-xxxx-xxxx-xxxx` keeps the prefix upper and the body
+/// lower, as GitHub prints it.
+fn advisory_id(token: &str) -> Option<String> {
+    let parts: Vec<&str> = token.split('-').collect();
+    let prefix = parts.first()?.to_ascii_uppercase();
+    match (prefix.as_str(), parts.len()) {
+        ("CVE", 3) if all_digits(parts[1], 4, 4) && all_digits(parts[2], 4, 9) => {
+            Some(format!("CVE-{}-{}", parts[1], parts[2]))
+        }
+        ("RUSTSEC" | "GO", 3) if all_digits(parts[1], 4, 4) && all_digits(parts[2], 4, 6) => {
+            Some(format!("{prefix}-{}-{}", parts[1], parts[2]))
+        }
+        ("PYSEC", 3) if all_digits(parts[1], 4, 4) && all_digits(parts[2], 1, 6) => {
+            Some(format!("PYSEC-{}-{}", parts[1], parts[2]))
+        }
+        ("GHSA", 4)
+            if parts[1..]
+                .iter()
+                .all(|p| p.len() == 4 && p.bytes().all(|b| b.is_ascii_alphanumeric())) =>
+        {
+            Some(format!(
+                "GHSA-{}-{}-{}",
+                parts[1].to_ascii_lowercase(),
+                parts[2].to_ascii_lowercase(),
+                parts[3].to_ascii_lowercase()
+            ))
+        }
+        _ => None,
+    }
+}
+
+/// `pkg@version` (`serde@1.0.130`, `@scope/pkg@2.1.0`) kept as typed.
+fn package_at_version(token: &str) -> Option<String> {
+    let at = token.rfind('@').filter(|&i| i > 0)?;
+    let (pkg, version) = (&token[..at], &token[at + 1..]);
+    let pkg_ok = pkg.chars().any(|c| c.is_ascii_alphabetic())
+        && pkg
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | '@'));
+    let version_ok = version.starts_with(|c: char| c.is_ascii_digit())
+        && version
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '+'));
+    (pkg_ok && version_ok).then(|| token.to_string())
+}
+
+/// Advisory IDs and `pkg@version` identifiers in `query`, in order, without
+/// duplicates. Surrounding punctuation (`(CVE-2024-1234),`) is trimmed.
+pub fn exact_ids(query: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for raw in query.split_whitespace() {
+        let token = raw.trim_matches(|c: char| {
+            !(c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '@' | '.' | '/' | '+'))
+        });
+        let token = token.trim_end_matches(['.', '/']);
+        if let Some(id) = advisory_id(token).or_else(|| package_at_version(token)) {
+            if !out.contains(&id) {
+                out.push(id);
+            }
+        }
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// All-terms-first tier (#3007, opt-in)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The first-pass body for `xerj search --all-terms-first`: `body` with a
+/// filter that every content token of `query` matches at least one of
+/// `body`'s `multi_match` fields. Scoring is unchanged; the filter only
+/// narrows the candidates.
+///
+/// `None` for a query with fewer than two content tokens (a lookup has
+/// nothing to tier) and for a body with no `multi_match` to take fields
+/// from. The caller runs the plain body for the rest of the page — see
+/// [`merge_tiered_hits`].
+pub fn all_terms_first_body(body: &Value, query: &str) -> Option<Value> {
+    let shaped = normalize_code_search_query(query);
+    let tokens: Vec<&str> = shaped.split_whitespace().collect();
+    if tokens.len() < 2 {
+        return None;
+    }
+    let fields = body
+        .pointer("/query/bool/should")
+        .and_then(Value::as_array)?
+        .iter()
+        .find_map(|c| c.pointer("/multi_match/fields").cloned())?;
+    let must: Vec<Value> = tokens
+        .iter()
+        .map(|t| json!({ "multi_match": { "query": t, "fields": fields, "type": "most_fields" } }))
+        .collect();
+    let mut tiered = body.clone();
+    let bool_q = tiered.pointer_mut("/query/bool")?.as_object_mut()?;
+    bool_q.insert("filter".into(), json!([{ "bool": { "must": must } }]));
+    Some(tiered)
+}
+
+/// `first` (all terms) followed by the `fallback` hits it does not already
+/// hold, by `_index` + `_id`, cut to `k`. The fallback's own order is kept.
+pub fn merge_tiered_hits(first: &[Value], fallback: &[Value], k: usize) -> Vec<Value> {
+    let key = |h: &Value| {
+        (
+            h.get("_index")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            h.get("_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+        )
+    };
+    let mut seen: BTreeSet<(String, String)> = BTreeSet::new();
+    let mut out = Vec::with_capacity(k);
+    for hit in first.iter().chain(fallback.iter()) {
+        if out.len() >= k {
+            break;
+        }
+        if seen.insert(key(hit)) {
+            out.push(hit.clone());
+        }
+    }
+    out
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -557,7 +869,84 @@ fn build_search_query(
     // Appended last so the #916 clause positions do not move. A one-word
     // symbol still matches the recall `multi_match`; these clauses only
     // add score when the document covers the question (#2327).
-    should.extend(coverage_match_clauses(&shaped, &fields));
+    //
+    // Code corpora only (#3007). The clauses exist because a short
+    // `name^4` / `code^2` symbol collects a large BM25 from field length;
+    // a prose, markdown or log mapping names none of those fields, and there
+    // the 1000-point tiers rank "matches half the words" above BM25:
+    // BEIR nDCG@10 SciFact 0.6229 -> 0.6550, NFCorpus 0.2980 -> 0.3058
+    // without them (paired randomization p = 0.0024 / 0.0064).
+    if !code_symbol_fields_absent(mapped) {
+        should.extend(coverage_match_clauses(&shaped, &fields));
+    }
+    // Everything below is appended after the #916/#2327 clauses so their
+    // positions do not move, and each block is empty for a query it does
+    // not apply to.
+    let content_fields: Vec<&str> = fields
+        .iter()
+        .map(|f| f.split('^').next().unwrap_or(f))
+        .filter(|base| PHRASE_CONTENT_FIELDS.contains(base))
+        .collect();
+    // #2580: each CJK run as a phrase, so the document holding `雷同`
+    // outranks one that only shares the characters `雷` and `同`.
+    for run in cjk_runs(query) {
+        for base in &content_fields {
+            should.push(json!({ "match_phrase": { *base: {
+                "query": run,
+                "boost": CJK_RUN_PHRASE_BOOST
+            } } }));
+        }
+    }
+    // #2426: `Position.open_price` is one token to the analyzer. Search the
+    // two parts as words, and rank the owner's definition first.
+    if let Some((owner, member)) = dotted_member(query) {
+        if !fields.is_empty() {
+            should.push(json!({ "multi_match": {
+                "query": format!("{owner} {member}"),
+                "fields": fields,
+                "type": "most_fields"
+            }}));
+        }
+        if field_lookup_ok(mapped, numeric, "name") {
+            should.push(
+                json!({ "term": { "name": { "value": owner, "boost": MEMBER_OWNER_NAME_BOOST } } }),
+            );
+            should.push(
+                json!({ "term": { "name": { "value": member, "boost": MEMBER_NAME_BOOST } } }),
+            );
+        }
+        if field_lookup_ok(mapped, numeric, "defs") && !fields.is_empty() {
+            should.push(json!({ "bool": {
+                "must": [
+                    { "match_phrase": { "defs": owner } },
+                    { "multi_match": { "query": member, "fields": fields, "type": "most_fields" } }
+                ],
+                "boost": MEMBER_OWNER_FILE_BOOST
+            }}));
+        }
+    }
+    // #1788: an advisory ID or `pkg@version` names one record. Exact `term`
+    // on the keyword ID fields a read mapping names (never on an unread
+    // mapping: autoindex indices are strict and do not map `id`), and a
+    // phrase on the content fields that cite it.
+    for id in exact_ids(query) {
+        for field in EXACT_ID_KEYWORD_FIELDS {
+            if mapped.is_some_and(|set| set.contains(*field))
+                && !numeric.is_some_and(|set| set.contains(*field))
+            {
+                should.push(exact_id_clause(field, &id));
+            }
+        }
+        if id != query.trim() && field_lookup_ok(mapped, numeric, "name") {
+            should.push(exact_id_clause("name", &id));
+        }
+        for base in &content_fields {
+            should.push(json!({ "match_phrase": { *base: {
+                "query": id,
+                "boost": EXACT_ID_PHRASE_BOOST
+            } } }));
+        }
+    }
     json!({
         "size": k,
         "query": { "bool": { "should": should }},
@@ -568,4 +957,241 @@ fn build_search_query(
         "_source": ["ax_path", "ax_paths", "ax_locator", "line", "start_line", "language", "kind", "code", "title", "heading", "page", "cell"],
         "fields": ["_passage"]
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn clauses(body: &Value) -> Vec<Value> {
+        should_clauses(body).to_vec()
+    }
+
+    fn phrases_on(body: &Value, field: &str) -> Vec<(String, f64)> {
+        clauses(body)
+            .iter()
+            .filter_map(|c| c.pointer(&format!("/match_phrase/{field}")))
+            .filter_map(|p| {
+                Some((
+                    p.get("query")?.as_str()?.to_string(),
+                    p.get("boost")?.as_f64()?,
+                ))
+            })
+            .collect()
+    }
+
+    fn names(fields: &[&str]) -> BTreeSet<String> {
+        fields.iter().map(|f| f.to_string()).collect()
+    }
+
+    #[test]
+    fn cjk_runs_are_contiguous_deduplicated_and_skip_single_characters() {
+        assert_eq!(cjk_runs("雷同"), vec!["雷同"]);
+        assert_eq!(cjk_runs("PEG 估值 可投资性"), vec!["估值", "可投资性"]);
+        assert_eq!(cjk_runs("无名小炒 and 无名小炒"), vec!["无名小炒"]);
+        assert_eq!(cjk_runs("東京タワー"), vec!["東京タワー"]);
+        assert_eq!(cjk_runs("한국어 검색"), vec!["한국어", "검색"]);
+        assert!(
+            cjk_runs("雷 同").is_empty(),
+            "single characters stay recall-only"
+        );
+        assert!(cjk_runs("WAL rotation").is_empty());
+        let repeated: String = (0..20).map(|i| format!("雷同{i}")).collect();
+        assert_eq!(cjk_runs(&repeated).len(), 1, "a repeated run is one clause");
+        let distinct = "一二 三四 五六 七八 九十 甲乙 丙丁 戊己 庚辛 壬癸";
+        assert_eq!(cjk_runs(distinct).len(), MAX_CJK_RUNS);
+    }
+
+    /// #2580: `雷同` is one whitespace token, so the exact-phrase leg never
+    /// fired and the body ORed `雷` / `同`. Every content field the
+    /// `multi_match` names now gets the run as a phrase, code and prose alike.
+    #[test]
+    fn a_cjk_query_gets_a_phrase_clause_per_run_on_content_fields() {
+        let code = search_query_body("雷同", 5);
+        assert_eq!(
+            phrases_on(&code, "body"),
+            vec![("雷同".to_string(), CJK_RUN_PHRASE_BOOST)]
+        );
+        let prose_names = names(&["title", "text", "body"]);
+        let prose = search_query_body_for_mapping("青椒猪杂", 5, Some(&prose_names), None);
+        for field in ["text", "body"] {
+            assert_eq!(
+                phrases_on(&prose, field),
+                vec![("青椒猪杂".to_string(), CJK_RUN_PHRASE_BOOST)],
+                "{field}"
+            );
+        }
+        let mixed = search_query_body("PEG 估值 可投资性", 5);
+        let body_phrases: Vec<String> = phrases_on(&mixed, "body")
+            .into_iter()
+            .map(|(q, _)| q)
+            .collect();
+        assert_eq!(body_phrases, vec!["PEG 估值 可投资性", "估值", "可投资性"]);
+        let latin = search_query_body("rotate the WAL segment", 5);
+        assert_eq!(
+            phrases_on(&latin, "body").len(),
+            1,
+            "no CJK clause for Latin text"
+        );
+        let keyword = names(&["name", "code"]);
+        let only_keywords = search_query_body_for_mapping("雷同", 5, Some(&keyword), None);
+        assert!(phrases_on(&only_keywords, "body").is_empty());
+    }
+
+    #[test]
+    fn dotted_member_splits_type_and_member_but_not_file_names() {
+        assert_eq!(
+            dotted_member("Position.open_price"),
+            Some(("Position", "open_price"))
+        );
+        assert_eq!(
+            dotted_member(" ActiveUtils.activeDialog "),
+            Some(("ActiveUtils", "activeDialog"))
+        );
+        assert_eq!(dotted_member("Tree::flush"), Some(("Tree", "flush")));
+        assert_eq!(
+            dotted_member("a.b.Position.open"),
+            Some(("Position", "open"))
+        );
+        for not_member in [
+            "search.rs",
+            "README.md",
+            "config.TOML",
+            "1.2.3",
+            "Position",
+            "Position.",
+            ".mensaje_motor",
+            "Position.open price",
+            "serde@1.0",
+        ] {
+            assert_eq!(dotted_member(not_member), None, "{not_member}");
+        }
+    }
+
+    /// #2426: the body searches the split words and puts the owner's
+    /// definition (`term name = Position`) above a method named `open_price`.
+    #[test]
+    fn a_dotted_member_query_ranks_the_owner_definition() {
+        let body = search_query_body("Position.open_price", 5);
+        let all = clauses(&body);
+        assert!(
+            all.iter()
+                .any(|c| c.pointer("/multi_match/query") == Some(&json!("Position open_price"))),
+            "{body}"
+        );
+        let term_boost = |value: &str| {
+            all.iter()
+                .find(|c| c.pointer("/term/name/value") == Some(&json!(value)))
+                .and_then(|c| c.pointer("/term/name/boost"))
+                .and_then(Value::as_f64)
+        };
+        assert_eq!(term_boost("Position"), Some(MEMBER_OWNER_NAME_BOOST));
+        assert_eq!(term_boost("open_price"), Some(MEMBER_NAME_BOOST));
+        assert!(all
+            .iter()
+            .any(|c| c.pointer("/bool/must/0/match_phrase/defs") == Some(&json!("Position"))));
+        let prose_names = names(&["title", "text"]);
+        let prose =
+            search_query_body_for_mapping("Position.open_price", 5, Some(&prose_names), None);
+        let rendered = prose.to_string();
+        assert!(!rendered.contains("\"name\""), "{rendered}");
+        assert!(!rendered.contains("\"defs\""), "{rendered}");
+        assert!(rendered.contains("Position open_price"), "{rendered}");
+        // An identifier without a dot keeps the historical three clauses.
+        let plain = search_query_body("open_price", 5);
+        assert_eq!(clauses(&plain).len(), 3, "{plain}");
+    }
+
+    #[test]
+    fn exact_ids_are_found_canonicalised_and_deduplicated() {
+        assert_eq!(
+            exact_ids("is cve-2021-44228 (CVE-2021-44228), fixed?"),
+            vec!["CVE-2021-44228"]
+        );
+        assert_eq!(
+            exact_ids("GHSA-JFH8-C2JP-5V3Q and RUSTSEC-2021-0124"),
+            vec!["GHSA-jfh8-c2jp-5v3q", "RUSTSEC-2021-0124"]
+        );
+        assert_eq!(
+            exact_ids("tokio@1.18.4 @scope/pkg@2.0.0-rc.1"),
+            vec!["tokio@1.18.4", "@scope/pkg@2.0.0-rc.1"]
+        );
+        for none in [
+            "CVE-21-1",
+            "CVE-2021-12",
+            "GHSA-abc-defg-hijk",
+            "user@example.com",
+            "ci@host.example:org/repo",
+            "WAL rotation",
+            "@1.2.3",
+        ] {
+            assert!(exact_ids(none).is_empty(), "{none}");
+        }
+    }
+
+    /// #1788: `term` on the keyword ID fields only when a read mapping names
+    /// them — an autoindex index is strict and maps no `id`.
+    #[test]
+    fn an_exact_id_gets_term_clauses_only_on_mapped_id_fields() {
+        let pack = names(&["id", "aliases", "title", "body"]);
+        let none = BTreeSet::new();
+        let body =
+            search_query_body_for_mapping("CVE-2021-44228 log4j", 3, Some(&pack), Some(&none));
+        let all = clauses(&body);
+        for field in ["id", "aliases"] {
+            let clause = all
+                .iter()
+                .find(|c| {
+                    c.pointer(&format!("/constant_score/filter/term/{field}"))
+                        == Some(&json!("CVE-2021-44228"))
+                })
+                .unwrap_or_else(|| panic!("no {field} term in {body}"));
+            assert_eq!(
+                clause.pointer("/constant_score/boost"),
+                Some(&json!(EXACT_ID_TERM_BOOST))
+            );
+        }
+        assert!(phrases_on(&body, "body")
+            .contains(&("CVE-2021-44228".to_string(), EXACT_ID_PHRASE_BOOST)));
+        let historical = search_query_body("CVE-2021-44228", 3).to_string();
+        assert!(!historical.contains("\"id\""), "{historical}");
+        assert!(!historical.contains("\"aliases\""), "{historical}");
+        let numeric = names(&["id"]);
+        let num_body =
+            search_query_body_for_mapping("CVE-2021-44228", 3, Some(&pack), Some(&numeric));
+        assert!(!num_body.to_string().contains("\"id\""));
+        let words = search_query_body_for_mapping("log4j remote code", 3, Some(&pack), None);
+        assert!(!words.to_string().contains("\"aliases\""));
+    }
+
+    #[test]
+    fn all_terms_first_filters_every_token_and_leaves_scoring_alone() {
+        let body = search_query_body("heap overflow parser", 10);
+        let tiered = all_terms_first_body(&body, "heap overflow parser").expect("tiered");
+        assert_eq!(
+            tiered["query"]["bool"]["should"],
+            body["query"]["bool"]["should"]
+        );
+        let must = tiered
+            .pointer("/query/bool/filter/0/bool/must")
+            .and_then(Value::as_array)
+            .unwrap();
+        let tokens: Vec<&str> = must
+            .iter()
+            .filter_map(|m| m.pointer("/multi_match/query").and_then(Value::as_str))
+            .collect();
+        assert_eq!(tokens, vec!["heap", "overflow", "parser"]);
+        assert!(all_terms_first_body(&search_query_body("Token", 10), "Token").is_none());
+    }
+
+    #[test]
+    fn tiered_merge_keeps_first_tier_then_fills_without_duplicates() {
+        let h = |id: &str| json!({"_index": "i", "_id": id});
+        let first = vec![h("a"), h("b")];
+        let fallback = vec![h("c"), h("a"), h("d"), h("e")];
+        let merged = merge_tiered_hits(&first, &fallback, 4);
+        let ids: Vec<&str> = merged.iter().map(|m| m["_id"].as_str().unwrap()).collect();
+        assert_eq!(ids, vec!["a", "b", "c", "d"]);
+        assert_eq!(merge_tiered_hits(&first, &fallback, 1).len(), 1);
+    }
 }

@@ -257,14 +257,63 @@ pub fn default_interval(surface: Surface) -> Duration {
 pub static SINK_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 #[cfg(test)]
-static TEST_SINK: Mutex<Option<Arc<Mutex<Vec<u8>>>>> = Mutex::new(None);
+struct TestSink {
+    buffer: Arc<Mutex<Vec<u8>>>,
+    freeze_bar_clock: bool,
+}
+
+#[cfg(test)]
+static TEST_SINK: Mutex<Option<TestSink>> = Mutex::new(None);
 
 /// Redirect every `Progress::new` in this process into `buffer` until the
 /// returned guard drops. Hold `SINK_TEST_LOCK` for the whole window.
 #[cfg(test)]
 pub fn install_test_sink(buffer: &Arc<Mutex<Vec<u8>>>) -> TestSinkGuard {
-    *TEST_SINK.lock().unwrap() = Some(Arc::clone(buffer));
+    install_sink(buffer, false)
+}
+
+/// [`install_test_sink`], and every `Progress` built under it paces its
+/// `xerj-bar` lines on a clock that never advances.
+///
+/// An end-to-end run that asserts how many bars it relayed otherwise depends
+/// on how fast the machine ran it: the same eight-file corpus that indexes in
+/// 0.3 s on an idle box crossed [`BAR_MIN_GAP`] on a loaded one, and the
+/// floor then correctly let a second bar through. Under a frozen bar clock no
+/// time passes between ticks, so the count measures only the pacing rules —
+/// the first line draws, a phase change waits for the floor, a periodic bar
+/// waits for the interval — and not the scheduler. Only the bar slot reads
+/// this clock; percent, ETA and stall detection keep the real one.
+#[cfg(test)]
+pub fn install_test_sink_with_frozen_bar_clock(buffer: &Arc<Mutex<Vec<u8>>>) -> TestSinkGuard {
+    install_sink(buffer, true)
+}
+
+#[cfg(test)]
+fn install_sink(buffer: &Arc<Mutex<Vec<u8>>>, freeze_bar_clock: bool) -> TestSinkGuard {
+    *TEST_SINK.lock().unwrap() = Some(TestSink {
+        buffer: Arc::clone(buffer),
+        freeze_bar_clock,
+    });
     TestSinkGuard
+}
+
+/// Where [`Progress::bar_slot`] reads the time. Always the real clock outside
+/// tests.
+#[derive(Debug, Clone, Copy)]
+enum BarClock {
+    Real,
+    #[cfg(test)]
+    Frozen(Instant),
+}
+
+impl BarClock {
+    fn now(self) -> Instant {
+        match self {
+            Self::Real => Instant::now(),
+            #[cfg(test)]
+            Self::Frozen(at) => at,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -278,6 +327,17 @@ impl Drop for TestSinkGuard {
 }
 
 enum Sink {
+    /// `std::io::stderr()`, deliberately, and no `SetConsoleOutputCP` (#3102).
+    /// On Windows, std writes to a console handle whose code page is not
+    /// UTF-8 through `WriteConsoleW` after converting the UTF-8 to UTF-16
+    /// (`library/std/src/sys/stdio/windows.rs`, `write` / `is_console`), so a
+    /// console window shows CJK paths correctly on code page 936 already.
+    /// The mojibake in #3102 comes from a *pipe*: its reader (a PowerShell
+    /// capture) decodes the bytes with an encoding the reader chose. Setting
+    /// the console's code page here changes nothing std writes to a console
+    /// window, and would leave the user's shell on 65001 whenever the
+    /// process is killed before restoring it.
+    /// `--help` (cli.rs) tells pipe readers to switch their decoder.
     Stderr,
     /// Test-only: the identical render path, captured in memory.
     #[cfg(test)]
@@ -401,6 +461,7 @@ pub struct Progress {
     stopped: Mutex<bool>,
     wake: Condvar,
     sink: Sink,
+    bar_clock: BarClock,
     /// Structured fields merged into the `--progress json` terminal object.
     ///
     /// The plain `xerj-done` line is `key=value` numbers split on spaces, so
@@ -410,7 +471,7 @@ pub struct Progress {
 }
 
 impl Progress {
-    fn build(surface: Surface, interval: Duration, sink: Sink) -> Arc<Self> {
+    fn build(surface: Surface, interval: Duration, sink: Sink, bar_clock: BarClock) -> Arc<Self> {
         let now = Instant::now();
         Arc::new(Self {
             surface,
@@ -438,6 +499,7 @@ impl Progress {
             stopped: Mutex::new(false),
             wake: Condvar::new(),
             sink,
+            bar_clock,
             done_json: Mutex::new(serde_json::Map::new()),
         })
     }
@@ -447,10 +509,20 @@ impl Progress {
         // end-to-end run must be observable through the REAL surface it uses
         // in production, not through a parallel one built for tests.
         #[cfg(test)]
-        if let Some(buffer) = TEST_SINK.lock().unwrap().as_ref() {
-            return Self::build(surface, interval, Sink::Buffer(Arc::clone(buffer)));
+        if let Some(test) = TEST_SINK.lock().unwrap().as_ref() {
+            let clock = if test.freeze_bar_clock {
+                BarClock::Frozen(Instant::now())
+            } else {
+                BarClock::Real
+            };
+            return Self::build(
+                surface,
+                interval,
+                Sink::Buffer(Arc::clone(&test.buffer)),
+                clock,
+            );
         }
-        Self::build(surface, interval, Sink::Stderr)
+        Self::build(surface, interval, Sink::Stderr, BarClock::Real)
     }
 
     /// A progress handle that emits nothing — `--quiet` / `--progress=none`,
@@ -463,7 +535,12 @@ impl Progress {
     #[cfg(test)]
     pub fn capture(surface: Surface, interval: Duration) -> (Arc<Self>, Arc<Mutex<Vec<u8>>>) {
         let buffer = Arc::new(Mutex::new(Vec::new()));
-        let progress = Self::build(surface, interval, Sink::Buffer(Arc::clone(&buffer)));
+        let progress = Self::build(
+            surface,
+            interval,
+            Sink::Buffer(Arc::clone(&buffer)),
+            BarClock::Real,
+        );
         (progress, buffer)
     }
 
@@ -912,7 +989,7 @@ impl Progress {
     /// floor swallows it; it stays owed and draws on the next tick, so the
     /// human still learns the phase changed.
     fn bar_slot(&self) -> bool {
-        let now = Instant::now();
+        let now = self.bar_clock.now();
         let target = self.bar_interval();
         let mut state = self.state.lock().unwrap();
         let due = match state.last_bar_at {
@@ -1758,6 +1835,59 @@ mod tests {
         assert!(display.contains("pct unknown"), "{display}");
         assert!(!display.contains('#'), "{display}");
         assert!(!display.contains('%'), "{display}");
+    }
+
+    /// The flake in `a_run_reports_progress_through_every_phase_and_closes_the_stream`,
+    /// reproduced: a run whose phase changes straddle [`BAR_MIN_GAP`] of real
+    /// time relays a second bar, which is correct — the floor let it through.
+    /// That end-to-end test asserted one bar because its corpus usually
+    /// finishes in 0.3 s; on a loaded box it did not. Under the frozen bar
+    /// clock the same sequence relays one bar however slow the machine is,
+    /// and the pacing rules are still the shipped ones.
+    #[test]
+    fn a_frozen_bar_clock_makes_the_bar_count_independent_of_wall_time() {
+        let buffer = Arc::new(Mutex::new(Vec::new()));
+        let real = Progress::build(
+            Surface::Plain,
+            Duration::from_secs(3600),
+            Sink::Buffer(Arc::clone(&buffer)),
+            BarClock::Real,
+        );
+        let frozen_buffer = Arc::new(Mutex::new(Vec::new()));
+        let frozen = Progress::build(
+            Surface::Plain,
+            Duration::from_secs(3600),
+            Sink::Buffer(Arc::clone(&frozen_buffer)),
+            BarClock::Frozen(Instant::now()),
+        );
+        for progress in [&real, &frozen] {
+            progress.phase("walk", 0, 0);
+            progress.phase("hash", 8, 0);
+        }
+        // A slow machine: the next phase change lands past the floor.
+        std::thread::sleep(BAR_MIN_GAP + Duration::from_millis(100));
+        for progress in [&real, &frozen] {
+            progress.phase("index", 8, 0);
+            progress.phase("finalize", 8, 0);
+        }
+        let bars = |buffer: &Arc<Mutex<Vec<u8>>>| {
+            captured(buffer)
+                .lines()
+                .filter(|l| l.starts_with("xerj-bar "))
+                .count()
+        };
+        assert_eq!(
+            bars(&buffer),
+            2,
+            "real clock: the change past the floor draws:\n{}",
+            captured(&buffer)
+        );
+        assert_eq!(
+            bars(&frozen_buffer),
+            1,
+            "frozen clock: one bar, whatever the wall time:\n{}",
+            captured(&frozen_buffer)
+        );
     }
 
     /// Two cadences, on purpose: the machine line keeps the interval that

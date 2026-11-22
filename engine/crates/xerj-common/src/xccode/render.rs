@@ -371,6 +371,182 @@ pub fn prefer_live_alias_paths(resp: &mut Value) -> bool {
     changed
 }
 
+/// Share of its `_score` a documentation, demo, or icon hit keeps on a
+/// code corpus when the query is a question rather than a lookup (#2513).
+/// The same factor as the test/example penalty (#2122): a README that only
+/// barely outscored the implementation falls behind it, one that scored
+/// more than twice as high stays in front. Nothing is removed.
+pub const DOC_PATH_SCORE_FACTOR: f64 = 0.5;
+
+/// Query words that ask for the documentation, demo, or asset itself. A
+/// question that names one is not demoted.
+const DOC_INTENT_WORDS: &[&str] = &[
+    "readme",
+    "docs",
+    "doc",
+    "documentation",
+    "demo",
+    "demos",
+    "sample",
+    "samples",
+    "example",
+    "examples",
+    "icon",
+    "icons",
+    "svg",
+    "tutorial",
+    "guide",
+    "translation",
+    "translations",
+];
+
+/// True when a code-corpus query reads as words, not as one identifier, so
+/// implementation should rank above README/docs/demo passages (#2513).
+///
+/// [`looks_natural_language`](crate::code_query::looks_natural_language),
+/// or two or more words that are all plain (letters or digits, any case:
+/// `WAL rotation`). A single token (`getUserInfo`, `Tree::flush`,
+/// `README`) and a query that holds an identifier (`QueryOrders live`)
+/// stay lookups. A query that names docs, a demo, an example, or an icon
+/// asks for that content and is left alone.
+pub fn query_prefers_implementation(query: &str) -> bool {
+    let words: Vec<&str> = query.split_whitespace().collect();
+    if words.len() < 2 {
+        return false;
+    }
+    let bare = |w: &str| -> String {
+        w.trim_matches(|c: char| !c.is_alphanumeric())
+            .to_lowercase()
+    };
+    if words
+        .iter()
+        .any(|w| DOC_INTENT_WORDS.contains(&bare(w).as_str()))
+    {
+        return false;
+    }
+    if crate::code_query::looks_natural_language(query) {
+        return true;
+    }
+    words.iter().all(|w| {
+        let w =
+            w.trim_matches(|c: char| matches!(c, ',' | ';' | ':' | '"' | '\'' | '(' | ')' | '?'));
+        if w.is_empty() || !w.chars().all(char::is_alphanumeric) {
+            return false;
+        }
+        // `getUserInfo` / `QueryOrders`: an inner capital after a
+        // lowercase letter is an identifier. `WAL` and `Rotation` are not.
+        !w.as_bytes()
+            .windows(2)
+            .any(|p| p[0].is_ascii_lowercase() && p[1].is_ascii_uppercase())
+    })
+}
+
+/// Directory names whose files are documentation, demos, samples, or icon
+/// assets rather than the implementation.
+fn is_doc_dir(seg: &str) -> bool {
+    matches!(
+        seg,
+        "docs" | "documentation" | "sample" | "samples" | "icons"
+    ) || seg.contains("demo")
+}
+
+/// True for a README (any extension, any translation: `README.zh-CN.md`),
+/// a file under `docs/`, `demo/`, `*demo*/`, `samples/`, `sample/` or
+/// `icons/`, and an `.svg` asset. `path` may use `/` or `\`.
+pub fn path_is_doc_like(path: &str) -> bool {
+    let lower = path.replace('\\', "/").to_lowercase();
+    let segs: Vec<&str> = lower.split('/').filter(|s| !s.is_empty()).collect();
+    let Some((file, dirs)) = segs.split_last() else {
+        return false;
+    };
+    let readme = *file == "readme" || file.starts_with("readme.");
+    readme || file.ends_with(".svg") || dirs.iter().any(|seg| is_doc_dir(seg))
+}
+
+/// An index whose name marks an icon or SVG asset dataset
+/// (`ax-packages-icons`, #2513): a `-`/`_`-separated segment `icons`,
+/// `icon`, or `svg`.
+fn index_is_icon_dataset(index: &str) -> bool {
+    index
+        .to_lowercase()
+        .split(['-', '_'])
+        .any(|seg| matches!(seg, "icons" | "icon" | "svg"))
+}
+
+fn hit_is_doc_like(hit: &Value) -> bool {
+    let src = hit.get("_source").unwrap_or(&Value::Null);
+    let path = src
+        .get("ax_path")
+        .or_else(|| src.get("path"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    path_is_doc_like(path)
+        || hit
+            .get("_index")
+            .and_then(Value::as_str)
+            .is_some_and(index_is_icon_dataset)
+}
+
+/// Halve the `_score` of README/docs/demo/icon hits on a code corpus when
+/// [`query_prefers_implementation`] holds, then stable-sort by score
+/// (#2513). Hits with no numeric `_score` sort as 0 and are not given one.
+/// A lookup query, or a page with no such hit (or only such hits), is
+/// unchanged.
+pub fn demote_doc_hits_for_question(hits: &mut [Value], query: &str) {
+    if hits.len() < 2 || !query_prefers_implementation(query) {
+        return;
+    }
+    let flags: Vec<bool> = hits.iter().map(hit_is_doc_like).collect();
+    if !flags.iter().any(|f| *f) || flags.iter().all(|f| *f) {
+        return;
+    }
+    let scores: Vec<(f64, Option<f64>)> = hits
+        .iter()
+        .zip(&flags)
+        .map(
+            |(hit, doc)| match hit.get("_score").and_then(Value::as_f64) {
+                Some(base) if *doc => {
+                    let cut = base * DOC_PATH_SCORE_FACTOR;
+                    (cut, Some(cut))
+                }
+                Some(base) => (base, None),
+                None => (0.0, None),
+            },
+        )
+        .collect();
+    let mut order: Vec<usize> = (0..hits.len()).collect();
+    order.sort_by(|&a, &b| {
+        scores[b]
+            .0
+            .partial_cmp(&scores[a].0)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.cmp(&b))
+    });
+    let original = hits.to_vec();
+    for (place, old) in order.into_iter().enumerate() {
+        let mut hit = original[old].clone();
+        if let (Some(score), Some(obj)) = (scores[old].1, hit.as_object_mut()) {
+            obj.insert("_score".into(), serde_json::json!(score));
+        }
+        hits[place] = hit;
+    }
+}
+
+/// The plain-search ranking pass on a code corpus: the README/docs/demo
+/// penalty for a question ([`demote_doc_hits_for_question`], #2513), then
+/// [`demote_sparse_definitions`] (#2327).
+///
+/// `xerj search` and the `xerj_search` MCP tool call this after the
+/// test/example penalty, and only on a code corpus, so the doc penalty
+/// reaches both surfaces from here. `xerj def`, `xerj code` and a prose
+/// corpus call [`demote_sparse_definitions`] alone: def and code scores are
+/// not plain BM25 (kind weights, RRF), where a halving means something
+/// else, and a prose corpus is all documentation.
+pub fn demote_sparse_definition_hits(hits: &mut [Value], query: &str) {
+    demote_doc_hits_for_question(hits, query);
+    demote_sparse_definitions(hits, query);
+}
+
 /// Move a one-term symbol definition behind hits that cover more of a
 /// multi-term question (#2327).
 ///
@@ -380,7 +556,7 @@ pub fn prefer_live_alias_paths(resp: &mut Value) -> bool {
 /// definitions follow in theirs. A one- or two-term query is a lookup and
 /// is left alone, including two definitions that share one name. When no
 /// hit covers a second term, the page is unchanged.
-pub fn demote_sparse_definition_hits(hits: &mut [Value], query: &str) {
+pub fn demote_sparse_definitions(hits: &mut [Value], query: &str) {
     let terms = content_terms(query);
     if terms.len() < MIN_TERMS_FOR_COVERAGE || hits.len() < 2 {
         return;
@@ -2208,5 +2384,153 @@ mod tests {
         ] {
             assert_eq!(compound_identifier(q), None, "{q}");
         }
+    }
+
+    fn scored(path: &str, score: f64) -> Value {
+        json!({ "_index": "ax-code", "_score": score, "_source": { "ax_path": path } })
+    }
+
+    fn paths(hits: &[Value]) -> Vec<String> {
+        hits.iter()
+            .map(|h| h["_source"]["ax_path"].as_str().unwrap_or("").to_string())
+            .collect()
+    }
+
+    #[test]
+    fn doc_like_paths_cover_readmes_docs_demos_and_icons() {
+        for doc in [
+            "README.md",
+            "README.zh-CN.md",
+            "docs/i18n/README.ja.md",
+            "engine/docs/wal.md",
+            "Readme.rst",
+            "demo/app.js",
+            "trader_broker_demo/orders.py",
+            "examples/samples/x.rs",
+            "sample/run.go",
+            "packages/icons/src/IconUser.tsx",
+            "assets/logo.svg",
+            "docs\\guide.md",
+        ] {
+            assert!(path_is_doc_like(doc), "{doc}");
+        }
+        for code in [
+            "src/wal.rs",
+            "engine/crates/xerj-wal/src/rotate.rs",
+            "src/readme_parser.rs",
+            "src/doc_values.rs",
+            "lib/document.rs",
+            "",
+        ] {
+            assert!(!path_is_doc_like(code), "{code}");
+        }
+        assert!(index_is_icon_dataset("ax-packages-icons"));
+        assert!(!index_is_icon_dataset("ax-iconography"));
+    }
+
+    #[test]
+    fn questions_prefer_implementation_and_lookups_do_not() {
+        for q in [
+            "WAL rotation",
+            "getUserInfo user info api",
+            "when is a worktree path allowed",
+            "query live orders",
+            "how are segments merged?",
+        ] {
+            assert!(query_prefers_implementation(q), "{q}");
+        }
+        for q in [
+            "WAL",
+            "getUserInfo",
+            "Tree::flush",
+            "QueryOrders live",
+            "README install",
+            "docs for WAL rotation",
+            "demo of live orders",
+            "svg icon for user",
+            "",
+        ] {
+            assert!(!query_prefers_implementation(q), "{q}");
+        }
+    }
+
+    /// #2513: translated READMEs that barely outscore the implementation
+    /// fall behind it; one that scores more than twice as high stays first.
+    /// A lookup is untouched, and nothing leaves the page.
+    #[test]
+    fn readme_translations_fall_behind_the_implementation_for_a_question() {
+        let page = || {
+            vec![
+                scored("README.zh-CN.md", 14.0),
+                scored("README.ja.md", 13.0),
+                scored("docs/wal.md", 12.0),
+                scored("engine/crates/xerj-wal/src/rotate.rs", 10.0),
+                scored("README.md", 25.0),
+            ]
+        };
+        let mut hits = page();
+        demote_doc_hits_for_question(&mut hits, "WAL rotation");
+        assert_eq!(
+            paths(&hits),
+            vec![
+                "README.md",
+                "engine/crates/xerj-wal/src/rotate.rs",
+                "README.zh-CN.md",
+                "README.ja.md",
+                "docs/wal.md",
+            ]
+        );
+        assert_eq!(hits[0]["_score"], json!(12.5));
+        assert_eq!(hits[1]["_score"], json!(10.0));
+
+        let mut lookup = page();
+        demote_doc_hits_for_question(&mut lookup, "rotate_segment");
+        assert_eq!(paths(&lookup), paths(&page()));
+
+        let mut asked = page();
+        demote_doc_hits_for_question(&mut asked, "README for WAL rotation");
+        assert_eq!(paths(&asked), paths(&page()));
+
+        let mut all_docs = vec![scored("docs/a.md", 3.0), scored("README.md", 2.0)];
+        demote_doc_hits_for_question(&mut all_docs, "WAL rotation");
+        assert_eq!(
+            all_docs[0]["_score"],
+            json!(3.0),
+            "an all-docs page keeps its scores"
+        );
+    }
+
+    /// The TickBoarding shape (#2513/#2426): an old broker demo beside the
+    /// current `src/` order path, and an icon dataset beside the API code.
+    #[test]
+    fn a_demo_directory_ranks_behind_src_and_icon_indices_behind_code() {
+        let mut hits = vec![
+            scored("trader_broker_demo/query_orders.py", 9.0),
+            scored("src/orders/live.rs", 6.0),
+        ];
+        demote_doc_hits_for_question(&mut hits, "query live orders");
+        assert_eq!(
+            paths(&hits),
+            vec!["src/orders/live.rs", "trader_broker_demo/query_orders.py"]
+        );
+
+        let mut icons = vec![
+            json!({ "_index": "ax-packages-icons", "_score": 8.0, "_source": { "ax_path": "src/UserInfo.tsx" } }),
+            scored("src/api/user.ts", 5.0),
+        ];
+        demote_doc_hits_for_question(&mut icons, "getUserInfo user info api");
+        assert_eq!(paths(&icons), vec!["src/api/user.ts", "src/UserInfo.tsx"]);
+    }
+
+    /// `demote_sparse_definition_hits` is the combined search pass; the
+    /// sparse-only pass leaves doc paths alone (`xerj def`, `xerj code`).
+    #[test]
+    fn the_sparse_only_pass_does_not_touch_doc_paths() {
+        let mut only = vec![scored("README.md", 14.0), scored("src/wal.rs", 10.0)];
+        demote_sparse_definitions(&mut only, "WAL rotation");
+        assert_eq!(paths(&only), vec!["README.md", "src/wal.rs"]);
+        let mut combined = vec![scored("README.md", 14.0), scored("src/wal.rs", 10.0)];
+        demote_sparse_definition_hits(&mut combined, "WAL rotation");
+        assert_eq!(paths(&combined), vec!["src/wal.rs", "README.md"]);
     }
 }

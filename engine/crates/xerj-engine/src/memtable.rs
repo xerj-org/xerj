@@ -43,14 +43,17 @@ pub struct MemtableHit {
 /// (`HitQueue.lessThan` breaks an equal score by the smaller doc id,
 /// `lucene/core/src/java/org/apache/lucene/search/HitQueue.java:76-82`);
 /// approach only, no code taken.
-fn sort_hits_by_page_key(hits: &mut [MemtableHit]) {
-    hits.sort_unstable_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.seq_no.cmp(&b.seq_no))
-            .then_with(|| a.doc_id.cmp(&b.doc_id))
-    });
+pub(crate) fn sort_hits_by_page_key(hits: &mut [MemtableHit]) {
+    hits.sort_unstable_by(page_key_cmp);
+}
+
+/// The page-key comparator [`sort_hits_by_page_key`] sorts by.
+fn page_key_cmp(a: &MemtableHit, b: &MemtableHit) -> std::cmp::Ordering {
+    b.score
+        .partial_cmp(&a.score)
+        .unwrap_or(std::cmp::Ordering::Equal)
+        .then_with(|| a.seq_no.cmp(&b.seq_no))
+        .then_with(|| a.doc_id.cmp(&b.doc_id))
 }
 
 #[cfg(test)]
@@ -1778,11 +1781,28 @@ impl ShardedFtsMemtable {
         limit: usize,
         stats: Option<&xerj_fts::CollectionStats>,
     ) -> (Vec<MemtableHit>, u64) {
+        self.search_dis_max_gated_with_total_using(subs, tie_breaker, limit, stats, &|_, _| true)
+    }
+
+    /// `search_dis_max_boosted_with_total_using` with a per-sub membership
+    /// gate (#3329): sub `i`'s hit on `doc_id` contributes only when
+    /// `admit(i, doc_id)` holds. A positional phrase clause scores like the
+    /// OR of its terms on that field (the segment's `execute_phrase` sums the
+    /// per-term BM25 of the docs whose positions line up), so the phrase
+    /// sub is the term sub gated by the phrase predicate.
+    pub fn search_dis_max_gated_with_total_using(
+        &self,
+        subs: &[(&str, &str, f32)],
+        tie_breaker: f32,
+        limit: usize,
+        stats: Option<&xerj_fts::CollectionStats>,
+        admit: &dyn Fn(usize, &str) -> bool,
+    ) -> (Vec<MemtableHit>, u64) {
         // Per-doc (max, sum, seq_no) accumulator over sub scores — the same
         // f32 (max, sum) pair `execute_dis_max` keeps.
-        let acc: std::collections::HashMap<String, (f32, f32, u64)> = subs.iter().fold(
+        let acc: std::collections::HashMap<String, (f32, f32, u64)> = subs.iter().enumerate().fold(
             std::collections::HashMap::new(),
-            |acc, &(field, query, boost)| {
+            |acc, (i, &(field, query, boost))| {
                 let boosts: std::collections::HashMap<String, f32> =
                     std::iter::once((field.to_string(), boost)).collect();
                 let (hits, _) = self.search_text_boosted_inner(
@@ -1793,16 +1813,18 @@ impl ShardedFtsMemtable {
                     &boosts,
                     stats,
                 );
-                hits.into_iter().fold(acc, |mut acc, h| {
-                    let e = acc
-                        .entry(h.doc_id)
-                        .or_insert((f32::NEG_INFINITY, 0.0, h.seq_no));
-                    if h.score > e.0 {
-                        e.0 = h.score;
-                    }
-                    e.1 += h.score;
-                    acc
-                })
+                hits.into_iter()
+                    .filter(|h| admit(i, &h.doc_id))
+                    .fold(acc, |mut acc, h| {
+                        let e = acc
+                            .entry(h.doc_id)
+                            .or_insert((f32::NEG_INFINITY, 0.0, h.seq_no));
+                        if h.score > e.0 {
+                            e.0 = h.score;
+                        }
+                        e.1 += h.score;
+                        acc
+                    })
             },
         );
         let mut all: Vec<MemtableHit> = acc
@@ -1880,6 +1902,15 @@ impl ShardedFtsMemtable {
             std::collections::HashMap::new();
         let mut term_df: std::collections::HashMap<(String, String), u64> =
             std::collections::HashMap::new();
+        // #3349: a token the query repeats (`dogs dogs`, or one word in
+        // several leaves of a planned `bool`) is ONE term. Counting its
+        // postings once per occurrence doubled its doc_freq, so its IDF fell
+        // below the segment's, which counts each (field, term) once.
+        let mut seen: FxHashSet<&str> = FxHashSet::default();
+        let q_tokens: Vec<&xerj_fts::analyzer::Token> = q_tokens
+            .iter()
+            .filter(|t| seen.insert(t.text.as_str()))
+            .collect();
         for s in 0..self.shards.len() {
             let (active, frozen) = self.shard_generation_handles(s);
             for gen_lock in std::iter::once(&active).chain(frozen.iter()) {
@@ -1901,7 +1932,7 @@ impl ShardedFtsMemtable {
                     if !fields.is_empty() && !fields.iter().any(|f| f == fname) {
                         continue;
                     }
-                    for token in q_tokens {
+                    for token in &q_tokens {
                         if let Some(pl) = postings.get(&token.text) {
                             *term_df
                                 .entry((fname.clone(), token.text.clone()))
@@ -1914,7 +1945,7 @@ impl ShardedFtsMemtable {
                     if !fields.is_empty() && !fields.iter().any(|f| f == fname) {
                         continue;
                     }
-                    for token in q_tokens {
+                    for token in &q_tokens {
                         if let Some(df) = terms.get(&token.text) {
                             *term_df
                                 .entry((fname.clone(), token.text.clone()))
@@ -1957,7 +1988,63 @@ impl ShardedFtsMemtable {
         if q_tokens.is_empty() {
             return (Vec::new(), 0);
         }
+        let mut all: Vec<MemtableHit> = self
+            .score_tokens_all_shards(&q_tokens, fields, shard_limit, field_boosts, external)
+            .into_iter()
+            .map(|(hit, _)| hit)
+            .collect();
+        // #191 — the cross-shard merge sorts by the FULL page key, not by score
+        // alone.  Score alone leaves ties in shard-concatenation order, so
+        // `truncate(limit)` kept "the tied documents that happen to live in the
+        // lowest-numbered shards" rather than the earliest-arriving ones, and a
+        // `size:5` page stopped being a prefix of a `size:1000` one.
+        sort_hits_by_page_key(&mut all);
+        // A doc_id lives in exactly ONE shard, so `all` has no duplicates:
+        // its pre-truncation length IS the exact global match count when
+        // `shard_limit == usize::MAX` (a lower bound otherwise).
+        let total = all.len() as u64;
+        all.truncate(limit);
+        (all, total)
+    }
 
+    /// One field's `match` scored against every shard, uncapped, with the
+    /// number of query token occurrences each hit matched (#3349), plus the
+    /// query's analysed token count. The memtable twin of the segment's
+    /// per-token `bool` for `match`: `operator: and` keeps the hits whose
+    /// count equals the token count, `minimum_should_match: n` the hits whose
+    /// count is at least `n`, and the score is the same per-token BM25 sum a
+    /// standalone `match` gets. Unsorted.
+    pub fn search_field_counted_using(
+        &self,
+        query: &str,
+        field: &str,
+        boost: f32,
+        stats: Option<&xerj_fts::CollectionStats>,
+    ) -> (Vec<(MemtableHit, u32)>, usize) {
+        let Some(analyzer) = self.default_analyzer() else {
+            return (Vec::new(), 0);
+        };
+        let q_tokens = analyzer.analyze(query);
+        if q_tokens.is_empty() {
+            return (Vec::new(), 0);
+        }
+        let boosts: std::collections::HashMap<String, f32> =
+            std::iter::once((field.to_string(), boost)).collect();
+        let hits = self.score_tokens_all_shards(&q_tokens, &[field], usize::MAX, &boosts, stats);
+        (hits, q_tokens.len())
+    }
+
+    /// Score analysed `q_tokens` over every shard (active and frozen
+    /// generations) against the global or index-wide statistics described
+    /// below. Unsorted, at most `shard_limit` hits per generation.
+    fn score_tokens_all_shards(
+        &self,
+        q_tokens: &[Token],
+        fields: &[&str],
+        shard_limit: usize,
+        field_boosts: &std::collections::HashMap<String, f32>,
+        external: Option<&xerj_fts::CollectionStats>,
+    ) -> Vec<(MemtableHit, u32)> {
         // ── Statistics fed to the per-shard scorers ──────────────────────
         //
         // TWO modes, and the difference is deliberate:
@@ -2019,7 +2106,7 @@ impl ShardedFtsMemtable {
                 }
                 global_avg_field_len = avg;
                 let mut df = std::collections::HashMap::new();
-                for token in &q_tokens {
+                for token in q_tokens {
                     for fname in global_avg_field_len.keys() {
                         if !fields.is_empty() && !fields.iter().any(|f| f == fname) {
                             continue;
@@ -2033,7 +2120,7 @@ impl ShardedFtsMemtable {
             }
             None => {
                 global_doc_count = ghost_inclusive_n;
-                let (field_total_len, df) = self.aggregate_shard_stats(&q_tokens, fields);
+                let (field_total_len, df) = self.aggregate_shard_stats(q_tokens, fields);
                 global_avg_field_len = field_total_len
                     .into_iter()
                     .map(|(k, (sum, n))| (k, if n == 0 { 0.0 } else { (sum / n as f64) as f32 }))
@@ -2042,13 +2129,13 @@ impl ShardedFtsMemtable {
             }
         }
 
-        let mut all: Vec<MemtableHit> = Vec::new();
+        let mut all: Vec<(MemtableHit, u32)> = Vec::new();
         for s in 0..self.shards.len() {
             let (active, frozen) = self.shard_generation_handles(s);
             for gen_lock in std::iter::once(&active).chain(frozen.iter()) {
                 let gen = gen_lock.read();
-                all.extend(gen.search_text_with_global_stats(
-                    query,
+                all.extend(gen.score_tokens_with_global_stats(
+                    q_tokens,
                     fields,
                     shard_limit,
                     global_doc_count,
@@ -2059,18 +2146,7 @@ impl ShardedFtsMemtable {
                 ));
             }
         }
-        // #191 — the cross-shard merge sorts by the FULL page key, not by score
-        // alone.  Score alone leaves ties in shard-concatenation order, so
-        // `truncate(limit)` kept "the tied documents that happen to live in the
-        // lowest-numbered shards" rather than the earliest-arriving ones, and a
-        // `size:5` page stopped being a prefix of a `size:1000` one.
-        sort_hits_by_page_key(&mut all);
-        // A doc_id lives in exactly ONE shard, so `all` has no duplicates:
-        // its pre-truncation length IS the exact global match count when
-        // `shard_limit == usize::MAX` (a lower bound otherwise).
-        let total = all.len() as u64;
-        all.truncate(limit);
-        (all, total)
+        all
     }
 
     /// Drop-in replacement for the old single-memtable `insert` used by
@@ -3659,7 +3735,39 @@ impl FtsMemtable {
         if tokens.is_empty() {
             return Vec::new();
         }
+        self.score_tokens_with_global_stats(
+            &tokens,
+            fields,
+            limit,
+            global_doc_count,
+            global_field_doc_count,
+            global_avg_field_len,
+            global_term_df,
+            field_boosts,
+        )
+        .into_iter()
+        .map(|(hit, _)| hit)
+        .collect()
+    }
 
+    /// The scoring core of [`Self::search_text_with_global_stats`] over
+    /// already-analysed `tokens`, also returning per hit how many query token
+    /// OCCURRENCES matched it (#3349). A token repeated in the query counts
+    /// once per occurrence, the way the segment's per-token `bool` clauses
+    /// do, so `matched == tokens.len()` is `operator: and` and
+    /// `matched >= n` is `minimum_should_match: n`.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn score_tokens_with_global_stats(
+        &self,
+        tokens: &[Token],
+        fields: &[&str],
+        limit: usize,
+        global_doc_count: u64,
+        global_field_doc_count: &std::collections::HashMap<String, u64>,
+        global_avg_field_len: &std::collections::HashMap<String, f32>,
+        global_term_df: &std::collections::HashMap<(String, String), u64>,
+        field_boosts: &std::collections::HashMap<String, f32>,
+    ) -> Vec<(MemtableHit, u32)> {
         let doc_count = if global_doc_count > 0 {
             global_doc_count
         } else {
@@ -3668,9 +3776,9 @@ impl FtsMemtable {
         // Keyed by the interned `Arc<str>` doc id from the postings lists,
         // so accumulating a term's contribution is a pointer-bump clone
         // rather than a per-hit `String` allocation.
-        let mut scores: HashMap<DocId, f32> = HashMap::new();
+        let mut scores: HashMap<DocId, (f32, u32)> = HashMap::new();
 
-        for token in &tokens {
+        for token in tokens {
             // Search across requested fields (or all indexed fields if none specified).
             let search_fields: Vec<&str> = if fields.is_empty() {
                 self.index.keys().map(|s| s.as_str()).collect()
@@ -3722,14 +3830,16 @@ impl FtsMemtable {
                         .unwrap_or(1);
 
                     let score = scorer.score_term(doc_freq, tf, field_len) * field_boost;
-                    *scores.entry(doc_id.clone()).or_insert(0.0) += score;
+                    let e = scores.entry(doc_id.clone()).or_insert((0.0, 0));
+                    e.0 += score;
+                    e.1 += 1;
                 }
             }
         }
 
-        let mut hits: Vec<MemtableHit> = scores
+        let mut hits: Vec<(MemtableHit, u32)> = scores
             .into_iter()
-            .map(|(doc_id, score)| {
+            .map(|(doc_id, (score, matched))| {
                 // #191 — carry the arrival order with the hit.  `scores` is a
                 // HashMap, so without it the pre-truncation order of an
                 // all-tied hit set is the hash iteration order: the surviving
@@ -3738,18 +3848,21 @@ impl FtsMemtable {
                     .doc_id_index
                     .get(&doc_id)
                     .map_or(u64::MAX, |&pos| self.seq_no_at(pos));
-                MemtableHit {
-                    doc_id: doc_id.to_string(),
-                    score,
-                    seq_no,
-                }
+                (
+                    MemtableHit {
+                        doc_id: doc_id.to_string(),
+                        score,
+                        seq_no,
+                    },
+                    matched,
+                )
             })
             .collect();
 
         // Sort by the FULL page key (score DESC, seq_no ASC, `_id` ASC) — the
         // comparator `index.rs:16222-16228` applies to the final page — so a
         // truncation at `limit` keeps exactly the documents that page would.
-        sort_hits_by_page_key(&mut hits);
+        hits.sort_unstable_by(|a, b| page_key_cmp(&a.0, &b.0));
         hits.truncate(limit);
         hits
     }

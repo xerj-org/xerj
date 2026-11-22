@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Hybrid queries read `_source` for the returned page only (#3018).** The
+  BM25 and kNN legs now return ids, scores and `seq_no`s, fusion moves hits
+  instead of copying them, and only the `size` page documents are read
+  afterwards, as the version each leg scored. If a page document was
+  rewritten, deleted or merged away in the meantime, the request runs again
+  the old way. Pages are unchanged: ids, order, scores and `_source` matched
+  base on every compared page (3,120 pages, two fixtures). Median of six
+  alternating rounds, client wall p50, one node, 768-d vectors, load average
+  11-62: `hybrid` size 10 went from 7.20 to 4.31 ms on 3,000 documents (kNN
+  leg on the exact scan) and from 8.80 to 6.29 ms (a rerun gave 7.74 to
+  5.19 ms) on 5,000 documents (kNN leg on HNSW). With
+  `_source.excludes: [vec]` the 3,000-document case went from 5.09 to
+  3.35 ms; the 5,000-document case stayed within noise (13.7% slower in one
+  run, 8.9% faster in the next). `XERJ_HYBRID_DEFER_SOURCE=0` restores the
+  old reads.
+
+- **Merges and flushes encode fields that are sometimes a scalar and
+  sometimes an array in less memory (#3311, refs #2427 #1122).** The
+  stored-section encoder now keeps a `_source` column as row JSON text when
+  any row is an array or object, not only when every row is (#3266). Fields
+  such as `"t1"` / `["t1","t2"]` or `0.5` / `[0.5, ...]` were parsed into one
+  `serde_json::Value` tree per row for the whole encode. The encoded bytes
+  are unchanged (same length and hash on both builds). Measured on one
+  6,000-document encode with a 1024-d vector, text, keyword, long and three
+  mixed fields (121.5 MB input): peak heap 725.3 MB before, 398.9 MB after.
+  On a 12,000-document `_forcemerge` with `XERJ_MAX_PROCESS_MEMORY_MB=1200`,
+  peak RSS went from 936-943 MB to 791-820 MB; under the automatic cap the
+  peak did not move (1,014-1,056 MB both ways). Inputs without mixed fields
+  see no difference.
+
+### Fixed
+
+- **Searches no longer wait on WAL and snapshot fsyncs while bulk writes run
+  (refs #3324 #3331).** Three code paths held the collection-publication
+  bracket (every search on the index waits while it is open) across disk
+  waits. A flush kept its bracket open through post-publish maintenance
+  (snapshot fsync, WAL rotate and prune). `_bulk` opened its bracket before
+  appending to the WAL, so it waited inside the bracket for a WAL shard
+  lock that WAL maintenance and the batched fsync held across fsyncs. The
+  flush bracket now closes when the segment is published, and `_bulk`
+  appends to the WAL before opening the bracket. WAL maintenance and the
+  `wal_batch_ms` fsync now fsync without holding the shard lock: the next
+  generation's file is created and synced first, and only the rename runs
+  under the lock. The same fsyncs still happen, so durability does not
+  change. A WAL write error no longer poisons the index. Measured over 3
+  runs each, 60 s, 300k preload plus a closed-loop 5,000-doc auto-id writer,
+  ext4: p99 over all reads went from 204-265 ms to 40-85 ms (load 25-50).
+  With a `dd` fdatasync neighbour on the same disk it went from 260-305 ms
+  to 45-60 ms, and the longest all-op stall from 2.3-4.2 s to 0.7-1.5 s
+  (load 14-46). Writer throughput went from 34-50k to 53-66k docs/s.
+  Holds and waits of 1 s or more (`XERJ_STALL_TRACE_MS` sets the threshold)
+  are now logged at WARN with the holder's call site.
+
+- **Short Chinese, Japanese, and Korean document bodies are searchable
+  after autoindexing (#3330).** Autoindex now maps these bodies as text
+  even when they lack whitespace. Re-index previously affected folders
+  with a fresh prefix and state directory.
+
+- **A collapsed `_search` or `_msearch` whose `collapse.inner_hits` block has
+  no `name` is refused with a 400**, as Elasticsearch 8.13 refuses it
+  (`x_content_parse_exception` caused by `illegal_argument_exception`
+  "inner_hits must have a [name]..."). `_search` ran the search and listed
+  the group's hits under a made-up `inner_hits` key; `_msearch` ran it
+  ungrouped. Every entry of an `inner_hits` array is checked; one unnamed
+  block fails a whole `_msearch`.
+
 ## [1.0.0-rc.104] - 2026-11-18
 
 **rc.104: rc.103 on every platform.** rc.104 is the rc.103 code with the
@@ -817,6 +885,13 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
 - Multi-index composite aggregation pages now use the requested global source
   order and page size, combine duplicate bucket counts, and set the cursor from
   the retained page. Internal typed keys preserve formatted-date ordering.
+- A top-level `terms` aggregation over several indices now picks its buckets
+  after merging every index's candidates, so a term that wins only in total
+  (9 + 9 = 18 against two local 10s) is no longer lost, and `_key` order is
+  applied globally (#2935). Each index returns `shard_size` candidates
+  (default `size * 1.5 + 10`); when an index cuts terms, the cut documents
+  count in `sum_other_doc_count` and `doc_count_error_upper_bound` reports the
+  bound instead of a false 0.
 
 - A plain debug `cargo test --workspace` no longer aborts on a stack overflow,
   and the `127.0.0.2` loopback test names the missing macOS alias (#2903). Five
