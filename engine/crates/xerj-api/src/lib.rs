@@ -75,6 +75,7 @@ pub mod embed_warning;
 pub mod error;
 pub mod es_compat;
 pub mod extract;
+pub mod field_explain;
 pub mod graph_api;
 pub mod hub_api;
 pub mod ism_api;

@@ -70,6 +70,10 @@ pub struct NativeSearchRequest {
     /// refused by name, never silently dropped.
     #[serde(default)]
     pub judge: Option<Value>,
+    /// `true` adds a `_score_breakdown` to every hit: the score each field
+    /// contributed (issue #1798; see `crate::field_explain`).
+    #[serde(default)]
+    pub explain: bool,
 }
 
 fn default_size() -> usize {
@@ -813,7 +817,14 @@ pub async fn search(
                 ),
             );
 
-            let hits: Vec<Value> = result.hits.iter().map(native_hit_value).collect();
+            let mut hits: Vec<Value> = result.hits.iter().map(native_hit_value).collect();
+            if req.explain {
+                let breakdowns =
+                    crate::field_explain::breakdowns(&idx, &search_req.query, &result.hits).await;
+                for (hit, breakdown) in hits.iter_mut().zip(breakdowns) {
+                    hit["_score_breakdown"] = breakdown;
+                }
+            }
 
             let resp = NativeResponse::new(
                 serde_json::json!({
