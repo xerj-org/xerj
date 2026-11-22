@@ -39,7 +39,8 @@ USAGE:
     xerj hook profile   [--json]
     xerj hook purge
     xerj hook run <batch|post|start|end> --host claude [--speak]   (called by the harness)
-    xerj hook replay <events.jsonl> --state DIR --out FILE [--budget-ms N]
+    xerj hook replay <events.jsonl> --state DIR --out FILE [--budget-ms N] [--tier1-url URL [--tier1-prefix P]]
+    xerj hook t1-prefix <dir> [--base P]    (Tier 1 index prefix of a worktree)
 
 MODES:
     shadow   observe and log what it would say; the agent sees nothing (install default)
@@ -263,6 +264,9 @@ pub struct Ctx {
     pub now: Option<f64>,
     pub replay: bool,
     pub cfg_override: Option<Config>,
+    /// Live hooks: the binary that runs a Tier 0 scan as a child process,
+    /// so a scan stuck in a filesystem wait cannot hold the hook open.
+    pub scan_exe: Option<PathBuf>,
     salt: String,
     repo_cache: RefCell<HashMap<PathBuf, Option<(PathBuf, String)>>>,
 }
@@ -277,6 +281,7 @@ impl Ctx {
             now: None,
             replay: false,
             cfg_override: None,
+            scan_exe: None,
             salt,
             repo_cache: RefCell::new(HashMap::new()),
         })
@@ -497,44 +502,96 @@ fn resolve_nudges(ctx: &Ctx, state: &mut StreamState, ev: &Ev, now: f64) {
     }
     for (repo, rule, up) in updates {
         let path = profile::profile_path(&ctx.root, &repo);
-        let mut p = profile::read_profile(&path);
-        let st = p.rules.entry(rule).or_default();
+        let mut rules = profile::read_rules(&path);
+        let st = rules.entry(rule).or_default();
         if up {
             st.uptake += 1;
         }
         if st.nudges >= 10 && (st.uptake as f64) < 0.2 * st.nudges as f64 && st.muted_until < now {
             st.muted_until = now + 7.0 * 86400.0;
         }
-        let _ = profile::write_profile(&path, &p);
+        let _ = profile::write_rules(&path, &rules);
     }
 }
 
-/// Tier 0 with a hard wall: the walker checks its deadline between files,
-/// but one blocked read can overrun it (789 ms seen under load). Live hooks
-/// run the scan on a thread and give up at budget + 50 ms (the process exits
-/// right after, taking the thread with it); replay joins and applies the
-/// same cut, so both paths decide alike.
-fn scan_bounded(
-    root: PathBuf,
-    trig: Trigger,
-    hist: HashMap<String, (f64, u32)>,
-    salt: String,
-    budget: Duration,
-    detach: bool,
-) -> tier0::Scan {
-    let wall = budget + Duration::from_millis(50);
-    let run = move || {
-        let hasher = move |rel: &str| profile::hash(&salt, rel);
-        tier0::scan(&tier0::Query {
-            root: &root,
-            toks: &trig.toks,
-            idents: &trig.idents,
-            seen: &trig.seen,
-            hist: &hist,
-            hasher: &hasher,
-            budget,
-        })
+/// One Tier 0 scan request; also the stdin of `xerj hook scan-worker`.
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
+pub struct ScanReq {
+    pub root: PathBuf,
+    pub toks: Vec<String>,
+    pub idents: Vec<String>,
+    pub seen: HashSet<String>,
+    pub hist: HashMap<String, (f64, u32)>,
+    pub salt: String,
+    pub budget_ms: u64,
+    pub want: String,
+}
+
+fn run_scan(r: &ScanReq) -> tier0::Scan {
+    let salt = r.salt.clone();
+    let hasher = move |rel: &str| profile::hash(&salt, rel);
+    tier0::scan(&tier0::Query {
+        root: &r.root,
+        toks: &r.toks,
+        idents: &r.idents,
+        seen: &r.seen,
+        hist: &r.hist,
+        hasher: &hasher,
+        budget: Duration::from_millis(r.budget_ms),
+        want: &r.want,
+    })
+}
+
+fn timed_out(wall: Duration) -> tier0::Scan {
+    tier0::Scan {
+        elapsed_ms: wall.as_secs_f64() * 1e3,
+        ..tier0::Scan::default()
+    }
+}
+
+/// Run the scan in a child process and stop waiting at `wall`. A thread
+/// was not enough: a thread blocked in a disk read keeps the process (and
+/// so the harness's pipe) alive after `main` returns. `None` only when the
+/// child could not be started.
+fn scan_child(exe: &Path, req: &ScanReq, wall: Duration) -> Option<tier0::Scan> {
+    use std::process::{Command, Stdio};
+    let body = serde_json::to_vec(req).ok()?;
+    let mut child = Command::new(exe)
+        .args(["hook", "scan-worker"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    let (Some(mut stdin), Some(mut stdout)) = (child.stdin.take(), child.stdout.take()) else {
+        let _ = child.kill();
+        return None;
     };
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = stdin.write_all(&body);
+        drop(stdin);
+        let mut buf = Vec::new();
+        let _ = stdout.read_to_end(&mut buf);
+        let _ = tx.send(buf);
+    });
+    match rx.recv_timeout(wall) {
+        Ok(buf) => {
+            let _ = child.wait();
+            Some(serde_json::from_slice(&buf).unwrap_or_else(|_| timed_out(wall)))
+        }
+        Err(_) => {
+            let _ = child.kill();
+            Some(timed_out(wall))
+        }
+    }
+}
+
+/// Tier 0 with a hard wall at budget + 50 ms. Replay runs in-process and
+/// applies the same cut, so both paths decide alike. Live hooks run the
+/// scan in a child (`scan_exe`), else on a thread.
+fn scan_bounded(req: ScanReq, exe: Option<&Path>, detach: bool) -> tier0::Scan {
+    let wall = Duration::from_millis(req.budget_ms + 50);
     let over = |mut s: tier0::Scan| {
         if s.elapsed_ms > wall.as_secs_f64() * 1e3 {
             s.complete = false;
@@ -542,19 +599,79 @@ fn scan_bounded(
         s
     };
     if !detach {
-        return over(run());
+        return over(run_scan(&req));
+    }
+    if let Some(s) = exe.and_then(|e| scan_child(e, &req, wall)) {
+        return over(s);
     }
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
-        let _ = tx.send(run());
+        let _ = tx.send(run_scan(&req));
     });
     match rx.recv_timeout(wall) {
         Ok(s) => over(s),
-        Err(_) => tier0::Scan {
-            elapsed_ms: wall.as_secs_f64() * 1e3,
-            ..tier0::Scan::default()
-        },
+        Err(_) => timed_out(wall),
     }
+}
+
+/// `xerj hook t1-defs --url U [--base B] <search-root> <ident>...`: the
+/// hook's own Tier 1 lookup, timed (probe P0 and debugging).
+fn cmd_t1_defs(args: &[String]) -> i32 {
+    let Some(url) = flag(args, "--url") else {
+        eprintln!("xerj hook t1-defs --url URL [--base B] <search-root> <ident>...");
+        return 2;
+    };
+    let mut pos: Vec<&String> = Vec::new();
+    let mut i = 0;
+    while i < args.len() {
+        if args[i].starts_with("--") {
+            i += 2;
+            continue;
+        }
+        pos.push(&args[i]);
+        i += 1;
+    }
+    let Some((root, idents)) = pos.split_first() else {
+        return 2;
+    };
+    let cfg = Config {
+        tier1: "on".into(),
+        tier1_url: Some(url),
+        tier1_prefix: flag(args, "--base"),
+        ..Config::default()
+    };
+    let Some(t1) = tier1::Tier1::from_env(&cfg) else {
+        eprintln!("xerj hook t1-defs: Tier 1 needs a loopback URL");
+        return 2;
+    };
+    let search_root = PathBuf::from(root.as_str());
+    let repo_root = profile::repo_of(&search_root)
+        .map(|(r, _)| r)
+        .unwrap_or_else(|| search_root.clone());
+    let idents: Vec<String> = idents.iter().map(|s| s.to_ascii_lowercase()).collect();
+    let t0 = Instant::now();
+    let defs = t1.defs(&idents, &repo_root, &search_root);
+    let ms = t0.elapsed().as_secs_f64() * 1e3;
+    println!(
+        "{}",
+        json!({"ms": (ms * 100.0).round() / 100.0, "prefix": tier1::prefix_for(&t1.base, &repo_root),
+               "defs": defs.iter().map(|d| json!({"p": d.abs.display().to_string(), "l": d.line})).collect::<Vec<_>>()})
+    );
+    0
+}
+
+/// `xerj hook scan-worker`: one scan request on stdin, the result on stdout.
+fn cmd_scan_worker() -> i32 {
+    let mut buf = Vec::new();
+    let _ = std::io::stdin().take(4 * 1024 * 1024).read_to_end(&mut buf);
+    let Ok(req) = serde_json::from_slice::<ScanReq>(&buf) else {
+        return 1;
+    };
+    let s = run_scan(&req);
+    let mut so = std::io::stdout().lock();
+    let _ = serde_json::to_writer(&mut so, &s);
+    let _ = so.flush();
+    0
 }
 
 fn skip(d: &mut Decision, reason: &str) -> (Option<String>, Decision) {
@@ -576,10 +693,14 @@ fn answer(
         rule: Some(trig.rule.name().into()),
         ..Decision::default()
     };
-    let root_dir = PathBuf::from(&trig.root);
-    if !root_dir.is_dir() {
+    // v2: candidates come from the triggering probe's own search root.
+    let root_dir = [&trig.proot, &trig.root]
+        .into_iter()
+        .map(PathBuf::from)
+        .find(|p| !p.as_os_str().is_empty() && p.is_dir());
+    let Some(root_dir) = root_dir else {
         return skip(&mut d, "root_missing");
-    }
+    };
     let (repo_root, repo_id) = match ctx.repo(&root_dir) {
         Some(r) => r,
         None => (root_dir.clone(), ctx.h(&trig.root)),
@@ -607,33 +728,33 @@ fn answer(
     }
     let ppath = profile::profile_path(&ctx.root, &repo_id);
     let prof = profile::read_profile(&ppath);
-    if prof
-        .rules
+    let mut rules = profile::read_rules(&ppath);
+    if rules
         .get(trig.rule.name())
         .is_some_and(|r| r.muted_until > now)
     {
         return skip(&mut d, "muted");
     }
-    // Scan the repo root (the design's scope) when the trigger is inside it.
-    let scan_root = if root_dir.starts_with(&repo_root) {
-        repo_root.clone()
-    } else {
-        root_dir.clone()
-    };
+    let scan_root = root_dir.clone();
     let term_hashes: Vec<String> = trig
-        .toks
+        .ptoks
         .iter()
-        .chain(&trig.idents)
+        .chain(&trig.pidents)
         .map(|t| ctx.h(t))
         .collect();
     let hist = prof.prior(&term_hashes, cfg.min_pair_streams);
-    let budget = Duration::from_millis(cfg.budget_ms);
     let scan = scan_bounded(
-        scan_root.clone(),
-        trig.clone(),
-        hist.clone(),
-        ctx.salt.clone(),
-        budget,
+        ScanReq {
+            root: scan_root.clone(),
+            toks: trig.ptoks.clone(),
+            idents: trig.pidents.clone(),
+            seen: trig.seen.clone(),
+            hist: hist.clone(),
+            salt: ctx.salt.clone(),
+            budget_ms: cfg.budget_ms,
+            want: trig.want.clone(),
+        },
+        ctx.scan_exe.as_deref(),
         !ctx.replay,
     );
     d.scan_ms = Some((scan.elapsed_ms * 10.0).round() / 10.0);
@@ -647,12 +768,11 @@ fn answer(
             .filter(|h| !h.seen)
             .take(20)
             .map(|h| {
-                let hb = if h.hist >= 2 { 2.0 * hist.get(&ctx.h(&h.rel)).map_or(0.0, |x| x.0.min(3.0)) } else { 0.0 };
-                json!({"p": h.abs.display().to_string(), "l": h.line, "s": (h.score * 1000.0).round() / 1000.0, "hb": (hb * 1000.0f64).round() / 1000.0, "c": h.covered, "h": h.hist, "d": h.def})
+                json!({"p": h.abs.display().to_string(), "l": h.line, "s": (h.score * 1000.0).round() / 1000.0, "c": h.covered, "h": h.hist, "d": h.def})
             })
             .collect();
         d.cands = Some(
-            json!({"top": top, "root": scan_root.display().to_string(), "n_hist": hist.len()}),
+            json!({"top": top, "root": scan_root.display().to_string(), "n_hist": hist.len(), "want": trig.want}),
         );
     }
     if !scan.complete {
@@ -662,13 +782,23 @@ fn answer(
         return skip(&mut d, "small_repo");
     }
     let unseen: Vec<&tier0::Hit> = scan.hits.iter().filter(|h| !h.seen).collect();
-    let total = trig.toks.len();
+    let total = trig.ptoks.len();
     let mut gate = None;
     let mut chosen: Vec<&tier0::Hit> = Vec::new();
-    // (a) Tier 1 exact definition.
+    // (a) Tier 1 exact definition of the probe's identifiers, under the
+    // search root (P0 measures it; off unless configured).
     let mut defs_lines: Vec<render::Line> = Vec::new();
     if let Some(t1) = tier1::Tier1::from_env(&cfg) {
-        let defs = t1.defs(&trig.idents, &scan_root);
+        let t1_start = Instant::now();
+        let defs = t1.defs(&trig.pidents, &repo_root, &scan_root);
+        let t1_ms = t1_start.elapsed().as_secs_f64() * 1e3;
+        if let Some(c) = d.cands.as_mut() {
+            c["defs"] = json!(defs
+                .iter()
+                .map(|df| json!({"p": df.abs.display().to_string(), "l": df.line}))
+                .collect::<Vec<_>>());
+            c["t1_ms"] = json!((t1_ms * 10.0).round() / 10.0);
+        }
         for df in defs
             .into_iter()
             .filter(|df| !trig.seen.contains(&df.abs.display().to_string()))
@@ -686,19 +816,17 @@ fn answer(
             gate = Some("a");
             d.tier = Some("t1".into());
         }
-        t1.index_once(
-            &scan_root,
-            &ctx.root.join("repos").join(&repo_id).join("indexed"),
-        );
+        if !ctx.replay {
+            t1.index_once(
+                &repo_root,
+                &ctx.root.join("repos").join(&repo_id).join(format!(
+                    "indexed-{}",
+                    tier1::prefix_for(&t1.base, &repo_root)
+                )),
+            );
+        }
     }
-    // (c) history pair resolved to an unseen file that still has a term.
-    if let Some(h) = unseen
-        .iter()
-        .find(|h| h.hist >= cfg.min_pair_streams && h.covered >= 1)
-    {
-        chosen.push(h);
-        gate = gate.or(Some("c"));
-    }
+    // (c) v1's history gate is gone: history only breaks ties in Tier 0.
     // (b) the top unseen file covers >=2 distinct chain terms and scores
     // >=1.3x the next unseen candidate (amendment A1, see the design doc).
     if let Some(top) = unseen.first().filter(|h| h.covered >= 2) {
@@ -716,7 +844,8 @@ fn answer(
             }
         }
     }
-    let absent: Vec<String> = if trig.rule == Rule::R1 {
+    // "absent everywhere" is only true when the scan covered the worktree.
+    let absent: Vec<String> = if trig.rule == Rule::R1 && scan_root == repo_root {
         scan.absent.clone()
     } else {
         Vec::new()
@@ -724,7 +853,7 @@ fn answer(
     if gate.is_none() && absent.is_empty() {
         return skip(&mut d, "gate");
     }
-    let terms: Vec<String> = trig.toks.iter().chain(&trig.idents).cloned().collect();
+    let terms: Vec<String> = trig.ptoks.iter().chain(&trig.pidents).cloned().collect();
     let mut lines: Vec<render::Line> = defs_lines;
     for h in chosen {
         if lines.len() >= render::MAX_LINES {
@@ -759,9 +888,8 @@ fn answer(
         resolved: if lines.is_empty() { Some(false) } else { None },
     });
     state.tokens += tokens as u64;
-    let mut p = prof;
-    p.rules.entry(trig.rule.name().into()).or_default().nudges += 1;
-    let _ = profile::write_profile(&ppath, &p);
+    rules.entry(trig.rule.name().into()).or_default().nudges += 1;
+    let _ = profile::write_rules(&ppath, &rules);
     let stdout = (cfg.mode == Mode::Active && speak).then(|| {
         let ev_name = if event == "batch" {
             "PostToolBatch"
@@ -930,6 +1058,22 @@ pub fn run_cli(args: &[String]) -> i32 {
         Some("why") => cmd_why(&args[1..]),
         Some("profile") => cmd_profile(&args[1..]),
         Some("replay") => cmd_replay(&args[1..]),
+        Some("scan-worker") => cmd_scan_worker(),
+        Some("t1-defs") => cmd_t1_defs(&args[1..]),
+        Some("t1-prefix") => {
+            // Worktree root and Tier 1 index prefix for a directory (used to
+            // pre-index roots for replay and probe P0).
+            let Some(dir) = args.get(1) else {
+                eprintln!("xerj hook t1-prefix <dir> [--base B]");
+                return 2;
+            };
+            let base = flag(args, "--base").unwrap_or_else(|| "xh".into());
+            let root = profile::repo_of(Path::new(dir))
+                .map(|(r, _)| r)
+                .unwrap_or_else(|| PathBuf::from(dir));
+            println!("{}\t{}", root.display(), tier1::prefix_for(&base, &root));
+            0
+        }
         Some("purge") => {
             let root = state_root();
             match std::fs::remove_dir_all(&root) {
@@ -971,6 +1115,7 @@ fn run_hook(args: &[String]) -> i32 {
     if profile::private_dir(&ctx.hot).is_err() {
         ctx.hot = ctx.root.clone();
     }
+    ctx.scan_exe = std::env::current_exe().ok();
     let ev = match event.as_str() {
         "batch" | "post" | "end" | "start" => event.as_str(),
         _ => return 0,
@@ -1071,8 +1216,7 @@ fn cmd_status(args: &[String]) -> i32 {
     let (mut nudges, mut uptake) = (0u32, 0u32);
     if let Ok(rd) = std::fs::read_dir(root.join("repos")) {
         for e in rd.flatten() {
-            let p = profile::read_profile(&e.path().join("profile.json"));
-            for r in p.rules.values() {
+            for r in profile::read_rules(&e.path().join("profile.json")).values() {
                 nudges += r.nudges;
                 uptake += r.uptake;
             }
@@ -1131,11 +1275,13 @@ fn cmd_profile(args: &[String]) -> i32 {
     let mut out = Vec::new();
     if let Ok(rd) = std::fs::read_dir(&root) {
         for e in rd.flatten() {
-            let p = profile::read_profile(&e.path().join("profile.json"));
+            let pp = e.path().join("profile.json");
+            let p = profile::read_profile(&pp);
+            let rules = profile::read_rules(&pp);
             out.push(json!({
                 "repo": e.file_name().to_string_lossy(), "streams_folded": p.streams_folded, "pairs": p.pairs.len(),
                 "terms": p.pairs.values().map(|x| x.terms.len()).sum::<usize>(), "hot_roots": p.hot.len(),
-                "zero_terms": p.zero_terms.len(), "rules": p.rules.iter().map(|(k, r)| (k.clone(), json!({"nudges": r.nudges, "uptake": r.uptake, "muted": r.muted_until > 0.0}))).collect::<serde_json::Map<_, _>>(),
+                "zero_terms": p.zero_terms.len(), "rules": rules.iter().map(|(k, r)| (k.clone(), json!({"nudges": r.nudges, "uptake": r.uptake, "muted": r.muted_until > 0.0}))).collect::<serde_json::Map<_, _>>(),
             }));
         }
     }
@@ -1166,6 +1312,11 @@ fn cmd_replay(args: &[String]) -> i32 {
     };
     if let Some(b) = flag(args, "--budget-ms").and_then(|b| b.parse().ok()) {
         cfg.budget_ms = b;
+    }
+    if let Some(u) = flag(args, "--tier1-url") {
+        cfg.tier1 = "on".into();
+        cfg.tier1_url = Some(u);
+        cfg.tier1_prefix = flag(args, "--tier1-prefix");
     }
     let Ok(mut ctx) = Ctx::new(PathBuf::from(&state)) else {
         eprintln!("xerj hook replay: cannot use state dir {state}");

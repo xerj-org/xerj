@@ -1,0 +1,51 @@
+{
+  "name": "xerj hook v2 (per-probe answers, Tier 1 definitions, firing tail) - pre-registered verification",
+  "frozen": "2026-11-22",
+  "status": "frozen and committed before any v2 replay, P0 probe or benchmark run; later changes are dated amendments below",
+  "supersedes": "nothing: the v1 pre-registration (harness-search-profiler.prereg.json) and its results stand as recorded",
+  "changes_under_test": {
+    "step2": "answers are ranked on the triggering probe's own tokens (not the chain union); candidates come only from that probe's search root; a code search gets only source files, a doc search (doc include glob/type, named doc files, or a root inside docs/doc/documentation/landing/reports/notes/wiki) only documentation files; history no longer adds score and the history gate (c) is removed - history only breaks ties",
+    "step3": "Tier 1: exact definition of the probe's identifiers from the local node, one index prefix per worktree root, hits kept only under the search root; one 200 ms deadline for both identifier lookups",
+    "step6": "per-rule counters written in place to rules.json (no rename-over-self of profile.json on a firing call); Tier 0 reads files in 64 KB steps and stops at the deadline; live hooks run the scan in a child process so a scan stuck in a filesystem wait cannot hold the hook open"
+  },
+  "parameters": "unchanged from v1 (max_tokens 300, stream_cap 3, stream_tokens 900, min_gap_calls 8, chain 6 calls / 300 s, tier0_budget_ms 150, min_files 50, gate_b_ratio 1.3); min_pair_streams now only marks a history tie-break",
+  "data": {
+    "primary_window": {
+      "from_exclusive": "2026-11-21T13:28:09-06:00 (epoch 1795289289): the v1 miner snapshot; nothing after it was seen when v1 or v2 was designed",
+      "to_inclusive": "2026-11-22T01:40:00-06:00 (epoch 1795333200)",
+      "reading_of_brief": "the brief asks for events dated after 2026-11-21. Calendar-strict, that is 1 h 40 min of data (2026-11-22 00:00-01:40). The primary window instead starts at the end of the v1 corpus, so every event in it is new to both designs; the calendar-strict subset is reported as a sensitivity row",
+      "input": "local transcript replay input rebuilt from the agent transcripts (full tool output up to 100 KB per call, real tool_input), sha256 prefix 231075434f0e0f57; 113 streams; 5,795 calls in the window",
+      "context": "a stream that touches the window is replayed from its first call so the ring has context; only decisions with t in the window are scored; the state dir starts empty, so history is learned only inside the replay",
+      "privacy": "input, decisions and per-event rows stay local (0600, outside the repository)"
+    },
+    "exploratory_old_data": "the same metrics on the v1 test split (2026-11-01..2026-11-21, the v1 replay input) with the v2 binary. EXPLORATORY ONLY: v2 was designed after reading those v1 numbers"
+  },
+  "arms": {
+    "V1": "binary at 52be6c248 (v1 as frozen), same input",
+    "V2-t0": "this commit, Tier 1 off",
+    "V2-t1": "this commit, Tier 1 on: a loopback node on a private port; every worktree root that V2-t0 reached a scan for (and that still exists) is indexed first with `xerj autoindex <root> --prefix <t1-prefix> --no-semantic`; replay on today's tree as in v1"
+  },
+  "ground_truth": {
+    "chain_end_target": "for a fired call, take the miner's search chain that contains it; the target is the LAST Read/Edit/Write (Read tool or Bash cat/sed/head/tail/nl/bat read) in the 6 calls after the chain's last search, stopping at the next search call. A fire without such a file is excluded and counted (BUILD v2 step 4: the next read was unrelated to the search about 55-60% of the time)",
+    "baseline": "the target appears in the fired call's own output (the agent's own grep)"
+  },
+  "metrics": {
+    "R-1": {"def": "as v1", "pass": "fire <= 0.12 and silent >= 0.95", "kill": "fire > 0.20 or silent < 0.90"},
+    "R-2": {"def": "trigger precision/recall vs 300 blind human labels", "pass": "precision >= 0.70 and recall >= 0.50", "kill": "precision < 0.50 at recall >= 0.30", "status": "cannot be run by an agent: the anonymised local labelling sheet is built and awaits the owner"},
+    "R-3": {"def": "recall@5 of the chain-end target, fired events with a complete scan; arms V2-t0 (Tier 0 top 5) and V2-t1 (Tier 1 definitions first, then Tier 0, top 5); baseline on the same events", "pass": "best arm >= 0.40 and >= baseline + 15 pp", "kill": "best arm < baseline + 5 pp", "min_n": 30},
+    "R-3b": {"def": "median calls between the fire and the agent's first read of the target, R-3 hits", "pass": ">= 1.5", "kill": "< 1"},
+    "R-4": {"def": "emitted nudges whose top-1 is the chain-end target or a file read in the next 6 calls", "pass": ">= 0.35", "kill": "< 0.20", "min_n": 15},
+    "R-5": {"def": "real binary, end to end per hook call: 40 firing calls (two related zero-result identifier greps on this repository's crates) and 600 silent calls, run twice per binary, V1 and V2 alternating, load average recorded", "pass": "silent p99 <= 25 ms and firing p99 <= 250 ms", "kill": "silent p99 > 50 ms"},
+    "R-6": {"def": "as v1", "pass": "<= 300 / <= 900 tokens and non-struggle streams with tokens <= 0.01", "kill": "any nudge > 300"},
+    "R-7": {"def": "emitted path:line that no longer re-anchors", "pass": "0", "kill": ">= 1 is a bug"},
+    "R-8": {"def": "20 synthetic positive chains fire, 20 negatives silent (unit tests)", "pass": ">= 18/20 and >= 19/20", "kill": "either < 15"},
+    "min_n_rule": "below min_n a metric is reported as INSUFFICIENT_N: neither pass nor kill, and it cannot open the Stage 2 gate"
+  },
+  "probe_P0": {
+    "def": "Tier 1 on this repository and one non-Rust repository present on the machine: (1) symbol docs exist after `xerj autoindex --no-semantic`; (2) definition precision@1: 100 definitions per repository sampled at random (seed 20261122) by a regex over the tree (Rust `fn`; TypeScript `class`/`function`/`interface`), only identifiers the same regex finds exactly once (so top-1 is well defined), queried through the hook's own lookup (`xerj hook t1-defs`) with the lower-cased identifier as the hook sends it; correct when the top hit is the definition file and its line is within 3 lines of the regex line (attributes, doc comments); (3) latency of the hook's lookup call, p50/p99; (4) `--watch` freshness: a new function written to a scratch copy is findable, 5 trials",
+    "pass": "symbol docs present, precision@1 >= 0.90, p99 <= 200 ms, freshness <= 10 s in 5/5",
+    "on_fail": "Tier 1 stays off; gate (a) is reported as not usable"
+  },
+  "stage2_gate": "unchanged: R-2, R-3, R-5 and R-7 must pass. R-2 needs the owner's labels, so Stage 2 stays blocked this round whatever R-3 shows. No live pilot this round.",
+  "amendments": []
+}

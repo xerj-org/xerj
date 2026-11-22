@@ -560,6 +560,10 @@ fn render_respects_token_cap() {
         idents: vec![],
         root: "/w".into(),
         seen: Default::default(),
+        ptoks: vec!["lease".into()],
+        pidents: vec![],
+        proot: "/w".into(),
+        want: String::new(),
     };
     let long = "x".repeat(400);
     let lines: Vec<render::Line> = (0..9)
@@ -606,4 +610,210 @@ fn codex_string_response_and_grep_tool_parse() {
         true,
     );
     assert!(bad.stdout.is_none());
+}
+
+// ── v2 (BUILD v2 steps 2, 3, 6) ──
+
+#[test]
+fn v2_probe_want_from_globs_paths_and_doc_dirs() {
+    let p = |cmd: &str| {
+        parse::parse_bash(cmd, Path::new("/w")).probes[0]
+            .want
+            .clone()
+    };
+    assert_eq!(p("rg -n lease_slot -g '*.rs' src"), "code");
+    assert_eq!(p("grep -rn --include='*.md' lease docs"), "doc");
+    assert_eq!(p("rg -n -t md lease ."), "doc");
+    assert_eq!(p("rg -n -t rust lease ."), "code");
+    assert_eq!(p("grep -rn lease_slot src"), "");
+    assert_eq!(p("grep -rn lease_slot docs/design"), "doc");
+    assert_eq!(p("grep -n lease README.md"), "doc");
+    assert_eq!(parse::file_kind("a/b.rs"), "code");
+    assert_eq!(parse::file_kind("a/B.MD"), "doc");
+    assert_eq!(parse::file_kind("Cargo.lock"), "");
+}
+
+fn v2_repo(dir: &Path) {
+    fixture_repo(dir);
+    // A planning doc that mentions every chain word: v1 ranked such files
+    // first (exploratory n = 54: docs were 28% of targets but most of the
+    // top-5). A code search must never be answered with it.
+    std::fs::write(
+        dir.join("src/core/PLAN.md"),
+        "lease renew slot table keeper lease_renew renew_lease_slot leaseRenew\n",
+    )
+    .unwrap();
+}
+
+#[test]
+fn v2_code_search_never_suggests_docs_and_ranks_on_its_own_probe() {
+    let tmp = tempfile::tempdir().unwrap();
+    let repo = tmp.path().join("repo");
+    v2_repo(&repo);
+    let mut ctx = Ctx::new(tmp.path().join("state")).unwrap();
+    ctx.cfg_override = Some(Config {
+        mode: Mode::Active,
+        budget_ms: 2000,
+        ..Config::default()
+    });
+    let cwd = repo.display().to_string();
+    let batch = |calls: Vec<Value>| json!({"session_id": "v2a", "cwd": cwd, "tool_calls": calls});
+    handle(
+        &ctx,
+        "batch",
+        &batch(vec![call("grep -rn lease_renew src", "", "a")]),
+        true,
+    );
+    let o = handle(
+        &ctx,
+        "batch",
+        &batch(vec![call("grep -rn leaseRenew src", "", "b")]),
+        true,
+    );
+    let text = o.stdout.expect("speaks");
+    assert!(!text.contains("PLAN.md"), "{text}");
+    assert!(text.contains("src/core/lease.rs:3"), "{text}");
+}
+
+#[test]
+fn v2_candidates_stay_under_the_probe_root() {
+    let tmp = tempfile::tempdir().unwrap();
+    let repo = tmp.path().join("repo");
+    v2_repo(&repo);
+    std::fs::create_dir_all(repo.join("other")).unwrap();
+    for i in 0..60 {
+        std::fs::write(
+            repo.join(format!("other/o{i}.rs")),
+            format!("pub fn o{i}() {{}}\n"),
+        )
+        .unwrap();
+    }
+    std::fs::write(
+        repo.join("other/x.rs"),
+        "pub fn renew_lease_slot_elsewhere() { lease(); renew(); }\n",
+    )
+    .unwrap();
+    let t = detect::Trigger {
+        rule: Rule::R2,
+        calls: 3,
+        zeros: 0,
+        toks: vec!["lease".into(), "renew".into()],
+        idents: vec![],
+        root: repo.display().to_string(),
+        seen: Default::default(),
+        ptoks: vec!["lease".into(), "renew".into()],
+        pidents: vec![],
+        proot: repo.join("src").display().to_string(),
+        want: String::new(),
+    };
+    let s = run_scan(&ScanReq {
+        root: PathBuf::from(&t.proot),
+        toks: t.ptoks.clone(),
+        idents: vec![],
+        seen: Default::default(),
+        hist: Default::default(),
+        salt: "s".into(),
+        budget_ms: 2000,
+        want: String::new(),
+    });
+    assert!(s.complete);
+    assert!(s.hits.iter().all(|h| h.abs.starts_with(repo.join("src"))));
+    assert!(s.hits.iter().all(|h| parse::file_kind(&h.rel) == "code"));
+}
+
+#[test]
+fn v2_history_only_breaks_ties() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    for i in 0..3 {
+        std::fs::write(root.join(format!("f{i}.rs")), "lease renew\n").unwrap();
+    }
+    std::fs::write(root.join("best.rs"), "lease renew slot\n").unwrap();
+    let salt = "s".to_string();
+    let mut hist = HashMap::new();
+    hist.insert(profile::hash(&salt, "f2.rs"), (3.0, 5u32));
+    let s = run_scan(&ScanReq {
+        root: root.to_path_buf(),
+        toks: vec!["lease".into(), "renew".into(), "slot".into()],
+        idents: vec![],
+        seen: Default::default(),
+        hist,
+        salt,
+        budget_ms: 2000,
+        want: String::new(),
+    });
+    let order: Vec<&str> = s.hits.iter().map(|h| h.rel.as_str()).collect();
+    assert_eq!(
+        order[0], "best.rs",
+        "history must not outrank a better match: {order:?}"
+    );
+    assert_eq!(
+        order[1], "f2.rs",
+        "history breaks the tie among equals: {order:?}"
+    );
+}
+
+#[test]
+fn v2_tier1_prefix_is_per_worktree_and_stable() {
+    let a = tier1::prefix_for("xh", Path::new("/w/a"));
+    let b = tier1::prefix_for("xh", Path::new("/w/b"));
+    assert_ne!(a, b);
+    assert_eq!(a, tier1::prefix_for("xh", Path::new("/w/a")));
+    assert!(a.starts_with("xh") && a.len() == 12);
+    assert!(a
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()));
+}
+
+#[test]
+fn v2_rule_counters_write_in_place_and_profile_is_not_rewritten() {
+    let tmp = tempfile::tempdir().unwrap();
+    let pp = tmp.path().join("repos/r/profile.json");
+    profile::write_profile(&pp, &Profile::default()).unwrap();
+    let mut rules = HashMap::new();
+    rules.insert(
+        "R2".to_string(),
+        profile::RuleStat {
+            nudges: 1,
+            uptake: 0,
+            muted_until: 0.0,
+        },
+    );
+    profile::write_rules(&pp, &rules).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let ino = std::fs::metadata(profile::rules_path(&pp)).unwrap().ino();
+        let pino = std::fs::metadata(&pp).unwrap().ino();
+        rules.get_mut("R2").unwrap().nudges = 2;
+        profile::write_rules(&pp, &rules).unwrap();
+        assert_eq!(
+            ino,
+            std::fs::metadata(profile::rules_path(&pp)).unwrap().ino()
+        );
+        assert_eq!(pino, std::fs::metadata(&pp).unwrap().ino());
+    }
+    assert_eq!(profile::read_rules(&pp)["R2"].nudges, 2);
+}
+
+#[test]
+fn v2_scan_child_falls_back_when_the_worker_cannot_start() {
+    let tmp = tempfile::tempdir().unwrap();
+    for i in 0..3 {
+        std::fs::write(tmp.path().join(format!("f{i}.rs")), "lease renew\n").unwrap();
+    }
+    let req = ScanReq {
+        root: tmp.path().to_path_buf(),
+        toks: vec!["lease".into(), "renew".into()],
+        idents: vec![],
+        seen: Default::default(),
+        hist: Default::default(),
+        salt: "s".into(),
+        budget_ms: 2000,
+        want: String::new(),
+    };
+    let missing = tmp.path().join("no-such-binary");
+    assert!(scan_child(&missing, &req, Duration::from_millis(500)).is_none());
+    let s = scan_bounded(req, Some(&missing), true);
+    assert!(s.complete && s.hits.len() == 3);
 }

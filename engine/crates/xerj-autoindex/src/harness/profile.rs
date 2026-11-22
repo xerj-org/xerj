@@ -190,11 +190,17 @@ pub fn read_state(path: &Path) -> StreamState {
 /// (`auto_da_alloc`) and stalled a busy disk 100+ ms per call in replay. A
 /// torn write reads back as the default state, which is safe: soft state.
 pub fn write_state(path: &Path, s: &StreamState) -> Result<()> {
+    write_in_place(path, &serde_json::to_vec(s)?)
+}
+
+/// Overwrite a small soft-state file in place: no temp file, no rename, no
+/// directory update. A rename-over on a busy ext4 disk stalled the hook
+/// 0.4-1.7 s per call in replay; a torn write here only loses soft state.
+pub fn write_in_place(path: &Path, bytes: &[u8]) -> Result<()> {
     use std::io::{Seek, SeekFrom};
     if let Some(d) = path.parent() {
         private_dir(d)?;
     }
-    let bytes = serde_json::to_vec(s)?;
     let mut o = OpenOptions::new();
     o.create(true).write(true).truncate(false);
     #[cfg(unix)]
@@ -204,7 +210,7 @@ pub fn write_state(path: &Path, s: &StreamState) -> Result<()> {
     }
     let mut f = o.open(path)?;
     f.seek(SeekFrom::Start(0))?;
-    f.write_all(&bytes)?;
+    f.write_all(bytes)?;
     f.set_len(bytes.len() as u64)?;
     Ok(())
 }
@@ -257,8 +263,27 @@ pub fn read_profile(path: &Path) -> Profile {
         })
 }
 
+/// Stream end (`fold`): the whole profile, atomically.
 pub fn write_profile(path: &Path, p: &Profile) -> Result<()> {
     atomic(path, &serde_json::to_vec(p)?)
+}
+
+/// Hot path (a firing call, a nudge resolving): per-rule counters only,
+/// written in place beside the profile (BUILD v2 step 6: no rename-over-self
+/// on the per-repo profile while the agent waits).
+pub fn rules_path(profile: &Path) -> PathBuf {
+    profile.with_file_name("rules.json")
+}
+
+pub fn read_rules(profile: &Path) -> HashMap<String, RuleStat> {
+    fs::read(rules_path(profile))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default()
+}
+
+pub fn write_rules(profile: &Path, rules: &HashMap<String, RuleStat>) -> Result<()> {
+    write_in_place(&rules_path(profile), &serde_json::to_vec(rules)?)
 }
 
 impl Profile {

@@ -26,6 +26,10 @@ pub struct Probe {
     pub path_search: bool,
     pub include: bool,
     pub binary: bool,
+    /// v2: what the probe looks for, from its include globs/types and named
+    /// files: "doc", "code" or "" (unknown, ranked as code).
+    #[serde(default)]
+    pub want: String,
 }
 
 /// One hook-observed tool call, as stored in the per-stream ring.
@@ -580,6 +584,7 @@ struct GrepArgs {
     paths: Vec<String>,
     recursive: bool,
     include: bool,
+    globs: Vec<String>,
     max_count: Option<u32>,
     files_only: bool,
 }
@@ -643,6 +648,7 @@ fn parse_grep(args: &[String], flavour: &str) -> GrepArgs {
         paths: Vec::new(),
         recursive: matches!(flavour, "rg" | "git-grep" | "ag" | "ack"),
         include: false,
+        globs: Vec::new(),
         max_count: None,
         files_only: false,
     };
@@ -657,7 +663,10 @@ fn parse_grep(args: &[String], flavour: &str) -> GrepArgs {
         }
         "f" | "--file" => *explicit = true,
         "m" | "--max-count" => g.max_count = val.parse().ok(),
-        "g" | "--glob" | "--iglob" | "t" | "--type" | "--include" => g.include = true,
+        "g" | "--glob" | "--iglob" | "t" | "--type" | "--include" => {
+            g.include = true;
+            g.globs.push(val.to_string());
+        }
         "d" | "--directories" if val == "recurse" => g.recursive = true,
         _ => {}
     };
@@ -725,6 +734,98 @@ fn parse_grep(args: &[String], flavour: &str) -> GrepArgs {
     }
     g.paths = pos.collect();
     g
+}
+
+/// File kinds for v2 candidate filtering (design §5, BUILD v2 step 2).
+pub const CODE_EXT: &[&str] = &[
+    "rs", "py", "pyi", "ts", "tsx", "js", "jsx", "mjs", "cjs", "go", "c", "h", "cc", "cpp", "cxx",
+    "hpp", "hh", "java", "kt", "kts", "rb", "php", "cs", "swift", "scala", "sh", "bash", "zsh",
+    "lua", "zig", "sql", "vue", "svelte", "ex", "exs", "erl", "hs", "ml", "dart", "r", "jl",
+    "proto", "m", "mm", "pl", "ps1", "nim", "v", "sv", "cu",
+];
+pub const DOC_EXT: &[&str] = &[
+    "md", "mdx", "markdown", "txt", "rst", "adoc", "org", "html", "htm",
+];
+/// ripgrep `--type` names that mean documentation.
+const DOC_TYPES: &[&str] = &[
+    "md", "markdown", "txt", "rst", "html", "asciidoc", "org", "doc",
+];
+
+fn ext_of(p: &str) -> String {
+    let b = base(p);
+    let b = b.trim_start_matches('*');
+    b.rsplit_once('.')
+        .map(|(_, e)| {
+            e.trim_matches(|c| c == '}' || c == '{')
+                .to_ascii_lowercase()
+        })
+        .unwrap_or_default()
+}
+
+/// "doc" when the file is documentation, "code" when it is source, else "".
+pub fn file_kind(path: &str) -> &'static str {
+    let e = ext_of(path);
+    if DOC_EXT.contains(&e.as_str()) {
+        "doc"
+    } else if CODE_EXT.contains(&e.as_str()) {
+        "code"
+    } else {
+        ""
+    }
+}
+
+const DOC_DIRS: &[&str] = &[
+    "docs",
+    "doc",
+    "documentation",
+    "landing",
+    "reports",
+    "notes",
+    "wiki",
+];
+
+/// What a probe looks for: its include globs/types first, then named
+/// files, then a search root inside a documentation directory.
+pub fn want_of(globs: &[String], paths: &[String], root: &str) -> &'static str {
+    let mut doc = 0;
+    let mut code = 0;
+    for g in globs {
+        for part in g.split([',', '{', '}']).filter(|x| !x.is_empty()) {
+            let kind = if part.contains('.') || part.contains('*') {
+                file_kind(part)
+            } else if DOC_TYPES.contains(&part) {
+                "doc"
+            } else {
+                "code"
+            };
+            match kind {
+                "doc" => doc += 1,
+                "code" => code += 1,
+                _ => {}
+            }
+        }
+    }
+    for p in paths.iter().filter(|p| looks_like_file(p)) {
+        match file_kind(p) {
+            "doc" => doc += 1,
+            "code" => code += 1,
+            _ => {}
+        }
+    }
+    if doc > 0 && code == 0 {
+        "doc"
+    } else if code > 0 && doc == 0 {
+        "code"
+    } else if doc == 0
+        && code == 0
+        && Path::new(root)
+            .components()
+            .any(|c| DOC_DIRS.contains(&c.as_os_str().to_string_lossy().as_ref()))
+    {
+        "doc"
+    } else {
+        ""
+    }
 }
 
 fn looks_like_file(p: &str) -> bool {
@@ -900,6 +1001,15 @@ pub fn parse_bash(command: &str, cwd: &Path) -> BashParse {
                     continue;
                 }
                 let root = if unknown { None } else { root };
+                let want = want_of(
+                    &g.globs,
+                    &g.paths,
+                    &root
+                        .as_ref()
+                        .map(|r| r.display().to_string())
+                        .unwrap_or_default(),
+                )
+                .to_string();
                 out.probes.push(Probe {
                     cmd: flavour.into(),
                     root: root.map(|r| r.display().to_string()).unwrap_or_default(),
@@ -910,6 +1020,7 @@ pub fn parse_bash(command: &str, cwd: &Path) -> BashParse {
                     cap: g.max_count,
                     include: g.include,
                     path_search: g.files_only,
+                    want,
                     ..Probe::default()
                 });
                 out.layout.push(Err(out.probes.len() - 1));
@@ -1217,6 +1328,18 @@ pub fn event_from_call(
                 cap,
                 cap_hit: cap.is_some_and(|c| total as u32 >= c),
                 include: input.get("glob").is_some() || input.get("type").is_some(),
+                want: {
+                    let globs: Vec<String> = ["glob", "type"]
+                        .iter()
+                        .filter_map(|k| str_field(input, &[k]).map(str::to_string))
+                        .collect();
+                    let paths: Vec<String> = if path.is_empty() {
+                        Vec::new()
+                    } else {
+                        vec![path.to_string()]
+                    };
+                    want_of(&globs, &paths, &root.display().to_string()).to_string()
+                },
                 ..Probe::default()
             });
             ev.shown = shown;

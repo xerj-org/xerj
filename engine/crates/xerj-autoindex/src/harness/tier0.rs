@@ -3,7 +3,9 @@
 //! walker (gitignore semantics) plus one case-insensitive alternation that
 //! the regex crate compiles to a literal multi-pattern searcher.
 use regex::bytes::{Regex, RegexBuilder};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
@@ -21,7 +23,7 @@ const SECRET_NAMES: &[&str] = &[
     ".pfx",
 ];
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Hit {
     pub abs: PathBuf,
     pub rel: String,
@@ -36,7 +38,7 @@ pub struct Hit {
     pub seen: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Scan {
     pub hits: Vec<Hit>,
     pub files: usize,
@@ -54,6 +56,44 @@ pub struct Query<'a> {
     pub hist: &'a HashMap<String, (f64, u32)>,
     pub hasher: &'a (dyn Fn(&str) -> String + Sync),
     pub budget: Duration,
+    /// v2: "doc" keeps only documentation candidates; anything else keeps
+    /// only source files. Every file still counts for IDF and `absent`.
+    pub want: &'a str,
+}
+
+/// Read a file in 64 KB steps and give up at the deadline, so one slow
+/// file cannot carry the scan past its budget (BUILD v2 step 6). A single
+/// blocked read(2) can still overrun; live hooks also run the scan in a
+/// child process for that reason (see `scan_bounded`).
+fn read_bounded(path: &Path, deadline: Instant) -> Option<Vec<u8>> {
+    let mut f = std::fs::File::open(path).ok()?;
+    let mut out = Vec::new();
+    let mut buf = vec![0u8; 64 * 1024];
+    loop {
+        if Instant::now() > deadline {
+            return None;
+        }
+        match f.read(&mut buf) {
+            Ok(0) => return Some(out),
+            Ok(n) => {
+                out.extend_from_slice(&buf[..n]);
+                if out.len() as u64 > MAX_FILE {
+                    return Some(out);
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(_) => return None,
+        }
+    }
+}
+
+fn kind_ok(want: &str, path: &str) -> bool {
+    let k = super::parse::file_kind(path);
+    if want == "doc" {
+        k == "doc"
+    } else {
+        k == "code"
+    }
 }
 
 fn secret(name: &str) -> bool {
@@ -204,7 +244,11 @@ pub fn scan(q: &Query) -> Scan {
             }
             files.fetch_add(1, Ordering::Relaxed);
             let path = entry.path();
-            let Ok(bytes) = std::fs::read(path) else {
+            let Some(bytes) = read_bounded(path, deadline) else {
+                if Instant::now() > deadline {
+                    aborted.store(true, Ordering::Relaxed);
+                    return ignore::WalkState::Quit;
+                }
                 return ignore::WalkState::Continue;
             };
             if memchr::memchr(0, &bytes[..bytes.len().min(8192)]).is_some() {
@@ -280,14 +324,10 @@ pub fn scan(q: &Query) -> Scan {
                     }
                 }
             }
-            if mask != 0 || hist.is_some() {
+            if mask != 0 && kind_ok(q.want, &rel) {
                 let (ls, ln) = (best.3, best.2);
                 let le = memchr::memchr(b'\n', &bytes[ls..]).map_or(bytes.len(), |i| ls + i);
-                let text = if mask != 0 {
-                    String::from_utf8_lossy(&bytes[ls..le]).trim().to_string()
-                } else {
-                    String::new()
-                };
+                let text = String::from_utf8_lossy(&bytes[ls..le]).trim().to_string();
                 results
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())
@@ -296,7 +336,7 @@ pub fn scan(q: &Query) -> Scan {
                         abs: path.to_path_buf(),
                         mask,
                         idents: idmask.count_ones() as usize,
-                        line: if mask != 0 { ln } else { 1 },
+                        line: ln,
                         text,
                         def: best.1,
                         path_toks,
@@ -334,10 +374,8 @@ pub fn scan(q: &Query) -> Scan {
                 .sum();
             score +=
                 r.idents as f64 * 1.0 + 0.5 * r.path_toks as f64 + if r.def { 0.5 } else { 0.0 };
-            let (hw, hs) = r.hist.unwrap_or((0.0, 0));
-            if hs >= 2 {
-                score += 2.0 * hw.min(3.0);
-            }
+            // v2: history breaks ties only (20 v1 history nudges, 0 useful).
+            let (_, hs) = r.hist.unwrap_or((0.0, 0));
             let abs_s = r.abs.display().to_string();
             Hit {
                 seen: q.seen.contains(&abs_s),
@@ -356,6 +394,7 @@ pub fn scan(q: &Query) -> Scan {
         b.score
             .partial_cmp(&a.score)
             .unwrap_or(std::cmp::Ordering::Equal)
+            .then(b.hist.cmp(&a.hist))
             .then(a.rel.cmp(&b.rel))
     });
     hits.truncate(50);

@@ -47,6 +47,13 @@ pub struct Trigger {
     pub root: String,
     /// Files already shown or read in this stream: never re-suggested.
     pub seen: HashSet<String>,
+    /// v2: the triggering probe's own tokens, identifiers, root and kind.
+    /// The chain union (`toks`/`idents`) only links searches; answers are
+    /// ranked on the probe alone (BUILD v2 step 2).
+    pub ptoks: Vec<String>,
+    pub pidents: Vec<String>,
+    pub proot: String,
+    pub want: String,
 }
 
 const OPS_ROOTS: &[&str] = &["/proc", "/sys", "/dev", "/var/log", "/etc", "/run"];
@@ -226,6 +233,10 @@ pub fn detect(ring: &[Ev]) -> Result<Trigger, &'static str> {
             idents,
             root,
             seen: seen_in(ring),
+            ptoks: p.toks.clone(),
+            pidents: p.idents.clone(),
+            proot: p.root.clone(),
+            want: p.want.clone(),
         };
         let better = best.as_ref().is_none_or(|b| rank(t.rule) > rank(b.rule));
         if better {
@@ -271,6 +282,10 @@ fn detect_r4(ring: &[Ev]) -> Option<Trigger> {
                     idents: p.idents.clone(),
                     root: p.root.clone(),
                     seen: seen_in(ring),
+                    ptoks: p.toks.clone(),
+                    pidents: p.idents.clone(),
+                    proot: p.root.clone(),
+                    want: p.want.clone(),
                 });
             }
             return None;
