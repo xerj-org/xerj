@@ -1,0 +1,23 @@
+{
+ "corpus": "yanming-lxb--pytexmk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on Python queries this for how YanMing-lxb/PyTeXMK implements it: LaTeX \u8f85\u52a9\u7f16\u8bd1\u547d\u4ee4\u884c\u7a0b\u5e8f LaTeX Auxiliary Compilation Command Line Tool (selected work: src/pytexmk, tests, the project root)",
+ "repos": [
+  {
+   "repo": "PyTeXMK",
+   "url": "https://github.com/YanMing-lxb/PyTeXMK",
+   "sha": "316cb011c253d280de6842eae2b16494583081f3",
+   "licence": "GPL-3.0 (LICENSE file at pin 316cb011c253, GitHub licence API 2026-11-22)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-20T10:40Z",
+    "consent_receipt": "6fe6a4d6539e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-20T10:40Z (receipt 6fe6a4d6539e); selected commit 316cb011c253: \"feat(convergence)!: \u6536\u655b\u5224\u5b9a v2 \u2014\u2014 \u7701\u6389\u786e\u8ba4\u8f6e + \u8de8\u8fdb\u7a0b\u57fa\u7ebf\u590d\u7528 (v1.2.7)\". LICENSE file at pin 316cb011c253 detected as GPL-3.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+   }
+  }
+ ]
+}

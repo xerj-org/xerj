@@ -1,0 +1,23 @@
+{
+ "corpus": "starlife-creator--omnicrawler",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Starlife-creator/omnicrawler implements it: \u684c\u9762\u7aef\u5b8c\u6574\u81ea\u5305\u542b\u722c\u866b\u5e94\u7528 (selected work: src/omnicrawler, tests, user-test-runs)",
+ "repos": [
+  {
+   "repo": "omnicrawler",
+   "url": "https://github.com/Starlife-creator/omnicrawler",
+   "sha": "2b2e553ce777e0ebc1e33c80288166c3d0593ea2",
+   "licence": "Apache-2.0 (LICENSE file at pin 2b2e553ce777, GitHub licence API 2026-11-22)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T02:52Z",
+    "consent_receipt": "688a6ba19bd5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T02:52Z (receipt 688a6ba19bd5); selected commit 2b2e553ce777: \"fix: close pre-acceptance safety and dependency gaps (#174)\". LICENSE file at pin 2b2e553ce777 detected as Apache-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+   }
+  }
+ ]
+}

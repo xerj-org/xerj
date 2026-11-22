@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Shell queries this for how zstevovich/claude-apd implements it: Agent Pipeline Development — enforced Claude Code development framework with pipeline gates, guard hooks, and memory system (selected work: plugins, hooks)",
+ "domain": "an agent working on Shell queries this for how zstevovich/claude-apd implements it: Agent Pipeline Development \u2014 enforced Claude Code development framework with pipeline gates, guard hooks, and memory system (selected work: plugins, hooks)",
  "repos": [
   {
    "repo": "claude-apd",
@@ -16,7 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-10T13:43Z",
     "consent_receipt": "f37a3ccb0c9e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T13:43Z (receipt f37a3ccb0c9e); selected commit 6957e4e0ae53: \"v7.2 batch: resume ledger event, CLAUDE.md-blind adversarial, model-s…\". LICENSE file at pin 6957e4e0ae53 detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution. Re-pinned to 9be80b2d88a6 (v7.5.3) on 2026-11-21 at the author's request."
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T13:43Z (receipt f37a3ccb0c9e); selected commit 6957e4e0ae53: \"v7.2 batch: resume ledger event, CLAUDE.md-blind adversarial, model-s\u2026\". LICENSE file at pin 6957e4e0ae53 detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution. Re-pinned to 9be80b2d88a6 (v7.5.3) on 2026-11-21 at the author's request."
    }
   }
  ]

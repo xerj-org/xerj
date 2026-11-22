@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how ifm-ai/xllm implements it: Light-weight infrastructure for express LLM pre-training (selected work: xllm)",
+ "domain": "an agent working on distributed-systems, distributed-training, llm queries this for how ifm-ai/xllm implements it: Light-weight infrastructure for express LLM pre-training (selected work: xllm)",
  "repos": [
   {
    "repo": "xllm",

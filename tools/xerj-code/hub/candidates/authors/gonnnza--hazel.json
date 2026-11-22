@@ -1,9 +1,9 @@
 {
- "corpus": "gonnnzadev--hazel",
+ "corpus": "gonnnza--hazel",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how gonnnzaDev/hazel- implements it: gonnnzaDev/hazel- (Rust) (selected work: src/servers, src/messages, src/channels)",
+ "domain": "an agent working on Rust queries this for how gonnnza/hazel implements it: gonnnza/hazel (Rust) (selected work: src/servers, src/messages, src/channels)",
  "repos": [
   {
    "repo": "Hazel",
