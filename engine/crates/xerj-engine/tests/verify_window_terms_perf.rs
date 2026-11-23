@@ -262,12 +262,14 @@ async fn count_lane_with_resident_ghosts_is_served_and_exact() {
         }
     }
 
-    // Brute reference: the sibling agg makes the tree non-row-exact, so
-    // the dirty segments bail admission and the brute executor answers.
-    // Its terms buckets and total are the reference the fast path must
-    // reproduce.
+    // Brute reference: a sibling agg with no columnar executor
+    // (`string_stats`) sends the whole tree to the brute executor. Its terms
+    // buckets and total are the reference the fast path must reproduce. (A
+    // columnar sibling such as `value_count` no longer does: since #3444 a
+    // non-row-exact plan is served from a live-row view of the dirty
+    // segment.)
     let mut reference = count_lane(&digests, false);
-    reference["aggs"]["n"] = json!({ "value_count": { "field": "cve_id" } });
+    reference["aggs"]["n"] = json!({ "string_stats": { "field": "cve_id" } });
     let ref_before = fast_path_aggs_served();
     let brute = run(&idx, reference).await;
     assert_eq!(

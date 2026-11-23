@@ -232,11 +232,13 @@ async fn exists_on_meta_field_bails_to_brute() {
     assert_eq!(out["total"], 12_000, "every doc has an _id");
 }
 
-/// The admission gate's safety half: an overwrite whose superseded row is
-/// still resident (no merge yet) keeps the fast path OFF, and the live
-/// corpus answer is unchanged by a byte-identical overwrite.
+/// An overwrite whose superseded row is still resident (no merge yet) used
+/// to keep the fast path OFF for every plan but the #1267 row-exact one.
+/// Since #3444 the dirty segment is served from a live-row copy of its
+/// columns: still columnar, the answer unchanged by a byte-identical
+/// overwrite, and the deleted row gone.
 #[tokio::test]
-async fn unmerged_ghosts_still_bail() {
+async fn unmerged_ghosts_are_served_from_a_live_row_view() {
     let _sequential = ONE_AT_A_TIME.lock().await;
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
@@ -271,9 +273,9 @@ async fn unmerged_ghosts_still_bail() {
 
     let dirty = run(&idx, q).await;
     assert_eq!(
-        fast_path_aggs_served(),
-        served_clean,
-        "a segment with resident ghosts must not serve columnarly"
+        fast_path_aggs_served() - served_clean,
+        1,
+        "a segment with resident ghosts serves columnarly from its live rows (#3444)"
     );
     // Live corpus: doc 0 byte-identical, doc 2 deleted (was group a, v=2).
     assert_eq!(clean["total"], 6_000);

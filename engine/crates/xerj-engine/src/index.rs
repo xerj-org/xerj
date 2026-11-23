@@ -31512,6 +31512,10 @@ impl Index {
                         .iter()
                         .map(|m| m.doc_count)
                         .sum();
+                    // #3444: physical rows on purpose. The corpus keeps live
+                    // rows only, but measured on 200k live docs (~1 KB text
+                    // body each) the brute path held 842-851 MB of RSS (~4.3 KB a live doc), so
+                    // pricing superseded rows too is still not an overcharge.
                     let est = (self.memtable.doc_count() as u64)
                         .saturating_add(seg_docs)
                         .saturating_mul(EST_BYTES_PER_OWNED_DOC);

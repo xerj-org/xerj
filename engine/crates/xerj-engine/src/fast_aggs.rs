@@ -43,8 +43,10 @@
 //!   with resident ghosts is admitted for ONE provably row-exact plan — a
 //!   top-level filter plus a single plain `terms` agg — where every number
 //!   comes from the fused row pass (ghosted rows skipped) and the
-//!   live-filtered memtable walks, never from a delete-blind O(1) stat;
-//!   every other plan still bails on the first dirty bitmap.
+//!   live-filtered memtable walks, never from a delete-blind O(1) stat.
+//!   Since #3444 every other plan reads a dirty segment through a live-row
+//!   copy of the columns it references (`live_row_view`), priced against
+//!   `limits.max_query_memory_mb`; it bails only if those copies exceed it.
 //! * Every non-empty segment must have a decodable `.dv` sidecar.
 //!
 //! Known accepted divergences vs brute (documented, benign for the fast-path
@@ -191,6 +193,13 @@ struct SegEntry {
     /// row-exact plan must skip set bits.  `None` = provably ghost-free,
     /// the shape every executor was originally built under.
     ghosts: Option<std::sync::Arc<Vec<u64>>>,
+    /// Live-row view: `cols` and `docs` cover only this segment's live rows,
+    /// and `row_map[row]` is the physical (stored-section) row behind view
+    /// row `row`. Set when a dirty segment was admitted for a plan that is
+    /// not row-exact (see [`live_row_view`]). Per-segment caches keyed by
+    /// `id` describe the physical row space, so a view never reads or
+    /// writes them.
+    row_map: Option<std::sync::Arc<Vec<u32>>>,
 }
 
 /// Bit `row` of a ghost-position bitmap (bit pos set ⇔ row is deleted or
@@ -753,6 +762,109 @@ fn single_plain_terms_agg(aggs_obj: &serde_json::Map<String, Value>) -> bool {
     body.len() == 1 && body.contains_key("terms")
 }
 
+/// Every object key and string value in the aggs tree and the top-level
+/// filter: a superset of the field names the plan can look up. `None` when
+/// the tree carries a script, whose field references are not JSON strings of
+/// their own — the live view then copies every column.
+fn referenced_strings(
+    aggs_def: &Value,
+    filter: Option<&Value>,
+) -> Option<std::collections::HashSet<String>> {
+    fn walk(v: &Value, out: &mut std::collections::HashSet<String>) -> bool {
+        match v {
+            Value::String(s) => {
+                out.insert(s.clone());
+                true
+            }
+            Value::Array(a) => a.iter().all(|x| walk(x, out)),
+            Value::Object(o) => o.iter().all(|(k, x)| {
+                if k == "script" || k == "scripted_metric" {
+                    return false;
+                }
+                out.insert(k.clone());
+                walk(x, out)
+            }),
+            _ => true,
+        }
+    }
+    let mut out = std::collections::HashSet::new();
+    if !walk(aggs_def, &mut out) {
+        return None;
+    }
+    if let Some(f) = filter {
+        if !walk(f, &mut out) {
+            return None;
+        }
+    }
+    Some(out)
+}
+
+/// Whether column `col` can be reached from a referenced name: the name
+/// itself, the parent of a `.keyword` name (`dv_col`'s fallback), or a dotted
+/// ancestor / descendant (`dotted_suffix_diverges_from_brute` probes
+/// ancestors; descendants are kept for symmetry).
+fn column_is_referenced(col: &str, names: &std::collections::HashSet<String>) -> bool {
+    if names.contains(col) {
+        return true;
+    }
+    let dotted_under = |long: &str, short: &str| {
+        long.len() > short.len() && long.starts_with(short) && long.as_bytes()[short.len()] == b'.'
+    };
+    names.iter().any(|n| {
+        n.strip_suffix(".keyword") == Some(col) || dotted_under(n, col) || dotted_under(col, n)
+    })
+}
+
+/// [#3444] A dirty segment (resident deleted/superseded rows) served for a
+/// plan that is not row-exact. Every executor's O(1) per-segment stat
+/// (`per_ord_count`, `live_count`, `range_count`, the sorted run) counts
+/// physical rows, which is why such a segment used to bail the whole request
+/// to the brute corpus. The brute corpus clones every live `_source` (priced
+/// at 2 KB a doc against `limits.max_query_memory_mb`), so a large index
+/// with overwrite history answered `terms` / `date_histogram` /
+/// `cardinality` with 429 until a merge compacted the ghosts away.
+///
+/// Instead, copy the referenced columns keeping only live rows, so the
+/// executors see a segment that is ghost-free by construction (the invariant
+/// they were written under) and need no change. This is the collector-side
+/// "skip dead docs" of tantivy (`src/collector/mod.rs:192-210`, MIT: a
+/// segment collector is fed only `alive_bitset` docs), done once per column
+/// instead of once per executor. Returns the entry and the bytes its copied
+/// columns hold.
+fn live_row_view(
+    id: &str,
+    cols: &super::Resident<super::DocValueMap>,
+    doc_count: u64,
+    ghosts: &[u64],
+    fields: &Option<std::collections::HashSet<String>>,
+) -> Option<(SegEntry, u64)> {
+    let n = u32::try_from(doc_count).ok()?;
+    let row_map: Vec<u32> = (0..n).filter(|&r| !ghost_bit(ghosts, r)).collect();
+    let mut view = super::DocValueMap::new();
+    let mut bytes: u64 = (row_map.capacity() as u64).saturating_mul(4);
+    for (name, col) in cols.iter() {
+        if let Some(names) = fields {
+            if !column_is_referenced(name, names) {
+                continue;
+            }
+        }
+        let kept = col.retain_rows(&row_map).ok()?;
+        bytes = bytes.saturating_add(kept.estimated_retained_bytes());
+        view.insert(name.clone(), kept);
+    }
+    let docs = row_map.len() as u32;
+    Some((
+        SegEntry {
+            id: id.to_string(),
+            cols: crate::segment_cache_budget::CacheResident::uncached(view),
+            docs,
+            ghosts: None,
+            row_map: Some(std::sync::Arc::new(row_map)),
+        },
+        bytes,
+    ))
+}
+
 impl Index {
     /// Entry point — see module docs.  Returns `Some(agg_result)` (shaped
     /// exactly like `run_aggs_with_all`'s return) or `None` to fall back.
@@ -846,6 +958,10 @@ impl Index {
         let row_exact = top_filter.is_some() && single_plain_terms_agg(aggs_obj);
         let mut dirty_ghosts: std::collections::HashMap<String, std::sync::Arc<Vec<u64>>> =
             std::collections::HashMap::new();
+        // [#3444] Dirty segments of a plan that is NOT row-exact: served from
+        // a live-row copy of their columns (see `live_row_view`).
+        let mut live_view_ghosts: std::collections::HashMap<String, std::sync::Arc<Vec<u64>>> =
+            std::collections::HashMap::new();
         let mem_live_gate: Option<std::collections::HashSet<String>> = if deletes_present {
             for meta in &snap.segments {
                 if meta.doc_count == 0 {
@@ -853,10 +969,11 @@ impl Index {
                 }
                 let ghosts = self.ghost_positions_for(&meta.id, meta.doc_count)?;
                 if ghosts.iter().any(|w| *w != 0) {
-                    if !row_exact {
-                        return None;
+                    if row_exact {
+                        dirty_ghosts.insert(meta.id.clone(), ghosts);
+                    } else {
+                        live_view_ghosts.insert(meta.id.clone(), ghosts);
                     }
-                    dirty_ghosts.insert(meta.id.clone(), ghosts);
                 }
             }
             // The memtable leg of the same gate: a buffered doc whose live
@@ -891,16 +1008,44 @@ impl Index {
         // Column sources.  A non-empty segment without a decodable `.dv`
         // sidecar makes the columnar view lossy → bail.
         let mut segs: Vec<SegEntry> = Vec::with_capacity(snap.segments.len());
+        let view_fields = if live_view_ghosts.is_empty() {
+            None
+        } else {
+            Some(referenced_strings(aggs_def, filter))
+        };
+        let mut view_bytes: u64 = 0;
         for meta in &snap.segments {
             if meta.doc_count == 0 {
                 continue;
             }
             let cols = self.dv_columns_for(segments_dir, &meta.id)?;
+            if let (Some(ghosts), Some(fields)) =
+                (live_view_ghosts.get(&meta.id), view_fields.as_ref())
+            {
+                let (entry, bytes) =
+                    live_row_view(&meta.id, &cols, meta.doc_count, ghosts, fields)?;
+                view_bytes = view_bytes.saturating_add(bytes);
+                // The per-query budget the brute corpus is priced against,
+                // applied to what this path really holds: the copied columns.
+                if let Some(g) = crate::governor::global() {
+                    if g.query_memory_enabled()
+                        && g.check_query_alloc(view_bytes, "aggregation doc-values live view")
+                            .is_err()
+                    {
+                        return None;
+                    }
+                }
+                if entry.docs > 0 {
+                    segs.push(entry);
+                }
+                continue;
+            }
             segs.push(SegEntry {
                 id: meta.id.clone(),
                 cols,
                 docs: meta.doc_count as u32,
                 ghosts: dirty_ghosts.get(&meta.id).cloned(),
+                row_map: None,
             });
         }
 
@@ -1070,6 +1215,10 @@ impl<'a> FastCtx<'a> {
     fn fetch_seg_doc(&self, si: usize, row: u32) -> Option<Value> {
         let seg = &self.segs[si];
         let stored = self.idx.stored_values_for(&seg.id)?;
+        let row = match seg.row_map.as_deref() {
+            Some(map) => *map.get(row as usize)?,
+            None => row,
+        };
         let d = stored.get(row as usize)?;
         let id = d
             .get("_id")
@@ -3789,8 +3938,11 @@ impl<'a> FastCtx<'a> {
     /// `i64::MIN` marks unparseable terms.
     fn date_ord_index(&self, seg: &SegEntry, field: &str) -> Option<std::sync::Arc<Vec<i64>>> {
         let key = (seg.id.clone(), field.to_string());
-        if let Some(v) = self.idx.fast_date_cache.get(&key) {
-            return Some(std::sync::Arc::clone(v.value()));
+        let cacheable = seg.row_map.is_none();
+        if cacheable {
+            if let Some(v) = self.idx.fast_date_cache.get(&key) {
+                return Some(std::sync::Arc::clone(v.value()));
+            }
         }
         let Some(Column::Keyword(k)) = seg.col(field) else {
             return None;
@@ -3800,9 +3952,11 @@ impl<'a> FastCtx<'a> {
             ord_ms.push(parse_date_ms(&Value::String(t.clone())).unwrap_or(i64::MIN));
         }
         let arc = std::sync::Arc::new(ord_ms);
-        self.idx
-            .fast_date_cache
-            .insert(key, std::sync::Arc::clone(&arc));
+        if cacheable {
+            self.idx
+                .fast_date_cache
+                .insert(key, std::sync::Arc::clone(&arc));
+        }
         Some(arc)
     }
 
@@ -3817,8 +3971,11 @@ impl<'a> FastCtx<'a> {
         field: &str,
     ) -> Option<std::sync::Arc<(Vec<i64>, Vec<u64>)>> {
         let key = (seg.id.clone(), field.to_string());
-        if let Some(v) = self.idx.fast_date_sorted_cache.get(&key) {
-            return Some(std::sync::Arc::clone(v.value()));
+        let cacheable = seg.row_map.is_none();
+        if cacheable {
+            if let Some(v) = self.idx.fast_date_sorted_cache.get(&key) {
+                return Some(std::sync::Arc::clone(v.value()));
+            }
         }
         let Some(Column::Keyword(k)) = seg.col(field) else {
             return None;
@@ -3843,9 +4000,11 @@ impl<'a> FastCtx<'a> {
             prefix.push(acc);
         }
         let arc = std::sync::Arc::new((ms_v, prefix));
-        self.idx
-            .fast_date_sorted_cache
-            .insert(key, std::sync::Arc::clone(&arc));
+        if cacheable {
+            self.idx
+                .fast_date_sorted_cache
+                .insert(key, std::sync::Arc::clone(&arc));
+        }
         Some(arc)
     }
 
@@ -6166,6 +6325,7 @@ mod range_kw_tests {
             cols: crate::segment_cache_budget::CacheResident::uncached(m),
             docs: 2,
             ghosts: None,
+            row_map: None,
         };
         assert!(
             seg.col("extension").is_some(),
@@ -6344,6 +6504,7 @@ mod range_kw_tests {
             cols: crate::segment_cache_budget::CacheResident::uncached(cols),
             docs: 1,
             ghosts: None,
+            row_map: None,
         }
     }
 
@@ -6525,6 +6686,69 @@ mod range_kw_tests {
             "the suppressed segment's rows can match `tags:b` — the miss must \
              bail to brute, not resolve to Never"
         );
+    }
+
+    /// #3444: a live-row view keeps every column the plan can reach — the
+    /// named field, the parent of a `.keyword` name, dotted ancestors and
+    /// descendants — copies everything when a script is present, and maps
+    /// view rows back to the physical rows behind them.
+    #[test]
+    fn live_row_view_keeps_reachable_columns_and_maps_rows() {
+        let aggs = json!({
+            "a": { "terms": { "field": "ext.keyword" },
+                   "aggs": { "m": { "avg": { "field": "geo.lat" } } } }
+        });
+        let filter = json!({ "term": { "status": "ok" } });
+        let names = referenced_strings(&aggs, Some(&filter)).unwrap();
+        for col in [
+            "ext",
+            "ext.keyword",
+            "geo",
+            "geo.lat",
+            "geo.lat.x",
+            "status",
+        ] {
+            assert!(column_is_referenced(col, &names), "{col}");
+        }
+        for col in ["extension", "geo_lat", "stat", "other"] {
+            assert!(!column_is_referenced(col, &names), "{col}");
+        }
+        let scripted = json!({ "s": { "sum": { "script": "doc['x'].value" } } });
+        assert!(referenced_strings(&scripted, None).is_none());
+
+        let mut cols = std::collections::BTreeMap::new();
+        cols.insert(
+            "ext".to_string(),
+            Column::Keyword(
+                KeywordColumn::from_iter(["a", "b", "a", "c"].map(|s| Some(s.to_string())))
+                    .unwrap(),
+            ),
+        );
+        cols.insert(
+            "unused".to_string(),
+            Column::Numeric(NumericColumn::from_iter([
+                Some(1),
+                Some(2),
+                Some(3),
+                Some(4),
+            ])),
+        );
+        let resident = crate::segment_cache_budget::CacheResident::uncached(cols);
+        // Rows 0 and 2 are ghosts.
+        let ghosts = vec![0b0101u64];
+        let (entry, bytes) = live_row_view("seg1", &resident, 4, &ghosts, &Some(names)).unwrap();
+        assert_eq!(entry.docs, 2);
+        assert!(bytes > 0);
+        assert_eq!(entry.row_map.as_deref(), Some(&vec![1u32, 3]));
+        assert!(
+            entry.col("unused").is_none(),
+            "unreferenced columns are not copied"
+        );
+        let Some(Column::Keyword(k)) = entry.col("ext.keyword") else {
+            panic!("ext column");
+        };
+        assert_eq!(k.terms, vec!["b".to_string(), "c".to_string()]);
+        assert_eq!(k.per_ord_count, vec![1, 1]);
     }
 
     /// The already-fixed `.keyword` multi-field case (`extension.keyword`)
