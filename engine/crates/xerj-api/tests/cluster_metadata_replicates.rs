@@ -227,32 +227,74 @@ async fn wait_leader(members: &[Member], dead: &[bool]) -> usize {
     }
 }
 
-async fn wait_status(app: &Router, path: &str, want: StatusCode) -> Value {
-    let deadline = Instant::now() + Duration::from_secs(5);
-    loop {
-        let (status, body) = get(app, path).await;
-        if status == want {
-            return body;
-        }
-        if Instant::now() > deadline {
-            panic!("GET {path} stayed {status} body={body} (wanted {want})");
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
+/// Hang guard for a raft wait, not a timing budget. The wait ends when the
+/// member applies the index; only a ring that stops making progress gets here.
+const RAFT_HANG_GUARD: Duration = Duration::from_secs(120);
+
+/// The highest raft log index any of `members` has applied.
+///
+/// A metadata change that answered 200 was applied on the member that
+/// proposed it before its waiter completed (`ClusterHandle::applied_index`),
+/// so this index covers every change acknowledged so far.
+fn applied_target(members: &[Member]) -> u64 {
+    members
+        .iter()
+        .map(|member| member.handle.applied_index())
+        .max()
+        .unwrap_or(0)
+}
+
+/// Wait until `member` has applied every metadata change the ring has
+/// acknowledged so far. Returns the index it waited for.
+///
+/// #3469 follow-up: this used to poll the member's HTTP state against a 5 s
+/// wall-clock deadline, which a starved runner missed 2 times in 40 at load
+/// 38-120. Raft progress is what the member needs; the wait now ends on it.
+async fn wait_applied(members: &[Member], member: &Member) -> u64 {
+    let target = applied_target(members);
+    match tokio::time::timeout(RAFT_HANG_GUARD, member.handle.wait_applied(target)).await {
+        Ok(Ok(_)) => target,
+        Ok(Err(error)) => panic!(
+            "{} stopped before applying raft index {target}: {error}",
+            member.handle.node_id()
+        ),
+        Err(_) => panic!(
+            "{} made no raft progress to index {target} (applied {})",
+            member.handle.node_id(),
+            member.handle.applied_index()
+        ),
     }
 }
 
-async fn wait_body_contains(app: &Router, path: &str, needle: &str) -> Value {
-    let deadline = Instant::now() + Duration::from_secs(5);
-    loop {
-        let (status, body) = get(app, path).await;
-        if status.is_success() && body.to_string().contains(needle) {
-            return body;
-        }
-        if Instant::now() > deadline {
-            panic!("GET {path} never contained {needle}: {status} {body}");
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
+/// GET `path` on `member` once it has applied every acknowledged change, and
+/// require `want`. No retry: a metadata GET reads what raft applied.
+async fn wait_status(members: &[Member], member: &Member, path: &str, want: StatusCode) -> Value {
+    let target = wait_applied(members, member).await;
+    let (status, body) = get(&member.app, path).await;
+    assert_eq!(
+        status,
+        want,
+        "GET {path} on {} after applying raft index {target}: {body}",
+        member.handle.node_id()
+    );
+    body
+}
+
+/// Like [`wait_status`], requiring a success whose body contains `needle`.
+async fn wait_body_contains(
+    members: &[Member],
+    member: &Member,
+    path: &str,
+    needle: &str,
+) -> Value {
+    let target = wait_applied(members, member).await;
+    let (status, body) = get(&member.app, path).await;
+    assert!(
+        status.is_success() && body.to_string().contains(needle),
+        "GET {path} on {} after applying raft index {target} has no {needle}: {status} {body}",
+        member.handle.node_id()
+    );
+    body
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -273,8 +315,8 @@ async fn index_metadata_propagates_and_a_new_leader_still_commits() {
     assert!(status.is_success(), "create from follower: {status} {body}");
 
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
-        let mapping = wait_status(&member.app, "/orders/_mapping", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
+        let mapping = wait_status(&members, member, "/orders/_mapping", StatusCode::OK).await;
         assert!(
             mapping.to_string().contains("title"),
             "mapping did not propagate: {mapping}"
@@ -289,7 +331,7 @@ async fn index_metadata_propagates_and_a_new_leader_still_commits() {
     .await;
     assert!(status.is_success(), "settings: {status} {body}");
     for member in &members {
-        wait_body_contains(&member.app, "/orders/_settings", "number_of_replicas").await;
+        wait_body_contains(&members, member, "/orders/_settings", "number_of_replicas").await;
     }
 
     let (status, body) = put_json(
@@ -315,7 +357,7 @@ async fn index_metadata_propagates_and_a_new_leader_still_commits() {
     let (status, body) = delete(&members[follower].app, "/orders").await;
     assert!(status.is_success(), "delete: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::NOT_FOUND).await;
+        wait_status(&members, member, "/orders", StatusCode::NOT_FOUND).await;
     }
 
     let _ = members[leader].shutdown.send(true);
@@ -332,7 +374,7 @@ async fn index_metadata_propagates_and_a_new_leader_still_commits() {
         if dead[i] {
             continue;
         }
-        wait_status(&member.app, "/tickets", StatusCode::OK).await;
+        wait_status(&members, member, "/tickets", StatusCode::OK).await;
     }
 
     for member in &members {
@@ -608,7 +650,7 @@ async fn an_acknowledged_write_is_on_the_replica_and_readable_after_the_primary_
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
     wait_replica_stores(&members).await;
 
@@ -809,28 +851,58 @@ async fn wait_replica_stores(members: &[Member]) {
     }
 }
 
+/// Wait until every member's in-sync set for `shard` is `want`.
+///
+/// A member's in-sync set changes only when its raft runner applies a
+/// `SetShardInSync` entry, so the check re-runs each time any member applies
+/// a new entry, instead of on a 20 ms timer against a 5 s deadline (#3469
+/// follow-up). The applied indexes are read before the check: an entry
+/// applied in between still ends the wait that follows.
 async fn wait_in_sync(members: &[Member], shard: u32, want: &[String]) {
     let mut want = want.to_vec();
     want.sort();
     want.dedup();
-    let deadline = Instant::now() + Duration::from_secs(5);
-    loop {
-        let ready = members.iter().all(|member| {
-            let mut got = member.engine.replica_nodes("orders", shard);
-            got.sort();
-            got == want
-        });
-        if ready {
-            return;
-        }
-        if Instant::now() > deadline {
-            let observed: Vec<Vec<String>> = members
+    let observed = || -> Vec<Vec<String>> {
+        members
+            .iter()
+            .map(|member| member.engine.replica_nodes("orders", shard))
+            .collect()
+    };
+    let converged = tokio::time::timeout(RAFT_HANG_GUARD, async {
+        loop {
+            let seen: Vec<u64> = members
                 .iter()
-                .map(|member| member.engine.replica_nodes("orders", shard))
+                .map(|member| member.handle.applied_index())
                 .collect();
-            panic!("in-sync for shard {shard} stayed {observed:?}, wanted {want:?}");
+            let ready = members.iter().all(|member| {
+                let mut got = member.engine.replica_nodes("orders", shard);
+                got.sort();
+                got == want
+            });
+            if ready {
+                return;
+            }
+            let mut next = tokio::task::JoinSet::new();
+            for (member, applied) in members.iter().zip(seen) {
+                let handle = member.handle.clone();
+                next.spawn(async move { handle.wait_applied(applied + 1).await });
+            }
+            let first = next.join_next().await.expect("one member");
+            if let Ok(Err(error)) = first {
+                panic!(
+                    "a member stopped while in-sync for shard {shard} was {:?} (wanted {want:?}): {error}",
+                    observed()
+                );
+            }
+            next.abort_all();
         }
-        tokio::time::sleep(Duration::from_millis(20)).await;
+    })
+    .await;
+    if converged.is_err() {
+        panic!(
+            "in-sync for shard {shard} stayed {:?}, wanted {want:?}",
+            observed()
+        );
     }
 }
 
@@ -848,7 +920,7 @@ async fn a_quorum_of_copies_acks_when_one_of_two_replicas_does_not() {
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
     wait_replica_stores(&members).await;
 
@@ -1044,7 +1116,7 @@ async fn a_document_is_stored_on_its_shard_owner_and_search_sees_it_from_any_mem
     let (status, body) = put_json(&members[0].app, "/orders", json!({})).await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
         let targets = member.engine.shard_search_targets("orders");
         assert_eq!(
             targets.len(),
@@ -1280,7 +1352,7 @@ async fn restart_reloads_the_shard_plan_and_still_routes_the_document() {
     let (status, body) = put_json(&members[0].app, "/orders", json!({})).await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
     let (status, body) = put_json(
         &members[0].app,
@@ -1419,15 +1491,21 @@ async fn open_durable_member(
     }
 }
 
-async fn wait_compacted(member: &Member) {
-    let deadline = Instant::now() + Duration::from_secs(10);
+/// Wait until `member` has applied every acknowledged change and compacted
+/// its log into a snapshot. Compaction runs in the same apply pass, and the
+/// view shows it at the end of that pass, so after the raft wait the loop
+/// only covers the rest of one pass; the deadline is the hang guard.
+async fn wait_compacted(members: &[Member], member: &Member) {
+    wait_applied(members, member).await;
+    let deadline = Instant::now() + RAFT_HANG_GUARD;
     loop {
         if member.handle.snapshot_index() >= 1 && member.handle.log_len() == 0 {
             return;
         }
         if Instant::now() > deadline {
             panic!(
-                "leader log was not compacted: snapshot={} log_len={}",
+                "{} log was not compacted: snapshot={} log_len={}",
+                member.handle.node_id(),
                 member.handle.snapshot_index(),
                 member.handle.log_len()
             );
@@ -1436,9 +1514,13 @@ async fn wait_compacted(member: &Member) {
     }
 }
 
-/// The create is compacted out of the leader's log before the third member
-/// starts. That member still gets the index, and a document written afterwards
-/// is readable from a member that was already up.
+/// The create is compacted out of both running members' logs before the
+/// third member starts. That member still gets the index, and a document
+/// written afterwards is readable from a member that was already up.
+///
+/// Both, not only the current leader: if leadership moves to a member that
+/// has not compacted yet, it sends the create as log entries and n3 never
+/// needs the snapshot (seen once in 40 runs at load ~60).
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_late_member_installs_a_compacted_create_and_routes_a_later_write() {
     let ids = ["n1", "n2", "n3"];
@@ -1449,7 +1531,7 @@ async fn a_late_member_installs_a_compacted_create_and_routes_a_later_write() {
         members.push(open_durable_member(id, &ids, &bus, dir, 1).await);
     }
     let dead = [false, false];
-    let leader = wait_leader(&members, &dead).await;
+    let _leader = wait_leader(&members, &dead).await;
 
     let (status, body) = put_json(
         &members[0].app,
@@ -1458,34 +1540,29 @@ async fn a_late_member_installs_a_compacted_create_and_routes_a_later_write() {
     )
     .await;
     assert!(status.is_success(), "create: {status} {body}");
-    wait_compacted(&members[leader]).await;
-    assert_eq!(
-        members[leader].handle.log_len(),
-        0,
-        "the create must not still be an AppendEntries payload"
-    );
+    for member in &members {
+        wait_compacted(&members, member).await;
+        assert_eq!(
+            member.handle.log_len(),
+            0,
+            "the create must not still be an AppendEntries payload"
+        );
+    }
 
     let dir = tempfile::tempdir().expect("tempdir");
     members.push(open_durable_member("n3", &ids, &bus, dir, 64).await);
-    let mapping = wait_body_contains(&members[2].app, "/orders/_mapping", "title").await;
+    let mapping = wait_body_contains(&members, &members[2], "/orders/_mapping", "title").await;
     assert!(
         mapping.to_string().contains("title"),
         "n3 must apply the compacted create: {mapping}"
     );
-    let deadline = Instant::now() + Duration::from_secs(10);
-    loop {
-        if members[2].handle.snapshot_index() >= 1 {
-            break;
-        }
-        if Instant::now() > deadline {
-            panic!(
-                "n3 did not install the snapshot: snapshot={} log_len={}",
-                members[2].handle.snapshot_index(),
-                members[2].handle.log_len()
-            );
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
+    // The create is only in the leader's snapshot, and n3 has applied it.
+    assert!(
+        members[2].handle.snapshot_index() >= 1,
+        "n3 did not install the snapshot: snapshot={} log_len={}",
+        members[2].handle.snapshot_index(),
+        members[2].handle.log_len()
+    );
 
     let (status, body) = put_json(
         &members[2].app,
@@ -1498,7 +1575,7 @@ async fn a_late_member_installs_a_compacted_create_and_routes_a_later_write() {
         "mapping after snapshot: {status} {body}"
     );
     for member in &members {
-        wait_body_contains(&member.app, "/orders/_mapping", "note").await;
+        wait_body_contains(&members, member, "/orders/_mapping", "note").await;
     }
 
     let (status, body) = put_json(
@@ -1580,7 +1657,7 @@ async fn a_late_member_copies_documents_written_before_it_joined() {
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
     wait_replica_stores(&members).await;
 
@@ -1747,7 +1824,7 @@ async fn a_replica_dropped_from_the_in_sync_set_copies_the_missed_write_and_rejo
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
     wait_replica_stores(&members).await;
 
@@ -1995,7 +2072,7 @@ async fn create_replicated_orders(members: &[Member]) {
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(members, member, "/orders", StatusCode::OK).await;
     }
     wait_replica_stores(members).await;
 }
@@ -2278,7 +2355,7 @@ async fn bulk_and_update_from_a_non_owner_write_the_primary_and_the_replica() {
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
     wait_replica_stores(&members).await;
 
@@ -2614,7 +2691,7 @@ async fn update_by_query_from_a_non_owner_updates_every_primary_and_replica() {
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
     wait_replica_stores(&members).await;
 
@@ -2998,7 +3075,7 @@ async fn delete_by_query_from_a_non_owner_deletes_on_every_primary_and_replica()
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
     wait_replica_stores(&members).await;
 
@@ -3337,7 +3414,7 @@ async fn native_doc_writes_from_a_non_owner_hit_the_primary_and_the_replica() {
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
     wait_replica_stores(&members).await;
 
@@ -3700,7 +3777,7 @@ async fn a_replica_that_misses_a_refused_write_leaves_the_in_sync_set_and_is_bac
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
     wait_replica_stores(&members).await;
 

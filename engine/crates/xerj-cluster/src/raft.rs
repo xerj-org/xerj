@@ -759,6 +759,14 @@ impl RaftNode {
         self.commit_index
     }
 
+    /// Highest index handed out by [`RaftNode::ready`] or
+    /// [`RaftNode::take_installed_entries`]. The caller applies those entries
+    /// after this moves, so it is an upper bound on what the state machine
+    /// has applied until the caller's apply loop finishes.
+    pub fn last_applied(&self) -> u64 {
+        self.last_applied
+    }
+
     /// Index covered by the snapshot. 0 when this node has not compacted.
     pub fn snapshot_index(&self) -> u64 {
         self.snapshot

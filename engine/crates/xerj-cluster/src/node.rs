@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use tracing::{debug, info, warn};
 
 use crate::metadata::ClusterMetadata;
@@ -85,6 +85,8 @@ pub struct ClusterNode {
     waiters: HashMap<u64, Waiter>,
     applier: Option<Arc<dyn MetadataApplier>>,
     view: Arc<RwLock<ClusterView>>,
+    /// Applied index for [`ClusterHandle::wait_applied`].
+    applied_tx: watch::Sender<u64>,
 }
 
 impl ClusterNode {
@@ -97,13 +99,23 @@ impl ClusterNode {
             leader_id: None,
             snapshot_index: 0,
             log_len: 0,
+            commit_index: 0,
+            applied_index: 0,
         }));
+        let (applied_tx, applied_rx) = watch::channel(0u64);
         let shard = transport.shard_rpc();
         let mut members = peers.clone();
         members.push(id.clone());
         members.sort();
         members.dedup();
-        let handle = ClusterHandle::new(id.clone(), members, tx, Arc::clone(&view), shard);
+        let handle = ClusterHandle::new(
+            id.clone(),
+            members,
+            tx,
+            Arc::clone(&view),
+            applied_rx,
+            shard,
+        );
         ClusterNode {
             raft: RaftNode::new(id, peers),
             metadata: ClusterMetadata::new(),
@@ -113,6 +125,7 @@ impl ClusterNode {
             waiters: HashMap::new(),
             applier: None,
             view,
+            applied_tx,
         }
     }
 
@@ -326,6 +339,7 @@ impl ClusterNode {
             self.apply_entry(entry).await;
         }
         self.raft.maybe_compact();
+        self.refresh_view();
     }
 
     async fn apply_entry(&mut self, entry: crate::raft::LogEntry) {
@@ -338,6 +352,7 @@ impl ClusterNode {
         self.metadata.apply(entry.index, &entry.command);
         // The leader's term-start no-op has no engine effect and no waiter.
         if matches!(entry.command, ClusterCommand::Noop) {
+            self.publish_view(entry.index);
             return;
         }
         let effect = if let Some(applier) = &self.applier {
@@ -345,6 +360,10 @@ impl ClusterNode {
         } else {
             ApplyEffect::Applied
         };
+        // Before the waiter: a caller whose proposal returned can read an
+        // applied index that covers it, and wait for other members to reach
+        // the same index instead of polling their HTTP state on a timer.
+        self.publish_view(entry.index);
         // Request ids are per accepting node. A leader applying a
         // forwarded entry must not complete its own waiter that happens
         // to share the number.
@@ -357,12 +376,35 @@ impl ClusterNode {
         }
     }
 
+    /// Publish the raft view with every entry handed out so far applied.
     fn refresh_view(&self) {
-        let mut view = self.view.write().unwrap_or_else(|e| e.into_inner());
-        view.state = self.raft.state().clone();
-        view.leader_id = self.raft.leader_id().map(|s| s.to_string());
-        view.snapshot_index = self.raft.snapshot_index();
-        view.log_len = self.raft.log_len();
+        self.publish_view(self.raft.last_applied());
+    }
+
+    /// Publish the raft view with the log applied through `applied`.
+    ///
+    /// Inside the apply loop `applied` is the entry just applied:
+    /// `RaftNode::last_applied` already counts the entries still to apply in
+    /// this batch, so it would report them early. The applied index never
+    /// moves back.
+    fn publish_view(&self, applied: u64) {
+        {
+            let mut view = self.view.write().unwrap_or_else(|e| e.into_inner());
+            view.state = self.raft.state().clone();
+            view.leader_id = self.raft.leader_id().map(|s| s.to_string());
+            view.snapshot_index = self.raft.snapshot_index();
+            view.log_len = self.raft.log_len();
+            view.commit_index = self.raft.commit_index();
+            view.applied_index = view.applied_index.max(applied);
+        }
+        self.applied_tx.send_if_modified(|seen| {
+            if applied > *seen {
+                *seen = applied;
+                true
+            } else {
+                false
+            }
+        });
     }
 
     async fn accept_proposal(&mut self, req: ProposalRequest) {
@@ -726,6 +768,58 @@ mod tests {
 
         assert!(nodes[0].metadata.nodes.contains_key("n2"));
         assert_eq!(nodes[0].metadata.config["replicas"], "2");
+    }
+
+    /// #3469 follow-up: the handle's applied index covers a proposal by the
+    /// time `propose` returns `Ok`, so a caller can wait for other members to
+    /// reach that index instead of polling their state on a wall-clock
+    /// deadline. A node whose run loop is gone ends the wait instead of
+    /// hanging it.
+    #[tokio::test]
+    async fn applied_index_covers_a_returned_proposal_and_wait_applied_ends_on_shutdown() {
+        let mut nodes = make_cluster(&["n1"]).await;
+        let mut node = nodes.remove(0);
+        let handle = node.handle();
+        node.raft.force_election_timeout();
+        node.tick().await.unwrap();
+        assert!(node.is_leader(), "single node should become leader");
+
+        let proposer = handle.clone();
+        let waiter = tokio::spawn(async move {
+            let effect = proposer
+                .propose(ClusterCommand::CreateIndex {
+                    name: "orders".to_string(),
+                    schema_json: "{}".to_string(),
+                })
+                .await;
+            (effect, proposer.applied_index(), proposer.commit_index())
+        });
+        while !waiter.is_finished() {
+            node.step(Duration::from_millis(1)).await.unwrap();
+        }
+        let (effect, applied, commit) = waiter.await.unwrap();
+        assert_eq!(effect.unwrap(), ApplyEffect::Applied);
+        let create_at = node.raft.commit_index();
+        assert!(create_at >= 2, "term no-op then the create: {create_at}");
+        assert_eq!(
+            applied, create_at,
+            "applied index was published before the waiter completed"
+        );
+        assert!(commit >= applied, "commit {commit} < applied {applied}");
+        assert_eq!(handle.wait_applied(create_at).await.unwrap(), create_at);
+
+        let late = handle.clone();
+        let blocked = tokio::spawn(async move { late.wait_applied(create_at + 1).await });
+        node.step(Duration::from_millis(1)).await.unwrap();
+        assert!(
+            !blocked.is_finished(),
+            "nothing past {create_at} is applied"
+        );
+        drop(node);
+        assert!(matches!(
+            blocked.await.unwrap(),
+            Err(ProposeError::ShuttingDown)
+        ));
     }
 
     /// End-to-end proof that [`crate::runner::ClusterRunner::run`] actually

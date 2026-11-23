@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, watch};
 
 use crate::raft::{ClusterCommand, RaftState};
 use crate::shard::{ShardError, ShardHandler, ShardOp, ShardResult, ShardRpc};
@@ -58,6 +58,11 @@ pub struct ClusterView {
     pub snapshot_index: u64,
     /// Log entries that are not covered by the snapshot.
     pub log_len: usize,
+    /// Highest log index this node knows is committed on a majority.
+    pub commit_index: u64,
+    /// Highest log index whose command this node has applied, engine applier
+    /// included. Never ahead of `commit_index`.
+    pub applied_index: u64,
 }
 
 /// A metadata command waiting to be proposed or forwarded by the run loop.
@@ -87,6 +92,9 @@ struct ClusterHandleInner {
     next: AtomicU64,
     timeout_ms: AtomicU64,
     view: Arc<RwLock<ClusterView>>,
+    /// The run loop's applied index, published after each entry is applied
+    /// and before that entry's waiter is completed.
+    applied: watch::Receiver<u64>,
     shard: Arc<dyn ShardRpc>,
 }
 
@@ -96,6 +104,7 @@ impl ClusterHandle {
         members: Vec<String>,
         tx: mpsc::UnboundedSender<ProposalRequest>,
         view: Arc<RwLock<ClusterView>>,
+        applied: watch::Receiver<u64>,
         shard: Arc<dyn ShardRpc>,
     ) -> Self {
         ClusterHandle {
@@ -106,6 +115,7 @@ impl ClusterHandle {
                 next: AtomicU64::new(1),
                 timeout_ms: AtomicU64::new(5_000),
                 view,
+                applied,
                 shard,
             }),
         }
@@ -168,6 +178,37 @@ impl ClusterHandle {
     /// Entries still in the log, not counting a compacted prefix.
     pub fn log_len(&self) -> usize {
         self.view().log_len
+    }
+
+    /// Highest log index this node knows is committed. Updated by the run
+    /// loop as it applies entries and at the end of each step.
+    pub fn commit_index(&self) -> u64 {
+        self.view().commit_index
+    }
+
+    /// Highest log index this node has applied, engine applier included.
+    ///
+    /// Published before the waiter of that entry is completed, so after a
+    /// [`ClusterHandle::propose`] on this node returns `Ok`, this is at least
+    /// the index of the proposed entry.
+    pub fn applied_index(&self) -> u64 {
+        *self.inner.applied.borrow()
+    }
+
+    /// Wait until this node has applied the log through `index`.
+    ///
+    /// Returns the applied index seen, which may be past `index`. Ends with
+    /// [`ProposeError::ShuttingDown`] if the run loop is gone, so a caller
+    /// never waits on a node that can no longer apply anything. There is no
+    /// timer: the wait ends on raft progress, not on elapsed time. Callers
+    /// that need a bound wrap it themselves.
+    pub async fn wait_applied(&self, index: u64) -> Result<u64, ProposeError> {
+        let mut rx = self.inner.applied.clone();
+        let seen = rx
+            .wait_for(|applied| *applied >= index)
+            .await
+            .map_err(|_| ProposeError::ShuttingDown)?;
+        Ok(*seen)
     }
 
     fn view(&self) -> ClusterView {
