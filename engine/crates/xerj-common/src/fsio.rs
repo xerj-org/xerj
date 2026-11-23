@@ -176,38 +176,174 @@ fn sync_staged_at_stage(file: &std::fs::File) -> std::io::Result<()> {
     }
 }
 
+/// Open an existing file with the access rights needed to sync it to stable
+/// storage. Unix accepts a read-only descriptor (`fsync(2)` / `F_FULLFSYNC`
+/// writes back the inode's dirty pages whichever descriptor asks); Windows
+/// `FlushFileBuffers` (`File::sync_all`) requires `GENERIC_WRITE` and fails
+/// with `ERROR_ACCESS_DENIED` on a read-only handle.
+fn open_for_sync(path: &Path) -> std::io::Result<std::fs::File> {
+    #[cfg(windows)]
+    {
+        std::fs::OpenOptions::new().write(true).open(path)
+    }
+    #[cfg(not(windows))]
+    {
+        std::fs::File::open(path)
+    }
+}
+
+/// Sync `len` paths returned by `path_at(i)` concurrently across up to
+/// [`STAGED_SYNC_WORKERS`] threads.
+///
+/// The calling thread participates as one worker so a refused helper-thread
+/// spawn (`EAGAIN` under tight `RLIMIT_NPROC`) still completes the batch
+/// without panicking. On Apple targets, each worker issues plain `fsync(2)`
+/// and records one index per distinct filesystem (`st_dev`), and this function
+/// finishes with one `F_FULLFSYNC` ([`sync_file_full`]) per filesystem so
+/// every file's bytes reach stable storage before returning.
+fn sync_paths_with<'a>(
+    len: usize,
+    path_at: impl Fn(usize) -> &'a Path + Sync,
+) -> std::io::Result<()> {
+    if len == 0 {
+        return Ok(());
+    }
+    if len == 1 {
+        return sync_file_full(&open_for_sync(path_at(0))?);
+    }
+
+    #[cfg(target_vendor = "apple")]
+    type WorkerOutcome = std::io::Result<Vec<(u64, usize)>>;
+    #[cfg(not(target_vendor = "apple"))]
+    type WorkerOutcome = std::io::Result<()>;
+
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let failed = std::sync::atomic::AtomicBool::new(false);
+    let run_worker = || -> WorkerOutcome {
+        #[cfg(target_vendor = "apple")]
+        let mut devs: Vec<(u64, usize)> = Vec::new();
+        loop {
+            if failed.load(std::sync::atomic::Ordering::Relaxed) {
+                #[cfg(target_vendor = "apple")]
+                return Ok(devs);
+                #[cfg(not(target_vendor = "apple"))]
+                return Ok(());
+            }
+            let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if i >= len {
+                #[cfg(target_vendor = "apple")]
+                return Ok(devs);
+                #[cfg(not(target_vendor = "apple"))]
+                return Ok(());
+            }
+            let sync_result = open_for_sync(path_at(i)).and_then(|file| {
+                sync_file_for_batch(&file)?;
+                #[cfg(target_vendor = "apple")]
+                {
+                    use std::os::unix::fs::MetadataExt as _;
+                    let dev = file.metadata()?.dev();
+                    if !devs.iter().any(|&(seen, _)| seen == dev) {
+                        devs.push((dev, i));
+                    }
+                }
+                Ok(())
+            });
+            if let Err(error) = sync_result {
+                failed.store(true, std::sync::atomic::Ordering::Relaxed);
+                return Err(error);
+            }
+        }
+    };
+
+    let helper_count = len.min(STAGED_SYNC_WORKERS).saturating_sub(1);
+    #[cfg(target_vendor = "apple")]
+    let mut all_devs: Vec<(u64, usize)> = Vec::new();
+    let mut first_error: Option<std::io::Error> = None;
+
+    std::thread::scope(|scope| {
+        let mut handles = Vec::with_capacity(helper_count);
+        for _ in 0..helper_count {
+            // If the OS refuses a helper thread, the calling thread and any
+            // already-spawned helpers still drain the full batch.
+            if let Ok(handle) = std::thread::Builder::new().spawn_scoped(scope, run_worker) {
+                handles.push(handle);
+            }
+        }
+        let local_outcome = run_worker();
+        match local_outcome {
+            #[cfg(target_vendor = "apple")]
+            Ok(devs) => {
+                for (dev, idx) in devs {
+                    if !all_devs.iter().any(|&(seen, _)| seen == dev) {
+                        all_devs.push((dev, idx));
+                    }
+                }
+            }
+            #[cfg(not(target_vendor = "apple"))]
+            Ok(()) => {}
+            Err(error) => {
+                first_error = Some(error);
+            }
+        }
+        for handle in handles {
+            let outcome = handle
+                .join()
+                .unwrap_or_else(|_| Err(std::io::Error::other("batch-file sync thread panicked")));
+            match outcome {
+                #[cfg(target_vendor = "apple")]
+                Ok(devs) => {
+                    for (dev, idx) in devs {
+                        if !all_devs.iter().any(|&(seen, _)| seen == dev) {
+                            all_devs.push((dev, idx));
+                        }
+                    }
+                }
+                #[cfg(not(target_vendor = "apple"))]
+                Ok(()) => {}
+                Err(error) => {
+                    if first_error.is_none() {
+                        first_error = Some(error);
+                    }
+                }
+            }
+        }
+    });
+
+    if let Some(error) = first_error {
+        return Err(error);
+    }
+    #[cfg(target_vendor = "apple")]
+    {
+        for (_, idx) in all_devs {
+            sync_file_full(&open_for_sync(path_at(idx))?)?;
+        }
+    }
+    Ok(())
+}
+
+/// Sync every file in `paths` to stable storage, issuing per-file syncs
+/// concurrently across up to [`STAGED_SYNC_WORKERS`] threads (#3449).
+///
+/// Use this when a staging phase writes many independent files whose
+/// durability barrier is a later manifest write or directory rename:
+///
+/// - On Linux, concurrent `fsync` calls join one ext4 journal commit instead
+///   of paying one commit per file (the #3324 pattern).
+/// - On Apple targets, workers issue `fsync(2)` concurrently and one
+///   `F_FULLFSYNC` ([`sync_file_full`]) per filesystem drains the drive write
+///   cache for the whole batch before returning.
+/// - On Windows and other targets, workers issue [`sync_file_full`]
+///   concurrently.
+///
+/// Returns `Ok(())` only after every file in `paths` has been synced; on any
+/// error, stops scheduling new files and returns the first error.
+pub fn sync_paths_batch<P: AsRef<Path> + Sync>(paths: &[P]) -> std::io::Result<()> {
+    sync_paths_with(paths.len(), |i| paths[i].as_ref())
+}
+
 /// `fsync` every staged temp file, concurrently, before any rename.
 fn sync_staged_batch(files: &[StagedFile]) -> std::io::Result<()> {
-    let sync_one = |file: &StagedFile| -> std::io::Result<()> {
-        // A read-only descriptor is enough on Linux: `fsync` writes back the
-        // inode's dirty pages whichever descriptor asks.
-        sync_file_full(&std::fs::File::open(&file.tmp)?)
-    };
-    if files.len() <= 1 {
-        return files.iter().try_for_each(sync_one);
-    }
-    let next = std::sync::atomic::AtomicUsize::new(0);
-    let workers = files.len().min(STAGED_SYNC_WORKERS);
-    std::thread::scope(|scope| {
-        let handles: Vec<_> = (0..workers)
-            .map(|_| {
-                scope.spawn(|| -> std::io::Result<()> {
-                    loop {
-                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                        let Some(file) = files.get(i) else {
-                            return Ok(());
-                        };
-                        sync_one(file)?;
-                    }
-                })
-            })
-            .collect();
-        handles.into_iter().try_for_each(|handle| {
-            handle
-                .join()
-                .unwrap_or_else(|_| Err(std::io::Error::other("staged-file sync thread panicked")))
-        })
-    })
+    sync_paths_with(files.len(), |i| files[i].tmp.as_path())
 }
 
 /// Move every staged file in `dir` into place, durably, with the same
@@ -908,5 +1044,50 @@ mod tests {
             "the OS code must be visible, got {message}"
         );
         assert!(source.exists(), "a failed replace must keep the temp");
+    }
+
+    /// #3449: `sync_paths_batch` handles empty, single, and wide batches
+    /// (wider than the worker pool across subdirectories), and fails cleanly
+    /// if any path cannot be opened/synced.
+    #[test]
+    fn sync_paths_batch_handles_empty_single_wide_and_missing_paths() {
+        let empty: [&Path; 0] = [];
+        sync_paths_batch(&empty).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let single = dir.path().join("only.ndjson");
+        std::fs::write(&single, b"single-payload\n").unwrap();
+        sync_paths_batch(&[single.as_path()]).unwrap();
+        assert_eq!(std::fs::read(&single).unwrap(), b"single-payload\n");
+
+        let blobs = dir.path().join("blobs");
+        let prepared = dir.path().join("prepared");
+        std::fs::create_dir_all(&blobs).unwrap();
+        std::fs::create_dir_all(&prepared).unwrap();
+        let n = STAGED_SYNC_WORKERS * 3 + 1;
+        let mut paths = Vec::with_capacity(n);
+        for i in 0..n {
+            let p = if i % 2 == 0 {
+                prepared.join(format!("{i:08}.ndjson"))
+            } else {
+                blobs.join(format!("{i:08}"))
+            };
+            std::fs::write(&p, format!("payload-{i}\n")).unwrap();
+            paths.push(p);
+        }
+        sync_paths_batch(&paths).unwrap();
+        for (i, p) in paths.iter().enumerate() {
+            assert_eq!(
+                std::fs::read(p).unwrap(),
+                format!("payload-{i}\n").as_bytes()
+            );
+        }
+
+        // Remove one file beyond the first worker wave and confirm the batch
+        // fails with NotFound rather than succeeding silently.
+        let missing_idx = STAGED_SYNC_WORKERS + 2;
+        std::fs::remove_file(&paths[missing_idx]).unwrap();
+        let error = sync_paths_batch(&paths).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::NotFound, "{error}");
     }
 }

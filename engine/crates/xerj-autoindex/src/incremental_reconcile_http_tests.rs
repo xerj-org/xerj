@@ -8058,3 +8058,102 @@ fn an_edit_that_empties_a_dataset_reconciles_without_fresh() {
         assert_ne!(code, 1, "{label}: second rerun");
     }
 }
+
+/// #3449 end-to-end durability & convergence test:
+/// - fresh `--no-graph` multi-file run with windowed workers (`workers = 4`)
+///   commits cleanly with every document searchable;
+/// - simulating power loss that drops the trailing unsynced `Committed` lines
+///   from `journal.ndjson` on an interrupted run still converges cleanly on
+///   resume with zero duplicate or missing documents;
+/// - incremental rerun (edit + add + delete) reuses unchanged snapshot files
+///   and reflects exact live state.
+#[test]
+fn no_graph_batch_synced_snapshot_and_unsynced_committed_converge_end_to_end() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    const FILES: usize = 16;
+    for i in 0..FILES {
+        fs::write(
+            corpus.path().join(format!("note-{i:02}.md")),
+            format!("# Note {i}\n\n## Section {i}\n\nalpha beta gamma body for note {i}\n"),
+        )
+        .unwrap();
+    }
+
+    // 1. Interrupt mid-run so some operations reach Committed and others stay
+    //    Started/unstarted.
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().data_bulk_delay_ms = 20;
+    endpoint.state.lock().unwrap().fail_data_bulk_number = Some(7);
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    config.workers = 4;
+    config.scan_workers = 2;
+    run_index(config.clone()).expect_err("7th bulk intentionally fails");
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
+    assert!(
+        journal_events_of_state(state_dir.path(), "committed") >= 1,
+        "at least one operation must have been recorded Committed before stop"
+    );
+
+    // 2. Simulate power loss dropping the trailing unsynced `Committed` line
+    //    (leaving a torn tail mid-line) from `journal.ndjson`.
+    let jpath = state_dir.path().join("journal.ndjson");
+    let raw = fs::read_to_string(&jpath).unwrap();
+    let last_committed_offset = raw
+        .rfind("\"state\":\"committed\"")
+        .expect("journal must contain at least one committed operation");
+    let line_start = raw[..last_committed_offset]
+        .rfind('\n')
+        .map_or(0, |pos| pos + 1);
+    let torn_len = (line_start + 15).min(raw.len());
+    let file = fs::OpenOptions::new().write(true).open(&jpath).unwrap();
+    file.set_len(torn_len as u64).unwrap();
+    file.sync_data().unwrap();
+    drop(file);
+
+    // 3. Resume must repair the torn tail, convergently redo the dropped
+    //    operation (still `Started`), and commit generation 1 cleanly.
+    endpoint.state.lock().unwrap().data_bulk_delay_ms = 0;
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    started_precedes_committed(state_dir.path());
+    let docs = endpoint.data_docs();
+    assert_eq!(
+        paths(&docs).len(),
+        FILES,
+        "all {FILES} files must be indexed exactly once after torn-Committed resume"
+    );
+
+    // 4. Incremental generation 2: edit 1 file, add 1 file, delete 1 file
+    //    (exercises batch sync with partial hardlink reuse + new files).
+    fs::write(
+        corpus.path().join("note-00.md"),
+        "# Note 0 Revised\n\nupdated content for note 0\n",
+    )
+    .unwrap();
+    fs::write(
+        corpus.path().join("note-new.md"),
+        "# Note New\n\nfresh file added in gen 2\n",
+    )
+    .unwrap();
+    fs::remove_file(corpus.path().join("note-15.md")).unwrap();
+
+    assert_eq!(run_index(config).unwrap(), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
+    let docs_g2 = endpoint.data_docs();
+    let live_paths = paths(&docs_g2);
+    assert_eq!(live_paths.len(), FILES);
+    assert!(live_paths.iter().any(|p| p == "note-new.md"));
+    assert!(!live_paths.iter().any(|p| p == "note-15.md"));
+    assert!(
+        docs_g2.iter().any(|doc| {
+            doc.get("ax_path").and_then(Value::as_str) == Some("note-00.md")
+                && doc
+                    .get("body")
+                    .and_then(Value::as_str)
+                    .is_some_and(|b| b.contains("updated content for note 0"))
+        }),
+        "edited file content must be live in gen 2"
+    );
+}
