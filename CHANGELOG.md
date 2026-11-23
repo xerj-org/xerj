@@ -23,6 +23,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   off (a `prefix*` pattern without `lenient: true`, or `lenient: false`), ES
   returns 400 for a value that does not parse, and XERJ skips the field.
 
+- **Object sub-fields get their own full-text index (#3464).** Each leaf of an
+  `object` mapping (`meta.note`, `meta.tag`) is now indexed under its dotted
+  path with its own analyzer. Before, only a JSON blob of the whole object was
+  indexed under the parent name. Native `q`, `multi_match` on `*`, a
+  field-less `query_string`, and a direct `match` on `meta.note` therefore run
+  on the postings with BM25 on new segments. Before, they read every stored
+  document and ranked by match count. An array of objects counts every
+  element. A `keyword` sub-field now matches by whole value, as in
+  Elasticsearch: `multi_match "fruit"` no longer matches `meta.tag: "Fruit"`.
+  Segments written by older builds keep answering from their stored
+  documents, and the next merge rebuilds them with the new layout.
+  Two fixes on the way: a `bool` `should` clause on an object sub-field no
+  longer drops its matches after `_flush`, and unflushed documents now match
+  a sub-field inside an array of objects (`meta: [{note: …}]`).
+
 - **`search.max_buckets` counts the buckets a search returns, not the
   distinct keys a `terms` aggregation sees (#3362).** A top-10 over a field
   with more than 65,536 distinct values (user IDs, IPs) is served with exact

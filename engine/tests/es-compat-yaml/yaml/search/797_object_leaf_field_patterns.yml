@@ -1,0 +1,70 @@
+setup:
+  - do:
+      indices.create:
+          index: test_object_leaves
+          body:
+              mappings:
+                  properties:
+                      title:
+                          type: text
+                      meta:
+                          properties:
+                              note:
+                                  type: text
+                              tag:
+                                  type: keyword
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "test_object_leaves", "_id": "1"}}'
+              - '{"title": "pear", "meta": {"note": "apple pie", "tag": "Fruit"}}'
+              - '{"index": {"_index": "test_object_leaves", "_id": "2"}}'
+              - '{"title": "apple", "meta": {"note": "banana", "tag": "x"}}'
+              - '{"index": {"_index": "test_object_leaves", "_id": "3"}}'
+              - '{"title": "kiwi", "meta": [{"note": "plum"}, {"note": "apple tart", "tag": "Fruit"}]}'
+              - '{"index": {"_index": "test_object_leaves", "_id": "4"}}'
+              - '{"title": "lime"}'
+
+---
+"multi_match on * searches object leaves, arrays of objects included (#3464)":
+  - do:
+      count:
+          index: test_object_leaves
+          body: { query: { multi_match: { query: "apple", fields: ["*"] } } }
+  - match: { count: 3 }
+
+---
+"a keyword object leaf matches the whole value only (#3464)":
+  - do:
+      count:
+          index: test_object_leaves
+          body: { query: { multi_match: { query: "Fruit", fields: ["*"] } } }
+  - match: { count: 2 }
+  - do:
+      count:
+          index: test_object_leaves
+          body: { query: { multi_match: { query: "fruit", fields: ["*"] } } }
+  - match: { count: 0 }
+
+---
+"a should clause on an object leaf alone still matches (#3464)":
+  - do:
+      search:
+          index: test_object_leaves
+          body:
+              query:
+                  bool:
+                      should:
+                          - match: { meta.note: "plum" }
+                          - match: { title: "zzz" }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "3" }
+
+---
+"query_string with no default_field searches object leaves (#3464)":
+  - do:
+      count:
+          index: test_object_leaves
+          body: { query: { query_string: { query: "banana" } } }
+  - match: { count: 1 }
