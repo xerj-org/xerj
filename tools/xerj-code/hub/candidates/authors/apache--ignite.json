@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on distributed-sql-database, iot, osgi queries this for how apache/ignite implements it: Apache Ignite (selected work: modules/core, modules/control-utility, modules/wire-compatibility-check)",
+ "domain": "an agent working on distributed-sql-database, iot, osgi queries this for how apache/ignite implements it: Apache Ignite (selected work: modules/calcite, modules/tools, modules/core)",
  "repos": [
   {
    "repo": "ignite",
    "url": "https://github.com/apache/ignite",
-   "sha": "b1e0e790e9f4d6467591281c0be7250aebf2375d",
-   "licence": "Apache-2.0 (LICENSE file at pin b1e0e790e9f4, GitHub licence API 2026-10-24)",
+   "sha": "9c307612176af868de225c00b476a8b4e7988b9a",
+   "licence": "Apache-2.0 (LICENSE file at pin 9c307612176a, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-24T10:33Z",
-    "consent_receipt": "f1b4b1ef3aca",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T10:33Z (receipt f1b4b1ef3aca); selected commit b1e0e790e9f4: \"IGNITE-29050 Introduce snapshot deletion command (#13577)\". LICENSE file at pin b1e0e790e9f4 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+    "at": "2026-10-11T10:32Z",
+    "consent_receipt": "fc26f3669af5",
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T10:32Z (receipt fc26f3669af5); selected commit 9c307612176a: \"IGNITE-29064 Change calcite module dependency for junit framework fro\u2026\". LICENSE file at pin 9c307612176a detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
    },
    "paths": [
     "docs/_docs/snapshots",

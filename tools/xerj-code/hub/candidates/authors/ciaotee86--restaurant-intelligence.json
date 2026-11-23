@@ -8,15 +8,15 @@
   {
    "repo": "restaurant-intelligence",
    "url": "https://github.com/ciaotee86/restaurant-intelligence",
-   "sha": "f61664f76043cff8be74367704e8623e57948c92",
-   "licence": "MIT (LICENSE file at pin f61664f76043, GitHub licence API 2026-11-22)",
+   "sha": "1313617d13627334d08a58812c8bec6df8a27321",
+   "licence": "MIT (LICENSE file at pin 1313617d1362, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T06:56Z",
     "consent_receipt": "b93d4ae0cae0",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T06:56Z (receipt b93d4ae0cae0); selected commit f61664f76043: \"feat(gemini-crawler): enhance gemini json extraction, dynamic review \u2026\". LICENSE file at pin f61664f76043 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head f61664f76043 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T06:56Z (receipt b93d4ae0cae0); selected commit 1313617d1362: \"feat(gemini-crawler): enhance gemini json extraction, dynamic review \u2026\". LICENSE file at pin 1313617d1362 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head 1313617d1362 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
