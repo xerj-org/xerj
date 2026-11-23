@@ -8,15 +8,15 @@
   {
    "repo": "DocumentRAG",
    "url": "https://github.com/AishikTokdar/DocumentRAG",
-   "sha": "9a14241428322908e2b429d149134e4c66f404e7",
-   "licence": "author's permission (LICENSE at pin 9a1424142832: NOASSERTION; repository: NOASSERTION)",
+   "sha": "7fda489e9089e2a2cbb33e2ff3a59b6d985b0642",
+   "licence": "author's permission (LICENSE at pin 7fda489e9089: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T07:43Z",
     "consent_receipt": "875113620a4f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 875113620a4f); pinned to the default-branch head. LICENSE at pin 9a1424142832: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 875113620a4f); pinned to the default-branch head. LICENSE at pin 7fda489e9089: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

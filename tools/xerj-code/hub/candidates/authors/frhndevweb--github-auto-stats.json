@@ -8,15 +8,15 @@
   {
    "repo": "github-auto-stats",
    "url": "https://github.com/frhndevweb/github-auto-stats",
-   "sha": "0ad3d6e36273e43dab23a80977ff3f060c3f3a24",
-   "licence": "author's permission (LICENSE at pin 0ad3d6e36273: NONE; repository: none)",
+   "sha": "c9394402111d5799c00a64497629ad824281ca77",
+   "licence": "author's permission (LICENSE at pin c9394402111d: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-16T00:56Z",
     "consent_receipt": "862ee2c410a4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 862ee2c410a4); pinned to the default-branch head. LICENSE at pin 0ad3d6e36273: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 862ee2c410a4); pinned to the default-branch head. LICENSE at pin c9394402111d: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

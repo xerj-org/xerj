@@ -8,15 +8,15 @@
   {
    "repo": "Prospero",
    "url": "https://github.com/eraevous/Prospero",
-   "sha": "6c366db0476a906075a19e587572bf6751a3b3c9",
-   "licence": "MIT (LICENSE file at pin 6c366db0476a, GitHub licence API 2026-11-22)",
+   "sha": "26e4a59d7cb517db1f508dba9f195dca25f797be",
+   "licence": "MIT (LICENSE file at pin 26e4a59d7cb5, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-12T17:12Z",
     "consent_receipt": "69fce13b460e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt 69fce13b460e); pinned to the default-branch head. LICENSE file at pin 6c366db0476a detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt 69fce13b460e); pinned to the default-branch head. LICENSE file at pin 26e4a59d7cb5 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]
