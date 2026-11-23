@@ -3483,7 +3483,7 @@ mod flush_publication_recovery_tests {
                 false,
                 &std::sync::OnceLock::new()
             )
-                .is_none(),
+            .is_none(),
             "an unmapped field under a runtime schema may be in _source"
         );
 
@@ -36854,6 +36854,7 @@ impl Index {
     /// whereas the legacy brute path double-applies (squares) the function.
     /// The caller only reaches here with `deletes_present == false`, so every
     /// non-tombstoned row/entry is live.
+    #[allow(clippy::too_many_arguments)]
     fn function_score_columnar(
         &self,
         fvf: &FieldValueFactor,
