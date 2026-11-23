@@ -208,11 +208,15 @@ impl ApiError {
             // `failed to create query:` above — `query_shard_exception`
             // in root_cause, outer wrapper unchanged.
             "query_shard_exception".to_string()
-        } else if reason.starts_with("function score query returned an invalid score:") {
+        } else if reason.starts_with("function score query returned an invalid score:")
+            || reason.starts_with("Missing value for field [")
+        {
             // ES validates function_score results and raises
             // `illegal_argument_exception` with a 400 status when a
             // function produces a non-finite or negative score
-            // (e.g. ln1p on qty=-1 → ln(0) = -∞).
+            // (e.g. ln1p on qty=-1 → ln(0) = -∞), and when a
+            // `field_value_factor` with no `missing` scores a doc that has
+            // no value for its field.
             error_type = "illegal_argument_exception".into();
             status_code = 400;
             "illegal_argument_exception".to_string()
