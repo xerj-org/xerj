@@ -27,6 +27,9 @@ persistence:
   storageClass: ""    # use cluster default
   size: 50Gi
   accessMode: ReadWriteOnce
+  # Where the volume is mounted; also passed as --data-dir. The generated
+  # admin key lands at <mountPath>/admin.key (see NOTES.txt).
+  mountPath: /data
 
 # Service exposes ES-compat (9200), native REST (8080), gRPC (8081).
 service:

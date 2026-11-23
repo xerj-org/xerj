@@ -19,11 +19,11 @@ XERJ {{ .Chart.AppVersion }} installed as {{ .Release.Name }} in namespace {{ .R
 {{- else }}
 
   Auth is on. XERJ generates an admin key on first start and writes it to
-  {{ .Values.persistence.mountPath | default "/var/lib/xerj" }}/admin.key with mode 0600.
+  {{ include "xerj.dataDir" . }}/admin.key with mode 0600.
 
   Read it with:
 
-    kubectl exec -n {{ .Release.Namespace }} {{ .Release.Name }}-0 -- cat {{ .Values.persistence.mountPath | default "/var/lib/xerj" }}/admin.key
+    kubectl exec -n {{ .Release.Namespace }} {{ .Release.Name }}-0 -- cat {{ include "xerj.dataDir" . }}/admin.key
 
   Then call the API with:
 

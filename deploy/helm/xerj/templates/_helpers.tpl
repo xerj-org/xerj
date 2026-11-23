@@ -31,3 +31,11 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- $tag := default .Chart.AppVersion .Values.image.tag -}}
 {{- printf "%s:%s" .Values.image.repository $tag -}}
 {{- end -}}
+
+{{/*
+The server's --data-dir. The volume is mounted here and the engine writes
+<data-dir>/admin.key, so NOTES.txt reads the key from this same value.
+*/}}
+{{- define "xerj.dataDir" -}}
+{{- .Values.persistence.mountPath | default "/data" -}}
+{{- end -}}
