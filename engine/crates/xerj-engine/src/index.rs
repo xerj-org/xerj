@@ -53466,14 +53466,27 @@ fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNod
         // #3464: an object leaf (`meta.tag`) by its dotted path, too. Its
         // side-car holds whole values, so the memtable must also compare it
         // whole, or a hit would change at `_flush`.
+        // A keyword multi-field (`title.raw` under a `text` title, or the
+        // dynamic `.keyword`) is not analysed either: ES runs `match` on it as
+        // a whole-value term. Without this arm the memtable answered 0 for an
+        // exact value and segments tokenised it, so `match title.raw: "World"`
+        // hit "Hello World" after `_flush`.
         schema
             .fields
             .iter()
             .any(|f| f.name == field && matches!(f.field_type, FieldType::Keyword))
             || (field.contains('.')
-                && pattern_field_paths(schema)
-                    .iter()
-                    .any(|(path, f)| path == field && matches!(f.field_type, FieldType::Keyword)))
+                && pattern_field_paths(schema).iter().any(|(path, f)| {
+                    (path == field && matches!(f.field_type, FieldType::Keyword))
+                        || field
+                            .strip_prefix(path.as_str())
+                            .and_then(|rest| rest.strip_prefix('.'))
+                            .is_some_and(|sub| {
+                                f.fields.iter().any(|m| {
+                                    m.name == sub && matches!(m.field_type, FieldType::Keyword)
+                                })
+                            })
+                }))
     }
     match q {
         QueryNode::Match {
