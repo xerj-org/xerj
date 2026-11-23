@@ -1,0 +1,86 @@
+---
+"Bulk scripted update runs the script":
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "test_index", "_id": "test_id"}}'
+          - '{"n": 1}'
+
+  - match: { errors: false }
+  - match: { items.0.index.result: created }
+
+  # Issue #3462: a scripted bulk update used to answer 200 `noop` with the
+  # script never evaluated. It must run the script and answer `updated`.
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"update": {"_index": "test_index", "_id": "test_id"}}'
+          - '{"script": {"source": "ctx._source.n += 1", "lang": "painless"}}'
+
+  - match: { errors: false }
+  - match: { items.0.update.result: updated }
+  - match: { items.0.update.status: 200 }
+
+  - do:
+      get:
+        index: test_index
+        id: test_id
+  - match: { _source.n: 2 }
+
+---
+"Bulk scripted update fault is a per-item error":
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "test_index", "_id": "test_id"}}'
+          - '{"n": 1}'
+          - '{"index": {"_index": "test_index", "_id": "test_id2"}}'
+          - '{"n": 10}'
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"update": {"_index": "test_index", "_id": "test_id"}}'
+          - '{"script": {"source": "nonsense();", "lang": "painless"}}'
+          - '{"update": {"_index": "test_index", "_id": "test_id2"}}'
+          - '{"script": {"source": "ctx._source.n += 1", "lang": "painless"}}'
+
+  - match: { errors: true }
+  - match: { items.0.update.status: 400 }
+  - match: { items.1.update.result: updated }
+
+  # The faulted document is unchanged; its neighbour still incremented.
+  - do:
+      get:
+        index: test_index
+        id: test_id
+  - match: { _source.n: 1 }
+
+  - do:
+      get:
+        index: test_index
+        id: test_id2
+  - match: { _source.n: 11 }
+
+---
+"Bulk scripted upsert runs the script over the upsert body":
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"update": {"_index": "test_index", "_id": "missing_id"}}'
+          - '{"script": {"source": "ctx._source.n += 1", "lang": "painless"}, "upsert": {"n": 1}, "scripted_upsert": true}'
+
+  - match: { errors: false }
+  - match: { items.0.update.result: created }
+  - match: { items.0.update.status: 201 }
+
+  - do:
+      get:
+        index: test_index
+        id: missing_id
+  - match: { _source.n: 2 }
