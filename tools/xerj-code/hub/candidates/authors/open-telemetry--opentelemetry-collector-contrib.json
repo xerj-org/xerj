@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on opentelemetry, open-telemetry queries this for how open-telemetry/opentelemetry-collector-contrib implements it: Contrib repository for the OpenTelemetry Collector (selected work: pkg/pdatatest)",
+ "domain": "an agent working on opentelemetry, open-telemetry queries this for how open-telemetry/opentelemetry-collector-contrib implements it: Contrib repository for the OpenTelemetry Collector (selected work: receiver)",
  "repos": [
   {
    "repo": "opentelemetry-collector-contrib",
    "url": "https://github.com/open-telemetry/opentelemetry-collector-contrib",
-   "sha": "0eb59a6d4f86857748b8f9492d64bc5b68d73b12",
-   "licence": "Apache-2.0 (LICENSE file at pin 0eb59a6d4f86, GitHub licence API 2026-11-11)",
+   "sha": "c540bfdf0a937be8065bbcdcc96129bfc8497f87",
+   "licence": "Apache-2.0 (LICENSE file at pin c540bfdf0a93, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-11T15:16Z",
-    "consent_receipt": "e6f86a416a97",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T15:16Z (receipt e6f86a416a97); selected commit 0eb59a6d4f86: \"[pkg/pdatatest] Add pmetricassert collection count matcher (#51186)\". LICENSE file at pin 0eb59a6d4f86 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @open-telemetry, who has not added it."
+    "at": "2026-10-22T20:29Z",
+    "consent_receipt": "57e9113c0ec3",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T20:29Z (receipt 57e9113c0ec3); selected commit c540bfdf0a93: \"[receiver/snmp] Add max_repetitions configuration for GETBULK request\u2026\". LICENSE file at pin c540bfdf0a93 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @open-telemetry, who has not added it."
    },
    "paths": [
     ".chloggen",

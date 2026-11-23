@@ -2,8 +2,8 @@
  "corpus": "getsituate--situate",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how getsituate/situate implements it: getsituate/situate (TypeScript) (selected work: tools, infrastructure, releases)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assistent, macos, note-taking queries this for how getsituate/situate implements it: An open-source app for organizing your notes and tasks with AI. Ask Situate to update your workspace or build a plugin for a workflow you de (selected work: tools, infrastructure, releases)",
  "repos": [
   {
    "repo": "situate",

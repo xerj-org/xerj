@@ -1,9 +1,9 @@
 {
- "corpus": "kyrokohan--glonk",
+ "corpus": "usrgames--glonk",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on 3d, ascii, game-engine queries this for how kyrokohan/glonk implements it: A terminal rendering engine for Go: 2D, 3D, or both in one frame (selected work: bitmap, engine)",
+ "domain": "an agent working on 3d, ascii, game-engine queries this for how usrgames/glonk implements it: A terminal rendering engine for Go: 2D, 3D, or both in one frame (selected work: bitmap, engine)",
  "repos": [
   {
    "repo": "glonk",
