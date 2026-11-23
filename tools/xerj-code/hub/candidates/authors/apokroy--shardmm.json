@@ -8,15 +8,15 @@
   {
    "repo": "ShardMM",
    "url": "https://github.com/apokroy/ShardMM",
-   "sha": "6905b6a931c839b7de99b48989f47f475ef6faa3",
-   "licence": "MIT (LICENSE file at pin 6905b6a931c8, GitHub licence API 2026-11-15)",
+   "sha": "e350bfa3a8e47d80911219e8b8f1ee28475cbecd",
+   "licence": "MIT (LICENSE file at pin e350bfa3a8e4, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T18:14Z",
     "consent_receipt": "2f5b88998d84",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:14Z (receipt 2f5b88998d84); pinned to the default-branch head. LICENSE file at pin 6905b6a931c8 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:14Z (receipt 2f5b88998d84); pinned to the default-branch head. LICENSE file at pin e350bfa3a8e4 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]
