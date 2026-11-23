@@ -1,0 +1,28 @@
+{
+ "corpus": "projectcontinuum-org--continuum-platform-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cheminformatics, data-engineering, machine-learning queries this for how projectcontinuum-org/continuum-platform-core implements it: No-code workflow engine for ML, chem, ETL. Drag-drop nodes, human-in-loop pauses, Temporal backend (selected work: continuum-api-server, continuum-worker-springboot-starter, continuum-commons)",
+ "repos": [
+  {
+   "repo": "continuum-platform-core",
+   "url": "https://github.com/projectcontinuum-org/continuum-platform-core",
+   "sha": "6489271aa27fd7c95c605c7cef29ce03f32f3ff6",
+   "licence": "Apache-2.0 (LICENSE file at pin 6489271aa27f, GitHub licence API 2026-11-23)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-23T03:04Z",
+    "consent_receipt": "ab994487667c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-23T03:04Z (receipt ab994487667c); selected commit 6489271aa27f: \"CONTNM-147: Add more tools into MCP server to make client AI agents a\u2026\". LICENSE file at pin 6489271aa27f detected as Apache-2.0 by the GitHub licence API on 2026-11-23; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @projectcontinuum-org, who has not added it."
+   },
+   "paths": [
+    "continuum-api-server",
+    "continuum-commons",
+    "continuum-worker-springboot-starter"
+   ]
+  }
+ ]
+}

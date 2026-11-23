@@ -8,15 +8,15 @@
   {
    "repo": "NearByDrop",
    "url": "https://github.com/arslanbasharat-o-o/NearByDrop",
-   "sha": "707e84a613b277a1a56eb1c48b20c08e3cf52a62",
-   "licence": "author's permission (LICENSE at pin 707e84a613b2: NOASSERTION; repository: NOASSERTION)",
+   "sha": "216b1b41b62ae16441e030bb9cbdf98e01e49bc5",
+   "licence": "author's permission (LICENSE at pin 216b1b41b62a: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T17:49Z",
     "consent_receipt": "79be906dce48",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T17:49Z (receipt 79be906dce48); pinned to the default-branch head. LICENSE at pin 707e84a613b2: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T17:49Z (receipt 79be906dce48); pinned to the default-branch head. LICENSE at pin 216b1b41b62a: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

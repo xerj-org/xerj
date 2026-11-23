@@ -1,0 +1,23 @@
+{
+ "corpus": "blackhole8080-darkmatter--kosika-site",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how blackhole8080-darkmatter/kosika-site implements it: blackhole8080-darkmatter/kosika-site (HTML)",
+ "repos": [
+  {
+   "repo": "kosika-site",
+   "url": "https://github.com/blackhole8080-darkmatter/kosika-site",
+   "sha": "032611f74ec52eb4f1c788b0f5dcd99a5fb4f090",
+   "licence": "MIT (LICENSE file at pin 032611f74ec5, GitHub licence API 2026-11-23)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-23T02:57Z",
+    "consent_receipt": "619f6b1b3c33",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-23T02:57Z (receipt 619f6b1b3c33); pinned to the default-branch head. LICENSE file at pin 032611f74ec5 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+   }
+  }
+ ]
+}

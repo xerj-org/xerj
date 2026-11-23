@@ -2,8 +2,8 @@
  "corpus": "seanbabalala--siftgate",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how seanbabalala/SiftGate implements it: SiftGate (selected work: src/releases, test, frontend)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-gateway, ai-governance, anthropic queries this for how seanbabalala/SiftGate implements it: Self-hosted AI gateway for enterprise AI governance: scoped keys and policy, metadata-only audit, budgets and chargeback, smart routing and  (selected work: src/releases, test, frontend)",
  "repos": [
   {
    "repo": "SiftGate",

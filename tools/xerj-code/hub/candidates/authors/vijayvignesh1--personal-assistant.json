@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how VijayVignesh1/personal_assistant implements it: A privacy-focused personal AI assistant with long-term memory, semantic retrieval, and local-first data storage, designed to evolve into a p (selected work: src/personal_assistant)",
+ "domain": "an agent working on huggingface, llm-evaluation, llm-memory queries this for how VijayVignesh1/personal_assistant implements it: A privacy-focused personal AI assistant with long-term memory, semantic retrieval, and local-first data storage, designed to evolve into a p (selected work: src/personal_assistant)",
  "repos": [
   {
    "repo": "personal_assistant",

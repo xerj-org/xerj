@@ -1,0 +1,23 @@
+{
+ "corpus": "blackhole8080-darkmatter--kosika-agents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how blackhole8080-darkmatter/kosika-agents implements it: blackhole8080-darkmatter/kosika-agents (Python)",
+ "repos": [
+  {
+   "repo": "kosika-agents",
+   "url": "https://github.com/blackhole8080-darkmatter/kosika-agents",
+   "sha": "d04fe7c88c2c7cb05589add840e35c5a141de397",
+   "licence": "MIT (LICENSE file at pin d04fe7c88c2c, GitHub licence API 2026-11-23)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-23T02:57Z",
+    "consent_receipt": "ac32275bccd1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-23T02:57Z (receipt ac32275bccd1); pinned to the default-branch head. LICENSE file at pin d04fe7c88c2c detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+   }
+  }
+ ]
+}
