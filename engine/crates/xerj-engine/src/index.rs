@@ -11818,16 +11818,6 @@ mod semantic_deadline_regression_tests {
 #[path = "fast_aggs.rs"]
 mod fast_aggs;
 
-/// Reconstruct the ES-JSON form of a query filter that the columnar fast-agg
-/// path (`fast_aggs::compile_top_pred` + `aggs::doc_matches_filter`) can
-/// evaluate over doc-values WITHOUT hydrating `_source`.  Returns `None` for
-/// any query that isn't a plain conjunctive filter over exact/numeric fields
-/// (FTS, wild/prefix, must_not/should bool, numeric term keys on a field not
-/// mapped `long`/`double`, …) — the caller then keeps the exact brute path.
-///
-/// Only the leaf/bool shapes that `doc_matches_filter` and `compile_pred`
-/// jointly support are emitted, so the memtable matcher and the columnar
-/// predicate stay byte-identical.
 /// #3510: whether `q` is a pure conjunction (`bool` with only `must` /
 /// `filter`, nested, or under `constant_score`) whose every leaf passes
 /// `leaf_ok`. A leaf on its own is just checked. Used to admit a filter-only
@@ -11855,6 +11845,16 @@ fn filter_conjunction_leaves_all(q: &QueryNode, leaf_ok: &dyn Fn(&QueryNode) -> 
     }
 }
 
+/// Reconstruct the ES-JSON form of a query filter that the columnar fast-agg
+/// path (`fast_aggs::compile_top_pred` + `aggs::doc_matches_filter`) can
+/// evaluate over doc-values WITHOUT hydrating `_source`.  Returns `None` for
+/// any query that isn't a plain conjunctive filter over exact/numeric fields
+/// (FTS, wild/prefix, must_not/should bool, numeric term keys on a field not
+/// mapped `long`/`double`, …) — the caller then keeps the exact brute path.
+///
+/// Only the leaf/bool shapes that `doc_matches_filter` and `compile_pred`
+/// jointly support are emitted, so the memtable matcher and the columnar
+/// predicate stay byte-identical.
 fn query_node_to_agg_filter(node: &QueryNode, schema: &Schema) -> Option<Value> {
     match node {
         QueryNode::MatchAll => Some(serde_json::json!({ "match_all": {} })),

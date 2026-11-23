@@ -38,6 +38,14 @@ async fn built(name: &str) -> (tempfile::TempDir, crate::Engine, Arc<Index>, usi
     let engine = crate::Engine::new(config).unwrap();
     engine.create_index(name, Schema::empty()).unwrap();
     let idx = engine.get_index(name).unwrap();
+    // Hand-driven: the segment layout below is what the asserts rely on, so
+    // no background merge tick may reshape it. At load 150-300 the build
+    // runs long enough for a tick (5 s) to land between a flush and its
+    // `force_merge`: 30 of 60 runs ended on ONE segment (the `>= 2` assert)
+    // and 6 kept a 124-doc legacy-LZ4 shard segment the tick left behind
+    // (the `ZBS` assert), once `force_merge(round + 1)` saw few enough
+    // segments to do nothing.
+    idx.abort_background_tasks();
     // A flush splits into one small segment per memtable shard, and a stored
     // section under 128 rows stays legacy LZ4 (the full-decode path), so each
     // round is merged into one columnar segment before the next is written.
