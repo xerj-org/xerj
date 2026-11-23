@@ -1,0 +1,21 @@
+{
+ "corpus": "convert-anything-to-markdown",
+ "cloned_at": "2026-11-23T18:11:34Z",
+ "repos": [
+  {
+   "repo": "convert-anything-to-markdown",
+   "url": "https://github.com/nosliwhtes/convert-anything-to-markdown",
+   "licence": "MIT",
+   "sha": "47354fbb30318510d9239b2b35b02bae8aa3117b",
+   "files": 54,
+   "bytes": 1160474,
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "nosliwhtes",
+    "at": "2026-11-23",
+    "note": "LICENSE opened at pin: verbatim MIT, Copyright (c) 2026 Seth Wilson. GitHub licenceInfo reported null for this repo; the file is present and is MIT. First-party repository of the contributor."
+   }
+  }
+ ]
+}
