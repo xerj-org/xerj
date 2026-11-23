@@ -1,0 +1,21 @@
+{
+ "corpus": "forgebox",
+ "cloned_at": "2026-11-23T18:08:57Z",
+ "repos": [
+  {
+   "repo": "forgebox",
+   "url": "https://github.com/nosliwhtes/forgebox",
+   "licence": "MIT",
+   "sha": "98adbcaf8d2afcaa59626a13ae4d814fdf484724",
+   "files": 36,
+   "bytes": 3662455,
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "nosliwhtes",
+    "at": "2026-11-23",
+    "note": "LICENSE opened at pin: verbatim MIT, Copyright (c) 2026 Seth Wilson. GitHub licenceInfo reported null for this repo; the file is present and is MIT. First-party repository of the contributor."
+   }
+  }
+ ]
+}
