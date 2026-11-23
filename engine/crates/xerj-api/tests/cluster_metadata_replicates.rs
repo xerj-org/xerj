@@ -93,36 +93,103 @@ async fn send(app: &Router, req: Request<Body>) -> (StatusCode, Value) {
     (status, body)
 }
 
+/// The `ProposeError` reasons that mean "raft did not acknowledge this
+/// change; nothing was reported applied" (`xerj_cluster::propose`). Shutdown
+/// is left out: these tests stop members on purpose.
+const RAFT_NOT_ACKNOWLEDGED: [&str; 3] = [
+    "no elected raft leader",
+    "timed out waiting for the metadata change to commit on a majority",
+    "raft leadership changed before the metadata write committed",
+];
+
+fn raft_not_acknowledged(status: StatusCode, body: &Value) -> bool {
+    status == StatusCode::SERVICE_UNAVAILABLE && {
+        let text = body.to_string();
+        RAFT_NOT_ACKNOWLEDGED
+            .iter()
+            .any(|reason| text.contains(reason))
+    }
+}
+
+/// Upper bound on raft-unacknowledged answers before a write gives up. A
+/// hang guard, not a timing budget: the loop ends when the answer changes.
+const RAFT_RETRY_GUARD: u32 = 500;
+
+/// Send a write; while the answer is a raft-unacknowledged 503, send it again.
+///
+/// #3469: raft elections run on wall-clock timers (150-300 ms election
+/// timeout, 50 ms heartbeat), so on a loaded box a starved runner loses or
+/// never settles leadership, and a metadata change (an index create, or the
+/// in-sync change a replicated write proposes) answers 503 "not
+/// acknowledged". These tests are about what happens once a change commits,
+/// not about elections, so they wait for the commit the way a client does:
+/// send again until raft answers. The wait ends on that answer, not on a
+/// sleep. A change whose unacknowledged attempt committed after all answers
+/// the retry with "already done" (`resource_already_exists_exception` for a
+/// create, 404 for a delete); that is the change succeeding, so it is
+/// returned as 200.
+async fn send_write(app: &Router, make: impl Fn() -> Request<Body>) -> (StatusCode, Value) {
+    let is_delete = make().method() == axum::http::Method::DELETE;
+    let mut unacknowledged = 0u32;
+    loop {
+        let (status, body) = send(app, make()).await;
+        if raft_not_acknowledged(status, &body) {
+            unacknowledged += 1;
+            assert!(
+                unacknowledged < RAFT_RETRY_GUARD,
+                "raft never acknowledged the write: {status} {body}"
+            );
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            continue;
+        }
+        let already_done = if is_delete {
+            status == StatusCode::NOT_FOUND
+        } else {
+            body.pointer("/error/type").and_then(Value::as_str)
+                == Some("resource_already_exists_exception")
+        };
+        if unacknowledged > 0 && already_done {
+            return (StatusCode::OK, body);
+        }
+        return (status, body);
+    }
+}
+
+fn json_request(method: &str, path: &str, content_type: &str, body: &str) -> Request<Body> {
+    Request::builder()
+        .method(method)
+        .uri(path)
+        .header("content-type", content_type)
+        .body(Body::from(body.to_string()))
+        .expect("request")
+}
+
 async fn put_json(app: &Router, path: &str, body: Value) -> (StatusCode, Value) {
+    let body = body.to_string();
+    send_write(app, || json_request("PUT", path, "application/json", &body)).await
+}
+
+/// One PUT, no retry: for asserting the raft-unavailable answer itself.
+async fn put_json_once(app: &Router, path: &str, body: Value) -> (StatusCode, Value) {
     send(
         app,
-        Request::put(path)
-            .header("content-type", "application/json")
-            .body(Body::from(body.to_string()))
-            .expect("request"),
+        json_request("PUT", path, "application/json", &body.to_string()),
     )
     .await
 }
 
 async fn post_json(app: &Router, path: &str, body: Value) -> (StatusCode, Value) {
-    send(
-        app,
-        Request::post(path)
-            .header("content-type", "application/json")
-            .body(Body::from(body.to_string()))
-            .expect("request"),
-    )
+    let body = body.to_string();
+    send_write(app, || {
+        json_request("POST", path, "application/json", &body)
+    })
     .await
 }
 
 async fn post_ndjson(app: &Router, path: &str, body: &str) -> (StatusCode, Value) {
-    send(
-        app,
-        Request::post(path)
-            .header("content-type", "application/x-ndjson")
-            .body(Body::from(body.to_string()))
-            .expect("request"),
-    )
+    send_write(app, || {
+        json_request("POST", path, "application/x-ndjson", body)
+    })
     .await
 }
 
@@ -135,10 +202,9 @@ async fn get(app: &Router, path: &str) -> (StatusCode, Value) {
 }
 
 async fn delete(app: &Router, path: &str) -> (StatusCode, Value) {
-    send(
-        app,
-        Request::delete(path).body(Body::empty()).expect("request"),
-    )
+    send_write(app, || {
+        Request::delete(path).body(Body::empty()).expect("request")
+    })
     .await
 }
 
@@ -277,11 +343,11 @@ async fn index_metadata_propagates_and_a_new_leader_still_commits() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_ring_with_no_leader_does_not_create_the_index() {
     let members = ring(false).await;
-    let (status, body) = put_json(&members[0].app, "/orders", json!({})).await;
+    let (status, body) = put_json_once(&members[0].app, "/orders", json!({})).await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
     let (status, _) = get(&members[0].app, "/orders").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
-    let (status, body) = put_json(
+    let (status, body) = put_json_once(
         &members[0].app,
         "/orders/_doc/1",
         json!({ "title": "no leader" }),
@@ -544,6 +610,7 @@ async fn an_acknowledged_write_is_on_the_replica_and_readable_after_the_primary_
     for member in &members {
         wait_status(&member.app, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed = None;
     for n in 0..64 {
@@ -692,6 +759,56 @@ async fn an_acknowledged_write_is_on_the_replica_and_readable_after_the_primary_
     }
 }
 
+/// Every placed replica of `orders` that is in `members` has its replica
+/// store open, i.e. that member applied the create (#3469).
+///
+/// `GET /orders` answering 200 on a member does not mean every member's
+/// replica stores exist yet. A replicated write that reaches a replica before
+/// then gets `shard_not_ready`; the primary retries that for a wall-clock
+/// `OWNER_READY_WAIT` (2 s), and on a loaded box gives up, marks the replica
+/// stale, and acknowledges with the other copies. A test that then reads the
+/// write off that replica fails. Waiting for the stores is the state those
+/// tests assume. The bound is a hang guard.
+async fn wait_replica_stores(members: &[Member]) {
+    let mut polls = 0u32;
+    loop {
+        let missing: Vec<String> = members
+            .iter()
+            .flat_map(|planner| {
+                members.iter().flat_map(move |owner| {
+                    planner
+                        .engine
+                        .shards_owned_by("orders", owner.handle.node_id())
+                })
+            })
+            .collect::<std::collections::BTreeSet<u32>>()
+            .into_iter()
+            .flat_map(|shard| {
+                members
+                    .iter()
+                    .flat_map(|planner| planner.engine.placed_replica_nodes("orders", shard))
+                    .collect::<std::collections::BTreeSet<String>>()
+                    .into_iter()
+                    .filter_map(move |node| {
+                        let member = members.iter().find(|m| m.handle.node_id() == node)?;
+                        let store = xerj_cluster::replica_index_name("orders", shard)?;
+                        member
+                            .engine
+                            .get_index(&store)
+                            .is_err()
+                            .then(|| format!("{node}:{store}"))
+                    })
+            })
+            .collect();
+        if missing.is_empty() {
+            return;
+        }
+        polls += 1;
+        assert!(polls < 1_500, "replica stores never opened: {missing:?}");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
 async fn wait_in_sync(members: &[Member], shard: u32, want: &[String]) {
     let mut want = want.to_vec();
     want.sort();
@@ -733,6 +850,7 @@ async fn a_quorum_of_copies_acks_when_one_of_two_replicas_does_not() {
     for member in &members {
         wait_status(&member.app, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed = None;
     for n in 0..64 {
@@ -1109,7 +1227,7 @@ async fn durable_ring(dirs: Vec<tempfile::TempDir>) -> Vec<Member> {
         let mut config = xerj_common::config::Config::default();
         config.server.data_dir = dir.path().to_string_lossy().into_owned();
         let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
-        let engine = xerj_engine::Engine::new(config.clone()).expect("engine");
+        let engine = open_engine_when_unlocked(&config).await;
         let state = xerj_api::state::AppState::new(config, engine, metrics);
 
         let peers: Vec<String> = ids
@@ -1238,6 +1356,21 @@ async fn restart_reloads_the_shard_plan_and_still_routes_the_document() {
     }
 }
 
+/// Open the engine once the previous one on this directory has let go of
+/// `node.lock`. A stopped member's aborted backfill task drops its engine
+/// `Arc` at its next await, so a reopen waits for that state, not for a
+/// fixed sleep (#3469). The bound is a hang guard.
+async fn open_engine_when_unlocked(config: &xerj_common::config::Config) -> xerj_engine::Engine {
+    let dir = std::path::Path::new(&config.server.data_dir);
+    let mut polls = 0u32;
+    while xerj_engine::data_dir_lock_held(dir) {
+        polls += 1;
+        assert!(polls < 3_000, "{} kept node.lock", dir.display());
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    xerj_engine::Engine::new(config.clone()).expect("engine")
+}
+
 async fn open_durable_member(
     id: &str,
     ids: &[&str],
@@ -1248,7 +1381,7 @@ async fn open_durable_member(
     let mut config = xerj_common::config::Config::default();
     config.server.data_dir = dir.path().to_string_lossy().into_owned();
     let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
-    let engine = xerj_engine::Engine::new(config.clone()).expect("engine");
+    let engine = open_engine_when_unlocked(&config).await;
     let state = xerj_api::state::AppState::new(config, engine, metrics);
     let peers: Vec<String> = ids
         .iter()
@@ -1449,6 +1582,7 @@ async fn a_late_member_copies_documents_written_before_it_joined() {
     for member in &members {
         wait_status(&member.app, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut keep: Option<(String, u32, String, Vec<String>)> = None;
     let mut gone_id = None;
@@ -1615,6 +1749,7 @@ async fn a_replica_dropped_from_the_in_sync_set_copies_the_missed_write_and_rejo
     for member in &members {
         wait_status(&member.app, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed = None;
     for n in 0..64 {
@@ -1862,6 +1997,7 @@ async fn create_replicated_orders(members: &[Member]) {
     for member in members {
         wait_status(&member.app, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(members).await;
 }
 
 async fn put_title(app: &Router, id: &str, title: &str) {
@@ -1976,9 +2112,8 @@ async fn refill_after_missed_writes(mut members: Vec<Member>, bus: Option<&InMem
     }
 
     if let Some((bus, dir)) = held {
-        // The aborted backfill task drops its engine Arc at the next await.
-        // Opening the same directory before that releases `node.lock` fails.
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        // `open_durable_member` waits for the stopped engine to release
+        // `node.lock` (its aborted backfill task holds it until its next await).
         members.push(open_durable_member(&case.replica_a, &["n1", "n2", "n3"], bus, dir, 64).await);
     } else {
         restore_handler(&members[position_of(&members, &case.replica_a)]);
@@ -2145,6 +2280,7 @@ async fn bulk_and_update_from_a_non_owner_write_the_primary_and_the_replica() {
     for member in &members {
         wait_status(&member.app, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed: Vec<(String, usize, usize, u32)> = Vec::new();
     for n in 0..128 {
@@ -2480,6 +2616,7 @@ async fn update_by_query_from_a_non_owner_updates_every_primary_and_replica() {
     for member in &members {
         wait_status(&member.app, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed: Vec<(String, usize, usize, u32)> = Vec::new();
     for n in 0..128 {
@@ -2863,6 +3000,7 @@ async fn delete_by_query_from_a_non_owner_deletes_on_every_primary_and_replica()
     for member in &members {
         wait_status(&member.app, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed: Vec<(String, usize, usize, u32)> = Vec::new();
     for n in 0..128 {
@@ -3201,6 +3339,7 @@ async fn native_doc_writes_from_a_non_owner_hit_the_primary_and_the_replica() {
     for member in &members {
         wait_status(&member.app, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed: Vec<(String, usize, usize, u32)> = Vec::new();
     for n in 0..128 {
@@ -3563,6 +3702,7 @@ async fn a_replica_that_misses_a_refused_write_leaves_the_in_sync_set_and_is_bac
     for member in &members {
         wait_status(&member.app, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut target = None;
     for n in 0..64 {
