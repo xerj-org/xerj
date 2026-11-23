@@ -54020,8 +54020,7 @@ fn lower_clauses_naming(
                 .collect(),
         )
     };
-    let recurse =
-        |c: &QueryNode| lower_clauses_naming(c, unsatisfiable, fulltext_dead, exists_too);
+    let recurse = |c: &QueryNode| lower_clauses_naming(c, unsatisfiable, fulltext_dead, exists_too);
     match q {
         // ── Leaves that name exactly one field ────────────────────────────
         QueryNode::Term { field, .. }
