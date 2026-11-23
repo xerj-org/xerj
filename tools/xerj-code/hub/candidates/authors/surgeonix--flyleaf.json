@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on ffmpeg, media-player, mediaplayer queries this for how SuRGeoNix/Flyleaf implements it: Media Player .NET Library powered by FFmpeg & DirectX (selected work: FlyleafLib)",
+ "domain": "an agent working on ffmpeg, media-player, mediaplayer queries this for how SuRGeoNix/Flyleaf implements it: Windows Media Player & .NET Media Engine powered by FFmpeg & DirectX (selected work: FlyleafLib)",
  "repos": [
   {
    "repo": "Flyleaf",

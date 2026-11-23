@@ -1,9 +1,9 @@
 {
- "corpus": "mahmoud-emad--opennotebook",
+ "corpus": "mahmoud-emad--notabit",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, education, fastapi queries this for how mahmoud-emad/opennotebook implements it: Open-source study studio in the spirit of NotebookLM: turn your sources into narrated decks, video and audio overviews, mind maps and notes, (selected work: server, web)",
+ "domain": "an agent working on ai, education, fastapi queries this for how mahmoud-emad/notabit implements it: Open-source study studio in the spirit of NotebookLM: turn your sources into narrated decks, video and audio overviews, mind maps and notes, (selected work: server, web)",
  "repos": [
   {
    "repo": "opennotebook",

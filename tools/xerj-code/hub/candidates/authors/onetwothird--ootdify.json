@@ -1,9 +1,9 @@
 {
- "corpus": "onetwothird--penggi",
+ "corpus": "onetwothird--ootdify",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on ai, expo, fashion queries this for how onetwothird/Penggi implements it: Penggi \u2014 an AI fashion assistant for your phone. Build a private wardrobe, get outfit ideas for any occasion, try on clothes virtually and w (selected work: src/app, src/features, backend)",
+ "domain": "an agent working on ai, expo, fashion queries this for how onetwothird/OOTDify implements it: OOTDify (Penggi) \u2014 an AI fashion assistant for your phone. Build a private wardrobe, get outfit ideas for any occasion, try on clothes virtu (selected work: src/app, src/features, backend)",
  "repos": [
   {
    "repo": "OOTDify",
