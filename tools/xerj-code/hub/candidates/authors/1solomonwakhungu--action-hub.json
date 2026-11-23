@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how 1solomonwakhungu/action-hub implements it: Indexed, on-demand capability layer for MCP servers and skills, for any MCP-capable agent harness (selected work: stress, packages/plugin)",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how 1solomonwakhungu/action-hub implements it: One fixed, cache-stable MCP tool with offline MiniLM+BM25 search, lazy activation, OAuth 2.0, and a shared multi-harness daemon for MCP serv (selected work: stress, packages/plugin)",
  "repos": [
   {
    "repo": "action-hub",
