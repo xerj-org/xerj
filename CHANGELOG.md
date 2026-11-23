@@ -106,6 +106,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `combine: "other"` only because its terms take the best field, and an
   opaque field-less `query_string` reports `"sum"`.
 
+- **A `size: 0` aggregation under a numeric `term` is served from doc values
+  (#3466).** `{"size": 0, "query": {"term": {"g": 1}}, "aggs": {...}}` on a
+  number field took the brute `_source` corpus path, because only a keyword
+  `term` or a numeric `range` was turned into a doc-values filter. On an index
+  with overwrite history that corpus was over the query-memory cap and the
+  request failed with HTTP 429 at `aggregation corpus materialisation`; below
+  the cap it was slow (1.2 to 2.4 s and 842 to 851 MB of extra RSS per query
+  on 200,000 documents with 100,000 overwritten, as measured in #3444). A
+  `term` on a `long` or `double` field now reads the column as the range
+  `[N, N]`, the row set the term count already used, with exact bucket counts
+  and exact values. Two cases keep the exact `_source` comparison: an integer
+  of magnitude 2^53 or more, which an `f64` column cannot tell from its
+  neighbours, and a field whose mapping is not a number (a `boolean` column
+  holds 0 and 1, but a number is not one of its values). A segment whose column
+  for the field is not numeric still falls back, as for any numeric range.
+  `terms` with numeric values is unchanged and still takes the brute path.
+
 - **`_forcemerge` respects the process memory cap and survives a dropped
   client (#2917).** A forced merge was exempt from every memory rule. It now
   waits out an engaged breaker before it starts, stops (inputs kept) when RSS

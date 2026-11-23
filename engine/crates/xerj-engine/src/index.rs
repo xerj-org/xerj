@@ -11417,30 +11417,76 @@ mod semantic_deadline_regression_tests {
 #[path = "fast_aggs.rs"]
 mod fast_aggs;
 
+/// Integers of magnitude below 2^53 are exactly representable as `f64`; the
+/// doc-values numeric columns hold `f64`, so from this limit up they merge
+/// neighbouring integers.
+const F64_EXACT_INT_LIMIT: u64 = 1 << 53;
+
+/// True when `n` survives the trip into an `f64` column unchanged: an integer
+/// of magnitude below 2^53, or a finite float of magnitude below 2^53.
+fn number_is_f64_exact(n: &serde_json::Number) -> bool {
+    if let Some(i) = n.as_i64() {
+        return i.unsigned_abs() < F64_EXACT_INT_LIMIT;
+    }
+    if let Some(u) = n.as_u64() {
+        return u < F64_EXACT_INT_LIMIT;
+    }
+    n.as_f64()
+        .is_some_and(|f| f.is_finite() && f.abs() < F64_EXACT_INT_LIMIT as f64)
+}
+
+/// True when the mapping declares `field` a number.  A `boolean` column is
+/// numeric too (0 and 1), but a number is not one of its values: the brute
+/// path matches `term: {flag: 1}` against nothing, so the column must not
+/// answer it.
+fn field_is_number(schema: &Schema, field: &str) -> bool {
+    declared_field(schema, field)
+        .is_some_and(|fc| matches!(fc.field_type, FieldType::Long | FieldType::Double))
+}
+
 /// Reconstruct the ES-JSON form of a query filter that the columnar fast-agg
 /// path (`fast_aggs::compile_top_pred` + `aggs::doc_matches_filter`) can
 /// evaluate over doc-values WITHOUT hydrating `_source`.  Returns `None` for
 /// any query that isn't a plain conjunctive filter over exact/numeric fields
-/// (FTS, wild/prefix, must_not/should bool, date-string ranges, numeric term
-/// keys, …) — the caller then keeps the exact brute path.
+/// (FTS, wild/prefix, must_not/should bool, date-string ranges, bool term
+/// keys, numeric term keys on a field that is not mapped as a number or that
+/// an `f64` cannot hold exactly, …) — the caller then keeps the exact brute
+/// path.
 ///
 /// Only the leaf/bool shapes that `doc_matches_filter` and `compile_pred`
 /// jointly support are emitted, so the memtable matcher and the columnar
 /// predicate stay byte-identical.
-fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
+fn query_node_to_agg_filter(node: &QueryNode, schema: &Schema) -> Option<Value> {
     match node {
         QueryNode::MatchAll => Some(serde_json::json!({ "match_all": {} })),
         // `constant_score` is pure filter context — matching is exactly the
         // inner filter's (the wrapper only changes scores, which a size:0
         // agg never sees).
-        QueryNode::Constant { query, .. } => query_node_to_agg_filter(query),
-        // Exact term — keyword (string) values only.  Numeric/bool term keys
-        // have typed-coercion subtleties, so bail (brute path handles them).
+        QueryNode::Constant { query, .. } => query_node_to_agg_filter(query, schema),
+        // Exact term — keyword (string) values here; a numeric value is the
+        // next arm.  Bool term keys have typed-coercion subtleties, so bail
+        // (brute path handles them).
         QueryNode::Term {
             field,
             value: Value::String(s),
             ..
         } => Some(serde_json::json!({ "term": { field: s } })),
+        // A numeric `term` on a number field is the degenerate inclusive
+        // range `[N, N]`.  On a numeric column that is the row set
+        // `seg_term_positions` counts for it, and the memtable range matcher
+        // compares by value like the brute comparator (`json_scalar_equal`).
+        // Only while `f64` is exact: from 2^53 up the column cannot tell
+        // neighbouring integers apart but `json_scalar_equal` can, so a
+        // larger `N` keeps the brute path.  A segment whose column for the
+        // field is not numeric still bails in `resolve_pred`, as it does for
+        // any numeric range.
+        QueryNode::Term {
+            field,
+            value: Value::Number(n),
+            ..
+        } if number_is_f64_exact(n) && field_is_number(schema, field) => {
+            Some(serde_json::json!({ "range": { field: { "gte": n, "lte": n } } }))
+        }
         QueryNode::Terms { field, values, .. } => {
             let mut strs: Vec<Value> = Vec::with_capacity(values.len());
             for v in values {
@@ -11523,7 +11569,7 @@ fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
             }
             let mut clauses: Vec<Value> = Vec::with_capacity(must.len() + filter.len());
             for c in must.iter().chain(filter.iter()) {
-                clauses.push(query_node_to_agg_filter(c)?);
+                clauses.push(query_node_to_agg_filter(c, schema)?);
             }
             if clauses.is_empty() {
                 // bool with no positive clauses == match_all
@@ -11534,6 +11580,98 @@ fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod numeric_term_agg_filter_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn schema() -> Schema {
+        let mut s = Schema::empty();
+        s.fields.push(FieldConfig::new("g", FieldType::Long));
+        s.fields.push(FieldConfig::new("x", FieldType::Double));
+        s.fields.push(FieldConfig::new("flag", FieldType::Boolean));
+        s.fields.push(FieldConfig::new("cat", FieldType::Keyword));
+        s
+    }
+
+    fn term(field: &str, value: Value) -> QueryNode {
+        QueryNode::Term {
+            field: field.into(),
+            value,
+            boost: None,
+        }
+    }
+
+    fn agg_filter(node: &QueryNode) -> Option<Value> {
+        query_node_to_agg_filter(node, &schema())
+    }
+
+    fn point_range(field: &str, n: Value) -> Value {
+        json!({ "range": { field: { "gte": n, "lte": n } } })
+    }
+
+    #[test]
+    fn numeric_term_is_the_point_range() {
+        for (field, n) in [
+            ("g", json!(1)),
+            ("g", json!(-7)),
+            ("g", json!(0)),
+            ("x", json!(1.5)),
+            ("x", json!(1)),
+        ] {
+            assert_eq!(
+                agg_filter(&term(field, n.clone())),
+                Some(point_range(field, n))
+            );
+        }
+        // Beside other filters, as in a `bool.filter` of a dashboard panel.
+        let node = QueryNode::Bool {
+            must: vec![],
+            should: vec![],
+            must_not: vec![],
+            filter: vec![term("g", json!(1)), term("cat", json!("c1"))],
+            minimum_should_match: None,
+        };
+        assert_eq!(
+            agg_filter(&node),
+            Some(json!({ "bool": { "filter": [
+                point_range("g", json!(1)),
+                { "term": { "cat": "c1" } },
+            ] } }))
+        );
+    }
+
+    #[test]
+    fn numbers_an_f64_cannot_hold_exactly_keep_the_brute_path() {
+        let limit = 1i64 << 53;
+        // The largest integers an f64 holds exactly rewrite ...
+        for n in [limit - 1, -(limit - 1)] {
+            assert!(agg_filter(&term("g", json!(n))).is_some(), "{n}");
+        }
+        // ... from 2^53 up the column merges neighbours and the `_source`
+        // comparator does not, so they stay on the brute path.
+        for n in [limit, limit + 1, -limit, -(limit + 1), i64::MIN, i64::MAX] {
+            assert!(agg_filter(&term("g", json!(n))).is_none(), "{n}");
+        }
+        assert!(agg_filter(&term("g", json!(u64::MAX))).is_none());
+        assert!(agg_filter(&term("x", json!(9_007_199_254_740_991.0))).is_some());
+        for f in [9_007_199_254_740_992.0, -9_007_199_254_740_992.0, 1e300] {
+            assert!(agg_filter(&term("x", json!(f))).is_none(), "{f}");
+        }
+    }
+
+    /// A boolean column holds 0 and 1, but a number is not one of the field's
+    /// values; the brute path matches nothing for `term: {flag: 1}`.
+    #[test]
+    fn a_field_that_is_not_mapped_as_a_number_keeps_the_brute_path() {
+        assert!(agg_filter(&term("flag", json!(1))).is_none());
+        assert!(agg_filter(&term("cat", json!(1))).is_none());
+        assert!(agg_filter(&term("undeclared", json!(1))).is_none());
+        assert!(agg_filter(&term("g", json!(true))).is_none());
+    }
+}
+
 use crate::{EngineError, Result};
 
 // ── Response types ────────────────────────────────────────────────────────────
@@ -28522,7 +28660,7 @@ impl Index {
         let agg_filter: Option<Value> = if is_match_all {
             None
         } else {
-            query_node_to_agg_filter(query)
+            query_node_to_agg_filter(query, &dmq_schema)
         };
         if size == 0
             && request.aggs.is_some()
