@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on generative, colaboratory, colaboratory-notebook queries this for how pollinations/pollinations implements it: Your Friendly Open-Source Gen-AI Platform (selected work: packages/polli-cli)",
+ "domain": "an agent working on generative, colaboratory, colaboratory-notebook queries this for how pollinations/pollinations implements it: Your Friendly Open-Source Gen-AI Platform (selected work: apps/polli)",
  "repos": [
   {
    "repo": "pollinations",
    "url": "https://github.com/pollinations/pollinations",
-   "sha": "82c495c01d98392967c94483149eac07df952b1e",
-   "licence": "MIT (LICENSE file at pin 82c495c01d98, GitHub licence API 2026-10-24)",
+   "sha": "404135d0e92e0bec0ab7ee761f1dd3034360a07a",
+   "licence": "MIT (LICENSE file at pin 404135d0e92e, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-11T00:25Z",
-    "consent_receipt": "0b7a02528f5b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T00:25Z (receipt 0b7a02528f5b); selected commit 82c495c01d98: \"feat(polli): add Codex and Claude Code router harnesses (#15289)\". LICENSE file at pin 82c495c01d98 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @pollinations, who has not added it."
+    "at": "2026-10-16T14:25Z",
+    "consent_receipt": "c8da3bd72ee9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T14:25Z (receipt c8da3bd72ee9); selected commit 404135d0e92e: \"feat: sync Polli updates from production (#17125)\". LICENSE file at pin 404135d0e92e detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @pollinations, who has not added it."
    },
    "paths": [
     "apps/polli",

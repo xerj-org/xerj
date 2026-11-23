@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on fabric, fabric-mod, java queries this for how kizio806/jump-delay-fix implements it: A Minecraft Fabric mod that removes the jump delay, allowing faster and more responsive movement in combat. Ideal for PvP and intense gamepl (selected work: common, fabric, neoforge)",
+ "domain": "an agent working on fabric, fabric-mod, java queries this for how kizio806/jump-delay-fix implements it: A Minecraft Fabric and NeoForge mod that eliminates jump delay, allowing faster and more responsive movement in combat (selected work: common, fabric, neoforge)",
  "repos": [
   {
    "repo": "jump-delay-fix",

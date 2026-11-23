@@ -8,15 +8,15 @@
   {
    "repo": "ai-agent-utils",
    "url": "https://github.com/rctruta/ai-agent-utils",
-   "sha": "da5221d329a141beef4e8c8af6f243a3c046a3a6",
-   "licence": "MIT (LICENSE file at pin da5221d329a1, GitHub licence API 2026-10-25)",
+   "sha": "d232bda7d421a4157a60cca923b0656145125755",
+   "licence": "author's permission (LICENSE at pin d232bda7d421: NOASSERTION; repository: NOASSERTION)",
    "review": {
-    "spdx": "MIT",
+    "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-19T05:45Z",
     "consent_receipt": "b883566ad96b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T05:45Z (receipt b883566ad96b); pinned to the default-branch head. LICENSE file at pin da5221d329a1 detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T05:45Z (receipt b883566ad96b); pinned to the default-branch head. LICENSE at pin d232bda7d421: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]
