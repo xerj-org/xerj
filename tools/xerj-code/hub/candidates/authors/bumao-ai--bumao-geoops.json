@@ -8,15 +8,15 @@
   {
    "repo": "Bumao-geoops",
    "url": "https://github.com/Bumao-Ai/Bumao-geoops",
-   "sha": "37932030cad802b222193928947b3fcc82d5d27c",
-   "licence": "Apache-2.0 (LICENSE file at pin 37932030cad8, GitHub licence API 2026-11-22)",
+   "sha": "b147ce7bc6e652ddf1f700cf2c94fe731d1ee074",
+   "licence": "Apache-2.0 (LICENSE file at pin b147ce7bc6e6, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T13:49Z",
     "consent_receipt": "63f71720706b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T13:49Z (receipt 63f71720706b); pinned to the default-branch head. LICENSE file at pin 37932030cad8 detected as Apache-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T13:49Z (receipt 63f71720706b); pinned to the default-branch head. LICENSE file at pin b147ce7bc6e6 detected as Apache-2.0 by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]

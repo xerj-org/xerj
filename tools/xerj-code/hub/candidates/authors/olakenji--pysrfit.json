@@ -2,8 +2,8 @@
  "corpus": "olakenji--pysrfit",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how OlaKenji/pysrfit implements it: OlaKenji/pysrfit (Python) (selected work: pysrfit, tests)",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how OlaKenji/pysrfit implements it: An interactive GUI application for analysing muon spin relaxation (\u03bcSR) data. pySRFit is inspired by musrfit and uses a similar parameter an (selected work: pysrfit, tests)",
  "repos": [
   {
    "repo": "pysrfit",

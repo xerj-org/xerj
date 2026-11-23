@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on appsec, ethical-hacking, infosec queries this for how gravion-ux/security-automation-scripts implements it: Security automation scripts for reconnaissance, validation, and security testing",
+ "domain": "an agent working on appsec, ethical-hacking, infosec queries this for how gravion-ux/security-automation-scripts implements it: Node.js security automation scripts: HTTP header analyser, TLS posture checker and log normalizer for authorised testing",
  "repos": [
   {
    "repo": "security-automation-scripts",
    "url": "https://github.com/gravion-ux/security-automation-scripts",
-   "sha": "2f9c59955759aac2fa627f5cc5167f843209910e",
-   "licence": "MIT (LICENSE file at pin 2f9c59955759, GitHub licence API 2026-11-22)",
+   "sha": "e66b66fceb803f9aab785c6a79334fa8d4f952f7",
+   "licence": "MIT (LICENSE file at pin e66b66fceb80, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "258aa7b7313a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 258aa7b7313a); pinned to the default-branch head. LICENSE file at pin 2f9c59955759 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 258aa7b7313a); pinned to the default-branch head. LICENSE file at pin e66b66fceb80 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]

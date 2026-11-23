@@ -2,8 +2,8 @@
  "corpus": "yusing--mekugi",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on Go queries this for how yusing/mekugi implements it: The harness that provides better Agent and User Experiences (selected work: internal/router, internal/vcsguard, cmd/mekugi)",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how yusing/mekugi implements it: Archived. Development moved to mekugi-harness/mekugi (selected work: internal/router, internal/vcsguard, cmd/mekugi)",
  "repos": [
   {
    "repo": "mekugi",

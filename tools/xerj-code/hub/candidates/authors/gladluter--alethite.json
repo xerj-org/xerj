@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-memory, claude-code, claude-code-plugin queries this for how GladLuter/Alethite implements it: Claude Code plugin: see the price of a send before you pay it, hand off to a clean chat, keep memory of past chats. Windows (selected work: plugin)",
+ "domain": "an agent working on ai-memory, claude-code, claude-code-plugin queries this for how GladLuter/Alethite implements it: Claude Code plugin for long agent chats: see the price of a send before you pay it, hand off to a clean chat, keep memory of past chats, run (selected work: plugin)",
  "repos": [
   {
    "repo": "Alethite",

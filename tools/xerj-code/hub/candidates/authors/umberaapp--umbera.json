@@ -8,15 +8,15 @@
   {
    "repo": "UMBERA",
    "url": "https://github.com/UmberaAPP/UMBERA",
-   "sha": "a515d3c07bc1caac297d16a4af59868edcf33c25",
-   "licence": "Apache-2.0 (LICENSE file at pin a515d3c07bc1, GitHub licence API 2026-11-22)",
+   "sha": "7b35a1a4439cf1205e77fc25fa1e19a25eeaf74e",
+   "licence": "Apache-2.0 (LICENSE file at pin 7b35a1a4439c, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T17:32Z",
     "consent_receipt": "14cba1e68958",
-    "note": "Inclusion consented by the commit author by email at 2026-11-07T17:32Z (receipt 14cba1e68958); selected commit a515d3c07bc1: \"Add files via upload\". LICENSE file at pin a515d3c07bc1 detected as Apache-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head a515d3c07bc1 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T17:32Z (receipt 14cba1e68958); selected commit 7b35a1a4439c: \"Add files via upload\". LICENSE file at pin 7b35a1a4439c detected as Apache-2.0 by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head 7b35a1a4439c (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

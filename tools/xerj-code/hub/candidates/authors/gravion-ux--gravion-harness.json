@@ -8,15 +8,15 @@
   {
    "repo": "gravion-harness",
    "url": "https://github.com/gravion-ux/gravion-harness",
-   "sha": "f7b086cfd716de17a811870453fb73cc7820302b",
-   "licence": "MIT (LICENSE file at pin f7b086cfd716, GitHub licence API 2026-11-22)",
+   "sha": "210a2ba55da32ec00196aa0cd09be788c75e3957",
+   "licence": "MIT (LICENSE file at pin 210a2ba55da3, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "d511b963c6ea",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt d511b963c6ea); pinned to the default-branch head. LICENSE file at pin f7b086cfd716 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt d511b963c6ea); pinned to the default-branch head. LICENSE file at pin 210a2ba55da3 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]
