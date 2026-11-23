@@ -1893,6 +1893,22 @@ fn validate_properties(props: &serde_json::Map<String, Value>) -> Result<(), Str
         let Some(obj) = spec.as_object() else {
             continue;
         };
+        // #3513: no normalizer is ever built (a custom one under
+        // `analysis.normalizer` is refused at create, #204), so a field that
+        // names one, built-in `lowercase` included, would be indexed and
+        // matched unchanged: `match tag: "fruit"` silently misses "Fruit".
+        // Refuse it rather than acknowledge it and echo it back.
+        if let Some(normalizer) = obj.get("normalizer").filter(|v| !v.is_null()) {
+            let shown = normalizer
+                .as_str()
+                .map_or_else(|| normalizer.to_string(), str::to_string);
+            return Err(format!(
+                "Failed to parse mapping: normalizer [{shown}] on field [{name}] is not \
+                 supported: xerj does not build normalizers, so the field would be indexed \
+                 and matched unchanged (case-sensitive). Remove the normalizer, or map a \
+                 lowercased copy of the value."
+            ));
+        }
         if let Some(t) = obj.get("type").and_then(Value::as_str) {
             if !is_supported_field_type(t) {
                 return Err(format!(

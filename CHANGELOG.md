@@ -120,6 +120,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A field mapping that names a `normalizer` is refused
+  ([#3513](https://github.com/xerj-org/xerj/issues/3513)).** XERJ builds no
+  normalizers. A custom one under `analysis.normalizer` was already refused,
+  but `"normalizer": "lowercase"` (or any name) on a keyword field or
+  multi-field was accepted and then ignored, so `match tag: "fruit"` found
+  nothing for `"Fruit"`. Create-index and put-mapping now answer 400
+  `mapper_parsing_exception` and create nothing. Upgrade note: a client that
+  sent such a mapping got a case-sensitive field before and gets a 400 now;
+  drop the normalizer or index a lowercased copy. Indices that already exist
+  keep opening.
+
 - **A flush near the memory watermark no longer waits for the allocator purge
   ([#3493](https://github.com/xerj-org/xerj/issues/3493)).** From 70% of the
   watermark, a finished flush build returned its freed pages to the OS
