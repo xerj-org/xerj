@@ -8,15 +8,15 @@
   {
    "repo": "CrewGrid",
    "url": "https://github.com/Udit-Agarwal20/CrewGrid",
-   "sha": "45f61e30252dfb5415a6a508dacea64f1f85ede2",
-   "licence": "author's permission (LICENSE at pin 45f61e30252d: NONE; repository: none)",
+   "sha": "0a0fb29b64a572c4b714543ac6f300dc0ac617b3",
+   "licence": "MIT (LICENSE file at pin 0a0fb29b64a5, GitHub licence API 2026-11-23)",
    "review": {
-    "spdx": "NONE",
+    "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-23T17:57Z",
     "consent_receipt": "3b4f9ef59736",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-23T17:57Z (receipt 3b4f9ef59736); pinned to the default-branch head. LICENSE at pin 45f61e30252d: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-23T17:57Z (receipt 3b4f9ef59736); pinned to the default-branch head. LICENSE file at pin 0a0fb29b64a5 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]
