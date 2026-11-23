@@ -29706,6 +29706,60 @@ impl Index {
                         && scan_score_is_constant(query, &|leaf| {
                             self.leaf_scan_score_tied(leaf, &kw_fields, &num_fields, &bool_fields)
                         })));
+            // #3509: when scores can differ (no tied early stop), a bound on
+            // every match's score (`scan_score_upper_bound`, WAND / MaxScore)
+            // still lets the scan stop: a segment ends once its share of the
+            // collector is full at the ceiling, a later segment is skipped once
+            // the page is, and a match whose own bound cannot beat the kept
+            // hits is not parsed. Same preconditions as F1 (the shortcut holds
+            // `hits.total`), plus: `score_doc` is `score_query_against_doc`
+            // (no function_score, no leaf constant), relevance order, and
+            // nothing reads matches beyond the page (aggs, min_score,
+            // collapse, rescore).
+            let score_bound_leaf = |leaf: &QueryNode| {
+                self.leaf_score_bound(leaf, &kw_fields, &num_fields, &bool_fields)
+            };
+            let score_bound_ceiling: Option<f32> = if count_authoritative
+                && !scan_early_stop
+                && !count_only
+                && !ids_only
+                && sort_topk.is_none()
+                && peeled_fs.is_none()
+                && leaf_base_const.is_none()
+                && request.min_score.is_none()
+                && request.aggs.is_none()
+                && request.collapse.is_none()
+                && request.rescore.is_empty()
+            {
+                scan_score_upper_bound(query, &score_bound_leaf)
+            } else {
+                None
+            };
+            // A top-level `bool`'s clause bounds, in scorer order, with each
+            // `should` leaf kept for its per-segment position set
+            // (`ScanScoreBound::clauses`). `must` clauses always match.
+            let score_bound_clauses: Vec<(f32, Option<&QueryNode>)> = {
+                let mut top = query;
+                while let QueryNode::Named { query: inner, .. } = top {
+                    top = inner;
+                }
+                match top {
+                    QueryNode::Bool { must, should, .. }
+                        if score_bound_ceiling.is_some()
+                            && !has_analyzed_text_term_leaf(query, &dmq_schema) =>
+                    {
+                        must.iter()
+                            .map(|c| (c, None))
+                            .chain(should.iter().map(|c| (c, Some(c))))
+                            .map(|(c, leaf)| {
+                                scan_score_upper_bound(c, &score_bound_leaf).map(|b| (b, leaf))
+                            })
+                            .collect::<Option<Vec<_>>>()
+                            .unwrap_or_default()
+                    }
+                    _ => Vec::new(),
+                }
+            };
             // Read-under-write bool collapse: `bool{must:[keyword term],
             // filter:[range]}` takes the `residual_gate` FTS pass whenever the
             // memtable holds a document (`scored_columnar` needs it empty).
@@ -29808,6 +29862,22 @@ impl Index {
                         // historical behaviour and stop.
                         None => break,
                         Some(_) => {}
+                    }
+                }
+                // #3509: no match here scores above the ceiling, so once the
+                // page's worst kept hit is above it, or at it and earlier than
+                // every doc of this segment, nothing here can displace it.
+                if let Some(ceiling) = score_bound_ceiling {
+                    if all_hits.len() >= materialisation_limit {
+                        if scan_page_worst.is_none() {
+                            scan_page_worst = self.worst_page_key(&all_hits);
+                        }
+                        if scan_page_worst.as_ref().is_some_and(|w| {
+                            w.0 > ceiling || (w.0 >= ceiling && meta.min_seq_no > w.1)
+                        }) {
+                            note_score_bound_prune();
+                            continue;
+                        }
                     }
                 }
                 // Cooperative deadline: stop fanning into further segments
@@ -31310,6 +31380,29 @@ impl Index {
                     // lookups + O(candidates) simd_json parses, no per-query
                     // decompress and no O(segment-bytes) brace re-scan.
                     let sorted_candidates_path = sort_topk.is_some() && sort_cand.is_some();
+                    // #3509: this segment's score bounds (see
+                    // `ScanScoreBound`). The page floor is the worst kept
+                    // score once earlier segments / the memtable filled it.
+                    let score_bound: Option<ScanScoreBound> =
+                        score_bound_ceiling.map(|ceiling| ScanScoreBound {
+                            ceiling,
+                            page_floor: if hits_before_segment >= materialisation_limit {
+                                all_hits.iter().map(|h| h.score).reduce(f32::min)
+                            } else {
+                                None
+                            },
+                            clauses: score_bound_clauses
+                                .iter()
+                                .map(|(bound, leaf)| {
+                                    (
+                                        *bound,
+                                        leaf.and_then(|l| {
+                                            self.bool_leaf_prefilter(&segments_dir, &seg_id, l)
+                                        }),
+                                    )
+                                })
+                                .collect(),
+                        });
                     if sorted_candidates_path && !is_match_all {
                         // The scan/hydrate below visits only the narrowed
                         // candidates, so its total tally is partial — flag
@@ -31402,6 +31495,7 @@ impl Index {
                             &mut dbg_admitted,
                             score_doc,
                             scan_scores_tied,
+                            score_bound.as_ref(),
                             &dmq_schema,
                         );
                         dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
@@ -31452,6 +31546,7 @@ impl Index {
                                     &mut deadline_exceeded,
                                     score_doc,
                                     scan_scores_tied,
+                                    score_bound.as_ref(),
                                     &dmq_schema,
                                 );
                             }
@@ -31476,6 +31571,7 @@ impl Index {
                                     &mut dbg_admitted,
                                     score_doc,
                                     scan_scores_tied,
+                                    score_bound.as_ref(),
                                     &dmq_schema,
                                 );
                             }
@@ -31623,6 +31719,7 @@ impl Index {
                                     &mut dbg_admitted,
                                     score_doc,
                                     scan_scores_tied,
+                                    score_bound.as_ref(),
                                     &dmq_schema,
                                 );
                                 dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
@@ -37256,6 +37353,86 @@ impl Index {
         })
     }
 
+    /// #3509: an upper bound on the stored scan's score for a SEGMENT match
+    /// of the `term` leaf `q` (`scan_score_upper_bound`). The score is
+    /// `boost * (1 + ln(1 + tf))` (`boost` when tf is 0), tf counting the
+    /// query's tokens in the matched value (`match_term_frequency`). It is
+    /// bounded when every segment ships a full, null-free column for the field
+    /// (one value per document, the #3497 tie argument):
+    /// - keyword, string value: a match holds exactly that string
+    ///   (`json_scalar_equal`) or a non-string (tf 0), so tf is the query's
+    ///   own tf, computed here with the scorer's own function;
+    /// - numeric / boolean: a string spelling that parses to the queried
+    ///   number (or names the boolean) holds the query token at most once, so
+    ///   tf <= 1.
+    ///
+    /// Anything else (no column, an array, a CIDR term, a negative boost):
+    /// `None`.
+    fn leaf_score_bound(
+        &self,
+        q: &QueryNode,
+        kw_fields: &HashSet<String>,
+        num_fields: &HashSet<String>,
+        bool_fields: &HashSet<String>,
+    ) -> Option<f32> {
+        use xerj_storage::doc_values::Column;
+        let QueryNode::Term {
+            field,
+            value,
+            boost,
+        } = q
+        else {
+            return None;
+        };
+        let b = boost.unwrap_or(1.0);
+        if !(b.is_finite() && b >= 0.0) {
+            return None;
+        }
+        let tf: f32 = match value {
+            Value::String(term) if kw_fields.contains(field) && !term.contains('/') => {
+                match_term_frequency(&serde_json::json!({ "v": term }), "v", term)
+            }
+            Value::Number(_) | Value::Bool(_)
+                if num_fields.contains(field) || bool_fields.contains(field) =>
+            {
+                1.0
+            }
+            // One whitespace-free token: it equals at most one token of the
+            // only string it can match, itself.
+            Value::String(term)
+                if (num_fields.contains(field) || bool_fields.contains(field))
+                    && !term.contains(char::is_whitespace) =>
+            {
+                1.0
+            }
+            _ => return None,
+        };
+        let snap = self.store.snapshot();
+        let segments_dir = self.data_dir.join("segments");
+        let full = snap.segments.iter().all(|meta| {
+            let Some(cols) = self.dv_columns_for(&segments_dir, &meta.id) else {
+                return false;
+            };
+            match cols.get(field.as_str()) {
+                Some(Column::Keyword(k)) => {
+                    k.doc_count as u64 == meta.doc_count && k.null_bitmap.is_empty()
+                }
+                Some(Column::Numeric(n)) => {
+                    n.doc_count as u64 == meta.doc_count && n.null_bitmap.is_empty()
+                }
+                _ => false,
+            }
+        });
+        if !full {
+            return None;
+        }
+        Some(if tf == 0.0 {
+            b
+        } else {
+            b * (1.0 + (1.0 + tf).ln())
+        })
+    }
+
     fn leaf_constant_score(
         &self,
         q: &QueryNode,
@@ -39719,6 +39896,51 @@ impl Index {
         Some(Arc::new(PrefilterSet::from_set(set)))
     }
 
+    /// Resolve a single `bool` leaf clause to its COMPLETE match-position set
+    /// for this segment (term/terms/range, also under `constant_score` /
+    /// boost). `None` = not resolvable to a complete set (e.g. a
+    /// `match`/`wildcard` clause, or a range broader than the cap).
+    fn bool_leaf_prefilter(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        child: &QueryNode,
+    ) -> Option<Arc<PrefilterSet>> {
+        let child = match child {
+            QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => query.as_ref(),
+            _ => child,
+        };
+        match child {
+            QueryNode::Term { field, value, .. } => self.build_term_prefilter_cached(
+                segments_dir,
+                segment_id,
+                field,
+                std::slice::from_ref(value),
+            ),
+            QueryNode::Terms { field, values, .. } => {
+                self.build_term_prefilter_cached(segments_dir, segment_id, field, values)
+            }
+            QueryNode::Range {
+                field,
+                gte,
+                gt,
+                lte,
+                lt,
+                ..
+            } => self.build_range_prefilter_cached(
+                segments_dir,
+                segment_id,
+                field,
+                gte.as_ref(),
+                gt.as_ref(),
+                lte.as_ref(),
+                lt.as_ref(),
+                BOOL_PREFILTER_CAP,
+            ),
+            _ => None,
+        }
+    }
+
     /// Superset pre-filter for a pure-conjunction `bool` (`must` + `filter`
     /// only — no `should` / `must_not`).
     ///
@@ -39754,47 +39976,7 @@ impl Index {
         else {
             return None;
         };
-        const BOOL_PREFILTER_CAP: usize = 65_536;
-        // Resolve a single leaf clause to its COMPLETE match-position set for
-        // this segment (term/terms/range only). `None` = not resolvable to a
-        // complete set (e.g. a `match`/`wildcard` clause).
-        let resolve = |child: &QueryNode| -> Option<Arc<PrefilterSet>> {
-            let child = match child {
-                QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
-                    query.as_ref()
-                }
-                _ => child,
-            };
-            match child {
-                QueryNode::Term { field, value, .. } => self.build_term_prefilter_cached(
-                    segments_dir,
-                    segment_id,
-                    field,
-                    std::slice::from_ref(value),
-                ),
-                QueryNode::Terms { field, values, .. } => {
-                    self.build_term_prefilter_cached(segments_dir, segment_id, field, values)
-                }
-                QueryNode::Range {
-                    field,
-                    gte,
-                    gt,
-                    lte,
-                    lt,
-                    ..
-                } => self.build_range_prefilter_cached(
-                    segments_dir,
-                    segment_id,
-                    field,
-                    gte.as_ref(),
-                    gt.as_ref(),
-                    lte.as_ref(),
-                    lt.as_ref(),
-                    BOOL_PREFILTER_CAP,
-                ),
-                _ => None,
-            }
-        };
+        let resolve = |child: &QueryNode| self.bool_leaf_prefilter(segments_dir, segment_id, child);
 
         // CASE A — at least one REQUIRED conjunct (`must`/`filter`).
         // Every hit is a subset of the AND of all required conjuncts, hence a
@@ -40652,10 +40834,17 @@ impl Index {
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
         // #3465: see `scan_stored_section_into`.
         scores_tied: bool,
+        // #3509: see `scan_stored_section_into`.
+        score_bound: Option<&ScanScoreBound>,
         schema: &Schema,
     ) {
         // One call hydrates one segment: hits from `segment_floor` on are its own.
         let segment_floor = all_hits.len();
+        // #3509: `(all_hits.len(), displacements)` when `segment_worst` was
+        // last computed.
+        let mut displacements: u64 = 0;
+        let mut worst_at: Option<(usize, u64)> = None;
+        let mut segment_worst: Option<f32> = None;
         // LOSS_BATTLE_PLAN B7 (completed): the positions arrive PRE-SORTED
         // ascending from the cached `PrefilterSet` — zero per-query set
         // collection, selection, or sorting.  With an authoritative count
@@ -40673,6 +40862,21 @@ impl Index {
             }
             if count_authoritative && !count_only && all_hits.len() >= materialisation_limit {
                 break;
+            }
+            if let Some(bound) = score_bound {
+                if worst_at != Some((all_hits.len(), displacements)) {
+                    segment_worst =
+                        segment_worst_score(all_hits, segment_floor, materialisation_limit);
+                    worst_at = Some((all_hits.len(), displacements));
+                }
+                if bound.segment_done(segment_worst) {
+                    note_score_bound_prune();
+                    break;
+                }
+                if bound.skips(pos, segment_worst) {
+                    note_score_bound_prune();
+                    continue;
+                }
             }
             let Some(&(start, end)) = slices.offsets.get(pos as usize) else {
                 continue;
@@ -40741,6 +40945,7 @@ impl Index {
                     let score = scorer(source_ref, id_ref);
                     if let Some(at) = stored_scan_displaced_slot(&all_hits[segment_floor..], score)
                     {
+                        displacements += 1;
                         let id = id_ref.to_string();
                         seen_ids.insert(id.clone());
                         all_hits[segment_floor + at] = Hit {
@@ -41093,6 +41298,11 @@ impl Index {
         // `search_inner`). When false, a full collector keeps this segment's
         // best hits by score instead of its first ones.
         scores_tied: bool,
+        // #3509: score bounds (`ScanScoreBound`); `Some` only when the caller
+        // may skip matches (the shortcut holds `hits.total`, relevance
+        // order). A match that cannot enter the page is not parsed, and the
+        // walk stops once this segment's share is full at the ceiling.
+        score_bound: Option<&ScanScoreBound>,
         schema: &Schema,
     ) {
         // #3285: this walk is synchronous, so the scoped analyzer covers
@@ -41100,6 +41310,11 @@ impl Index {
         let _phrase_analyzer = ScanPhraseAnalyzer::enter(self.scan_phrase_analyzer());
         // One call walks one segment: hits from `segment_floor` on are its own.
         let segment_floor = all_hits.len();
+        // #3509: `(all_hits.len(), displacements)` when `segment_worst` was
+        // last computed.
+        let mut displacements: u64 = 0;
+        let mut worst_at: Option<(usize, u64)> = None;
+        let mut segment_worst: Option<f32> = None;
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
         // JSON array of objects).  We walk the bytes, find each top-level
@@ -41277,6 +41492,25 @@ impl Index {
             // advanced `i` past the doc, so just loop.
             if let Some(filter) = pre_filter {
                 if !filter.contains(&cur_pos) {
+                    continue;
+                }
+            }
+
+            // #3509: skip a match that cannot enter the page before parsing
+            // it; stop once nothing left in the segment can (not while the
+            // offsets map must cover the whole section).
+            if let Some(bound) = score_bound {
+                if worst_at != Some((all_hits.len(), displacements)) {
+                    segment_worst =
+                        segment_worst_score(all_hits, segment_floor, materialisation_limit);
+                    worst_at = Some((all_hits.len(), displacements));
+                }
+                if offsets_out.is_none() && bound.segment_done(segment_worst) {
+                    note_score_bound_prune();
+                    return;
+                }
+                if bound.skips(cur_pos, segment_worst) {
+                    note_score_bound_prune();
                     continue;
                 }
             }
@@ -41568,6 +41802,7 @@ impl Index {
                     let score = scorer(source_ref, id_ref);
                     if let Some(at) = stored_scan_displaced_slot(&all_hits[segment_floor..], score)
                     {
+                        displacements += 1;
                         let id = id_ref.to_string();
                         seen_ids.insert(id.clone());
                         all_hits[segment_floor + at] = Hit {
@@ -60787,6 +61022,126 @@ fn scan_score_is_constant(q: &QueryNode, leaf_const: &dyn Fn(&QueryNode) -> bool
     }
 }
 
+/// #3509: an upper bound on `score_query_against_doc(q, ..)` over every
+/// document that matches `q`, or `None` when this shape has none it can prove.
+/// WAND / MaxScore's per-clause "max score" (tantivy
+/// `query/boolean_query/block_wand_union.rs`, MIT; approach only, no code
+/// copied): once the stored-scan collector's worst kept score reaches the
+/// bound, no later match can enter the page.
+///
+/// Every clause bound is at least 0.0 and at least the clause's score on ANY
+/// document (an unmatched clause scores 0.0), so a `bool` adds them in the
+/// order its scorer does (`must`, then `should`; `filter` / `must_not` add
+/// nothing). Float addition is monotone, so the sum of the bounds is at least
+/// the sum of the scores. A `bool` whose clauses sum to 0.0 scores 1.0, hence
+/// the `max(1.0)`. `leaf_bound` answers `term` (see `leaf_score_bound`: its
+/// score depends on the matched value).
+fn scan_score_upper_bound(
+    q: &QueryNode,
+    leaf_bound: &dyn Fn(&QueryNode) -> Option<f32>,
+) -> Option<f32> {
+    let nonneg = |b: f32| b.is_finite().then_some(b.max(0.0));
+    match q {
+        QueryNode::MatchAll => Some(1.0),
+        QueryNode::MatchNone => Some(0.0),
+        QueryNode::Constant { score, .. } => nonneg(*score),
+        QueryNode::Boosted { boost, .. } => nonneg(*boost),
+        QueryNode::Terms { boost, .. }
+        | QueryNode::Range { boost, .. }
+        | QueryNode::Prefix { boost, .. }
+        | QueryNode::Wildcard { boost, .. } => nonneg(boost.unwrap_or(1.0)),
+        QueryNode::Named { query, .. } => scan_score_upper_bound(query, leaf_bound),
+        QueryNode::Term { .. } => leaf_bound(q),
+        QueryNode::Bool { must, should, .. } => {
+            let mut sum = 0.0f32;
+            for c in must.iter().chain(should) {
+                sum += scan_score_upper_bound(c, leaf_bound)?;
+            }
+            Some(sum.max(1.0))
+        }
+        _ => None,
+    }
+}
+
+/// #3509: per-document score bounds for the stored scan (WAND / MaxScore, see
+/// `scan_score_upper_bound`). Built per segment by `search_inner` only when
+/// the page may skip matches: the shortcut supplies `hits.total`, no field
+/// sort, no function_score, and scores can differ (else the tied early stop
+/// already applies).
+struct ScanScoreBound {
+    /// No match of the query scores above this.
+    ceiling: f32,
+    /// The worst score of a page already full before this segment (earlier
+    /// segments, the memtable). A match bounded strictly below it cannot get
+    /// in. Equal can: it may have arrived earlier than the worst kept hit.
+    page_floor: Option<f32>,
+    /// A top-level `bool`'s scoring clauses in scorer order (`must`, then
+    /// `should`): each clause's bound and, for a `should` leaf that resolves
+    /// to its COMPLETE doc-values match set in this segment, that set. A
+    /// position outside the set cannot match the clause, so the clause adds
+    /// 0.0 to that document. Empty: every document gets `ceiling`.
+    clauses: Vec<(f32, Option<Arc<PrefilterSet>>)>,
+}
+
+impl ScanScoreBound {
+    /// The bound for the document at `pos` (same order and arithmetic as
+    /// `scan_score_upper_bound`, with non-member clauses dropped).
+    fn doc_bound(&self, pos: u32) -> f32 {
+        if self.clauses.is_empty() {
+            return self.ceiling;
+        }
+        let mut sum = 0.0f32;
+        for (bound, set) in &self.clauses {
+            let member = match set {
+                Some(set) => set.set.contains(&pos),
+                None => true,
+            };
+            if member {
+                sum += *bound;
+            }
+        }
+        sum.max(1.0)
+    }
+
+    /// Whether the match at `pos` cannot enter the page. `segment_worst` is
+    /// the lowest score among this segment's kept hits once its share of the
+    /// collector is full: a later position loses a tie there (the segment is
+    /// walked in `seq_no` order), so equal is skipped too.
+    fn skips(&self, pos: u32, segment_worst: Option<f32>) -> bool {
+        let bound = self.doc_bound(pos);
+        self.page_floor.is_some_and(|f| bound < f) || segment_worst.is_some_and(|w| bound <= w)
+    }
+
+    /// Whether nothing left in this segment can enter the page: its share of
+    /// the collector is full and its worst kept score reaches the ceiling.
+    fn segment_done(&self, segment_worst: Option<f32>) -> bool {
+        segment_worst.is_some_and(|w| w >= self.ceiling)
+    }
+}
+
+/// #3509: how often a score bound skipped a match, ended a segment or
+/// skipped one (tests assert the bound actually prunes).
+#[cfg(test)]
+static SCORE_BOUND_PRUNES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+#[inline]
+fn note_score_bound_prune() {
+    #[cfg(test)]
+    SCORE_BOUND_PRUNES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// #3509: the lowest score in a segment's share of the stored-scan collector,
+/// once that share is full (`None` before).
+fn segment_worst_score(all_hits: &[Hit], segment_floor: usize, limit: usize) -> Option<f32> {
+    if all_hits.len() < limit || all_hits.len() <= segment_floor {
+        return None;
+    }
+    all_hits[segment_floor..]
+        .iter()
+        .map(|h| h.score)
+        .reduce(f32::min)
+}
+
 /// The slot a new match takes in a full stored-scan collector, or `None` when
 /// it does not beat any of `segment_hits` (#3465).
 ///
@@ -61601,6 +61956,10 @@ struct PrefilterSet {
     set: HashSet<u32>,
     sorted: Vec<u32>,
 }
+
+/// Cap on one `bool` leaf's range position set and on a pure-`should`
+/// union (`build_bool_prefilter_cached`, `bool_leaf_prefilter`).
+const BOOL_PREFILTER_CAP: usize = 65_536;
 
 impl PrefilterSet {
     /// Build from a position vector (any order; sorted + deduped here).
