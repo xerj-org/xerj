@@ -46,7 +46,13 @@ use crate::segment_cache_estimates as cache_estimates;
 pub(crate) type Resident<T> = Arc<CacheResident<T>>;
 pub(crate) type DocValueMap = std::collections::BTreeMap<String, xerj_storage::doc_values::Column>;
 
-fn index_segment_hydration_budget(_config: &Config) -> Arc<SegmentHydrationBudget> {
+fn index_segment_hydration_budget(config: &Config) -> Arc<SegmentHydrationBudget> {
+    #[cfg(test)]
+    if let Some(budget) = isolated_test_hydration_budget(config) {
+        return budget;
+    }
+    #[cfg(not(test))]
+    let _ = config;
     if let Some(governor) = crate::governor::global() {
         return governor.segment_hydration_budget();
     }
@@ -61,6 +67,43 @@ fn index_segment_hydration_budget(_config: &Config) -> Arc<SegmentHydrationBudge
     }
     #[cfg(not(test))]
     panic!("Index construction requires the process ResourceGovernor to be initialised");
+}
+
+/// Test-only hydration budgets, keyed by an engine's `server.data_dir`.
+///
+/// The hydration budget is process-wide (the governor's), and the governor
+/// re-targets it from the process RSS. In the lib test binary that one
+/// budget is shared by every test running at the same time, so a test that
+/// asserts on its own index's charges, or moves the target, races the others
+/// and changes their admissions. A test that needs a budget of its own
+/// registers its data dir before opening the engine.
+#[cfg(test)]
+static ISOLATED_TEST_HYDRATION_BUDGETS: std::sync::LazyLock<
+    std::sync::Mutex<HashMap<String, Arc<SegmentHydrationBudget>>>,
+> = std::sync::LazyLock::new(Default::default);
+
+/// Give every index of the engine opened on `data_dir` one unlimited
+/// hydration budget of its own, outside the governor. Returns that budget.
+#[cfg(test)]
+pub(crate) fn isolate_test_hydration_budget(data_dir: &Path) -> Arc<SegmentHydrationBudget> {
+    let key = data_dir.to_string_lossy().into_owned();
+    let mut budgets = ISOLATED_TEST_HYDRATION_BUDGETS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    Arc::clone(
+        budgets
+            .entry(key)
+            .or_insert_with(|| SegmentHydrationBudget::new(u64::MAX)),
+    )
+}
+
+#[cfg(test)]
+fn isolated_test_hydration_budget(config: &Config) -> Option<Arc<SegmentHydrationBudget>> {
+    ISOLATED_TEST_HYDRATION_BUDGETS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&config.server.data_dir)
+        .map(Arc::clone)
 }
 
 /// Reserve `bytes` of transient read memory unless the hydration cache has
@@ -3601,6 +3644,12 @@ mod flush_publication_recovery_tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn cold_topk_with_source_includes_reads_only_winning_rows() {
         let dir = tempfile::tempdir().unwrap();
+        // The background warm is skipped when the hydration budget has no
+        // room for the slices. Shared, the budget is filled or re-targeted by
+        // whatever else runs in this process (see
+        // `fts_reader_displaces_decoded_sections_when_the_budget_is_full`),
+        // and the warm then never lands.
+        isolate_test_hydration_budget(dir.path());
         let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
         engine
             .create_index("topk-cold", topk_projection_schema())
@@ -73471,6 +73520,9 @@ mod multi_valued_keyword_term_3412_tests {
         name: &str,
     ) -> (tempfile::TempDir, crate::Engine, Arc<Index>, usize) {
         let dir = tempfile::tempdir().unwrap();
+        // #3455 tests fill and re-target this index's hydration budget; on
+        // the shared one that races every test running beside them.
+        isolate_test_hydration_budget(dir.path());
         let mut config = Config::default();
         config.server.data_dir = dir.path().to_string_lossy().into_owned();
         let engine = crate::Engine::new(config).unwrap();
