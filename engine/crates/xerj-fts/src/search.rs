@@ -1564,8 +1564,17 @@ impl FtsSearcher {
         // Should clauses: track per-doc match count and scores
         let mut should_match_count: rustc_hash::FxHashMap<u32, u32> =
             rustc_hash::FxHashMap::default();
+        // A doc outside the required set (must ∩ filter) can never be a hit,
+        // so it is not counted or scored: with a narrow filter beside a
+        // common `should` term this skips most of the map work (#3518).
         for should_result in &should_hits {
             for hit in should_result {
+                if candidate_docs
+                    .as_ref()
+                    .is_some_and(|c| !c.contains(&hit.doc_id))
+                {
+                    continue;
+                }
                 *should_match_count.entry(hit.doc_id).or_insert(0) += 1;
                 *score_map.entry(hit.doc_id).or_insert(0.0) += hit.score;
             }
