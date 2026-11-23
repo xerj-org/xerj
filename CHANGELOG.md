@@ -123,6 +123,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`xerj-flush-purge`). The flush path spends under 0.12 ms there at p90, and
   the trigger and the memory breaker are unchanged. (Refs #2427)
 
+- **`match` on a keyword multi-field is a whole-value term match
+  ([#3488](https://github.com/xerj-org/xerj/issues/3488)).** `title.raw`
+  under a `text` title, the dynamic `title.keyword`, and `obj.name.raw` are
+  not analysed, as in Elasticsearch. Before, `match title.raw: "Hello World"`
+  found nothing until `_flush` and then also hit `"hello"`; `match title.raw:
+  "World"` hit `"Hello World"`. `multi_match` over such a field is fixed the
+  same way. A top-level `keyword` field already behaved this way.
+
 - **`xerj_code_on_an_empty_ledger_names_catalog_prefixes` no longer counts the
   node probe as a catalog read
   ([#3468](https://github.com/xerj-org/xerj/issues/3468)).** Each `xerj code`
