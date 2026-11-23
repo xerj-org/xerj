@@ -8,15 +8,15 @@
   {
    "repo": "repo-nexus",
    "url": "https://github.com/unoxen/repo-nexus",
-   "sha": "abf1862c394589ef810371fade53a0177994dc36",
-   "licence": "Apache-2.0 (LICENSE file at pin abf1862c3945, GitHub licence API 2026-11-22)",
+   "sha": "3658a90c1f8a311f3cd231e65803b8bbe85d58d6",
+   "licence": "Apache-2.0 (LICENSE file at pin 3658a90c1f8a, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-13T06:44Z",
     "consent_receipt": "6746b9d4e482",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T06:44Z (receipt 6746b9d4e482); selected commit abf1862c3945: \"fix: cleanly deactivate disabled plugins and gate AGENTS.md routing\". LICENSE file at pin abf1862c3945 detected as Apache-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head abf1862c3945 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T06:44Z (receipt 6746b9d4e482); selected commit 3658a90c1f8a: \"fix: cleanly deactivate disabled plugins and gate AGENTS.md routing\". LICENSE file at pin 3658a90c1f8a detected as Apache-2.0 by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head 3658a90c1f8a (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

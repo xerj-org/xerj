@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on apple-silicon, computer-vision, convnext queries this for how emrahnazif/mayaku implements it: Mayaku is a real-time object detection, segmentation and keypoint library. SOTA for fine-tuning and exports (selected work: src/mayaku, tests)",
+ "domain": "an agent working on apple-silicon, computer-vision, fine-tuning queries this for how emrahnazif/mayaku implements it: The most accurate nano detector to fine-tune on your own data. Real-time detection and instance segmentation, true int8 on any accelerator.  (selected work: src/mayaku, tests)",
  "repos": [
   {
    "repo": "mayaku",

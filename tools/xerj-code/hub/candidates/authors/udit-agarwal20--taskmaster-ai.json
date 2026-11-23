@@ -8,15 +8,15 @@
   {
    "repo": "taskmaster-ai",
    "url": "https://github.com/Udit-Agarwal20/taskmaster-ai",
-   "sha": "a4555fcbd9aeeb19f9fd35de7eea689ed7002b33",
-   "licence": "author's permission (LICENSE at pin a4555fcbd9ae: NONE; repository: none)",
+   "sha": "6e06f20de8c9c42a2cabdd4999424f1433aabcd9",
+   "licence": "MIT (LICENSE file at pin 6e06f20de8c9, GitHub licence API 2026-11-23)",
    "review": {
-    "spdx": "NONE",
+    "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-23T18:03Z",
     "consent_receipt": "6d7411b49313",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-23T18:03Z (receipt 6d7411b49313); pinned to the default-branch head. LICENSE at pin a4555fcbd9ae: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-23T18:03Z (receipt 6d7411b49313); pinned to the default-branch head. LICENSE file at pin 6e06f20de8c9 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]

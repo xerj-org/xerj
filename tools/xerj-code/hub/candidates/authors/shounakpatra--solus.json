@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on android, jetpack-compose, kotlin queries this for how ShounakPatra/Solus implements it: Private, offline Android AI chat powered by on-device language and vision models (selected work: app/src)",
+ "domain": "an agent working on android, jetpack-compose, kotlin queries this for how ShounakPatra/Solus implements it: 100% offline local AI for Android. Zero-telemetry chat, vision, Rust RAG & neural TTS via llama.cpp (Vulkan), LiteRT, ONNX & Candle (selected work: app/src)",
  "repos": [
   {
    "repo": "Solus",

@@ -1,0 +1,23 @@
+{
+ "corpus": "kubashh--minesweeper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on minesweeper, old-school, typescript queries this for how kubashh/minesweeper implements it: Old-school Minesweeper game",
+ "repos": [
+  {
+   "repo": "minesweeper",
+   "url": "https://github.com/kubashh/minesweeper",
+   "sha": "75e1474d9b6d321cedd323ff0908044a04c6d347",
+   "licence": "author's permission (LICENSE at pin 75e1474d9b6d: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-23T18:49Z",
+    "consent_receipt": "76df5b82278a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-23T18:49Z (receipt 76df5b82278a); pinned to the default-branch head. LICENSE at pin 75e1474d9b6d: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}
