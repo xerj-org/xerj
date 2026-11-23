@@ -830,7 +830,9 @@ fn column_is_referenced(col: &str, names: &std::collections::HashSet<String>) ->
 /// "skip dead docs" of tantivy (`src/collector/mod.rs:192-210`, MIT: a
 /// segment collector is fed only `alive_bitset` docs), done once per column
 /// instead of once per executor. Returns the entry and the bytes its copied
-/// columns hold.
+/// columns hold. Uncached; queries go through `Index::cached_live_row_view`
+/// (#3467), which keeps the copy per (segment, ghost generation, columns).
+#[cfg(test)]
 fn live_row_view(
     id: &str,
     cols: &super::Resident<super::DocValueMap>,
@@ -838,34 +840,172 @@ fn live_row_view(
     ghosts: &[u64],
     fields: &Option<std::collections::HashSet<String>>,
 ) -> Option<(SegEntry, u64)> {
-    let n = u32::try_from(doc_count).ok()?;
-    let row_map: Vec<u32> = (0..n).filter(|&r| !ghost_bit(ghosts, r)).collect();
-    let mut view = super::DocValueMap::new();
-    let mut bytes: u64 = (row_map.capacity() as u64).saturating_mul(4);
-    for (name, col) in cols.iter() {
-        if let Some(names) = fields {
-            if !column_is_referenced(name, names) {
-                continue;
-            }
-        }
-        let kept = col.retain_rows(&row_map).ok()?;
-        bytes = bytes.saturating_add(kept.estimated_retained_bytes());
-        view.insert(name.clone(), kept);
-    }
-    let docs = row_map.len() as u32;
+    let (view, row_map, bytes) = live_row_columns(cols, doc_count, ghosts, fields)?;
     Some((
-        SegEntry {
-            id: id.to_string(),
-            cols: crate::segment_cache_budget::CacheResident::uncached(view),
-            docs,
-            ghosts: None,
-            row_map: Some(std::sync::Arc::new(row_map)),
-        },
+        live_view_entry(
+            id,
+            crate::segment_cache_budget::CacheResident::uncached(view),
+            std::sync::Arc::new(row_map),
+        ),
         bytes,
     ))
 }
 
+/// The columns a live-row view of `cols` copies for a plan referencing
+/// `fields` (`None`: every column), in `cols` order (sorted).
+fn live_view_column_names<'c>(
+    cols: &'c super::DocValueMap,
+    fields: &Option<std::collections::HashSet<String>>,
+) -> Vec<&'c str> {
+    cols.keys()
+        .filter(|name| match fields {
+            Some(names) => column_is_referenced(name, names),
+            None => true,
+        })
+        .map(String::as_str)
+        .collect()
+}
+
+/// The live-row copy behind [`live_row_view`]: the kept columns, the row map,
+/// and the bytes both hold.
+fn live_row_columns(
+    cols: &super::DocValueMap,
+    doc_count: u64,
+    ghosts: &[u64],
+    fields: &Option<std::collections::HashSet<String>>,
+) -> Option<(super::DocValueMap, Vec<u32>, u64)> {
+    let n = u32::try_from(doc_count).ok()?;
+    let row_map: Vec<u32> = (0..n).filter(|&r| !ghost_bit(ghosts, r)).collect();
+    let mut view = super::DocValueMap::new();
+    let mut bytes: u64 = (row_map.capacity() as u64).saturating_mul(4);
+    for name in live_view_column_names(cols, fields) {
+        let kept = cols.get(name)?.retain_rows(&row_map).ok()?;
+        bytes = bytes.saturating_add(kept.estimated_retained_bytes());
+        view.insert(name.to_string(), kept);
+    }
+    Some((view, row_map, bytes))
+}
+
+fn live_view_entry(
+    id: &str,
+    cols: super::Resident<super::DocValueMap>,
+    row_map: std::sync::Arc<Vec<u32>>,
+) -> SegEntry {
+    SegEntry {
+        id: id.to_string(),
+        cols,
+        docs: row_map.len() as u32,
+        ghosts: None,
+        row_map: Some(row_map),
+    }
+}
+
+/// [#3467] A cached live-row view: the ghost bitmap it was built from, its
+/// row map, and the copied columns (charged to the hydration budget).
+pub(super) type LiveViewEntry = (
+    std::sync::Arc<Vec<u64>>,
+    std::sync::Arc<Vec<u32>>,
+    super::Resident<super::DocValueMap>,
+);
+
+/// Entry cap for `dv_live_view_cache`. Bytes are bounded by the hydration
+/// budget; this bounds the key count, since column sets are query-shaped.
+const LIVE_VIEW_CACHE_MAX: usize = 256;
+
 impl Index {
+    /// [#3467] [`live_row_view`], cached per (segment, ghost generation,
+    /// column set). The key is the segment id plus the copied column names;
+    /// the generation is the segment's ghost bitmap, stored with the entry: a
+    /// hit is served only while the current bitmap is identical, so a delete
+    /// or overwrite of any row in the segment rebuilds the view, while writes
+    /// that leave the segment alone keep it. tantivy keys its per-segment
+    /// warm state the same way, by (segment id, delete opstamp)
+    /// (`src/core/searcher.rs:32-51`, MIT); there is no per-segment delete
+    /// opstamp here (`ghost_events` is index-wide), so the bitmap itself is
+    /// the generation. Segments are immutable and a merge retires the id
+    /// (`remove_segment_hydration_entries` evicts by prefix), so the columns
+    /// behind a key never change.
+    ///
+    /// Returns the bytes this call built (0 on a hit): those are what the
+    /// query allocated. A build the hydration budget cannot keep is used
+    /// once and dropped, as before #3467.
+    fn cached_live_row_view(
+        &self,
+        id: &str,
+        cols: &super::Resident<super::DocValueMap>,
+        doc_count: u64,
+        ghosts: &std::sync::Arc<Vec<u64>>,
+        fields: &Option<std::collections::HashSet<String>>,
+    ) -> Option<(SegEntry, u64)> {
+        let key = {
+            let names = live_view_column_names(cols, fields);
+            let mut key = String::with_capacity(id.len() + 1 + names.len() * 16);
+            key.push_str(id);
+            key.push('\u{1}');
+            for (i, name) in names.iter().enumerate() {
+                if i > 0 {
+                    key.push('\u{2}');
+                }
+                key.push_str(name);
+            }
+            key
+        };
+        if let Some(hit) = self.dv_live_view_cache.get(&key) {
+            let (built_from, row_map, view) = hit.value();
+            if std::sync::Arc::ptr_eq(built_from, ghosts) || **built_from == **ghosts {
+                return Some((
+                    live_view_entry(
+                        id,
+                        std::sync::Arc::clone(view),
+                        std::sync::Arc::clone(row_map),
+                    ),
+                    0,
+                ));
+            }
+        }
+        let (view, row_map, bytes) = live_row_columns(cols, doc_count, ghosts, fields)?;
+        let row_map = std::sync::Arc::new(row_map);
+        use crate::segment_cache_budget::{CacheResident, SegmentCacheCategory};
+        // Same publication rule as `publish_current_permitted`: under the
+        // lifecycle read lock, and only while the segment is current, so a
+        // merge that already evicted this id cannot be re-populated.
+        let _publication = self.segment_cache_lifecycle.read();
+        let current = self
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .any(|meta| meta.id == id);
+        let charge = current
+            .then(|| {
+                self.segment_hydration_budget
+                    .try_charge(SegmentCacheCategory::DocValues, bytes)
+            })
+            .flatten();
+        let resident = match charge {
+            Some(charge) => {
+                let resident =
+                    CacheResident::admitted(view, charge, SegmentCacheCategory::DocValues, bytes);
+                if self.dv_live_view_cache.len() >= LIVE_VIEW_CACHE_MAX {
+                    self.dv_live_view_cache.clear();
+                }
+                // Replaces an entry of an older generation, whose charge is
+                // refunded when its last reader drops it.
+                self.dv_live_view_cache.insert(
+                    key,
+                    (
+                        std::sync::Arc::clone(ghosts),
+                        std::sync::Arc::clone(&row_map),
+                        std::sync::Arc::clone(&resident),
+                    ),
+                );
+                resident
+            }
+            None => CacheResident::uncached(view),
+        };
+        Some((live_view_entry(id, resident, row_map), bytes))
+    }
+
     /// Entry point — see module docs.  Returns `Some(agg_result)` (shaped
     /// exactly like `run_aggs_with_all`'s return) or `None` to fall back.
     pub(super) fn try_fast_aggs(
@@ -1023,10 +1163,12 @@ impl Index {
                 (live_view_ghosts.get(&meta.id), view_fields.as_ref())
             {
                 let (entry, bytes) =
-                    live_row_view(&meta.id, &cols, meta.doc_count, ghosts, fields)?;
+                    self.cached_live_row_view(&meta.id, &cols, meta.doc_count, ghosts, fields)?;
                 view_bytes = view_bytes.saturating_add(bytes);
                 // The per-query budget the brute corpus is priced against,
-                // applied to what this path really holds: the copied columns.
+                // applied to what this path really holds: the copied columns
+                // this query built. A view served from `dv_live_view_cache`
+                // (#3467) counts 0 here; the hydration budget holds it.
                 if let Some(g) = crate::governor::global() {
                     if g.query_memory_enabled()
                         && g.check_query_alloc(view_bytes, "aggregation doc-values live view")
@@ -7035,5 +7177,213 @@ mod range_kw_tests {
             resolve_pred(&c, &p, &[], &std::collections::HashSet::new()).expect("resolvable"),
             SegPred::Never
         ));
+    }
+}
+
+/// #3467: the live-row view cache serves a repeat query, keeps a segment's
+/// view across writes that leave that segment alone, rebuilds it when a row
+/// of the segment is deleted or overwritten, and drops it when a merge
+/// retires the segment. Every step checks the aggregation is still exact.
+#[cfg(test)]
+mod live_view_cache_tests {
+    use super::super::Index;
+    use serde_json::{json, Value};
+    use std::collections::{BTreeMap, HashMap};
+    use std::sync::Arc;
+    use xerj_common::config::Config;
+    use xerj_common::types::{FieldConfig, FieldType, Schema};
+
+    const DOCS: u32 = 12_000;
+    const CATS: u32 = 10;
+
+    fn doc(i: u32, generation: u32) -> Value {
+        json!({
+            "cat": format!("c{}", i % CATS),
+            "n": (i + generation * 100_000) as i64,
+        })
+    }
+
+    /// The cached resident behind each segment's view, by segment id.
+    fn cached(idx: &Index) -> HashMap<String, usize> {
+        idx.dv_live_view_cache
+            .iter()
+            .map(|e| {
+                let seg = e.key().split('\u{1}').next().unwrap().to_string();
+                (seg, Arc::as_ptr(&e.value().2) as usize)
+            })
+            .collect()
+    }
+
+    /// `terms(cat)` with a `sum(n)` sub-agg (not the row-exact plan, so a
+    /// dirty segment is read through a live-row view), under a fresh agg
+    /// name so the request cache cannot answer it.
+    async fn run(idx: &Arc<Index>, tag: &str) -> Value {
+        let name = format!("a_{tag}");
+        let body = json!({
+            "size": 0,
+            "aggs": { name.clone(): { "terms": { "field": "cat", "size": 100 },
+                       "aggs": { "s": { "sum": { "field": "n" } } } } }
+        });
+        let res = idx
+            .search(&xerj_query::parse_request(&body).unwrap())
+            .await
+            .unwrap();
+        let mut rows: Vec<(String, u64, f64)> = res.aggs.unwrap()[&name]["buckets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| {
+                (
+                    b["key"].as_str().unwrap().to_string(),
+                    b["doc_count"].as_u64().unwrap(),
+                    b["s"]["value"].as_f64().unwrap(),
+                )
+            })
+            .collect();
+        rows.sort_by(|a, b| a.0.cmp(&b.0));
+        json!(rows)
+    }
+
+    /// Bucket `(key, doc_count, sum)` per cat, from the live `n` of each id.
+    fn want(live: &BTreeMap<u32, i64>) -> Value {
+        let mut per: BTreeMap<String, (u64, i64)> = BTreeMap::new();
+        for (&i, &n) in live {
+            let e = per.entry(format!("c{}", i % CATS)).or_default();
+            e.0 += 1;
+            e.1 += n;
+        }
+        let rows: Vec<(String, u64, f64)> = per
+            .into_iter()
+            .map(|(k, (c, s))| (k, c, s as f64))
+            .collect();
+        json!(rows)
+    }
+
+    #[tokio::test]
+    async fn live_view_cache_hits_survives_unrelated_writes_and_invalidates_3467() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .fields
+            .push(FieldConfig::new("cat", FieldType::Keyword));
+        schema.fields.push(FieldConfig::new("n", FieldType::Long));
+        engine.create_index("live-view-3467", schema).unwrap();
+        let idx = engine.get_index("live-view-3467").unwrap();
+        idx.abort_background_tasks();
+
+        let mut live = BTreeMap::new();
+        for i in 0..DOCS {
+            idx.index_document(Some(format!("d{i}")), doc(i, 0))
+                .await
+                .unwrap();
+            live.insert(i, i as i64);
+        }
+        idx.flush().await.unwrap();
+        let first: std::collections::HashSet<String> = idx
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|m| m.id.clone())
+            .collect();
+        // Overwrite every even doc: each segment of the first flush keeps
+        // ghosts, the segments of the second flush are clean.
+        for i in (0..DOCS).step_by(2) {
+            idx.index_document(Some(format!("d{i}")), doc(i, 1))
+                .await
+                .unwrap();
+            live.insert(i, (i + 100_000) as i64);
+        }
+        idx.flush().await.unwrap();
+        assert_eq!(idx.deleted_doc_count(), (DOCS / 2) as u64);
+        let seg_of = |id: &str| -> String {
+            let ver = idx.store.version_map.get(id).expect("indexed id");
+            let seg: &str = ver.segment_id.as_ref();
+            seg.to_string()
+        };
+
+        // 1. The first query builds one view per dirty segment and caches it.
+        assert_eq!(run(&idx, "1").await, want(&live), "first query");
+        let c1 = cached(&idx);
+        assert_eq!(
+            c1.keys().cloned().collect::<std::collections::HashSet<_>>(),
+            first,
+            "every first-flush segment is dirty, nothing else is"
+        );
+
+        // 2. A repeat query is served from the cache (same residents).
+        assert_eq!(run(&idx, "2").await, want(&live), "repeat query");
+        assert_eq!(cached(&idx), c1, "a repeat query must hit");
+
+        // 3. Overwrite a doc that lives in a second-flush segment:
+        // `ghost_events` moves, but no first-flush bitmap does, so their
+        // views stay; that one segment gets a view of its own.
+        let s0 = seg_of("d0");
+        assert!(!first.contains(&s0));
+        idx.index_document(Some("d0".into()), doc(0, 2))
+            .await
+            .unwrap();
+        live.insert(0, 200_000);
+        assert_eq!(run(&idx, "3").await, want(&live), "write elsewhere");
+        let c3 = cached(&idx);
+        for seg in &first {
+            assert_eq!(c3[seg], c1[seg], "a write outside {seg} keeps its view");
+        }
+        assert!(c3.contains_key(&s0), "{s0} is dirty now");
+        assert_eq!(c3.len(), first.len() + 1);
+
+        // 4. Delete a doc of the first flush (odd ids were never
+        // overwritten): its segment's bitmap changes, so that view alone is
+        // rebuilt.
+        let s1 = seg_of("d1");
+        assert!(first.contains(&s1));
+        assert!(idx.delete_document("d1").await.unwrap());
+        live.remove(&1);
+        assert_eq!(run(&idx, "4").await, want(&live), "delete in segment");
+        let c4 = cached(&idx);
+        assert_ne!(c4[&s1], c3[&s1], "a delete in {s1} must rebuild its view");
+        for (seg, v) in &c3 {
+            if *seg != s1 {
+                assert_eq!(c4[seg], *v, "the delete left {seg} alone");
+            }
+        }
+
+        // 5. Overwrite another first-flush doc: its segment is rebuilt.
+        let s3 = seg_of("d3");
+        idx.index_document(Some("d3".into()), doc(3, 3))
+            .await
+            .unwrap();
+        live.insert(3, 300_003);
+        assert_eq!(run(&idx, "5").await, want(&live), "overwrite in segment");
+        assert_ne!(cached(&idx)[&s3], c4[&s3], "an overwrite must rebuild");
+
+        // 6. A merge retires the segments, and with them their views.
+        idx.flush().await.unwrap();
+        idx.force_merge(1).await.unwrap();
+        let ids: Vec<String> = idx
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|m| m.id.clone())
+            .collect();
+        assert!(
+            first.iter().all(|seg| !ids.contains(seg)),
+            "forcemerge must retire the first flush"
+        );
+        let c6 = cached(&idx);
+        assert!(
+            c6.keys().all(|seg| ids.contains(seg)),
+            "views of retired segments must be evicted: {c6:?} vs {ids:?}"
+        );
+        assert_eq!(run(&idx, "6").await, want(&live), "after forcemerge");
+
+        // 7. release_memory drops every view.
+        idx.release_memory();
+        assert!(idx.dv_live_view_cache.is_empty());
+        assert_eq!(run(&idx, "7").await, want(&live), "after release_memory");
     }
 }
