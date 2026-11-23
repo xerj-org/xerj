@@ -178,26 +178,45 @@ fn sync_staged_at_stage(file: &std::fs::File) -> std::io::Result<()> {
 
 /// `fsync` every staged temp file, concurrently, before any rename.
 fn sync_staged_batch(files: &[StagedFile]) -> std::io::Result<()> {
-    let sync_one = |file: &StagedFile| -> std::io::Result<()> {
-        // A read-only descriptor is enough on Linux: `fsync` writes back the
-        // inode's dirty pages whichever descriptor asks.
-        sync_file_full(&std::fs::File::open(&file.tmp)?)
+    let paths: Vec<&Path> = files.iter().map(|file| file.tmp.as_path()).collect();
+    sync_paths_batch(&paths)
+}
+
+/// Fully sync every file in `paths`, concurrently (up to 16 threads).
+///
+/// For a writer that creates many files and only needs them all durable
+/// before one later commit point (a manifest write, a directory rename): it
+/// writes them without syncing, then calls this once before the commit. On
+/// ext4 concurrent `fsync` calls join the same journal transaction, so the
+/// batch costs about one commit instead of one per file (#3324, #3449). Each
+/// file gets the same [`sync_file_full`] a per-file durable write would, so
+/// the guarantee at the commit point is unchanged. The files are reopened
+/// read-only: `fsync` writes back the inode's dirty pages whichever
+/// descriptor asks (on Windows `FlushFileBuffers` needs write access, so the
+/// file is opened for writing there).
+pub fn sync_paths_batch(paths: &[&Path]) -> std::io::Result<()> {
+    let sync_one = |path: &&Path| -> std::io::Result<()> {
+        #[cfg(windows)]
+        let file = std::fs::OpenOptions::new().write(true).open(path)?;
+        #[cfg(not(windows))]
+        let file = std::fs::File::open(path)?;
+        sync_file_full(&file)
     };
-    if files.len() <= 1 {
-        return files.iter().try_for_each(sync_one);
+    if paths.len() <= 1 {
+        return paths.iter().try_for_each(sync_one);
     }
     let next = std::sync::atomic::AtomicUsize::new(0);
-    let workers = files.len().min(STAGED_SYNC_WORKERS);
+    let workers = paths.len().min(STAGED_SYNC_WORKERS);
     std::thread::scope(|scope| {
         let handles: Vec<_> = (0..workers)
             .map(|_| {
                 scope.spawn(|| -> std::io::Result<()> {
                     loop {
                         let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                        let Some(file) = files.get(i) else {
+                        let Some(path) = paths.get(i) else {
                             return Ok(());
                         };
-                        sync_one(file)?;
+                        sync_one(path)?;
                     }
                 })
             })
@@ -205,7 +224,7 @@ fn sync_staged_batch(files: &[StagedFile]) -> std::io::Result<()> {
         handles.into_iter().try_for_each(|handle| {
             handle
                 .join()
-                .unwrap_or_else(|_| Err(std::io::Error::other("staged-file sync thread panicked")))
+                .unwrap_or_else(|_| Err(std::io::Error::other("file sync thread panicked")))
         })
     })
 }
@@ -613,6 +632,30 @@ fn durable_publish(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #3449: every path gets its own full sync (the count is process-wide,
+    /// so other tests can only add to it), and a missing file is an error,
+    /// never a silent skip.
+    #[test]
+    fn sync_paths_batch_syncs_every_file_and_reports_a_missing_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths: Vec<std::path::PathBuf> = (0..40)
+            .map(|i| {
+                let p = dir.path().join(format!("f{i}"));
+                std::fs::write(&p, format!("body {i}")).unwrap();
+                p
+            })
+            .collect();
+        let refs: Vec<&Path> = paths.iter().map(|p| p.as_path()).collect();
+        let before = full_flush_count();
+        sync_paths_batch(&refs).unwrap();
+        assert!(full_flush_count() - before >= 40);
+        sync_paths_batch(&[]).unwrap();
+        let missing = dir.path().join("gone");
+        let mut with_missing = refs.clone();
+        with_missing.insert(17, &missing);
+        assert!(sync_paths_batch(&with_missing).is_err());
+    }
 
     #[test]
     fn write_file_durable_round_trip() {

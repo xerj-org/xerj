@@ -1779,6 +1779,18 @@ impl Journal {
         Ok(())
     }
 
+    /// [`Self::append_transaction`] without the fdatasync, for a record whose
+    /// loss on a crash is safe because the next durable append syncs it.
+    fn append_transaction_unsynced(&mut self, v: &Value, what: &str) -> Result<()> {
+        let mut line = serde_json::to_string(v)?;
+        line.push('\n');
+        let start = self.file.metadata()?.len();
+        if let Err(error) = self.file.write_all(line.as_bytes()) {
+            return self.rollback_transaction(start, what, "append", error);
+        }
+        Ok(())
+    }
+
     fn rollback_transaction(
         &mut self,
         start: u64,
@@ -1890,15 +1902,27 @@ impl Journal {
             .context("cannot record operation state without sync_begin")?;
         let tx_id = pending.tx_id.clone();
         pending.validate_operation_state(&tx_id, operation_id, &state)?;
-        self.append_transaction(
-            &serde_json::json!({
-                "kind": "sync_operation_state",
-                "tx_id": tx_id,
-                "operation_id": operation_id,
-                "state": state,
-            }),
-            "sync_operation_state",
-        )?;
+        let record = serde_json::json!({
+            "kind": "sync_operation_state",
+            "tx_id": tx_id,
+            "operation_id": operation_id,
+            "state": state,
+        });
+        // #3449: only `Started` is a write-ahead intent that must be durable
+        // before its apply is dispatched. `Committed` is appended without its
+        // own fdatasync: the next durable append (the next operation's
+        // `Started`, or `sync_validated` after the last one) syncs the whole
+        // file, this line included. A crash before that loses at most the
+        // `Committed` lines since the last sync, and each of those operations
+        // is then still `Started` on resume and re-applied: the convergent
+        // redo a crash between apply and `Committed` already causes (see
+        // `replay_windowed`). Before, every operation paid two journal
+        // commits in a row on the scheduling thread.
+        if matches!(state, crate::sync::SyncOperationState::Committed) {
+            self.append_transaction_unsynced(&record, "sync_operation_state")?;
+        } else {
+            self.append_transaction(&record, "sync_operation_state")?;
+        }
         if let Some(pending) = self.pending_sync.as_mut() {
             pending.record_operation_state(operation_id, state);
         }

@@ -16,7 +16,7 @@ use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const SNAPSHOT_VERSION: u32 = 2;
 
@@ -3440,6 +3440,14 @@ fn create_snapshot_inner(
         })
         .unwrap_or_default();
     let mut files = Vec::with_capacity(inventory.files.len());
+    // #3449: files this seal wrote and has not synced yet. Each one used to
+    // be fsynced the moment it was written: the copied blob, then its
+    // prepared NDJSON, one after the other on this one thread, two journal
+    // commits per file. Nothing reads them as durable before the manifest
+    // below (a crash before the rename discards the whole `.partial` dir, and
+    // a released blob is unlinked unsynced), so they are synced together,
+    // concurrently, just before the manifest is written.
+    let mut unsynced: Vec<PathBuf> = Vec::new();
     // Entered only when there is work to report: a retry that reuses a verified
     // final snapshot returned above and never claims a phase it did not run.
     pr.phase("snapshot", inventory.files.len() as u64, source_bytes);
@@ -3542,20 +3550,24 @@ fn create_snapshot_inner(
                         })
                     }
                     _ => match assignment {
-                        Some(assignment) => Some(prepare_artifact(
-                            &staging,
-                            ordinal,
-                            tx_id,
-                            source,
-                            content_id,
-                            &destination,
-                            assignment,
-                            lookup.as_ref().expect("assignment implies a plan"),
-                            &mut budget,
-                            labeler,
-                            vector_dims,
-                            pr,
-                        )?),
+                        Some(assignment) => {
+                            let artifact = prepare_artifact(
+                                &staging,
+                                ordinal,
+                                tx_id,
+                                source,
+                                content_id,
+                                &destination,
+                                assignment,
+                                lookup.as_ref().expect("assignment implies a plan"),
+                                &mut budget,
+                                labeler,
+                                vector_dims,
+                                pr,
+                            )?;
+                            unsynced.push(staging.join(&artifact.relative_ndjson));
+                            Some(artifact)
+                        }
                         None => None,
                     },
                 };
@@ -3576,7 +3588,7 @@ fn create_snapshot_inner(
                 // The error names the live source so the caller can drop that
                 // one file and seal the rest.
                 verify_live_source(source, content_digest)?;
-                if let Err(error) = copy_synced(&source.path, &destination, &mut budget) {
+                if let Err(error) = copy_unsynced(&source.path, &destination, &mut budget) {
                     if verify_live_source(source, content_digest).is_err() {
                         return Err(source_changed(
                             &source.path,
@@ -3592,23 +3604,33 @@ fn create_snapshot_inner(
                 #[cfg(test)]
                 apply_post_seal_source_replacement(&source.path)?;
                 let prepared = match assignment {
-                    Some(assignment) => Some(prepare_artifact(
-                        &staging,
-                        ordinal,
-                        tx_id,
-                        source,
-                        content_id,
-                        &destination,
-                        assignment,
-                        lookup.as_ref().expect("assignment implies a plan"),
-                        &mut budget,
-                        labeler,
-                        vector_dims,
-                        pr,
-                    )?),
+                    Some(assignment) => {
+                        let artifact = prepare_artifact(
+                            &staging,
+                            ordinal,
+                            tx_id,
+                            source,
+                            content_id,
+                            &destination,
+                            assignment,
+                            lookup.as_ref().expect("assignment implies a plan"),
+                            &mut budget,
+                            labeler,
+                            vector_dims,
+                            pr,
+                        )?;
+                        unsynced.push(staging.join(&artifact.relative_ndjson));
+                        Some(artifact)
+                    }
                     None => None,
                 };
                 let blob_released = release_prepared_blob(&destination, prepared.as_ref())?;
+                if !blob_released {
+                    // A kept blob (junk/skipped, or a plan-less snapshot) is
+                    // read back from the snapshot on resume: it must be
+                    // durable too. A released one is already unlinked.
+                    unsynced.push(destination.clone());
+                }
                 files.push(SnapshotFile {
                     content_id: content_id.clone(),
                     content_digest: content_digest.clone(),
@@ -3657,6 +3679,11 @@ fn create_snapshot_inner(
         &footprint,
         &snapshot.files,
     )?;
+    {
+        let paths: Vec<&Path> = unsynced.iter().map(PathBuf::as_path).collect();
+        xerj_common::fsio::sync_paths_batch(&paths)
+            .context("fsync sealed snapshot files before the manifest")?;
+    }
     write_synced_json(&staging.join("manifest.json"), &snapshot)?;
     sync_dir(&blobs)?;
     if plan.is_some() {
@@ -3671,8 +3698,9 @@ fn create_snapshot_inner(
     open_snapshot(state_dir, tx_id)
 }
 
-/// #2421: once a file's prepared artifact is durable (`prepare_artifact`
-/// fsyncs it before returning), its sealed blob has served its only purpose —
+/// #2421: once a file's prepared artifact is written (the seal syncs it with
+/// the other artifacts before the manifest), its sealed blob has served its
+/// only purpose —
 /// a stable input for extraction — so it is unlinked from the staging dir
 /// before the manifest is written. The blob is a hardlink when reused, so this
 /// never touches the prior generation's copy. Files with nothing prepared
@@ -4045,8 +4073,9 @@ fn prepare_artifact(
             xerj_common::document_limit::MAX_INDEXED_DOCUMENT_BYTES,
         ));
     }
+    // Not synced here: the seal syncs every artifact it wrote in one
+    // concurrent batch before the manifest (#3449).
     writer.flush()?;
-    writer.inner.get_ref().sync_all()?;
     drop(writer);
     let bytes = std::fs::metadata(&path)?.len();
     Ok(PreparedArtifact {
@@ -4176,7 +4205,9 @@ fn validate_tx_id(tx_id: &str) -> Result<()> {
     Ok(())
 }
 
-fn copy_synced(source: &Path, destination: &Path, budget: &mut PayloadBudget) -> Result<()> {
+/// Copy `source` to a new `destination`. Not synced: the seal syncs the
+/// blobs it keeps in one batch before the manifest (#3449).
+fn copy_unsynced(source: &Path, destination: &Path, budget: &mut PayloadBudget) -> Result<()> {
     let mut input = File::open(source)?;
     let output = OpenOptions::new()
         .create_new(true)
@@ -4187,7 +4218,6 @@ fn copy_synced(source: &Path, destination: &Path, budget: &mut PayloadBudget) ->
         budget,
     };
     std::io::copy(&mut input, &mut output)?;
-    output.inner.sync_all()?;
     Ok(())
 }
 
