@@ -6,28 +6,17 @@
 #![cfg(unix)]
 
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::path::Path;
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
+/// A free (P, P+1, P+2) triple: es/rest/grpc for the booted node. See
+/// `xerj_common::loopback_test::free_port_triple` for why bases come from
+/// below the ephemeral range (`XERJ_TEST_PORT_BASE` confines them).
 fn free_port_triple() -> u16 {
-    for _ in 0..200 {
-        let probe = TcpListener::bind("127.0.0.1:0").unwrap();
-        let base = probe.local_addr().unwrap().port();
-        drop(probe);
-        if base > 65_000 {
-            continue;
-        }
-        let held: Vec<_> = (0..3)
-            .filter_map(|off| TcpListener::bind(("127.0.0.1", base + off)).ok())
-            .collect();
-        if held.len() == 3 {
-            return base;
-        }
-    }
-    panic!("no free port triple");
+    xerj_common::loopback_test::free_port_triple().release()
 }
 
 fn http(port: u16, method: &str, path: &str, body: &str) -> Option<(u16, String)> {

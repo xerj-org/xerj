@@ -8584,8 +8584,24 @@ mod merge_publication_transaction_tests {
     /// bumped epoch on the in-flight pass — the evaluation counter does not
     /// move until the encode returns. `std::thread::sleep` does not advance
     /// the paused clock, so it cannot itself schedule a merge check.
+    ///
+    /// Quiescence is judged by scheduler rounds, not by wall time. The pool
+    /// runs at nice +15 (`crate::merge_pool`), so on a loaded host one
+    /// encode can take far longer than any fixed budget while the scheduler
+    /// itself is doing nothing wrong: the old 10 s deadline failed 7/30
+    /// runs with "in progress true" when the test shared two cores with
+    /// sixteen nice-0 busy loops. Waiting on an in-flight pass is therefore
+    /// unbounded by design; what fails is a scheduler that keeps evaluating
+    /// with nothing in flight, which is the non-quiescence this guards.
     async fn settle_merge_scheduler(index: &Index) {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        // Each round that moves the counter is one debounced evaluation.
+        // These fixtures hold at most a handful of segments, so the merge
+        // cascade ends in a few rounds; 64 is far past any real cascade.
+        const MAX_ROUNDS: u32 = 64;
+        // Not a pass/fail budget: only a merge flag that is never cleared
+        // (a leaked pass) gets here, and it should fail rather than hang.
+        let hung = std::time::Instant::now() + std::time::Duration::from_secs(600);
+        let mut rounds = 0;
         loop {
             let before = index.merge_evaluation_count();
             std::thread::sleep(std::time::Duration::from_millis(15));
@@ -8593,7 +8609,16 @@ mod merge_publication_transaction_tests {
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
             tokio::task::yield_now().await;
             let after = index.merge_evaluation_count();
-            if after == before && !index.is_merge_in_progress() {
+            if index.is_merge_in_progress() {
+                // An encode is on the merge pool. Its finish is the next
+                // event, however long the host makes it take.
+                assert!(
+                    std::time::Instant::now() < hung,
+                    "a merge pass held the merge flag for 10 minutes (evaluations {after})"
+                );
+                continue;
+            }
+            if after == before {
                 // A second window with no real sleep: a still-armed debounce
                 // is the only thing that can move the counter.
                 tokio::time::sleep(std::time::Duration::from_secs(30)).await;
@@ -8601,9 +8626,11 @@ mod merge_publication_transaction_tests {
                     return;
                 }
             }
+            rounds += 1;
             assert!(
-                std::time::Instant::now() < deadline,
-                "background merges did not quiesce (evaluations {}, in progress {})",
+                rounds <= MAX_ROUNDS,
+                "background merges did not quiesce after {MAX_ROUNDS} scheduler rounds \
+                 (evaluations {}, in progress {})",
                 index.merge_evaluation_count(),
                 index.is_merge_in_progress()
             );
