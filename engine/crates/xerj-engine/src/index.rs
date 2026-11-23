@@ -27317,9 +27317,12 @@ impl Index {
         // #3465: whether `score_doc` gives every match the same score. Only
         // then may a full stored-scan collector keep a segment's first
         // matches; otherwise it keeps the segment's best by score.
+        // Keyword term/match leaves count as untied here (always safe: it
+        // only costs the displacement scoring); the doc-values check that can
+        // prove them tied runs below, and only for `scan_early_stop` (#3497).
         let scan_scores_tied: bool = ids_only
             || (peeled_fs.is_none()
-                && (leaf_base_const.is_some() || scan_score_is_constant(query)));
+                && (leaf_base_const.is_some() || scan_score_is_constant(query, &|_| false)));
 
         // Helper: admit a hit into the bounded `all_hits` collector.
         //
@@ -29120,6 +29123,26 @@ impl Index {
             // itself is made delete-aware. (`deletes_present` hoisted above.)
             let count_authoritative: bool = !query_needs_fts
                 && (is_match_all_effective || (shortcut_count.is_some() && !deletes_present));
+            // #3497: F1's early stops (a segment's scan stops at its first
+            // `materialisation_limit` matches; a segment whose docs all
+            // arrived after the worst kept hit is skipped) assume every match
+            // scores the same, so the first matches in arrival order ARE the
+            // best. A shortcut count does not imply that: `bool{should:[term,
+            // range]}` resolves its count from doc values, yet a doc matching
+            // both clauses outscores one matching a single clause, and the
+            // bounded page kept the earlier, lower-scoring docs (size:1 named
+            // d00001 where the full page starts d00003). When scores can differ
+            // the scan walks every match and keeps each segment's best by
+            // score (#3465); the cross-segment merge then keeps the global
+            // best. `count_authoritative` still lets the shortcut stand in for
+            // `hits.total`. A field-sorted page offers every match to its
+            // heap either way, so this changes nothing there.
+            let scan_early_stop: bool = count_authoritative
+                && (scan_scores_tied
+                    || (peeled_fs.is_none()
+                        && scan_score_is_constant(query, &|leaf| {
+                            self.leaf_scan_score_tied(leaf, &kw_fields, &num_fields, &bool_fields)
+                        })));
             // Read-under-write bool collapse: `bool{must:[keyword term],
             // filter:[range]}` takes the `residual_gate` FTS pass whenever the
             // memtable holds a document (`scored_columnar` needs it empty).
@@ -29212,7 +29235,7 @@ impl Index {
                 // Segments that CAN compete are scanned, and the cross-segment
                 // merge at the bottom of the loop re-selects the best `cap` by
                 // the same comparator the final page sort uses.
-                if count_authoritative && all_hits.len() >= materialisation_limit {
+                if scan_early_stop && all_hits.len() >= materialisation_limit {
                     if scan_page_worst.is_none() {
                         scan_page_worst = self.worst_page_key(&all_hits);
                     }
@@ -30658,7 +30681,7 @@ impl Index {
                         // `hits.total` (the 512-vs-847306 bench
                         // regression) and starve the top-N heap of
                         // candidates.
-                        let cap = if count_authoritative && sort_topk.is_none() {
+                        let cap = if scan_early_stop && sort_topk.is_none() {
                             Some(materialisation_limit)
                         } else {
                             None
@@ -30788,7 +30811,7 @@ impl Index {
                             ids_only,
                             count_only,
                             scan_limit,
-                            count_authoritative,
+                            scan_early_stop,
                             &mut total_count,
                             &mut all_hits,
                             &mut seen_ids,
@@ -30843,7 +30866,7 @@ impl Index {
                                     ids_only,
                                     count_only,
                                     scan_limit,
-                                    count_authoritative,
+                                    scan_early_stop,
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
@@ -30862,7 +30885,7 @@ impl Index {
                                     ids_only,
                                     count_only,
                                     scan_limit,
-                                    count_authoritative,
+                                    scan_early_stop,
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
@@ -30996,9 +31019,8 @@ impl Index {
                                 // brace-walking the decoded section again:
                                 // 496 segments x ~1.4 MB walked per query was
                                 // most of a warm 417 ms `term` hit.
-                                let prefiltered_full_walk = pre_filter.is_some()
-                                    && sort_topk.is_none()
-                                    && !count_authoritative;
+                                let prefiltered_full_walk =
+                                    pre_filter.is_some() && sort_topk.is_none() && !scan_early_stop;
                                 let want_cache = (sorted_candidates_path || prefiltered_full_walk)
                                     && !projected
                                     && stored_bytes.len() <= u32::MAX as usize
@@ -31010,7 +31032,7 @@ impl Index {
                                     ids_only,
                                     count_only,
                                     scan_limit,
-                                    count_authoritative,
+                                    scan_early_stop,
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
@@ -36498,6 +36520,59 @@ impl Index {
         } else {
             Some(out)
         }
+    }
+
+    /// #3497: whether the stored scan scores every SEGMENT match of the leaf
+    /// `q` the same (`scan_score_is_constant`). A numeric / boolean `term`
+    /// always does (`match_term_frequency` counts string elements only). A
+    /// keyword `term` / `match` does when every segment ships a full,
+    /// null-free keyword column for the field — the shape a segment with an
+    /// array value never has — so each match holds exactly the queried value.
+    /// Unlike `leaf_constant_score` this ignores the memtable: the stored scan
+    /// only walks segments, and memtable hits are admitted separately.
+    fn leaf_scan_score_tied(
+        &self,
+        q: &QueryNode,
+        kw_fields: &HashSet<String>,
+        num_fields: &HashSet<String>,
+        bool_fields: &HashSet<String>,
+    ) -> bool {
+        use xerj_storage::doc_values::Column;
+        let mut node = q;
+        while let QueryNode::Named { query, .. } = node {
+            node = query;
+        }
+        let field: &str = match node {
+            QueryNode::Term { field, .. } | QueryNode::Match { field, .. }
+                if num_fields.contains(field) || bool_fields.contains(field) =>
+            {
+                return true;
+            }
+            QueryNode::Term {
+                field,
+                value: Value::String(term),
+                ..
+            } if kw_fields.contains(field) && !term.contains('/') => field,
+            QueryNode::Match {
+                field,
+                analyzer: None,
+                minimum_should_match: None,
+                ..
+            } if kw_fields.contains(field) => field,
+            _ => return false,
+        };
+        let snap = self.store.snapshot();
+        let segments_dir = self.data_dir.join("segments");
+        snap.segments.iter().all(|meta| {
+            let Some(cols) = self.dv_columns_for(&segments_dir, &meta.id) else {
+                return false;
+            };
+            matches!(
+                cols.get(field),
+                Some(Column::Keyword(k))
+                    if k.doc_count as u64 == meta.doc_count && k.null_bitmap.is_empty()
+            )
+        })
     }
 
     fn leaf_constant_score(
@@ -59646,20 +59721,33 @@ fn query_tree_contains_ids(q: &QueryNode) -> bool {
 /// score for `q`, so the stored-scan collector may keep the FIRST matches of a
 /// segment (positions are `seq_no` order, and ties go to the earlier arrival).
 /// `false` is always safe: the collector then keeps a segment's best hits by
-/// score instead (#3465). `Term` and `Match` are `false`: they score the
-/// query's token count across every array element (`match_term_frequency`).
-fn scan_score_is_constant(q: &QueryNode) -> bool {
-    matches!(
-        q,
+/// score instead (#3465). `Term` and `Match` score the query's token count
+/// across every array element (`match_term_frequency`), so they count as
+/// constant only when `leaf_const` says so (`leaf_scan_score_tied`: a full,
+/// null-free doc-values column in every segment, so no doc holds an array).
+///
+/// #3497: a `bool` scores the SUM of its `must` and `should` clause scores
+/// (filter / must_not add nothing), so it is constant when every `must` clause
+/// is and there is no `should` clause: an optional `should` adds its score to
+/// some matches and not to others (`bool{should:[term, range]}`: a doc
+/// matching both clauses outscores one matching a single clause).
+fn scan_score_is_constant(q: &QueryNode, leaf_const: &dyn Fn(&QueryNode) -> bool) -> bool {
+    match q {
         QueryNode::MatchAll
-            | QueryNode::MatchNone
-            | QueryNode::Constant { .. }
-            | QueryNode::Boosted { .. }
-            | QueryNode::Terms { .. }
-            | QueryNode::Range { .. }
-            | QueryNode::Prefix { .. }
-            | QueryNode::Wildcard { .. }
-    )
+        | QueryNode::MatchNone
+        | QueryNode::Constant { .. }
+        | QueryNode::Boosted { .. }
+        | QueryNode::Terms { .. }
+        | QueryNode::Range { .. }
+        | QueryNode::Prefix { .. }
+        | QueryNode::Wildcard { .. } => true,
+        QueryNode::Named { query, .. } => scan_score_is_constant(query, leaf_const),
+        QueryNode::Bool { must, should, .. } => {
+            should.is_empty() && must.iter().all(|c| scan_score_is_constant(c, leaf_const))
+        }
+        QueryNode::Term { .. } | QueryNode::Match { .. } => leaf_const(q),
+        _ => false,
+    }
 }
 
 /// The slot a new match takes in a full stored-scan collector, or `None` when
@@ -74609,3 +74697,7 @@ mod object_leaf_fts_3464_tests {
         assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
     }
 }
+
+#[cfg(test)]
+#[path = "stored_scan_topk_tests.rs"]
+mod stored_scan_topk_tests;
