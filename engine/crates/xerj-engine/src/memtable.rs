@@ -504,6 +504,137 @@ pub fn extract_field_values_excluding(
     out
 }
 
+/// The `object` leaf fields that get an FTS side-car of their own, by dotted
+/// path (`meta.title`), with their types (#3464).
+///
+/// Before #3464 the FTS writer keyed only on top-level `_source` keys. An
+/// object value was indexed whole, as one JSON-blob token under the parent's
+/// name, so no query on `meta.title` could use the postings: the
+/// per-segment `fts_has_field` gate failed and every segment took the
+/// stored-doc scan. ES indexes each object leaf as its own field under its
+/// full path (the object mapper flattens paths into field names); this is the
+/// same layout.
+///
+/// Left out: `nested` properties (ES matches them only inside a `nested`
+/// query, and they are separate documents there), multi-fields (`title.raw`:
+/// not walked), vector-like and binary types (no lexical form), and fields
+/// [`fts_excluded_fields`]-style exclusion would drop (`index: false` text, or
+/// `index: false` without doc values). The top-level fields keep their
+/// existing side-cars; the parent object keeps its blob side-car too.
+pub fn fts_object_leaf_paths(schema: &Schema) -> Vec<(String, FieldType)> {
+    fn walk(
+        fields: &[xerj_common::types::FieldConfig],
+        prefix: &str,
+        excluded: &std::collections::HashSet<String>,
+        out: &mut Vec<(String, FieldType)>,
+    ) {
+        for f in fields {
+            let path = format!("{prefix}.{}", f.name);
+            match f.field_type {
+                FieldType::Object => walk(&f.fields, &path, excluded, out),
+                FieldType::Text
+                | FieldType::Keyword
+                | FieldType::Long
+                | FieldType::Double
+                | FieldType::Boolean
+                | FieldType::Date
+                | FieldType::Ip => {
+                    let searchable = f.options.indexed
+                        || (f.options.doc_values && !matches!(f.field_type, FieldType::Text));
+                    if searchable && !excluded.contains(&path) {
+                        out.push((path, f.field_type));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    let excluded = fts_excluded_fields(schema);
+    let mut out = Vec::new();
+    for f in &schema.fields {
+        if matches!(f.field_type, FieldType::Object) && !excluded.contains(&f.name) {
+            walk(&f.fields, &f.name, &excluded, &mut out);
+        }
+    }
+    out
+}
+
+/// Add the values of each dotted object path in `paths` to `out` (#3464), the
+/// way the stored-doc scan reads such a path: an array of objects contributes
+/// every element's value, and a literal dotted key (`{"meta.title": …}` or
+/// `{"meta": {"a.b": …}}`) names the same path as nested objects do. The
+/// top-level literal key itself is already in `out` from
+/// [`extract_field_values_excluding`]; values reached through objects are
+/// appended to it rather than replacing it.
+pub fn add_object_path_values(
+    source: &Value,
+    paths: &[String],
+    out: &mut HashMap<String, xerj_fts::index::FieldValues>,
+) {
+    use xerj_fts::index::FieldValues;
+    fn collect(val: &Value, segs: &[&str], out: &mut Vec<String>) {
+        if segs.is_empty() {
+            match val {
+                Value::Array(arr) => {
+                    for v in arr {
+                        collect(v, segs, out);
+                    }
+                }
+                Value::Object(_) | Value::Null => {}
+                other => {
+                    let text = extract_text_value(other);
+                    if !text.is_empty() {
+                        out.push(text);
+                    }
+                }
+            }
+            return;
+        }
+        match val {
+            Value::Array(arr) => {
+                for v in arr {
+                    collect(v, segs, out);
+                }
+            }
+            Value::Object(obj) => {
+                for take in 1..=segs.len() {
+                    if let Some(child) = obj.get(&segs[..take].join(".")) {
+                        collect(child, &segs[take..], out);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    let Some(root) = source.as_object() else {
+        return;
+    };
+    for path in paths {
+        let segs: Vec<&str> = path.split('.').collect();
+        let mut values = Vec::new();
+        // At least one object level: the whole path as one top-level key is
+        // the literal key `out` already holds.
+        for take in 1..segs.len() {
+            if let Some(child) = root.get(&segs[..take].join(".")) {
+                collect(child, &segs[take..], &mut values);
+            }
+        }
+        if values.is_empty() {
+            continue;
+        }
+        match out.remove(path) {
+            Some(existing) => {
+                let mut all: Vec<String> = existing.iter().map(str::to_string).collect();
+                all.extend(values);
+                out.insert(path.clone(), FieldValues::from_values(all));
+            }
+            None => {
+                out.insert(path.clone(), FieldValues::from_values(values));
+            }
+        }
+    }
+}
+
 /// Convert one JSON value into the values the FTS writer should index for it.
 ///
 /// * scalars → `One`
@@ -4953,7 +5084,29 @@ fn collect_text_fields(
                         .collect::<Vec<_>>()
                         .join(" ");
                     if !joined.is_empty() && !out.contains_key(&path) {
-                        out.insert(path, joined);
+                        out.insert(path.clone(), joined);
+                    }
+                    // #3464: an array of objects is the same object field
+                    // given N times, so `meta.note` holds every element's
+                    // note. Before this only the JSON blob under `meta` was
+                    // indexed, and `match meta.note` missed such a document
+                    // until a flush gave it a segment (where the object leaf
+                    // side-car and the stored scan both see every element).
+                    for element in arr.iter().filter(|e| e.is_object()) {
+                        let mut inner: HashMap<String, String> = HashMap::new();
+                        collect_text_fields(element, &path, &mut inner, excluded);
+                        for (key, text) in inner {
+                            match out.get_mut(&key) {
+                                Some(existing) if key != path => {
+                                    existing.push(' ');
+                                    existing.push_str(&text);
+                                }
+                                Some(_) => {}
+                                None => {
+                                    out.insert(key, text);
+                                }
+                            }
+                        }
                     }
                 }
                 _ => {

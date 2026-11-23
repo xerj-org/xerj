@@ -16550,11 +16550,17 @@ impl Index {
                 // filename is stored under a SHA-256 digest. Enumerating a
                 // source segment's fields needs the names back, and the
                 // mapping is where they live.
+                // #3464: and the object leaf paths, which have side-cars too.
                 schema
                     .schema
                     .fields
                     .iter()
                     .map(|field| field.name.clone())
+                    .chain(
+                        crate::memtable::fts_object_leaf_paths(&schema.schema)
+                            .into_iter()
+                            .map(|(path, _)| path),
+                    )
                     .collect::<Vec<String>>(),
             )
         };
@@ -16781,6 +16787,7 @@ impl Index {
             // with the same rule the flush path uses.
             let text_analyzer_for_task = self.segment_text_analyzer();
             let excluded_fts_fields_for_task = excluded_fts_fields.clone();
+            let object_paths_for_task = fts_object_path_keys(&field_configs);
             let mapped_field_names_for_task = mapped_field_names.clone();
             let reanalysed_docs_for_task = Arc::clone(&self.merge_fts_reanalysed_docs);
             let segments_dir_for_task = segments_dir.clone();
@@ -17514,7 +17521,11 @@ impl Index {
                                 fts_input_bytes = fts_input_bytes
                                     .saturating_add(crate::ingest_memory::estimated_json_heap(source));
                             }
-                            extract_fts_fields_excluding(source, &excluded_fts_fields_for_task)
+                            extract_fts_fields_excluding(
+                                source,
+                                &excluded_fts_fields_for_task,
+                                &object_paths_for_task,
+                            )
                         };
                         if let Err(error) =
                             crate::merge_reserve::try_push_merge(&mut fts_input, (id_str, fields, ()))
@@ -26808,8 +26819,9 @@ impl Index {
         // alone can't prove "keyword" (it also holds numerics/dates/bools),
         // and Text fields must NEVER enter the columnar scorer (they get
         // Keyword dv columns but ES analyzes them).
-        let (text_fields, exact_fields, kw_fields, num_fields, bool_fields): (
+        let (text_fields, exact_fields, kw_fields, num_fields, bool_fields, object_kw_fields): (
             Vec<String>,
+            std::collections::HashSet<String>,
             std::collections::HashSet<String>,
             std::collections::HashSet<String>,
             std::collections::HashSet<String>,
@@ -26877,8 +26889,27 @@ impl Index {
                     _ => {}
                 }
             }
-            (tf, ef, kw, num, bf)
+            // #3464: object leaves have side-cars of their own. A non-text
+            // leaf's side-car is keyword-analysed, so the projection must look
+            // it up by whole value (`exact_fields`), and a keyword leaf's
+            // `term` may project onto it (`object_kw`, the projection's
+            // keyword set only: the columnar scorers keep top-level `kw`).
+            // Text leaves stay out of `tf`, which is also the field-less
+            // expansion; patterns reach them through #3413's expansion.
+            let mut object_kw: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for (path, field_type) in crate::memtable::fts_object_leaf_paths(&schema_guard.schema) {
+                if matches!(field_type, FieldType::Text) {
+                    continue;
+                }
+                if matches!(field_type, FieldType::Keyword) {
+                    object_kw.insert(path.clone());
+                }
+                ef.insert(path);
+            }
+            (tf, ef, kw, num, bf, object_kw)
         };
+        let fts_kw_all: std::collections::HashSet<String> =
+            kw_fields.union(&object_kw_fields).cloned().collect();
         // #1359: `query_node_to_fts_projected` projects a `QueryNode::Term` on a
         // `FieldType::Keyword` field into `FtsQuery::Term` so a `bool` or
         // `dis_max` combining a text clause and a keyword `term` clause does
@@ -26904,7 +26935,7 @@ impl Index {
                         break if matches!(other, QueryNode::Term { .. }) {
                             &empty_kw_fields
                         } else {
-                            &kw_fields
+                            &fts_kw_all
                         };
                     }
                 }
@@ -29110,9 +29141,18 @@ impl Index {
                         // naming fields this segment never indexed (they can
                         // only match nothing here) and keep the postings path;
                         // if nothing survives, fall through as before.
-                        let fq =
-                            prune_missing_should_fields(&fq, &|f| reader.field_stats(f).is_some())
-                                .unwrap_or(fq);
+                        // #3464: a missing DOTTED field is not "no values
+                        // here". An object leaf in a segment built before it
+                        // had side-cars (or a multi-field, which never has
+                        // one) still has values in the stored documents, so
+                        // its clause must stay and send this segment to the
+                        // scan. Pruning it dropped those matches: `bool
+                        // should [match meta.title, match title]` found
+                        // nothing on meta.title after `_flush`.
+                        let fq = prune_missing_should_fields(&fq, &|f| {
+                            f.contains('.') || reader.field_stats(f).is_some()
+                        })
+                        .unwrap_or(fq);
                         let fts_has_field = {
                             let mut qf: Vec<String> = Vec::new();
                             collect_fts_query_fields(&fq, &mut qf);
@@ -34067,7 +34107,40 @@ fn build_fts_field_configs(
             },
         );
     }
+    // #3464: each `object` leaf gets its own side-car under its dotted path,
+    // analysed as its type says. A configured field is written even when no
+    // document in the segment has a value, so a segment that HAS the side-car
+    // was built knowing the path, and one without it predates it (see
+    // `fts_merge_readers` and `prune_missing_should_fields`).
+    for (path, field_type) in crate::memtable::fts_object_leaf_paths(schema) {
+        let is_text = matches!(field_type, FieldType::Text);
+        out.insert(
+            path,
+            FieldIndexConfig {
+                analyzer: if is_text { text_analyzer } else { "keyword" }.to_string(),
+                store_positions: is_text,
+                store_term_vectors: false,
+            },
+        );
+    }
     out
+}
+
+/// The dotted `object` leaf paths among `field_configs` (#3464), the keys the
+/// flush and merge builds add values for with
+/// [`crate::memtable::add_object_path_values`]. A top-level field whose name
+/// has a dot is in the list too; the walk then also finds that path through
+/// nested objects, which is the same field to ES.
+fn fts_object_path_keys(
+    field_configs: &HashMap<String, xerj_fts::index::FieldIndexConfig>,
+) -> Vec<String> {
+    let mut keys: Vec<String> = field_configs
+        .keys()
+        .filter(|k| k.contains('.'))
+        .cloned()
+        .collect();
+    keys.sort_unstable();
+    keys
 }
 
 /// Log `error` and remove this segment's FTS artifacts.
@@ -34127,6 +34200,7 @@ fn fts_merge_readers(
     text_analyzer: &str,
 ) -> Option<Vec<xerj_fts::index::FtsIndexReader>> {
     let default_store_positions = xerj_fts::index::FieldIndexConfig::default().store_positions;
+    let object_paths = fts_object_path_keys(field_configs);
     // ONE directory scan for the whole batch: a converging index keeps tens of
     // thousands of side-car files here, and this runs per merge batch.
     let segment_ids: Vec<&str> = metas.iter().map(|meta| meta.id.as_str()).collect();
@@ -34158,6 +34232,27 @@ fn fts_merge_readers(
                  this batch"
             );
             return None;
+        }
+        // #3464: an input built before object leaves had side-cars of their
+        // own holds those values only in its stored documents. Replaying its
+        // postings would give the merged segment empty side-cars for them, and
+        // those would then answer "no match" with authority. Every build
+        // since writes each configured path even when it is empty, so a
+        // missing path means an older input (or a path mapped after it was
+        // built): re-analyse this batch once, and the output carries them.
+        if meta.doc_count > 0 {
+            if let Some(path) = object_paths
+                .iter()
+                .find(|path| !names.iter().any(|name| name == *path))
+            {
+                tracing::info!(
+                    segment = %meta.id,
+                    path = %path,
+                    "merge: input segment has no side-car for an object field path, \
+                     re-analysing this batch"
+                );
+                return None;
+            }
         }
         let refs: Vec<&str> = names.iter().map(|name| name.as_str()).collect();
         let reader =
@@ -34252,8 +34347,11 @@ fn fts_merge_readers(
 fn extract_fts_fields_excluding(
     source: &Value,
     excluded: &std::collections::HashSet<String>,
+    object_paths: &[String],
 ) -> HashMap<String, xerj_fts::index::FieldValues> {
-    crate::memtable::extract_field_values_excluding(source, excluded)
+    let mut fields = crate::memtable::extract_field_values_excluding(source, excluded);
+    crate::memtable::add_object_path_values(source, object_paths, &mut fields);
+    fields
 }
 
 // ── Short-circuit count helper ───────────────────────────────────────────────
@@ -41194,6 +41292,8 @@ async fn do_flush_shard(
             // parse on the raw-bytes path) is pure and was a ~140 ms
             // SERIAL stretch per 31k-doc flush on the flush task —
             // par_iter preserves order and spreads it across the pool.
+            // #3464: object leaves get their own side-car values too.
+            let object_paths = fts_object_path_keys(&field_configs);
             let build_drained_fts = || {
                 use rayon::prelude::*;
                 raw.par_iter()
@@ -41214,10 +41314,11 @@ async fn do_flush_shard(
                         } else {
                             std::sync::Arc::new(serde_json::Value::Null)
                         };
-                        let fields = crate::memtable::extract_field_values_excluding(
+                        let mut fields = crate::memtable::extract_field_values_excluding(
                             &val,
                             &excluded_fts_fields,
                         );
+                        crate::memtable::add_object_path_values(&val, &object_paths, &mut fields);
                         (doc_id.clone(), fields, val)
                     })
                     .collect()
@@ -52815,10 +52916,17 @@ fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNod
         return rewrite_keyword_full_text_to_term(&expanded, schema);
     }
     fn is_keyword(schema: &Schema, field: &str) -> bool {
+        // #3464: an object leaf (`meta.tag`) by its dotted path, too. Its
+        // side-car holds whole values, so the memtable must also compare it
+        // whole, or a hit would change at `_flush`.
         schema
             .fields
             .iter()
             .any(|f| f.name == field && matches!(f.field_type, FieldType::Keyword))
+            || (field.contains('.')
+                && pattern_field_paths(schema)
+                    .iter()
+                    .any(|(path, f)| path == field && matches!(f.field_type, FieldType::Keyword)))
     }
     match q {
         QueryNode::Match {
@@ -61779,12 +61887,13 @@ fn prune_missing_should_fields(q: &FtsQuery, has_field: &dyn Fn(&str) -> bool) -
 ///
 ///   * a schema field itself (`text_fields` ∪ `exact_fields` is exactly the
 ///     flat schema field list — see the construction in `search`), or
-///   * a dotted path whose prefix is a schema field.  Sub-fields carry no
-///     top-level FTS side-car of their own (`build_fts_field_configs` and
-///     the memtable indexer both key on top-level `_source` keys), so both
-///     multi-fields (`title.keyword` — shares the parent's source value)
-///     and object sub-paths (`user.name`) are served by the stored-doc
-///     scan's `get_field_value` fallback today.  Keeping their clause in
+///   * a dotted path whose prefix is a schema field.  Multi-fields
+///     (`title.keyword`, which shares the parent's source value) carry no
+///     FTS side-car of their own and are served by the stored-doc scan's
+///     `get_field_value` fallback. Object leaves (`user.name`) have had their
+///     own side-car since #3464, but a segment built before that does not,
+///     and the memtable indexer still keys on top-level `_source` keys.
+///     Keeping their clause in
 ///     the projection is what routes the query onto that scan (the
 ///     per-segment `fts_has_field` gate fails), so dropping them here would
 ///     change matching for MAPPED data — they must survive the filter.
@@ -73479,5 +73588,214 @@ mod field_pattern_expansion_3413_tests {
             expand_field_pattern_clause(&leaf("2024"), &schema),
             Some(QueryNode::MultiMatch { .. })
         ));
+    }
+}
+
+#[cfg(test)]
+mod object_leaf_fts_3464_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn schema() -> Schema {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("title", FieldType::Text))
+            .unwrap();
+        let mut meta = FieldConfig::new("meta", FieldType::Object);
+        meta.fields.push(FieldConfig::new("note", FieldType::Text));
+        meta.fields
+            .push(FieldConfig::new("tag", FieldType::Keyword));
+        schema.add_field(meta).unwrap();
+        schema
+    }
+
+    fn docs() -> Vec<serde_json::Value> {
+        vec![
+            json!({"title": "pear", "meta": {"note": "apple pie", "tag": "Fruit"}}),
+            json!({"title": "apple", "meta": {"note": "banana", "tag": "x"}}),
+            json!({"title": "kiwi", "meta": [{"note": "plum"}, {"note": "apple tart", "tag": "Fruit"}]}),
+            json!({"title": "fig", "meta.note": "dotted apple key"}),
+            json!({"title": "lime"}),
+        ]
+    }
+
+    async fn index(flush: bool) -> (tempfile::TempDir, Arc<Index>) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("obj3464", schema()).unwrap();
+        let idx = engine.get_index("obj3464").unwrap();
+        for (i, d) in docs().into_iter().enumerate() {
+            idx.index_document(Some(format!("d{i}")), d).await.unwrap();
+        }
+        if flush {
+            idx.flush().await.unwrap();
+        }
+        (dir, idx)
+    }
+
+    async fn run(idx: &Index, q: serde_json::Value) -> (Vec<(String, f32)>, usize, usize) {
+        SEG_FTS_HANDLED.with(|c| c.set(0));
+        SEG_STORED_SCANS.with(|c| c.set(0));
+        let req = xerj_query::parse_request(&json!({
+            "size": 20, "track_total_hits": true, "query": q
+        }))
+        .unwrap();
+        let res = idx.search(&req).await.unwrap();
+        let fts = SEG_FTS_HANDLED.with(|c| c.get());
+        let scans = SEG_STORED_SCANS.with(|c| c.get());
+        let mut hits: Vec<(String, f32)> = res.hits.into_iter().map(|h| (h.id, h.score)).collect();
+        hits.sort_by(|a, b| a.0.cmp(&b.0));
+        (hits, fts, scans)
+    }
+
+    fn ids(hits: &[(String, f32)]) -> Vec<&str> {
+        hits.iter().map(|h| h.0.as_str()).collect()
+    }
+
+    #[test]
+    fn object_paths_collect_like_the_stored_scan() {
+        let paths = crate::memtable::fts_object_leaf_paths(&schema());
+        assert_eq!(
+            paths,
+            vec![
+                ("meta.note".to_string(), FieldType::Text),
+                ("meta.tag".to_string(), FieldType::Keyword)
+            ]
+        );
+        let keys: Vec<String> = paths.into_iter().map(|(p, _)| p).collect();
+        let values = |doc: serde_json::Value| {
+            let mut out = crate::memtable::extract_field_values_excluding(
+                &doc,
+                &std::collections::HashSet::new(),
+            );
+            crate::memtable::add_object_path_values(&doc, &keys, &mut out);
+            let mut v: Vec<(String, Vec<String>)> = out
+                .into_iter()
+                .filter(|(k, _)| k.starts_with("meta."))
+                .map(|(k, v)| (k, v.iter().map(str::to_string).collect()))
+                .collect();
+            v.sort();
+            v
+        };
+        let docs = docs();
+        assert_eq!(
+            values(docs[2].clone()),
+            vec![
+                ("meta.note".into(), vec!["plum".into(), "apple tart".into()]),
+                ("meta.tag".into(), vec!["Fruit".into()]),
+            ]
+        );
+        // A literal dotted key is the same path; both spellings add up.
+        assert_eq!(
+            values(json!({"meta.note": "a", "meta": {"note": "b"}})),
+            vec![("meta.note".into(), vec!["a".into(), "b".into()])]
+        );
+        assert_eq!(values(docs[4].clone()), vec![]);
+    }
+
+    /// FAIL-BEFORE: every flushed segment took the stored-doc scan and the
+    /// pattern query ranked by match count (1.0 each).
+    #[tokio::test]
+    async fn pattern_queries_on_object_leaves_use_the_postings() {
+        let (_dir, idx) = index(true).await;
+        let (hits, fts, scans) = run(
+            &idx,
+            json!({"multi_match": {"query": "apple", "fields": ["*"]}}),
+        )
+        .await;
+        assert_eq!(ids(&hits), vec!["d0", "d1", "d2", "d3"]);
+        assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+        assert!(
+            hits.iter().any(|h| h.1 != 1.0),
+            "BM25, not counts: {hits:?}"
+        );
+        let (named, _, _) = run(
+            &idx,
+            json!({"multi_match": {"query": "apple", "fields": ["title", "meta.note", "meta.tag"]}}),
+        )
+        .await;
+        assert_eq!(ids(&hits), ids(&named));
+        for (a, b) in hits.iter().zip(&named) {
+            assert!((a.1 - b.1).abs() < 1e-5, "{hits:?} vs {named:?}");
+        }
+        let (qs, fts, scans) = run(&idx, json!({"query_string": {"query": "apple"}})).await;
+        assert_eq!(ids(&qs), vec!["d0", "d1", "d2", "d3"]);
+        assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+    }
+
+    /// Same hits in the memtable and after `_flush`, keyword leaves by whole
+    /// value on both sides.
+    #[tokio::test]
+    async fn object_leaf_hits_do_not_change_at_flush() {
+        let queries = [
+            json!({"multi_match": {"query": "apple", "fields": ["*"]}}),
+            json!({"multi_match": {"query": "Fruit", "fields": ["*"]}}),
+            json!({"multi_match": {"query": "fruit", "fields": ["*"]}}),
+            json!({"match": {"meta.note": "plum"}}),
+            json!({"match": {"meta.tag": "Fruit"}}),
+            json!({"bool": {"should": [
+                {"match": {"meta.note": "apple"}}, {"match": {"title": "zzz"}}
+            ]}}),
+        ];
+        // FAIL-BEFORE (memtable): `meta.note` inside an array of objects
+        // matched nothing until a flush.
+        let expect: [Vec<&str>; 6] = [
+            vec!["d0", "d1", "d2", "d3"],
+            vec!["d0", "d2"],
+            vec![],
+            vec!["d2"],
+            vec!["d0", "d2"],
+            vec!["d0", "d2", "d3"],
+        ];
+        for flush in [false, true] {
+            let (_dir, idx) = index(flush).await;
+            for (q, want) in queries.iter().zip(&expect) {
+                let (hits, _, _) = run(&idx, q.clone()).await;
+                assert_eq!(&ids(&hits), want, "flush={flush} {q}");
+            }
+        }
+    }
+
+    /// A segment with no side-car for an object leaf (built before #3464)
+    /// still answers from its stored documents, including a `should` clause
+    /// on that leaf alone, and the next merge re-analyses it so the merged
+    /// segment carries the side-car.
+    #[tokio::test]
+    async fn a_segment_without_object_side_cars_is_scanned_then_rebuilt() {
+        let (_dir, idx) = index(true).await;
+        let seg_dir = idx.data_dir().join("segments");
+        let mut removed = 0;
+        for entry in std::fs::read_dir(&seg_dir).unwrap() {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            if name.contains(".meta.note.") || name.contains(".meta.tag.") {
+                std::fs::remove_file(&path).unwrap();
+                removed += 1;
+            }
+        }
+        assert!(removed > 0, "no object side-cars were written");
+        idx.fts_reader_cache.clear();
+        let should = json!({"bool": {"should": [
+            {"match": {"meta.note": "apple"}}, {"match": {"title": "zzz"}}
+        ]}});
+        // FAIL-BEFORE (main): the meta.note clause was pruned as a field this
+        // segment "never indexed", and the query found nothing.
+        let (hits, _, scans) = run(&idx, should.clone()).await;
+        assert_eq!(ids(&hits), vec!["d0", "d2", "d3"]);
+        assert!(scans > 0);
+        // A second segment so the merge has two inputs.
+        idx.index_document(
+            Some("d9".into()),
+            json!({"title": "apple", "meta": {"note": "apple"}}),
+        )
+        .await
+        .unwrap();
+        idx.flush().await.unwrap();
+        idx.force_merge(1).await.unwrap();
+        let (hits, fts, scans) = run(&idx, should).await;
+        assert_eq!(ids(&hits), vec!["d0", "d2", "d3", "d9"]);
+        assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
     }
 }
