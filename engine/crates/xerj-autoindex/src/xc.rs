@@ -7136,6 +7136,16 @@ precedence = ["a", "b"]
     #[test]
     fn xerj_code_on_an_empty_ledger_names_catalog_prefixes() {
         let server = JsonServer::start(|_| (200, catalog_hits(&["proj"])));
+        // `localnode::ensure_for_cli` opens a bare TCP connection to probe the
+        // node; the stand-in records it as an empty request, so only requests
+        // that name the catalog count as catalog reads.
+        let catalog_reads = || {
+            server
+                .requests()
+                .iter()
+                .filter(|req| req.contains("autoindex-catalog"))
+                .count()
+        };
         let home = tempfile::tempdir().unwrap();
         let _hold = code_home(home.path());
         let done = code_cli_outcome(&[
@@ -7178,7 +7188,11 @@ precedence = ["a", "b"]
             r#"{"corpus":"other","indexed_at":"2026-01-02T03:04:05Z","prefix":"xc-other"}"#,
         )
         .unwrap();
-        let before = server.requests().len();
+        assert_eq!(
+            catalog_reads(),
+            1,
+            "an empty ledger must read the catalog once"
+        );
         let done = code_cli_outcome(&[
             "proj".into(),
             "how does it flush".into(),
@@ -7196,8 +7210,8 @@ precedence = ["a", "b"]
         );
         assert!(!out.text.contains("autoindex catalog"), "{}", out.text);
         assert_eq!(
-            server.requests().len(),
-            before,
+            catalog_reads(),
+            1,
             "a non-empty ledger must not probe the catalog"
         );
         drop(_hold);

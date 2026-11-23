@@ -86,6 +86,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`xerj_code_on_an_empty_ledger_names_catalog_prefixes` no longer counts the
+  node probe as a catalog read
+  ([#3468](https://github.com/xerj-org/xerj/issues/3468)).** Each `xerj code`
+  call first probes the node with a bare TCP connection, and the test's
+  stand-in server records that connection as an empty request. The test
+  compared the total request count, so under CPU contention the second call's
+  probe landed before the count and failed it (55 of 60 runs pinned to two
+  CPUs). It now counts only requests that name `autoindex-catalog`: one after
+  the empty-ledger call, still one after the non-empty-ledger call. Test-only
+  change.
+
 - **Native `q` and `multi_match` on `*` find documents again (#3413).**
   `multi_match` with `fields: ["*"]`, which is what the native search `q`
   parameter sends, matched nothing, so every `q` search returned 0 hits. A
