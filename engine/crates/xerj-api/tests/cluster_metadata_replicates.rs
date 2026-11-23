@@ -1333,6 +1333,27 @@ async fn a_document_is_stored_on_its_shard_owner_and_search_sees_it_from_any_mem
     }
 }
 
+/// Wait for a member's runner task to exit after its shutdown watch was set.
+///
+/// The runner races the shutdown watch against each step
+/// (`ClusterRunner::run`), so the join is the event: it resolves on the
+/// runner's next poll. It was a 5 s wall-clock join (left by #3516), which a
+/// runner starved at load 100+ can miss while still stopping correctly.
+/// [`RAFT_HANG_GUARD`] only catches a runner that never exits.
+async fn join_runner(member: &mut Member) {
+    let Some(task) = member.runner.take() else {
+        return;
+    };
+    match tokio::time::timeout(RAFT_HANG_GUARD, task).await {
+        Ok(Ok(())) => {}
+        Ok(Err(join)) => panic!("{} runner task failed: {join}", member.handle.node_id()),
+        Err(_) => panic!(
+            "{} runner did not exit in {RAFT_HANG_GUARD:?} after shutdown",
+            member.handle.node_id()
+        ),
+    }
+}
+
 /// Stop one member and release its data directory.
 ///
 /// The shard handler is cleared first, so a document write during shutdown
@@ -1342,12 +1363,7 @@ async fn a_document_is_stored_on_its_shard_owner_and_search_sees_it_from_any_mem
 async fn shutdown_member(mut member: Member) -> tempfile::TempDir {
     member.handle.clear_shard_handler();
     let _ = member.shutdown.send(true);
-    if let Some(task) = member.runner.take() {
-        match tokio::time::timeout(Duration::from_secs(5), task).await {
-            Ok(Ok(())) => {}
-            other => panic!("cluster runner did not stop: {other:?}"),
-        }
-    }
+    join_runner(&mut member).await;
     drop(member.app);
     drop(member.state);
     drop(member.engine);
@@ -1359,12 +1375,7 @@ async fn shutdown_and_keep(members: Vec<Member>) -> Vec<tempfile::TempDir> {
     let mut dirs = Vec::with_capacity(members.len());
     for mut member in members {
         let _ = member.shutdown.send(true);
-        if let Some(task) = member.runner.take() {
-            match tokio::time::timeout(Duration::from_secs(5), task).await {
-                Ok(Ok(())) => {}
-                other => panic!("cluster runner did not stop: {other:?}"),
-            }
-        }
+        join_runner(&mut member).await;
         // ApiShardHandler holds AppState, which holds Engine, which holds
         // this handle. The engine's data-dir node.lock stays taken until
         // that cycle breaks, so a later Engine::new on the same directory
