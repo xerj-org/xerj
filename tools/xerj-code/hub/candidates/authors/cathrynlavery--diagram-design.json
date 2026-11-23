@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, claude-code, codex queries this for how cathrynlavery/diagram-design implements it: Editorial diagram design for Claude Code, Codex, GitHub Copilot, Cursor, Factory Droid, Qoder, and Pi. 45 diagram types. Self-contained HTML (selected work: scripts, skills, the project root)",
+ "domain": "an agent working on agent-skills, claude-code, codex queries this for how cathrynlavery/diagram-design implements it: Editorial diagram design for Claude Code, Codex, GitHub Copilot, Cursor, Factory Droid, Qoder, and Pi. 52 diagram types. Self-contained HTML (selected work: scripts, skills, the project root)",
  "repos": [
   {
    "repo": "diagram-design",

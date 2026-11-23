@@ -8,15 +8,15 @@
   {
    "repo": "stockly.ai",
    "url": "https://github.com/anshk1234/stockly.ai",
-   "sha": "401f23bcef222ed3d1bf80d56e65117217b783eb",
-   "licence": "Apache-2.0 (LICENSE file at pin 401f23bcef22, GitHub licence API 2026-11-21)",
+   "sha": "4714f779f4e47be3387027606b1462420ef7fabd",
+   "licence": "Apache-2.0 (LICENSE file at pin 4714f779f4e4, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T06:17Z",
     "consent_receipt": "9c7ee075a071",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:17Z (receipt 9c7ee075a071); pinned to the default-branch head. LICENSE file at pin 401f23bcef22 detected as Apache-2.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:17Z (receipt 9c7ee075a071); pinned to the default-branch head. LICENSE file at pin 4714f779f4e4 detected as Apache-2.0 by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "ricker72--slidedownloader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ppt, pptx, slideshare queries this for how ricker72/slidedownloader implements it: SlideDownloader: Web app to download SlideShare presentations as PPTX/PDF/DOCX with responsive design and multilingual support (selected work: slides_downloader, the project root)",
+ "repos": [
+  {
+   "repo": "slidedownloader",
+   "url": "https://github.com/ricker72/slidedownloader",
+   "sha": "956b91b6f908a61f21fc07482e93eee5dcccb97a",
+   "licence": "MIT (LICENSE file at pin 956b91b6f908, GitHub licence API 2026-11-23)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-23T07:24Z",
+    "consent_receipt": "8087d69759cd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-23T07:24Z (receipt 8087d69759cd); selected commit 956b91b6f908: \"Complete SlideDownroller v1.0 release\". LICENSE file at pin 956b91b6f908 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+   }
+  }
+ ]
+}
