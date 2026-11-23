@@ -10878,6 +10878,7 @@
     ]
    }
   },
+  {"cat": "AI", "domain": "An agent that must answer from a user's own Markdown rather than from training queries this for local lexical recall over a vault: index construction, citation back to the source file, the cold- or missing-index fallback, collection scoping, and the optional read-only QMD evidence path.", "lane": "A", "refresh": "pinned", "slug": "ozark-wayfinder", "sources": [{"licence_hint": "MIT; reviewed LICENSE at pin, see manifest", "url": "https://github.com/nosliwhtes/ozark-wayfinder"}], "status": "live", "tags": {"region": "GLOBAL", "topics": ["hermes-agent", "retrieval", "markdown", "citations", "python"]}},
   {
    "cat": "API",
    "domain": "An agent designing declarative resource APIs (spec/status, list/watch, server-side apply, versioned groups) queries this for the Kubernetes API conventions and SIG-architecture design docs.",
