@@ -20,6 +20,7 @@ use tracing::{debug, info, warn};
 use crate::metadata::ClusterMetadata;
 use crate::propose::{
     ApplyEffect, ClusterHandle, ClusterView, MetadataApplier, ProposalRequest, ProposeError,
+    RunLoopSignals,
 };
 use crate::raft::{ClusterCommand, OutboundMessage, RaftMessage, RaftNode, RaftState};
 use crate::shard::NullShardRpc;
@@ -87,6 +88,11 @@ pub struct ClusterNode {
     view: Arc<RwLock<ClusterView>>,
     /// Applied index for [`ClusterHandle::wait_applied`].
     applied_tx: watch::Sender<u64>,
+    /// Role/leader/term change count for [`ClusterHandle::wait_role_change`].
+    roles_tx: watch::Sender<u64>,
+    /// Finished backfill passes for [`ClusterHandle::wait_backfill_pass`].
+    /// Shared with the runner's backfill task.
+    backfill_tx: Arc<watch::Sender<u64>>,
 }
 
 impl ClusterNode {
@@ -101,8 +107,11 @@ impl ClusterNode {
             log_len: 0,
             commit_index: 0,
             applied_index: 0,
+            term: 0,
         }));
         let (applied_tx, applied_rx) = watch::channel(0u64);
+        let (roles_tx, roles_rx) = watch::channel(0u64);
+        let (backfill_tx, backfill_rx) = watch::channel(0u64);
         let shard = transport.shard_rpc();
         let mut members = peers.clone();
         members.push(id.clone());
@@ -113,7 +122,11 @@ impl ClusterNode {
             members,
             tx,
             Arc::clone(&view),
-            applied_rx,
+            RunLoopSignals {
+                applied: applied_rx,
+                roles: roles_rx,
+                backfill: backfill_rx,
+            },
             shard,
         );
         ClusterNode {
@@ -126,6 +139,8 @@ impl ClusterNode {
             applier: None,
             view,
             applied_tx,
+            roles_tx,
+            backfill_tx: Arc::new(backfill_tx),
         }
     }
 
@@ -182,6 +197,11 @@ impl ClusterNode {
     /// The runner uses this to copy replica documents off the Raft step.
     pub(crate) fn applier(&self) -> Option<Arc<dyn MetadataApplier>> {
         self.applier.clone()
+    }
+
+    /// Sender the runner bumps after each replica-backfill pass.
+    pub(crate) fn backfill_passes(&self) -> Arc<watch::Sender<u64>> {
+        Arc::clone(&self.backfill_tx)
     }
 
     /// See [`crate::raft::RaftNode::set_snapshot_every`].
@@ -388,14 +408,24 @@ impl ClusterNode {
     /// this batch, so it would report them early. The applied index never
     /// moves back.
     fn publish_view(&self, applied: u64) {
-        {
+        let role_changed = {
             let mut view = self.view.write().unwrap_or_else(|e| e.into_inner());
-            view.state = self.raft.state().clone();
-            view.leader_id = self.raft.leader_id().map(|s| s.to_string());
+            let state = self.raft.state().clone();
+            let leader_id = self.raft.leader_id().map(|s| s.to_string());
+            let term = self.raft.current_term();
+            let role_changed =
+                view.state != state || view.leader_id != leader_id || view.term != term;
+            view.state = state;
+            view.leader_id = leader_id;
+            view.term = term;
             view.snapshot_index = self.raft.snapshot_index();
             view.log_len = self.raft.log_len();
             view.commit_index = self.raft.commit_index();
             view.applied_index = view.applied_index.max(applied);
+            role_changed
+        };
+        if role_changed {
+            self.roles_tx.send_modify(|changes| *changes += 1);
         }
         self.applied_tx.send_if_modified(|seen| {
             if applied > *seen {
@@ -818,6 +848,99 @@ mod tests {
         drop(node);
         assert!(matches!(
             blocked.await.unwrap(),
+            Err(ProposeError::ShuttingDown)
+        ));
+    }
+
+    /// #3496: an election publishes a role change a caller can wait on
+    /// instead of polling `is_leader` on a wall-clock deadline, and a node
+    /// whose run loop is gone ends that wait and the backfill wait.
+    #[tokio::test]
+    async fn an_election_wakes_wait_role_change_and_shutdown_ends_the_waits() {
+        let mut nodes = make_cluster(&["n1"]).await;
+        let mut node = nodes.remove(0);
+        let handle = node.handle();
+        assert_eq!(handle.role_changes(), 0);
+        assert_eq!(handle.term(), 0);
+
+        let waiter = handle.clone();
+        let woke = tokio::spawn(async move { waiter.wait_role_change(0).await });
+        node.raft.force_election_timeout();
+        node.step(Duration::from_millis(1)).await.unwrap();
+        assert!(handle.is_leader(), "single node should become leader");
+        let changes = woke.await.unwrap().unwrap();
+        assert!(changes >= 1, "the election published a change: {changes}");
+        assert!(handle.term() >= 1, "term {}", handle.term());
+
+        let seen = handle.role_changes();
+        node.step(Duration::from_millis(1)).await.unwrap();
+        assert_eq!(
+            handle.role_changes(),
+            seen,
+            "a step with the same role, leader, and term publishes no change"
+        );
+
+        let roles = handle.clone();
+        let blocked_role = tokio::spawn(async move { roles.wait_role_change(seen).await });
+        let passes = handle.clone();
+        let blocked_pass = tokio::spawn(async move { passes.wait_backfill_pass(0).await });
+        tokio::task::yield_now().await;
+        assert!(!blocked_role.is_finished());
+        assert!(!blocked_pass.is_finished());
+        drop(node);
+        assert!(matches!(
+            blocked_role.await.unwrap(),
+            Err(ProposeError::ShuttingDown)
+        ));
+        assert!(matches!(
+            blocked_pass.await.unwrap(),
+            Err(ProposeError::ShuttingDown)
+        ));
+    }
+
+    /// #3496: each finished backfill pass is counted on the handle, so a
+    /// caller waiting for a replica copy wakes on the pass that made it.
+    #[tokio::test]
+    async fn the_runner_counts_finished_backfill_passes() {
+        use crate::runner::ClusterRunner;
+        use std::sync::atomic::{AtomicU64, Ordering};
+        use tokio::sync::watch;
+
+        struct CountingApplier(Arc<AtomicU64>);
+
+        #[async_trait::async_trait]
+        impl MetadataApplier for CountingApplier {
+            async fn apply_metadata(&self, _command: &ClusterCommand) -> ApplyEffect {
+                ApplyEffect::Applied
+            }
+            async fn backfill_local_replicas(&self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let mut nodes = make_cluster(&["n1"]).await;
+        let mut node = nodes.remove(0);
+        let calls = Arc::new(AtomicU64::new(0));
+        node.set_applier(Arc::new(CountingApplier(Arc::clone(&calls))));
+        let handle = node.handle();
+        let (shutdown, shutdown_rx) = watch::channel(false);
+        let mut runner = ClusterRunner::new(node, Duration::from_millis(5), shutdown_rx);
+        let task = tokio::spawn(async move { runner.run().await });
+
+        let first = handle.wait_backfill_pass(0).await.unwrap();
+        assert!(first >= 1);
+        let second = handle.wait_backfill_pass(first).await.unwrap();
+        assert!(second > first);
+        assert!(
+            calls.load(Ordering::SeqCst) >= second,
+            "a pass is counted after the applier's backfill returns"
+        );
+
+        let _ = shutdown.send(true);
+        task.await.unwrap();
+        let seen = handle.backfill_passes();
+        assert!(matches!(
+            handle.wait_backfill_pass(seen).await,
             Err(ProposeError::ShuttingDown)
         ));
     }

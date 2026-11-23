@@ -208,28 +208,118 @@ async fn delete(app: &Router, path: &str) -> (StatusCode, Value) {
     .await
 }
 
+/// Hang guard for a raft wait, not a timing budget. The wait ends when the
+/// member applies the index; only a ring that stops making progress gets here.
+const RAFT_HANG_GUARD: Duration = Duration::from_secs(120);
+
+/// Terms a ring may start without settling on one leader before
+/// [`wait_leader`] gives up. A hang guard, not a timing budget: each new
+/// term is an election that ran, so the ring is making progress.
+const ELECTION_GUARD: u64 = 500;
+
+/// Backfill passes a member may finish without reaching the state a wait
+/// wants before it gives up. A hang guard, not a timing budget.
+const BACKFILL_PASS_GUARD: u64 = 500;
+
+/// Wait until exactly one live member reports itself raft leader.
+///
+/// #3496: this used to poll every 20 ms against a 10 s wall-clock deadline,
+/// which a starved runner missed 10 times in 120 at load 53-154. Elections
+/// run on wall-clock timers and have no log index, so the wait wakes on
+/// each role, leader, or term change any live member publishes
+/// (`ClusterHandle::wait_role_change`). It fails when no member publishes
+/// a change for [`RAFT_HANG_GUARD`] (the ring stopped), or after
+/// [`ELECTION_GUARD`] terms with no single leader (elections never settle).
 async fn wait_leader(members: &[Member], dead: &[bool]) -> usize {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let live: Vec<usize> = (0..members.len()).filter(|i| !dead[*i]).collect();
+    let max_term = || {
+        live.iter()
+            .map(|i| members[*i].handle.term())
+            .max()
+            .unwrap_or(0)
+    };
+    let first_term = max_term();
     loop {
-        let leaders: Vec<usize> = members
+        // Read the change counters before the leaders, so a change that
+        // lands between the two still wakes the wait below.
+        let seen: Vec<u64> = live
             .iter()
-            .enumerate()
-            .filter(|(i, member)| !dead[*i] && member.handle.is_leader())
-            .map(|(i, _)| i)
+            .map(|i| members[*i].handle.role_changes())
+            .collect();
+        let leaders: Vec<usize> = live
+            .iter()
+            .copied()
+            .filter(|i| members[*i].handle.is_leader())
             .collect();
         if leaders.len() == 1 {
             return leaders[0];
         }
-        if Instant::now() > deadline {
-            panic!("timed out waiting for one raft leader");
+        let term = max_term();
+        assert!(
+            term - first_term < ELECTION_GUARD,
+            "no single raft leader after {} elections (terms {first_term}..{term}, leaders {leaders:?})",
+            term - first_term
+        );
+        let mut changes = tokio::task::JoinSet::new();
+        for (i, seen) in live.iter().zip(seen) {
+            let handle = members[*i].handle.clone();
+            changes.spawn(async move {
+                let result = handle.wait_role_change(seen).await;
+                (handle.node_id().to_string(), result)
+            });
         }
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        match tokio::time::timeout(RAFT_HANG_GUARD, changes.join_next()).await {
+            Ok(Some(Ok((_, Ok(_))))) => {}
+            Ok(Some(Ok((node, Err(error))))) => {
+                panic!("{node} stopped while waiting for a raft leader: {error}")
+            }
+            Ok(Some(Err(join))) => panic!("role-change wait failed: {join}"),
+            Ok(None) => panic!("wait_leader called with no live member"),
+            Err(_) => panic!(
+                "no live member changed raft role, leader, or term in {RAFT_HANG_GUARD:?} (term {term}, leaders {leaders:?})"
+            ),
+        }
     }
 }
 
-/// Hang guard for a raft wait, not a timing budget. The wait ends when the
-/// member applies the index; only a ring that stops making progress gets here.
-const RAFT_HANG_GUARD: Duration = Duration::from_secs(120);
+/// Wait until `member` finishes a replica-backfill pass after `seen`.
+///
+/// Fails when the member finishes no pass for [`RAFT_HANG_GUARD`]: its
+/// backfill task stopped, not slowed down.
+async fn wait_backfill_pass(member: &Member, seen: u64) {
+    match tokio::time::timeout(RAFT_HANG_GUARD, member.handle.wait_backfill_pass(seen)).await {
+        Ok(Ok(_)) => {}
+        Ok(Err(error)) => panic!(
+            "{} stopped before finishing a backfill pass: {error}",
+            member.handle.node_id()
+        ),
+        Err(_) => panic!(
+            "{} finished no backfill pass in {RAFT_HANG_GUARD:?} (passes {seen})",
+            member.handle.node_id()
+        ),
+    }
+}
+
+/// Wait until async task `task` on `member` has finished, then return the
+/// `GET /_tasks/{task}` body, which must report it completed.
+///
+/// #3496: this used to poll that GET every 20 ms against a 5 s wall-clock
+/// deadline, which a starved box missed 5 times in 120. The wait now ends
+/// when the task registry records the task's result
+/// (`TaskRegistry::wait_finished`). [`RAFT_HANG_GUARD`] is a hang guard.
+async fn wait_task_completed(member: &Member, task: &str) -> Value {
+    match tokio::time::timeout(RAFT_HANG_GUARD, member.state.tasks.wait_finished(task)).await {
+        Ok(Some(_)) => {}
+        Ok(None) => panic!("task {task} ended without storing a result"),
+        Err(_) => panic!("task {task} did not finish in {RAFT_HANG_GUARD:?}"),
+    }
+    let (status, body) = get(&member.app, &format!("/_tasks/{task}")).await;
+    assert!(
+        status.is_success() && body.get("completed").and_then(|v| v.as_bool()) == Some(true),
+        "task {task} finished but GET /_tasks does not report it completed: {status} {body}"
+    );
+    body
+}
 
 /// The highest raft log index any of `members` has applied.
 ///
@@ -1617,17 +1707,27 @@ async fn replica_title(member: &Member, shard: u32, id: &str) -> Option<String> 
         })
 }
 
+/// Wait until `member`'s replica copy of `id` on `shard` has title `want`.
+///
+/// #3496: the copy arrives by backfill, which runs off the raft step and
+/// has no log index. This used to poll every 20 ms against a 10 s
+/// wall-clock deadline (9 failures in 120 at load 53-154). It now re-reads
+/// after each backfill pass the member finishes, under the pass and hang
+/// guards.
 async fn wait_replica_title(member: &Member, shard: u32, id: &str, want: Option<&str>) {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let first = member.handle.backfill_passes();
     loop {
+        let seen = member.handle.backfill_passes();
         let got = replica_title(member, shard, id).await;
         if got.as_deref() == want {
             return;
         }
-        if Instant::now() > deadline {
-            panic!("replica title of {id} on shard {shard} stayed {got:?}, wanted {want:?}");
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(
+            seen - first < BACKFILL_PASS_GUARD,
+            "replica title of {id} on shard {shard} stayed {got:?} after {} backfill passes, wanted {want:?}",
+            seen - first
+        );
+        wait_backfill_pass(member, seen).await;
     }
 }
 
@@ -1975,9 +2075,15 @@ async fn replica_sources(replica: &Member, shard: u32) -> BTreeMap<String, Value
 /// The in-sync bit is read before the stores. Publishing the replica while
 /// its copy still differs fails this wait instead of being papered over by
 /// a later copy.
+///
+/// #3496: refill runs as the replica's backfill pass, off the raft step.
+/// This used to poll every 20 ms against a 15 s wall-clock deadline (5
+/// failures in 120 at load 53-154). It now re-checks after each backfill
+/// pass the replica finishes, under the pass and hang guards.
 async fn wait_refilled(primary: &Member, replica: &Member, shard: u32, replica_id: &str) {
-    let deadline = Instant::now() + Duration::from_secs(15);
+    let first = replica.handle.backfill_passes();
     loop {
+        let seen = replica.handle.backfill_passes();
         let in_sync = primary
             .engine
             .replica_nodes("orders", shard)
@@ -1997,12 +2103,12 @@ async fn wait_refilled(primary: &Member, replica: &Member, shard: u32, replica_i
             );
             return;
         }
-        if Instant::now() > deadline {
-            panic!(
-                "replica {replica_id} shard {shard} was not refilled and published\n in_sync={in_sync}\n primary={want:?}\n replica={got:?}"
-            );
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(
+            seen - first < BACKFILL_PASS_GUARD,
+            "replica {replica_id} shard {shard} was not refilled and published after {} backfill passes\n in_sync={in_sync}\n primary={want:?}\n replica={got:?}",
+            seen - first
+        );
+        wait_backfill_pass(replica, seen).await;
     }
 }
 
@@ -2948,17 +3054,7 @@ async fn update_by_query_from_a_non_owner_updates_every_primary_and_replica() {
         .and_then(|v| v.as_str())
         .unwrap_or_else(|| panic!("task id: {body}"))
         .to_string();
-    let deadline = Instant::now() + Duration::from_secs(5);
-    let completed = loop {
-        let (status, got) = get(&members[writer].app, &format!("/_tasks/{task}")).await;
-        if status.is_success() && got.get("completed").and_then(|v| v.as_bool()) == Some(true) {
-            break got;
-        }
-        if Instant::now() > deadline {
-            panic!("task {task} did not finish: {status} {got}");
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    };
+    let completed = wait_task_completed(&members[writer], &task).await;
     assert_eq!(
         completed
             .pointer("/response/updated")
@@ -3304,17 +3400,7 @@ async fn delete_by_query_from_a_non_owner_deletes_on_every_primary_and_replica()
         .and_then(|v| v.as_str())
         .unwrap_or_else(|| panic!("task id: {body}"))
         .to_string();
-    let deadline = Instant::now() + Duration::from_secs(5);
-    let completed = loop {
-        let (status, got) = get(&members[writer].app, &format!("/_tasks/{task}")).await;
-        if status.is_success() && got.get("completed").and_then(|v| v.as_bool()) == Some(true) {
-            break got;
-        }
-        if Instant::now() > deadline {
-            panic!("task {task} did not finish: {status} {got}");
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    };
+    let completed = wait_task_completed(&members[writer], &task).await;
     assert_eq!(
         completed
             .pointer("/response/deleted")
