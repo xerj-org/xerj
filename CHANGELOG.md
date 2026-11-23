@@ -115,6 +115,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A flush near the memory watermark no longer waits for the allocator purge
+  ([#3493](https://github.com/xerj-org/xerj/issues/3493)).** From 70% of the
+  watermark, a finished flush build returned its freed pages to the OS
+  inline. That held the flush, and every shard of a pressure drain, for p90
+  64-133 ms and up to 282 ms per call. The purge now runs on its own thread
+  (`xerj-flush-purge`). The flush path spends under 0.12 ms there at p90, and
+  the trigger and the memory breaker are unchanged. (Refs #2427)
+
 - **`xerj_code_on_an_empty_ledger_names_catalog_prefixes` no longer counts the
   node probe as a catalog read
   ([#3468](https://github.com/xerj-org/xerj/issues/3468)).** Each `xerj code`

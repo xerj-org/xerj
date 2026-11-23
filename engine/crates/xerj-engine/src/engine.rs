@@ -105,9 +105,21 @@ struct PressurePurgeWorker {
 
 impl PressurePurgeWorker {
     fn spawn(purge: Arc<dyn Fn() + Send + Sync + 'static>) -> Self {
-        let (tx, rx) = std::sync::mpsc::sync_channel::<()>(0);
+        Self::spawn_named("xerj-mem-purge", 0, purge)
+    }
+
+    /// `queued` is how many requests may wait while a purge runs: `0` drops
+    /// every request that arrives mid-purge (the sampler asks again on its
+    /// next due tick), `1` keeps one, so pages freed after a running purge
+    /// passed their arena still get a purge of their own.
+    fn spawn_named(
+        name: &str,
+        queued: usize,
+        purge: Arc<dyn Fn() + Send + Sync + 'static>,
+    ) -> Self {
+        let (tx, rx) = std::sync::mpsc::sync_channel::<()>(queued);
         let worker = Arc::clone(&purge);
-        let running = spawn_governor_thread("xerj-mem-purge", move || {
+        let running = spawn_governor_thread(name, move || {
             while let Ok(()) = rx.recv() {
                 worker();
             }
@@ -129,6 +141,29 @@ impl PressurePurgeWorker {
             }
         }
     }
+}
+
+/// Ask for the purge that follows a flush build (#2427), without waiting
+/// for it.
+///
+/// A finished build frees several hundred MB at once, and from 70% of the
+/// watermark `release_flush_build` hands those pages back. Run inline, that
+/// purge held the finalizer's blocking-pool thread until it was done, so
+/// every flush near the watermark (and every shard of a serial pressure
+/// drain) waited for it: 238 calls, p50 77.8 ms, p99 281.9 ms on the #3481
+/// A/B. It now goes to a governor thread of its own, `xerj-flush-purge`,
+/// separate from the sampler's `xerj-mem-purge` so a flush never takes the
+/// sampler's slot. One request may wait while a purge runs, and the rest
+/// fold into it: a single purge returns every arena's free pages, so
+/// back-to-back builds need one purge after the last of them, not one each.
+/// Without a worker (the spawn failed) the purge runs inline, as before.
+pub(crate) fn request_flush_build_purge() -> bool {
+    static WORKER: std::sync::OnceLock<PressurePurgeWorker> = std::sync::OnceLock::new();
+    WORKER
+        .get_or_init(|| {
+            PressurePurgeWorker::spawn_named("xerj-flush-purge", 1, Arc::new(purge_allocator_pages))
+        })
+        .request()
 }
 
 /// Whether this sampler tick should ask the drain worker to run on the fixed
@@ -452,6 +487,56 @@ mod pressure_cache_release_gate_tests {
         wait_until(
             "the second purge never finished",
             Box::new(|| runs.load(Ordering::SeqCst) == 2),
+        );
+    }
+
+    /// #2427: the flush-build purge worker keeps one request that arrives
+    /// mid-purge and folds the rest into it, and the caller never waits.
+    #[test]
+    fn a_flush_purge_request_queues_one_follow_up_without_waiting() {
+        use super::PressurePurgeWorker;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+        let runs = Arc::new(AtomicUsize::new(0));
+        let (started_tx, started_rx) = std::sync::mpsc::channel::<()>();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let started_tx = std::sync::Mutex::new(started_tx);
+        let release_rx = std::sync::Mutex::new(release_rx);
+        let counted = Arc::clone(&runs);
+        let worker = PressurePurgeWorker::spawn_named(
+            "test-flush-purge",
+            1,
+            Arc::new(move || {
+                started_tx.lock().unwrap().send(()).unwrap();
+                release_rx.lock().unwrap().recv().unwrap();
+                counted.fetch_add(1, Ordering::SeqCst);
+            }),
+        );
+        assert!(worker.request(), "an idle worker takes the request");
+        started_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the purge must start on the worker");
+        let t = Instant::now();
+        assert!(worker.request(), "one request waits behind a running purge");
+        assert!(!worker.request(), "a second one folds into the first");
+        assert!(
+            t.elapsed() < Duration::from_secs(1),
+            "a request must not block"
+        );
+        assert_eq!(runs.load(Ordering::SeqCst), 0);
+        release_tx.send(()).unwrap();
+        started_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the queued request must run after the first purge");
+        release_tx.send(()).unwrap();
+        let by = Instant::now() + Duration::from_secs(10);
+        while runs.load(Ordering::SeqCst) != 2 {
+            assert!(Instant::now() < by, "the queued purge never finished");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(
+            started_rx.recv_timeout(Duration::from_millis(100)).is_err(),
+            "the folded request must not run a third purge"
         );
     }
 

@@ -41298,14 +41298,16 @@ fn flush_working_set_bytes(memtable_bytes: usize) -> u64 {
     (memtable_bytes as u64).saturating_mul(flush_working_set_pct()) / 100
 }
 
-/// Release a finished build's reservation, then return its freed pages to
-/// the OS when the process is close to the watermark (#2427).
+/// Release a finished build's reservation, then ask for its freed pages to
+/// go back to the OS when the process is close to the watermark (#2427).
 ///
 /// jemalloc keeps freed pages resident for `dirty_decay_ms` (1 s). A build
 /// frees several hundred MB at once, and on the gate those pages were still
 /// resident when the next burst allocated: 454 MB of the 3,364 MB peak was
 /// free pages. Purging right away hands them back before the next build
-/// starts; under the threshold the decay alone is enough.
+/// starts; under the threshold the decay alone is enough. The purge runs on
+/// its own thread ([`crate::engine::request_flush_build_purge`]): inline it
+/// held this flush for p50 77.8 ms, p99 281.9 ms.
 fn release_flush_build(reservation: crate::governor::FlushBuildReservation) {
     drop(reservation);
     let Some(governor) = crate::governor::global() else {
@@ -41313,7 +41315,7 @@ fn release_flush_build(reservation: crate::governor::FlushBuildReservation) {
     };
     let watermark = governor.memory_watermark_bytes();
     if flush_build_should_purge(governor.observed_rss_bytes(), watermark) {
-        crate::engine::purge_allocator_pages();
+        crate::engine::request_flush_build_purge();
     }
 }
 
