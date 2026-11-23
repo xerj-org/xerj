@@ -8,15 +8,15 @@
   {
    "repo": "Synapse-Memory",
    "url": "https://github.com/721189/Synapse-Memory",
-   "sha": "9c010b6cc74748259e66be80b3e4dde3ce53b1ef",
-   "licence": "Apache-2.0 (LICENSE file at pin 9c010b6cc747, GitHub licence API 2026-11-23)",
+   "sha": "6a24d47113bd704ed616e41ef9feb67b8e4687b9",
+   "licence": "Apache-2.0 (LICENSE file at pin 6a24d47113bd, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-18T21:14Z",
     "consent_receipt": "f2c3962fc86c",
-    "note": "Inclusion consented by the commit author by email at 2026-11-18T21:14Z (receipt f2c3962fc86c); selected commit 9c010b6cc747: \"implemented and verified all required authorization and gateway tests\". LICENSE file at pin 9c010b6cc747 detected as Apache-2.0 by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head 9c010b6cc747 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T21:14Z (receipt f2c3962fc86c); selected commit 6a24d47113bd: \"implemented and verified all required authorization and gateway tests\". LICENSE file at pin 6a24d47113bd detected as Apache-2.0 by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head 6a24d47113bd (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]
