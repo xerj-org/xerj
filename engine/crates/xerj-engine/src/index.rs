@@ -52859,10 +52859,10 @@ mod lexically_typeless_lowering_tests {
 /// does not parse for (`QueryParserHelper.resolveMappingField`, which skips
 /// `TextSearchInfo.NONE` types and metadata fields for `*`; elasticsearch
 /// `server/src/main/java/org/elasticsearch/index/search/
-/// QueryParserHelper.java:116-150`, AGPL, read for semantics only). XERJ keeps
-/// the text and keyword part of that set. Numeric, boolean, date and ip
-/// fields are left out: a full-text query on them only matches a value that
-/// parses for the type, and the FTS projection has no per-type parse.
+/// QueryParserHelper.java:116-150`, AGPL, read for semantics only). This is
+/// the text and keyword part of that set. Numeric, boolean, date and ip fields
+/// get one exact typed leaf each, and only when the query text parses for the
+/// type ([`lenient_typed_pattern_leaves`], #3463).
 fn field_pattern_target(f: &FieldConfig) -> bool {
     matches!(f.field_type, FieldType::Text | FieldType::Keyword)
         && (f.options.indexed || f.options.doc_values)
@@ -52933,6 +52933,259 @@ fn expand_field_specs(specs: &[String], schema: &Schema) -> Option<Vec<String>> 
     )
 }
 
+/// The exact leaf a full-text query makes on one numeric, boolean, date or ip
+/// field. `None` when `text` does not parse for the field's type (#3463).
+///
+/// ES runs a match query on these types as one term query over the whole text
+/// (`MatchQueryParser`, keyword search analyzer). A `*` field list turns
+/// `lenient` on, so a value that does not parse drops that field and the
+/// request does not fail (`MultiMatchQueryBuilder`, `QueryStringQueryBuilder`;
+/// read for semantics only, no code copied). ES scores the term query as a
+/// constant (its boost). Per type:
+///
+/// - `long`: an integer, or a float with no fractional part (`42.0` is 42).
+///   `42.5` matches no long.
+/// - `double`: any finite float. `42` and `42.0` are the same value.
+/// - `boolean`: exactly `true` or `false`.
+/// - `ip`: an address, or a CIDR block.
+/// - `date`: a date-shaped text (`date_shaped_match_text`), as a `range` from
+///   the text rounded down to the text rounded up. That is ES
+///   `DateFieldType.termQuery`, so `2024-01-15` covers the whole day. A bare
+///   number is not treated as epoch millis here, though ES would read it that
+///   way. Otherwise every numeric query would carry a `range` on each date
+///   field, and that `range` has no FTS projection.
+///
+/// Numbers and IPv4 addresses become `constant_score` over a `match`
+/// for each spelling the field's keyword side-car can hold (the FTS writer
+/// indexes the source value's JSON text: 42 is `42`, 42.0 is `42.0`). That form
+/// projects onto the postings, so a query that mixes words and a number keeps
+/// BM25 for its words. The stored-doc scan answers the same `match` from the
+/// same text, so a hit does not change at `_flush`. A source value spelled
+/// some other way (a `long` given as `42.0`, `"042"`) is not found, which is
+/// narrower than ES. Booleans, IPv6, CIDR and dates use the exact `term` /
+/// `range` leaf. A clause that holds one of those is
+/// answered by the stored-doc scan.
+fn lenient_typed_leaf(
+    path: &str,
+    f: &FieldConfig,
+    text: &str,
+    boost: Option<f32>,
+) -> Option<QueryNode> {
+    let text = text.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let spelled = |spellings: Vec<String>| {
+        let mut matches: Vec<QueryNode> = spellings
+            .into_iter()
+            .map(|s| QueryNode::Match {
+                field: path.to_string(),
+                query: s,
+                operator: Default::default(),
+                analyzer: None,
+                boost: None,
+                minimum_should_match: None,
+                lenient: true,
+            })
+            .collect();
+        let query = if matches.len() == 1 {
+            matches.pop()?
+        } else {
+            QueryNode::Bool {
+                must: Vec::new(),
+                should: matches,
+                must_not: Vec::new(),
+                filter: Vec::new(),
+                minimum_should_match: Some(MinShouldMatch::Fixed(1)),
+            }
+        };
+        Some(QueryNode::Constant {
+            score: boost.unwrap_or(1.0),
+            query: Box::new(query),
+        })
+    };
+    match f.field_type {
+        FieldType::Long => {
+            let n = match text.parse::<i64>() {
+                Ok(n) => n,
+                Err(_) => {
+                    let x = text.parse::<f64>().ok()?;
+                    // `i64::MAX as f64` rounds up to 2^63, so that bound is
+                    // exclusive.
+                    if !x.is_finite()
+                        || x.fract() != 0.0
+                        || x < i64::MIN as f64
+                        || x >= i64::MAX as f64
+                    {
+                        return None;
+                    }
+                    x as i64
+                }
+            };
+            spelled(vec![n.to_string()])
+        }
+        FieldType::Double => {
+            let x = text.parse::<f64>().ok().filter(|x| x.is_finite())?;
+            let float = serde_json::Number::from_f64(x)?.to_string();
+            let mut spellings = vec![float];
+            if x.fract() == 0.0 && x.abs() < 9.0e15 {
+                spellings.push((x as i64).to_string());
+            }
+            spelled(spellings)
+        }
+        // A boolean keeps the exact `term`: in the memtable a
+        // `constant_score` over `match` on a boolean field matches nothing
+        // (a separate defect), so the spelled form would change hits at
+        // `_flush`.
+        FieldType::Boolean => match text {
+            "true" | "false" => Some(QueryNode::Term {
+                field: path.to_string(),
+                value: Value::Bool(text == "true"),
+                boost,
+            }),
+            _ => None,
+        },
+        FieldType::Ip => {
+            let ip = |s: &str| s.parse::<std::net::IpAddr>().ok();
+            let exact = |ok: bool| {
+                ok.then(|| QueryNode::Term {
+                    field: path.to_string(),
+                    value: Value::String(text.to_string()),
+                    boost,
+                })
+            };
+            match text.split_once('/') {
+                Some((addr, bits)) => exact(match (ip(addr), bits.parse::<u8>()) {
+                    (Some(std::net::IpAddr::V4(_)), Ok(b)) => b <= 32,
+                    (Some(std::net::IpAddr::V6(_)), Ok(b)) => b <= 128,
+                    _ => false,
+                }),
+                None => match ip(text)? {
+                    std::net::IpAddr::V4(v4) => spelled(vec![v4.to_string()]),
+                    std::net::IpAddr::V6(_) => exact(true),
+                },
+            }
+        }
+        FieldType::Date => {
+            if !date_shaped_match_text(text) {
+                return None;
+            }
+            // The bounds resolve here, as `parse_range` resolves a parsed
+            // `range`: every comparator (memtable, doc values, stored scan)
+            // reads the resolved instants, and `lte` rounds up.
+            let bound = |round_up: bool| match xerj_query::dates::resolve_date_bound_str(
+                text, round_up, None,
+            ) {
+                Ok(Some(iso)) => Some(Value::String(iso)),
+                _ => None,
+            };
+            Some(QueryNode::Range {
+                field: path.to_string(),
+                gte: Some(bound(false)?),
+                gt: None,
+                lte: Some(bound(true)?),
+                lt: None,
+                boost,
+                lenient: false,
+            })
+        }
+        _ => None,
+    }
+}
+
+/// The typed leaves that a field list with patterns adds for the numeric,
+/// boolean, date and ip fields its patterns reach (#3463). There is one leaf
+/// per field the text parses for. A field named outright in `specs` keeps its
+/// existing route and is not added twice. A field reached by two patterns gets
+/// the product of their boosts, as in [`expand_field_specs`]. The clause boost
+/// multiplies in the same way as in the keyword split.
+fn lenient_typed_pattern_leaves(
+    specs: &[String],
+    text: &str,
+    clause_boost: Option<f32>,
+    schema: &Schema,
+) -> Vec<QueryNode> {
+    let named: Vec<&str> = specs
+        .iter()
+        .map(|s| parse_field_boost(s).0)
+        .filter(|n| !n.contains('*'))
+        .collect();
+    let paths = pattern_field_paths(schema);
+    let mut hits: Vec<(&str, &FieldConfig, f32)> = Vec::new();
+    for spec in specs {
+        let (pattern, boost) = parse_field_boost(spec);
+        if !pattern.contains('*') {
+            continue;
+        }
+        for (path, f) in &paths {
+            let typed = matches!(
+                f.field_type,
+                FieldType::Long
+                    | FieldType::Double
+                    | FieldType::Boolean
+                    | FieldType::Date
+                    | FieldType::Ip
+            );
+            if !typed
+                || !(f.options.indexed || f.options.doc_values)
+                || f.name.starts_with('_')
+                || named.contains(&path.as_str())
+                || !crate::engine::glob_match(pattern, path)
+            {
+                continue;
+            }
+            match hits.iter_mut().find(|(p, _, _)| *p == path.as_str()) {
+                Some((_, _, b)) => *b *= boost,
+                None => hits.push((path.as_str(), *f, boost)),
+            }
+        }
+    }
+    hits.into_iter()
+        .filter_map(|(path, f, fboost)| {
+            let boost = if (fboost - 1.0).abs() < f32::EPSILON {
+                clause_boost
+            } else {
+                Some(fboost * clause_boost.unwrap_or(1.0))
+            };
+            lenient_typed_leaf(path, f, text, boost)
+        })
+        .collect()
+}
+
+/// Combine the text/keyword clause of a pattern with its typed leaves (#3463),
+/// the same way the keyword split combines its two halves. The best-field
+/// types (`best_fields`, the phrase types, and the per-term `query_string`
+/// form) get a `dis_max`. `most_fields` and `cross_fields` get a `should`.
+fn join_pattern_clauses(
+    base: Option<QueryNode>,
+    typed: Vec<QueryNode>,
+    match_type: xerj_query::ast::MultiMatchType,
+) -> Option<QueryNode> {
+    use xerj_query::ast::MultiMatchType;
+    let mut queries: Vec<QueryNode> = base.into_iter().chain(typed).collect();
+    match queries.len() {
+        0 => None,
+        1 => queries.pop(),
+        _ if matches!(
+            match_type,
+            MultiMatchType::MostFields | MultiMatchType::CrossFields
+        ) =>
+        {
+            Some(QueryNode::Bool {
+                must: Vec::new(),
+                should: queries,
+                must_not: Vec::new(),
+                filter: Vec::new(),
+                minimum_should_match: Some(MinShouldMatch::Fixed(1)),
+            })
+        }
+        _ => Some(QueryNode::DisMax {
+            queries,
+            tie_breaker: 0.0,
+        }),
+    }
+}
+
 /// #3413: a full-text clause whose field is a pattern, rewritten onto the
 /// concrete fields the pattern names, or `None` to leave the clause alone.
 ///
@@ -52950,28 +53203,15 @@ fn expand_field_specs(specs: &[String], schema: &Schema) -> Option<Vec<String>> 
 ///   count instead of BM25. A `match` with `minimum_should_match` has no
 ///   `multi_match` form and is left alone.
 ///
-/// A `match` / `match_phrase` leaf is also left alone when its text is a
-/// whole date (`2024-01-15`) or ip (`10.0.0.1`) value and the pattern reaches
-/// a field of that type. Those are the values ES would match on such a field,
-/// the expansion has no field for them, and the stored-doc scan the clause
-/// keeps still finds them in `_source`.
+/// #3463: numeric, boolean, date and ip fields that the pattern reaches get
+/// one exact typed leaf each when the text parses for the type, and are
+/// skipped without an error when it does not (ES lenient). The leaves join the
+/// text clause as a `dis_max` or a `should` ([`join_pattern_clauses`]).
+/// `q: "42"` now hits a `long` 42 and `q: "10.0.0.1"` hits an ip field. Before
+/// this, a date- or ip-shaped `match` leaf was left on the stored-doc scan,
+/// and a `multi_match` never reached those fields.
 fn expand_field_pattern_clause(q: &QueryNode, schema: &Schema) -> Option<QueryNode> {
     use xerj_query::ast::{BoolOperator, MultiMatchType};
-    let reaches_date_or_ip_value = |pattern: &str, query: &str| {
-        let is_ip = query.trim().parse::<std::net::IpAddr>().is_ok();
-        let is_date = date_shaped_match_text(query.trim());
-        (is_ip || is_date)
-            && pattern_field_paths(schema).iter().any(|(path, f)| {
-                let typed = match f.field_type {
-                    FieldType::Ip => is_ip,
-                    FieldType::Date => is_date,
-                    _ => false,
-                };
-                typed
-                    && (f.options.indexed || f.options.doc_values)
-                    && crate::engine::glob_match(pattern, path)
-            })
-    };
     let multi = |fields: Vec<String>,
                  query: &str,
                  match_type: MultiMatchType,
@@ -52991,15 +53231,22 @@ fn expand_field_pattern_clause(q: &QueryNode, schema: &Schema) -> Option<QueryNo
         lenient,
     };
     match q {
-        QueryNode::MultiMatch { fields, .. }
-            if fields.iter().any(|s| parse_field_boost(s).0.contains('*')) =>
-        {
-            let expanded = expand_field_specs(fields, schema)?;
-            let mut out = q.clone();
-            if let QueryNode::MultiMatch { fields, .. } = &mut out {
-                *fields = expanded;
-            }
-            Some(out)
+        QueryNode::MultiMatch {
+            fields,
+            query,
+            match_type,
+            boost,
+            ..
+        } if fields.iter().any(|s| parse_field_boost(s).0.contains('*')) => {
+            let typed = lenient_typed_pattern_leaves(fields, query, *boost, schema);
+            let base = expand_field_specs(fields, schema).map(|expanded| {
+                let mut out = q.clone();
+                if let QueryNode::MultiMatch { fields, .. } = &mut out {
+                    *fields = expanded;
+                }
+                out
+            });
+            join_pattern_clauses(base, typed, *match_type)
         }
         QueryNode::Match {
             field,
@@ -53010,32 +53257,37 @@ fn expand_field_pattern_clause(q: &QueryNode, schema: &Schema) -> Option<QueryNo
             minimum_should_match: None,
             lenient,
         } if field.contains('*') => {
-            if reaches_date_or_ip_value(field, query) {
-                return None;
-            }
-            let mut targets = expand_field_specs(std::slice::from_ref(field), schema)?;
-            if targets.len() == 1 {
-                return Some(QueryNode::Match {
-                    field: targets.pop()?,
-                    query: query.clone(),
-                    operator: *operator,
-                    analyzer: analyzer.clone(),
-                    boost: *boost,
-                    minimum_should_match: None,
-                    lenient: *lenient,
+            let typed =
+                lenient_typed_pattern_leaves(std::slice::from_ref(field), query, *boost, schema);
+            let base =
+                expand_field_specs(std::slice::from_ref(field), schema).map(|mut targets| {
+                    if targets.len() == 1 {
+                        if let Some(field) = targets.pop() {
+                            return QueryNode::Match {
+                                field,
+                                query: query.clone(),
+                                operator: *operator,
+                                analyzer: analyzer.clone(),
+                                boost: *boost,
+                                minimum_should_match: None,
+                                lenient: *lenient,
+                            };
+                        }
+                    }
+                    let operator =
+                        matches!(operator, BoolOperator::And).then_some(BoolOperator::And);
+                    multi(
+                        targets,
+                        query,
+                        MultiMatchType::BestFields,
+                        operator,
+                        analyzer,
+                        *boost,
+                        0,
+                        *lenient,
+                    )
                 });
-            }
-            let operator = matches!(operator, BoolOperator::And).then_some(BoolOperator::And);
-            Some(multi(
-                targets,
-                query,
-                MultiMatchType::BestFields,
-                operator,
-                analyzer,
-                *boost,
-                0,
-                *lenient,
-            ))
+            join_pattern_clauses(base, typed, MultiMatchType::BestFields)
         }
         QueryNode::MatchPhrase {
             field,
@@ -53045,30 +53297,34 @@ fn expand_field_pattern_clause(q: &QueryNode, schema: &Schema) -> Option<QueryNo
             boost,
             lenient,
         } if field.contains('*') => {
-            if reaches_date_or_ip_value(field, query) {
-                return None;
-            }
-            let mut targets = expand_field_specs(std::slice::from_ref(field), schema)?;
-            if targets.len() == 1 {
-                return Some(QueryNode::MatchPhrase {
-                    field: targets.pop()?,
-                    query: query.clone(),
-                    slop: *slop,
-                    analyzer: analyzer.clone(),
-                    boost: *boost,
-                    lenient: *lenient,
+            let typed =
+                lenient_typed_pattern_leaves(std::slice::from_ref(field), query, *boost, schema);
+            let base =
+                expand_field_specs(std::slice::from_ref(field), schema).map(|mut targets| {
+                    if targets.len() == 1 {
+                        if let Some(field) = targets.pop() {
+                            return QueryNode::MatchPhrase {
+                                field,
+                                query: query.clone(),
+                                slop: *slop,
+                                analyzer: analyzer.clone(),
+                                boost: *boost,
+                                lenient: *lenient,
+                            };
+                        }
+                    }
+                    multi(
+                        targets,
+                        query,
+                        MultiMatchType::Phrase,
+                        None,
+                        analyzer,
+                        *boost,
+                        *slop,
+                        *lenient,
+                    )
                 });
-            }
-            Some(multi(
-                targets,
-                query,
-                MultiMatchType::Phrase,
-                None,
-                analyzer,
-                *boost,
-                *slop,
-                *lenient,
-            ))
+            join_pattern_clauses(base, typed, MultiMatchType::Phrase)
         }
         // The opaque node (a string the parser could not lower) with
         // `default_field: "*"` means what no `default_field` means, and only
@@ -73821,12 +74077,50 @@ mod field_pattern_expansion_3413_tests {
         assert_eq!(expand_field_specs(&["zz*".to_string()], &schema), None);
     }
 
-    #[test]
-    fn date_or_ip_values_keep_the_stored_scan_route() {
+    fn typed_schema() -> Schema {
         let mut schema = issue_schema();
+        for (name, ty) in [
+            ("n", FieldType::Long),
+            ("x", FieldType::Double),
+            ("ok", FieldType::Boolean),
+            ("ts", FieldType::Date),
+            ("addr", FieldType::Ip),
+        ] {
+            schema.add_field(FieldConfig::new(name, ty)).unwrap();
+        }
         schema
-            .add_field(FieldConfig::new("ts", FieldType::Date))
-            .unwrap();
+    }
+
+    /// The typed leaves a pattern clause carries, as (field, kind) pairs.
+    fn typed_leaves_of(q: &QueryNode) -> Vec<(String, &'static str)> {
+        let children: Vec<&QueryNode> = match q {
+            QueryNode::DisMax { queries, .. } => queries.iter().collect(),
+            QueryNode::Bool { should, .. } => should.iter().collect(),
+            other => vec![other],
+        };
+        children
+            .into_iter()
+            .filter_map(|c| match c {
+                QueryNode::Term { field, .. } => Some((field.clone(), "term")),
+                QueryNode::Range { field, .. } => Some((field.clone(), "range")),
+                QueryNode::Constant { query, .. } => match query.as_ref() {
+                    QueryNode::Match { field, .. } => Some((field.clone(), "const")),
+                    QueryNode::Bool { should, .. } => match should.first() {
+                        Some(QueryNode::Match { field, .. }) => Some((field.clone(), "const")),
+                        _ => None,
+                    },
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// #3463: a pattern reaches number, boolean, date and ip fields with one
+    /// exact leaf per field the text parses for, and skips the others.
+    #[test]
+    fn field_patterns_add_lenient_typed_leaves() {
+        let schema = typed_schema();
         let leaf = |q: &str| QueryNode::Match {
             field: "*".into(),
             query: q.into(),
@@ -73836,10 +74130,164 @@ mod field_pattern_expansion_3413_tests {
             minimum_should_match: None,
             lenient: true,
         };
-        assert!(expand_field_pattern_clause(&leaf("2024-01-15"), &schema).is_none());
+        let typed =
+            |q: &str| typed_leaves_of(&expand_field_pattern_clause(&leaf(q), &schema).unwrap());
+        let pairs = |v: &[(&str, &'static str)]| -> Vec<(String, &'static str)> {
+            v.iter().map(|(f, k)| (f.to_string(), *k)).collect()
+        };
+        // FAIL-BEFORE: every one of these produced no typed leaf at all.
+        // A bare number is not read as epoch millis on the date field.
+        assert_eq!(typed("42"), pairs(&[("n", "const"), ("x", "const")]));
+        assert_eq!(typed("42.5"), pairs(&[("x", "const")]));
+        assert_eq!(typed("42.0"), pairs(&[("n", "const"), ("x", "const")]));
+        assert_eq!(typed("true"), pairs(&[("ok", "term")]));
+        assert_eq!(typed("10.0.0.1"), pairs(&[("addr", "const")]));
+        assert_eq!(typed("::1"), pairs(&[("addr", "term")]));
+        assert_eq!(typed("10.0.0.0/8"), pairs(&[("addr", "term")]));
+        assert_eq!(typed("10.0.0.0/33"), pairs(&[]));
+        assert_eq!(typed("2024-01-15"), pairs(&[("ts", "range")]));
+        assert_eq!(typed("hello"), pairs(&[]));
+        assert_eq!(typed("NaN"), pairs(&[]));
         assert!(matches!(
-            expand_field_pattern_clause(&leaf("2024"), &schema),
+            expand_field_pattern_clause(&leaf("hello"), &schema),
             Some(QueryNode::MultiMatch { .. })
         ));
+        // Each spelling the side-car can hold: `42` for the long, `42.0`
+        // and `42` for the double.
+        let Some(QueryNode::DisMax { queries, .. }) =
+            expand_field_pattern_clause(&leaf("42"), &schema)
+        else {
+            panic!("dis_max expected");
+        };
+        let spellings = |field: &str| -> Vec<String> {
+            for q in &queries {
+                let QueryNode::Constant { query, .. } = q else {
+                    continue;
+                };
+                let leaves: Vec<&QueryNode> = match query.as_ref() {
+                    QueryNode::Bool { should, .. } => should.iter().collect(),
+                    m => vec![m],
+                };
+                let found: Vec<String> = leaves
+                    .iter()
+                    .filter_map(|m| match m {
+                        QueryNode::Match {
+                            field: f, query, ..
+                        } if f == field => Some(query.clone()),
+                        _ => None,
+                    })
+                    .collect();
+                if !found.is_empty() {
+                    return found;
+                }
+            }
+            Vec::new()
+        };
+        assert_eq!(spellings("n"), vec!["42"]);
+        assert_eq!(spellings("x"), vec!["42.0", "42"]);
+    }
+
+    /// `most_fields` sums, so its typed leaves join as a `should`. A field
+    /// named outright keeps its old route. A pattern that reaches only typed
+    /// fields the text does not parse for leaves the clause alone.
+    #[test]
+    fn typed_leaves_follow_the_multi_match_shape() {
+        let schema = typed_schema();
+        let mm =
+            |fields: &[&str], q: &str, t: xerj_query::ast::MultiMatchType| QueryNode::MultiMatch {
+                fields: fields.iter().map(|f| f.to_string()).collect(),
+                query: q.into(),
+                match_type: t,
+                operator: None,
+                analyzer: None,
+                boost: Some(2.0),
+                slop: 0,
+                max_expansions: 50,
+                lenient: false,
+            };
+        use xerj_query::ast::MultiMatchType::{BestFields, MostFields};
+        let most = expand_field_pattern_clause(&mm(&["*"], "true", MostFields), &schema).unwrap();
+        assert!(matches!(&most, QueryNode::Bool { should, .. } if should.len() == 2));
+        let best = expand_field_pattern_clause(&mm(&["*"], "true", BestFields), &schema).unwrap();
+        let QueryNode::DisMax { queries, .. } = &best else {
+            panic!("dis_max expected: {best:?}");
+        };
+        // The clause boost reaches the typed leaf, times the field boost.
+        assert!(queries.iter().any(|q| matches!(q,
+            QueryNode::Term { field, boost: Some(b), .. } if field == "ok" && (*b - 2.0).abs() < 1e-6)));
+        let boosted =
+            expand_field_pattern_clause(&mm(&["o*^3"], "true", BestFields), &schema).unwrap();
+        assert!(matches!(&boosted,
+            QueryNode::Term { field, boost: Some(b), .. } if field == "ok" && (*b - 6.0).abs() < 1e-6));
+        let spelled =
+            expand_field_pattern_clause(&mm(&["n*^3"], "42", BestFields), &schema).unwrap();
+        assert!(matches!(&spelled,
+            QueryNode::Constant { score, .. } if (*score - 6.0).abs() < 1e-6));
+        let named =
+            expand_field_pattern_clause(&mm(&["n", "*"], "42", BestFields), &schema).unwrap();
+        assert!(
+            !typed_leaves_of(&named).iter().any(|(f, _)| f == "n"),
+            "{named:?}"
+        );
+        assert!(expand_field_pattern_clause(&mm(&["n*"], "abc", BestFields), &schema).is_none());
+    }
+
+    /// End to end on both storage paths: `q: "42"` style queries hit typed
+    /// fields, the same hits in the memtable and after `_flush`.
+    #[tokio::test]
+    async fn star_queries_hit_typed_fields_in_memtable_and_segments() {
+        for flush in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut config = Config::default();
+            config.server.data_dir = dir.path().to_string_lossy().into_owned();
+            let engine = crate::Engine::new(config).unwrap();
+            engine.create_index("typed3463", typed_schema()).unwrap();
+            let idx = engine.get_index("typed3463").unwrap();
+            let docs = [
+                json!({"title": "hello world", "n": 42, "x": 2.5, "ok": true,
+                       "ts": "2024-01-15T10:00:00Z", "addr": "10.0.0.1"}),
+                json!({"title": "forty two", "n": 7, "x": 42.0, "ok": false,
+                       "ts": "2023-06-01", "addr": "192.168.1.9"}),
+                json!({"title": "story 42", "n": 1, "x": 1.0, "ok": false,
+                       "ts": "2020-01-01", "addr": "::1"}),
+            ];
+            for (i, d) in docs.into_iter().enumerate() {
+                idx.index_document(Some(format!("d{i}")), d).await.unwrap();
+            }
+            if flush {
+                idx.flush().await.unwrap();
+            }
+            let ids = |q: serde_json::Value| {
+                let idx = idx.clone();
+                async move {
+                    let (hits, _, _) = run(&idx, q).await;
+                    hits.into_iter().map(|h| h.0).collect::<Vec<_>>()
+                }
+            };
+            if flush {
+                // Words plus a number stay on the postings path, with BM25
+                // for the words and a constant 1.0 for the typed field.
+                let (hits, fts, scans) =
+                    run(&idx, json!({"query_string": {"query": "hello 7"}})).await;
+                assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+                let d1 = hits.iter().find(|h| h.0 == "d1").map(|h| h.1);
+                assert_eq!(d1, Some(1.0), "{hits:?}");
+                let d0 = hits.iter().find(|h| h.0 == "d0").map(|h| h.1).unwrap();
+                assert!(d0 != 1.0 && d0 > 0.0, "{hits:?}");
+            }
+            let mm = |q: &str| json!({"multi_match": {"query": q, "fields": ["*"]}});
+            // FAIL-BEFORE: "42" found d2 only (its title), "true" nothing typed.
+            assert_eq!(ids(mm("42")).await, vec!["d0", "d1", "d2"], "flush={flush}");
+            assert_eq!(ids(mm("true")).await, vec!["d0"], "flush={flush}");
+            assert_eq!(ids(mm("10.0.0.0/8")).await, vec!["d0"], "flush={flush}");
+            assert_eq!(ids(mm("2024-01-15")).await, vec!["d0"], "flush={flush}");
+            assert_eq!(ids(mm("2.5")).await, vec!["d0"], "flush={flush}");
+            assert_eq!(ids(mm("hello")).await, vec!["d0"], "flush={flush}");
+            assert_eq!(
+                ids(json!({"query_string": {"query": "true OR 7"}})).await,
+                vec!["d0", "d1"],
+                "flush={flush}"
+            );
+        }
     }
 }

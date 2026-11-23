@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`*` field patterns now also search number, boolean, date and ip fields
+  (#3463).** Native `q`, `multi_match` with `fields: ["*"]` or `"prefix*"`,
+  and a `query_string` with no field now match a value that parses for a
+  field's type, as Elasticsearch does under the lenient parsing that `*`
+  turns on. `q: "42"` hits a `long` 42 and a `double` 42.0, `"true"` hits a
+  `boolean`, `"10.0.0.0/8"` hits an `ip`, and `"2024-01-15"` hits a `date`
+  anywhere in that day. A field that the value does not parse for is skipped
+  with no error. The typed match scores a constant 1.0 (times its boost). In
+  a query that mixes words and numbers, the words keep their BM25 scores.
+  Known limits: a bare number is not read as epoch millis on a date field; a
+  `long` stored as `42.0` or `"042"` is not found by `42`; when `lenient` is
+  off (a `prefix*` pattern without `lenient: true`, or `lenient: false`), ES
+  returns 400 for a value that does not parse, and XERJ skips the field.
+
 - **`search.max_buckets` counts the buckets a search returns, not the
   distinct keys a `terms` aggregation sees (#3362).** A top-10 over a field
   with more than 65,536 distinct values (user IDs, IPs) is served with exact
