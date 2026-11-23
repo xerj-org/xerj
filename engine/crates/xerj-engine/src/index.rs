@@ -28011,6 +28011,9 @@ impl Index {
         } else {
             None
         };
+        // #3492: the date fields whose `constant_score` range leaves project
+        // to per-segment doc-values match sets (`DateDocs`).
+        let date_doc_fields = date_doc_field_names(&dmq_schema);
         // Exact memtable match total captured by the fused DV walk below and
         // threaded into `try_shortcut_count`, whose bool-conjunction arm
         // then skips its DUPLICATE memtable walk (mixed-RUW Fix 1: the
@@ -28094,6 +28097,7 @@ impl Index {
                         fts_kw_fields,
                         mem_doc_count,
                         pinned_probe,
+                        &date_doc_fields,
                     )
                     .map(Arc::new)
                 })
@@ -28424,6 +28428,7 @@ impl Index {
                             fts_kw_fields,
                             self.segment_analyzer_binding(),
                             None,
+                            DateDocs::Decline,
                         )
                         .is_some()
                 })
@@ -29132,6 +29137,7 @@ impl Index {
             fts_kw_fields,
             self.segment_analyzer_binding(),
             pinned_probe,
+            DateDocs::Probe(&date_doc_fields),
         )
         .is_some();
 
@@ -29441,6 +29447,7 @@ impl Index {
                 fts_kw_fields,
                 self.segment_analyzer_binding(),
                 pinned_probe,
+                DateDocs::Probe(&date_doc_fields),
             );
             let needs_fts = fts_query_probe.is_some();
             // #361: a bool with a non-projectable non-scoring (`filter`/`must_not`)
@@ -29457,6 +29464,7 @@ impl Index {
                     fts_kw_fields,
                     self.segment_analyzer_binding(),
                     pinned_probe,
+                    DateDocs::Probe(&date_doc_fields),
                 );
             // A `query_string` whose projection DECLINED still has to be
             // answered by the stored-doc scan — an over-cap `tokens × fields`
@@ -29719,16 +29727,31 @@ impl Index {
                     // segment alone falls through to the stored-doc scan below.
                     let pinned_positions = pinned_probe
                         .and_then(|_| self.id_pos_map_for(seg_id.as_str(), meta.doc_count));
-                    let fts_query = query_node_to_fts_projected(
+                    // #3492: this segment's match sets for the date leaves.
+                    // `None` (a leaf whose set cannot be built) sends this
+                    // segment to the stored-doc scan: the probe already
+                    // counted the leaf as projectable, so declining it inside
+                    // a `filter` would drop the clause instead.
+                    let date_docs_map = self.date_docs_for_segment(
+                        &segments_dir,
+                        seg_id.as_str(),
+                        meta.doc_count,
                         query,
-                        &text_fields,
-                        &exact_fields,
-                        fts_kw_fields,
-                        self.segment_analyzer_binding(),
-                        pinned_positions
-                            .as_ref()
-                            .map(|map| PinnedIds::Positions(map)),
+                        &date_doc_fields,
                     );
+                    let fts_query = date_docs_map.as_ref().and_then(|date_docs_map| {
+                        query_node_to_fts_projected(
+                            query,
+                            &text_fields,
+                            &exact_fields,
+                            fts_kw_fields,
+                            self.segment_analyzer_binding(),
+                            pinned_positions
+                                .as_ref()
+                                .map(|map| PinnedIds::Positions(map)),
+                            DateDocs::Segment(&date_doc_fields, date_docs_map),
+                        )
+                    });
 
                     // Count-only fast path for single-term FTS queries:
                     // call `term_doc_freq` directly on the segment reader
@@ -36780,6 +36803,8 @@ impl Index {
         // hybrid resolves its lexical leaves here too instead of declining and
         // silently reverting every segment to per-segment BM25 statistics.
         pinned: Option<PinnedIds<'_>>,
+        // #3492: the same holds for the date leaves (`DateDocs`).
+        date_doc_fields: &HashSet<String>,
     ) -> Option<xerj_fts::CollectionStats> {
         // Widest pre-pass we will pay for, budgeted per COST CLASS (#1186):
         //
@@ -36822,6 +36847,7 @@ impl Index {
             keyword_fields,
             self.segment_analyzer_binding(),
             pinned,
+            DateDocs::Probe(date_doc_fields),
         )?;
         let mut fields: Vec<String> = Vec::new();
         collect_fts_query_fields(&fq, &mut fields);
@@ -38863,6 +38889,119 @@ impl Index {
     /// the field-sorted Range `sort_candidates_narrowed` path — pass
     /// `usize::MAX`.  The cache key deliberately EXCLUDES the cap: a set
     /// built uncapped is identical to (and valid for) any capped request.
+    /// #3492: this segment's match set for each date leaf in `query` (see
+    /// [`DateDocs`]). `None` when one of them cannot be built (no column, a
+    /// multi-valued field, a sparse date column): the segment then takes the
+    /// stored-doc scan.
+    fn date_docs_for_segment(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        doc_count: u64,
+        query: &QueryNode,
+        fields: &HashSet<String>,
+    ) -> Option<HashMap<String, Arc<PrefilterSet>>> {
+        let mut out = HashMap::new();
+        if fields.is_empty() {
+            return Some(out);
+        }
+        let mut leaves = Vec::new();
+        collect_date_docs_leaves(query, fields, &mut leaves);
+        for leaf in leaves {
+            let QueryNode::Range {
+                field, gte, lte, ..
+            } = leaf
+            else {
+                continue;
+            };
+            let Some((_, key)) = date_docs_key(leaf) else {
+                continue;
+            };
+            if out.contains_key(&key) {
+                continue;
+            }
+            let set = self
+                .range_prefilter(
+                    segments_dir,
+                    segment_id,
+                    field,
+                    gte.as_ref(),
+                    None,
+                    lte.as_ref(),
+                    None,
+                    usize::MAX,
+                    false,
+                )
+                .or_else(|| {
+                    self.sparse_date_range_set(
+                        segments_dir,
+                        segment_id,
+                        doc_count,
+                        field,
+                        gte.as_ref(),
+                        lte.as_ref(),
+                    )
+                })?;
+            out.insert(key, set);
+        }
+        Some(out)
+    }
+
+    /// The match set of a date range the range prefilter cannot serve
+    /// (#3492), from a cached `(epoch key, pos)` shadow of the docs that
+    /// have a value. Two cases: a date-string column with missing values
+    /// (the prefilter only reads the dense sort shadow, and an optional date
+    /// field is the common case), and a segment with no column for the
+    /// field, because it is absent there, under an object, or holds numbers
+    /// and strings both. The second shadow is read once from the stored
+    /// docs. Without this, every `q: <number>` on such an index fell back
+    /// to the stored-doc scan on every query.
+    fn sparse_date_range_set(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        doc_count: u64,
+        field: &str,
+        gte: Option<&Value>,
+        lte: Option<&Value>,
+    ) -> Option<Arc<PrefilterSet>> {
+        use xerj_storage::doc_values::Column;
+        let scale = self.date_scale(field);
+        let key = format!("{segment_id}\u{1}{field}\u{3}sparse");
+        let shadow = match self.sort_shadow_cache.get(&key) {
+            Some(entry) => Arc::clone(entry.value()),
+            None => {
+                let cols = self.dv_columns_for(segments_dir, segment_id)?;
+                let built = match cols.get(field) {
+                    Some(Column::Keyword(_)) => build_sparse_date_shadow(&cols, field, scale),
+                    Some(_) => None,
+                    None => {
+                        let slices = self.stored_slices_for(segment_id, doc_count)?;
+                        build_stored_date_shadow(slices.value(), field, scale)
+                    }
+                };
+                let bytes = cache_estimates::sort_shadow_bytes(
+                    &key,
+                    std::mem::size_of::<CacheResident<Option<Arc<Vec<(i64, u32)>>>>>(),
+                    built.as_ref().map(|shadow| shadow.capacity()),
+                );
+                self.publish_current(
+                    &self.sort_shadow_cache,
+                    segment_id,
+                    key,
+                    SegmentCacheCategory::SortShadow,
+                    bytes,
+                    built,
+                )
+            }
+        };
+        let shadow = shadow.value().as_ref()?;
+        let (lo, lo_incl, hi, hi_incl) = shadow_range_bounds(gte, None, lte, None, scale)?;
+        Some(Arc::new(PrefilterSet::from_vec(shadow_range_positions(
+            shadow, lo, hi, lo_incl, hi_incl,
+        ))))
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn build_range_prefilter_cached(
         &self,
@@ -38874,6 +39013,26 @@ impl Index {
         lte: Option<&Value>,
         lt: Option<&Value>,
         cap: usize,
+    ) -> Option<Arc<PrefilterSet>> {
+        self.range_prefilter(segments_dir, segment_id, field, gte, gt, lte, lt, cap, true)
+    }
+
+    /// [`Self::build_range_prefilter_cached`], with `remember: false` for a
+    /// one-off set (#3492: a date leaf's bounds change with every query
+    /// text, and storing them would evict the dashboards' range sets from
+    /// the 32-entry cache). A cached set is still used when present.
+    #[allow(clippy::too_many_arguments)]
+    fn range_prefilter(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        field: &str,
+        gte: Option<&Value>,
+        gt: Option<&Value>,
+        lte: Option<&Value>,
+        lt: Option<&Value>,
+        cap: usize,
+        remember: bool,
     ) -> Option<Arc<PrefilterSet>> {
         use xerj_storage::doc_values::Column;
 
@@ -38931,7 +39090,11 @@ impl Index {
                 .or_default();
             Arc::clone(e.value())
         };
-        let _g = flight.lock().ok()?;
+        let _g = if remember {
+            Some(flight.lock().ok()?)
+        } else {
+            None
+        };
         if let Some(hit) = self.range_prefilter_cache.get(&cache_key) {
             return Some(Arc::clone(hit.value()));
         }
@@ -38976,6 +39139,9 @@ impl Index {
             Some(Column::Presence(_)) | None => return None,
         };
         let built: Arc<PrefilterSet> = Arc::new(PrefilterSet::from_vec(matching));
+        if !remember {
+            return Some(built);
+        }
         if self.range_prefilter_cache.len() >= 32 {
             self.range_prefilter_cache.clear();
         }
@@ -49188,6 +49354,22 @@ fn backfill_date_precision(fields: &mut [FieldConfig], props: &Value) -> usize {
                 _ => {}
             }
         }
+        // #3492: the mapping `format`, which a schema.json from before that
+        // change does not carry. Same rule: only an unset value is filled.
+        if fc.field_type == FieldType::Date && fc.options.date_format.is_none() {
+            let is_date = matches!(
+                def.get("type").and_then(Value::as_str),
+                Some("date" | "date_nanos")
+            );
+            if let Some(format) = def
+                .get("format")
+                .and_then(Value::as_str)
+                .filter(|f| is_date && !f.trim().is_empty())
+            {
+                fc.options.date_format = Some(format.to_string());
+                filled += 1;
+            }
+        }
         // Object/nested children live under `properties`; ES multi-fields
         // under `fields`. `FieldConfig::fields` holds both, keyed off the
         // parent's own type, so follow whichever the mapping supplies.
@@ -49226,9 +49408,8 @@ fn backfill_date_precision_from_disk(index_dir: &Path, schema: &mut ManagedSchem
         info!(
             index = name,
             fields = filled,
-            "back-filled date precision from es_mapping.json (index predates the \
-             date_precision flag); its date fields no longer guess their epoch \
-             scale per value"
+            "back-filled date precision / format from es_mapping.json (index \
+             predates the date_precision or date_format flag)"
         );
     }
 }
@@ -53558,6 +53739,9 @@ fn expand_field_specs(specs: &[String], schema: &Schema) -> Option<Vec<String>> 
     )
 }
 
+/// The format a `date` field parses with when its mapping names none.
+const DEFAULT_DATE_FORMAT: &str = "strict_date_optional_time||epoch_millis";
+
 /// The exact leaf a full-text query makes on one numeric, boolean, date or ip
 /// field. `None` when `text` does not parse for the field's type (#3463).
 ///
@@ -53573,23 +53757,27 @@ fn expand_field_specs(specs: &[String], schema: &Schema) -> Option<Vec<String>> 
 /// - `double`: any finite float. `42` and `42.0` are the same value.
 /// - `boolean`: exactly `true` or `false`.
 /// - `ip`: an address, or a CIDR block.
-/// - `date`: a date-shaped text (`date_shaped_match_text`), as a `range` from
-///   the text rounded down to the text rounded up. That is ES
-///   `DateFieldType.termQuery`, so `2024-01-15` covers the whole day. A bare
-///   number is not treated as epoch millis here, though ES would read it that
-///   way. Otherwise every numeric query would carry a `range` on each date
-///   field, and that `range` has no FTS projection.
+/// - `date`: text the field's date format parses (the mapping `format`, or
+///   the default `strict_date_optional_time||epoch_millis`), as a `range`
+///   from the text rounded down to the text rounded up. That is ES
+///   `DateFieldType.termQuery`, so `2024-01-15` covers the whole day. Under
+///   the default format four digits are a year (a strict ISO year is exactly
+///   four digits; ES rounds it up to the end of 1 January) and any other
+///   bare integer is epoch millis (#3492).
+///   Date math (`now`, `||`) is not read here.
 ///
 /// Numbers and IPv4 addresses become `constant_score` over a `match`
 /// for each spelling the field's keyword side-car can hold (the FTS writer
 /// indexes the source value's JSON text: 42 is `42`, 42.0 is `42.0`). That form
 /// projects onto the postings, so a query that mixes words and a number keeps
 /// BM25 for its words. The stored-doc scan answers the same `match` from the
-/// same text, so a hit does not change at `_flush`. A source value spelled
-/// some other way (a `long` given as `42.0`, `"042"`) is not found, which is
-/// narrower than ES. Booleans, IPv6, CIDR and dates use the exact `term` /
-/// `range` leaf. A clause that holds one of those is
-/// answered by the stored-doc scan.
+/// same text, so a hit does not change at `_flush`. Ingest coerces a numeric
+/// string (`"042"`) and a fractional value on a `long` to the integer
+/// (`field_coercion`, #781), but keeps an integral float (`42.0`) as sent, so
+/// a `long` leaf spells both `42` and `42.0` (#3492). Booleans, IPv6 and CIDR
+/// use the exact `term` leaf, and a clause that holds one of those is answered
+/// by the stored-doc scan. A date leaf is a `constant_score` over the
+/// `range`, which projects onto the segment's doc values (`DateDocs`).
 fn lenient_typed_leaf(
     path: &str,
     f: &FieldConfig,
@@ -53647,7 +53835,16 @@ fn lenient_typed_leaf(
                     x as i64
                 }
             };
-            spelled(vec![n.to_string()])
+            let mut spellings = vec![n.to_string()];
+            // An integral float on a `long` stays as sent in `_source`, so
+            // its side-car text is the float form (`42.0`). Exact in f64
+            // only below 2^53.
+            if n.unsigned_abs() < (1u64 << 53) {
+                if let Some(float) = serde_json::Number::from_f64(n as f64) {
+                    spellings.push(float.to_string());
+                }
+            }
+            spelled(spellings)
         }
         FieldType::Double => {
             let x = text.parse::<f64>().ok().filter(|x| x.is_finite())?;
@@ -53692,26 +53889,41 @@ fn lenient_typed_leaf(
             }
         }
         FieldType::Date => {
-            if !date_shaped_match_text(text) {
+            if text.starts_with("now") || text.contains("||") {
                 return None;
             }
+            let format = f
+                .options
+                .date_format
+                .as_deref()
+                .unwrap_or(DEFAULT_DATE_FORMAT);
+            let formats = xerj_query::dates::compile_formats_cached(format).ok()?;
             // The bounds resolve here, as `parse_range` resolves a parsed
             // `range`: every comparator (memtable, doc values, stored scan)
-            // reads the resolved instants, and `lte` rounds up.
+            // reads the resolved instants, and `lte` rounds up. A value no
+            // format parses skips the field (lenient).
             let bound = |round_up: bool| match xerj_query::dates::resolve_date_bound_str(
-                text, round_up, None,
+                text,
+                round_up,
+                Some(&formats),
             ) {
                 Ok(Some(iso)) => Some(Value::String(iso)),
                 _ => None,
             };
-            Some(QueryNode::Range {
-                field: path.to_string(),
-                gte: Some(bound(false)?),
-                gt: None,
-                lte: Some(bound(true)?),
-                lt: None,
-                boost,
-                lenient: false,
+            // ES scores the range as a constant (its boost). The
+            // `constant_score` form is also what `DateDocs` projects onto
+            // the segment's doc values (#3492).
+            Some(QueryNode::Constant {
+                score: boost.unwrap_or(1.0),
+                query: Box::new(QueryNode::Range {
+                    field: path.to_string(),
+                    gte: Some(bound(false)?),
+                    gt: None,
+                    lte: Some(bound(true)?),
+                    lt: None,
+                    boost: None,
+                    lenient: false,
+                }),
             })
         }
         _ => None,
@@ -61316,6 +61528,79 @@ fn build_sort_shadow(
     }
 }
 
+/// [`build_sort_shadow`]'s epoch keys for a date-string column with missing
+/// values (#3492): one `(key, pos)` per doc that has a value, sorted the
+/// same way. A doc without a value has no entry, so it matches no range,
+/// as in the stored-doc scan. `None` when the field has no keyword column,
+/// or when any term does not read as a date.
+fn build_sparse_date_shadow(
+    cols: &std::collections::BTreeMap<String, xerj_storage::doc_values::Column>,
+    field: &str,
+    scale: DateScale,
+) -> Option<Arc<Vec<(i64, u32)>>> {
+    use xerj_storage::doc_values::Column;
+    let Some(Column::Keyword(k)) = cols.get(field) else {
+        return None;
+    };
+    if k.ords.len() != k.doc_count as usize {
+        return None;
+    }
+    let mut keys: Vec<f64> = Vec::with_capacity(k.terms.len());
+    for t in &k.terms {
+        keys.push(sort_date_normalize(t, scale)?.as_f64()?);
+    }
+    let mut sorted: Vec<(i64, u32)> = k
+        .ords
+        .iter()
+        .enumerate()
+        .filter(|(pos, _)| !k.null_bitmap.contains(*pos as u32))
+        .filter_map(|(pos, ord)| Some((keys.get(*ord as usize)?.to_bits() as i64, pos as u32)))
+        .collect();
+    sorted.sort_unstable_by(|a, b| {
+        f64::from_bits(a.0 as u64)
+            .partial_cmp(&f64::from_bits(b.0 as u64))
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.1.cmp(&b.1))
+    });
+    Some(Arc::new(sorted))
+}
+
+/// The same shadow as [`build_sparse_date_shadow`], read from the stored
+/// docs of a segment whose doc values have no column for `field` (#3492).
+/// A number is epoch millis, a string goes through the sort shadow's date
+/// normalisation, and a doc without the field has no entry. `None` when a
+/// value is an array, an object, or a string that does not read as a date:
+/// the shadow could not answer a range for it the way the stored-doc scan
+/// does.
+fn build_stored_date_shadow(
+    slices: &StoredSlices,
+    field: &str,
+    scale: DateScale,
+) -> Option<Arc<Vec<(i64, u32)>>> {
+    let mut sorted: Vec<(i64, u32)> = Vec::new();
+    for (pos, &(start, end)) in slices.offsets.iter().enumerate() {
+        let slice = slices.bytes.get(start as usize..end as usize)?;
+        let doc = serde_json::from_slice::<Value>(slice).ok()?;
+        let Some(source) = doc.get("_source") else {
+            continue;
+        };
+        let key = match get_field_value(source, field) {
+            None | Some(Value::Null) => continue,
+            Some(Value::Number(n)) => epoch_ms_bound_on_scale(n.as_i64()? as f64, scale),
+            Some(Value::String(s)) => sort_date_normalize(&s, scale)?.as_f64()?,
+            Some(_) => return None,
+        };
+        sorted.push((key.to_bits() as i64, pos as u32));
+    }
+    sorted.sort_unstable_by(|a, b| {
+        f64::from_bits(a.0 as u64)
+            .partial_cmp(&f64::from_bits(b.0 as u64))
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.1.cmp(&b.1))
+    });
+    Some(Arc::new(sorted))
+}
+
 /// A NUMERIC range bound on a date field is epoch-MILLISECONDS — on a
 /// `date_nanos` field too — put onto the shadow's own scale (#889).
 ///
@@ -63359,6 +63644,7 @@ fn query_node_to_fts(
         exact_fields,
         SegmentAnalyzerBinding::Standard,
         None,
+        DateDocs::Decline,
     )
 }
 
@@ -63390,6 +63676,115 @@ impl PinnedIds<'_> {
             PinnedIds::Probe => None,
             PinnedIds::Positions(map) => map.get(id).copied(),
         }
+    }
+}
+
+/// How the projection treats a `constant_score` over a date `range` with
+/// both bounds inclusive (#3492): the leaf a `*` field pattern adds for a
+/// `date` field. A `range` has no postings, so before this the leaf declined
+/// the projection and the whole query took the stored-doc scan, which scores
+/// one point per matched clause. With a date field in the mapping, every
+/// number in a field-less `query_string` (`hello 7`) would then lose BM25 for
+/// its words. The segment's doc-values range match set
+/// (`build_range_prefilter_cached`, built uncapped) becomes a
+/// [`FtsQuery::DocScores`] leaf scored as the constant, the same way #892
+/// projects the pinned kNN ids.
+#[derive(Clone, Copy)]
+enum DateDocs<'a> {
+    /// The leaf does not project (every caller outside the segment search).
+    Decline,
+    /// Shape probe for these date fields: an empty leaf, so "does this
+    /// project at all?" answers yes, as [`PinnedIds::Probe`] does.
+    Probe(&'a HashSet<String>),
+    /// One segment's match sets for these date fields, by
+    /// [`date_docs_key`]. The segment search builds a set for every leaf the
+    /// probe covers, or skips the projection for the segment.
+    Segment(&'a HashSet<String>, &'a HashMap<String, Arc<PrefilterSet>>),
+}
+
+impl DateDocs<'_> {
+    fn covers(&self, q: &QueryNode) -> bool {
+        match (self, date_docs_key(q)) {
+            (DateDocs::Decline, _) | (_, None) => false,
+            (DateDocs::Probe(fields), Some((field, _)))
+            | (DateDocs::Segment(fields, _), Some((field, _))) => fields.contains(field),
+        }
+    }
+
+    fn resolve(&self, q: &QueryNode, score: f32) -> Option<FtsQuery> {
+        let (_, key) = date_docs_key(q)?;
+        let docs: Vec<(u32, f32)> = match self {
+            DateDocs::Decline => return None,
+            DateDocs::Probe(_) => Vec::new(),
+            DateDocs::Segment(_, sets) => sets
+                .get(&key)?
+                .sorted
+                .iter()
+                .map(|&pos| (pos, score))
+                .collect(),
+        };
+        Some(FtsQuery::DocScores(xerj_fts::search::DocScoresQuery::new(
+            docs,
+        )))
+    }
+}
+
+/// The field and cache key of a date leaf [`DateDocs`] can resolve: a
+/// `range` with resolved string bounds `gte` and `lte`, nothing else.
+fn date_docs_key(q: &QueryNode) -> Option<(&str, String)> {
+    match q {
+        QueryNode::Range {
+            field,
+            gte: Some(Value::String(lo)),
+            gt: None,
+            lte: Some(Value::String(hi)),
+            lt: None,
+            boost: None,
+            ..
+        } => Some((field.as_str(), format!("{field}\u{1}{lo}\u{1}{hi}"))),
+        _ => None,
+    }
+}
+
+/// The date fields (object leaves by dotted path) with doc values, whose
+/// date leaves [`DateDocs`] may resolve.
+fn date_doc_field_names(schema: &Schema) -> HashSet<String> {
+    pattern_field_paths(schema)
+        .into_iter()
+        .filter(|(_, f)| matches!(f.field_type, FieldType::Date) && f.options.doc_values)
+        .map(|(path, _)| path)
+        .collect()
+}
+
+/// The `constant_score` date leaves in `q` on `fields`, through `bool`,
+/// `dis_max` and `constant_score`, the shapes the projection walks.
+fn collect_date_docs_leaves<'q>(
+    q: &'q QueryNode,
+    fields: &HashSet<String>,
+    out: &mut Vec<&'q QueryNode>,
+) {
+    match q {
+        QueryNode::Constant { query, .. } => match date_docs_key(query) {
+            Some((field, _)) if fields.contains(field) => out.push(query),
+            _ => collect_date_docs_leaves(query, fields, out),
+        },
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => {
+            for c in must.iter().chain(should).chain(must_not).chain(filter) {
+                collect_date_docs_leaves(c, fields, out);
+            }
+        }
+        QueryNode::DisMax { queries, .. } => {
+            for c in queries {
+                collect_date_docs_leaves(c, fields, out);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -63512,6 +63907,7 @@ fn query_node_to_fts_projected(
     keyword_fields: &std::collections::HashSet<String>,
     binding: SegmentAnalyzerBinding<'_>,
     pinned: Option<PinnedIds<'_>>,
+    date_docs: DateDocs<'_>,
 ) -> Option<FtsQuery> {
     // #892: the pinned kNN disjunct, resolved to this segment's positions.
     // Checked before the `match` because the sub-tree IS a `Bool` and would
@@ -63542,6 +63938,12 @@ fn query_node_to_fts_projected(
         // segments, the clause added the inner BM25 instead of the boost.
         // (The keyword-schema shape is served bit-exactly by
         // `scored_columnar` before this projection is ever consulted.)
+        // #3492: a `constant_score` date `range` (the `*` pattern's date
+        // leaf) becomes this segment's doc-values match set, scored as the
+        // constant, so a query mixing words and a date keeps its postings.
+        QueryNode::Constant { query, score } if date_docs.covers(query) => {
+            date_docs.resolve(query, *score)
+        }
         QueryNode::Constant { query, score } => query_node_to_fts_projected(
             query,
             text_fields,
@@ -63549,6 +63951,7 @@ fn query_node_to_fts_projected(
             keyword_fields,
             binding,
             pinned,
+            date_docs,
         )
         .map(|inner| {
             FtsQuery::ConstantScore(Box::new(xerj_fts::search::ConstantScoreQuery {
@@ -63917,6 +64320,7 @@ fn query_node_to_fts_projected(
                         keyword_fields,
                         binding,
                         pinned,
+                        date_docs,
                     )
                 })
                 .collect();
@@ -64006,6 +64410,7 @@ fn query_node_to_fts_projected(
                     keyword_fields,
                     binding,
                     pinned,
+                    date_docs,
                 )?;
                 bool_q = bool_q.must(fq);
                 projected_positive = true;
@@ -64039,6 +64444,7 @@ fn query_node_to_fts_projected(
                     keyword_fields,
                     binding,
                     pinned,
+                    date_docs,
                 ) {
                     bool_q = bool_q.filter(fq);
                     projected_positive = true;
@@ -64072,6 +64478,7 @@ fn query_node_to_fts_projected(
                     keyword_fields,
                     binding,
                     pinned,
+                    date_docs,
                 )?;
                 bool_q = bool_q.should(fq);
                 projected_positive = true;
@@ -64090,6 +64497,7 @@ fn query_node_to_fts_projected(
                     keyword_fields,
                     binding,
                     pinned,
+                    date_docs,
                 ) {
                     bool_q = bool_q.must_not(fq);
                 }
@@ -64497,6 +64905,7 @@ fn bool_has_nonprojectable_nonscoring(
     keyword_fields: &std::collections::HashSet<String>,
     binding: SegmentAnalyzerBinding<'_>,
     pinned: Option<PinnedIds<'_>>,
+    date_docs: DateDocs<'_>,
 ) -> bool {
     // #892: the #825 pinned sub-tree projects WHOLE (to a `DocScores` leaf),
     // so its internal `filter: [Ids{…}]` accelerator is never consulted by the
@@ -64523,6 +64932,7 @@ fn bool_has_nonprojectable_nonscoring(
                     keyword_fields,
                     binding,
                     pinned,
+                    date_docs,
                 )
                 .is_none()
                 {
@@ -64541,6 +64951,7 @@ fn bool_has_nonprojectable_nonscoring(
                         keyword_fields,
                         binding,
                         pinned,
+                        date_docs,
                     )
                 })
         }
@@ -64551,6 +64962,7 @@ fn bool_has_nonprojectable_nonscoring(
             keyword_fields,
             binding,
             pinned,
+            date_docs,
         ),
         _ => false,
     }
@@ -72004,6 +72416,7 @@ mod pinned_knn_fts_892_tests {
                 &empty,
                 SegmentAnalyzerBinding::Standard,
                 None,
+                DateDocs::Decline,
             )
             .is_none(),
             "no resolver ⇒ the pinned sub-tree must still decline"
@@ -72019,6 +72432,7 @@ mod pinned_knn_fts_892_tests {
             &empty,
             SegmentAnalyzerBinding::Standard,
             Some(PinnedIds::Positions(&positions)),
+            DateDocs::Decline,
         )
         .expect("a resolvable pinned sub-tree must project");
         match projected {
@@ -74766,6 +75180,7 @@ mod field_pattern_expansion_3413_tests {
                 QueryNode::Term { field, .. } => Some((field.clone(), "term")),
                 QueryNode::Range { field, .. } => Some((field.clone(), "range")),
                 QueryNode::Constant { query, .. } => match query.as_ref() {
+                    QueryNode::Range { field, .. } => Some((field.clone(), "range")),
                     QueryNode::Match { field, .. } => Some((field.clone(), "const")),
                     QueryNode::Bool { should, .. } => match should.first() {
                         Some(QueryNode::Match { field, .. }) => Some((field.clone(), "const")),
@@ -74798,8 +75213,19 @@ mod field_pattern_expansion_3413_tests {
             v.iter().map(|(f, k)| (f.to_string(), *k)).collect()
         };
         // FAIL-BEFORE: every one of these produced no typed leaf at all.
-        // A bare number is not read as epoch millis on the date field.
-        assert_eq!(typed("42"), pairs(&[("n", "const"), ("x", "const")]));
+        // #3492: a bare integer is epoch millis on the date field (default
+        // format `strict_date_optional_time||epoch_millis`), and four digits
+        // are a year.
+        assert_eq!(
+            typed("42"),
+            pairs(&[("n", "const"), ("x", "const"), ("ts", "range")])
+        );
+        assert_eq!(
+            typed("2024"),
+            pairs(&[("n", "const"), ("x", "const"), ("ts", "range")])
+        );
+        assert_eq!(typed("now"), pairs(&[]));
+        assert_eq!(typed("2024-01-15||+1d"), pairs(&[]));
         assert_eq!(typed("42.5"), pairs(&[("x", "const")]));
         assert_eq!(typed("42.0"), pairs(&[("n", "const"), ("x", "const")]));
         assert_eq!(typed("true"), pairs(&[("ok", "term")]));
@@ -74845,8 +75271,72 @@ mod field_pattern_expansion_3413_tests {
             }
             Vec::new()
         };
-        assert_eq!(spellings("n"), vec!["42"]);
+        // #3492: the long also spells `42.0`, the side-car text of an
+        // integral float that ingest keeps as sent.
+        assert_eq!(spellings("n"), vec!["42", "42.0"]);
         assert_eq!(spellings("x"), vec!["42.0", "42"]);
+    }
+
+    /// The bounds of the `ts` date leaf a `*` pattern adds for `q`, under
+    /// the mapping `format` (`None` is the default).
+    fn date_leaf_bounds(format: Option<&str>, q: &str) -> Option<(String, String)> {
+        let mut ts = FieldConfig::new("ts", FieldType::Date);
+        ts.options.date_format = format.map(str::to_string);
+        match lenient_typed_leaf("ts", &ts, q, None)? {
+            QueryNode::Constant { query, .. } => match *query {
+                QueryNode::Range {
+                    gte: Some(Value::String(lo)),
+                    lte: Some(Value::String(hi)),
+                    ..
+                } => Some((lo, hi)),
+                other => panic!("range expected: {other:?}"),
+            },
+            other => panic!("constant_score expected: {other:?}"),
+        }
+    }
+
+    /// #3492: the date leaf parses with the field's format, as ES
+    /// `DateFieldType.termQuery` does.
+    #[test]
+    fn date_leaf_reads_numbers_through_the_field_format() {
+        let b = |lo: &str, hi: &str| Some((lo.to_string(), hi.to_string()));
+        // Default: epoch millis, one instant.
+        assert_eq!(
+            date_leaf_bounds(None, "1705312800000"),
+            b("2024-01-15T10:00:00.000Z", "2024-01-15T10:00:00.000Z")
+        );
+        assert_eq!(
+            date_leaf_bounds(None, "-5"),
+            b("1969-12-31T23:59:59.995Z", "1969-12-31T23:59:59.995Z")
+        );
+        // A strict ISO year is exactly four digits. ES rounds a partial
+        // date up by its time fields only, so the year is 1 January (the
+        // `range` resolver's rule, checked against ES 8.13.4).
+        assert_eq!(
+            date_leaf_bounds(None, "2024"),
+            b("2024-01-01T00:00:00.000Z", "2024-01-01T23:59:59.999Z")
+        );
+        assert_eq!(
+            date_leaf_bounds(None, "2024-01-15"),
+            b("2024-01-15T00:00:00.000Z", "2024-01-15T23:59:59.999Z")
+        );
+        assert_eq!(date_leaf_bounds(None, "42.5"), None);
+        assert_eq!(date_leaf_bounds(None, "hello"), None);
+        // A format without `epoch_millis` does not read numbers.
+        assert_eq!(date_leaf_bounds(Some("yyyy-MM-dd"), "1705312800000"), None);
+        assert_eq!(
+            date_leaf_bounds(Some("yyyy-MM-dd||epoch_millis"), "1705312800000"),
+            b("2024-01-15T10:00:00.000Z", "2024-01-15T10:00:00.000Z")
+        );
+        assert_eq!(
+            date_leaf_bounds(Some("epoch_second"), "1705312800"),
+            b("2024-01-15T10:00:00.000Z", "2024-01-15T10:00:00.000Z")
+        );
+        assert_eq!(
+            date_leaf_bounds(Some("dd/MM/yyyy"), "15/01/2024"),
+            b("2024-01-15T00:00:00.000Z", "2024-01-15T23:59:59.999Z")
+        );
+        assert_eq!(date_leaf_bounds(Some("epoch_millis"), "2024-01-15"), None);
     }
 
     /// `most_fields` sums, so its typed leaves join as a `should`. A field
@@ -74912,6 +75402,9 @@ mod field_pattern_expansion_3413_tests {
                        "ts": "2023-06-01", "addr": "192.168.1.9"}),
                 json!({"title": "story 42", "n": 1, "x": 1.0, "ok": false,
                        "ts": "2020-01-01", "addr": "::1"}),
+                // #3492: an integral float on the long, an epoch-millis date.
+                json!({"title": "plain", "n": 42.0, "x": 9.5, "ok": false,
+                       "ts": 1_600_000_000_000i64, "addr": "172.16.0.9"}),
             ];
             for (i, d) in docs.into_iter().enumerate() {
                 idx.index_document(Some(format!("d{i}")), d).await.unwrap();
@@ -74936,10 +75429,27 @@ mod field_pattern_expansion_3413_tests {
                 assert_eq!(d1, Some(1.0), "{hits:?}");
                 let d0 = hits.iter().find(|h| h.0 == "d0").map(|h| h.1).unwrap();
                 assert!(d0 != 1.0 && d0 > 0.0, "{hits:?}");
+                // #3492: the date leaves ("7" as epoch millis, a date) keep
+                // the postings path: they become doc-values match sets.
+                for q in ["1705312800000", "2024-01-15", "2020"] {
+                    let (hits, fts, scans) =
+                        run(&idx, json!({"multi_match": {"query": q, "fields": ["*"]}})).await;
+                    assert!(fts > 0 && scans == 0, "{q}: fts={fts} scans={scans}");
+                    assert_eq!(hits.iter().map(|h| h.1).collect::<Vec<_>>(), vec![1.0]);
+                }
             }
             let mm = |q: &str| json!({"multi_match": {"query": q, "fields": ["*"]}});
             // FAIL-BEFORE: "42" found d2 only (its title), "true" nothing typed.
-            assert_eq!(ids(mm("42")).await, vec!["d0", "d1", "d2"], "flush={flush}");
+            // #3492: d3 holds the long as 42.0.
+            assert_eq!(
+                ids(mm("42")).await,
+                vec!["d0", "d1", "d2", "d3"],
+                "flush={flush}"
+            );
+            // #3492: epoch millis and a bare year on the date field.
+            assert_eq!(ids(mm("1705312800000")).await, vec!["d0"], "flush={flush}");
+            assert_eq!(ids(mm("1600000000000")).await, vec!["d3"], "flush={flush}");
+            assert_eq!(ids(mm("2020")).await, vec!["d2"], "flush={flush}");
             assert_eq!(ids(mm("true")).await, vec!["d0"], "flush={flush}");
             assert_eq!(ids(mm("10.0.0.0/8")).await, vec!["d0"], "flush={flush}");
             assert_eq!(ids(mm("2024-01-15")).await, vec!["d0"], "flush={flush}");
@@ -74951,6 +75461,122 @@ mod field_pattern_expansion_3413_tests {
                 "flush={flush}"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod date_docs_3492_tests {
+    use super::*;
+    use serde_json::json;
+
+    async fn flushed(docs: Vec<serde_json::Value>) -> (tempfile::TempDir, Arc<Index>) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("title", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("ts", FieldType::Date))
+            .unwrap();
+        engine.create_index("dd3492", schema).unwrap();
+        let idx = engine.get_index("dd3492").unwrap();
+        for (i, d) in docs.into_iter().enumerate() {
+            idx.index_document(Some(format!("d{i}")), d).await.unwrap();
+        }
+        idx.flush().await.unwrap();
+        // One segment holds every doc, so its columns see all of them.
+        idx.force_merge(1).await.unwrap();
+        (dir, idx)
+    }
+
+    async fn run(idx: &Index, q: serde_json::Value) -> (Vec<String>, usize, usize) {
+        SEG_FTS_HANDLED.with(|c| c.set(0));
+        SEG_STORED_SCANS.with(|c| c.set(0));
+        let req = xerj_query::parse_request(&json!({
+            "size": 20, "track_total_hits": true, "query": q
+        }))
+        .unwrap();
+        let res = idx.search(&req).await.unwrap();
+        let fts = SEG_FTS_HANDLED.with(|c| c.get());
+        let scans = SEG_STORED_SCANS.with(|c| c.get());
+        let mut ids: Vec<String> = res.hits.into_iter().map(|h| h.id).collect();
+        ids.sort();
+        (ids, fts, scans)
+    }
+
+    fn filtered() -> serde_json::Value {
+        json!({"bool": {
+            "must": {"match": {"title": "apple"}},
+            "filter": {"constant_score": {"filter": {"range": {"ts": {
+                "gte": "2024-01-15", "lte": "2024-01-15"}}}}}
+        }})
+    }
+
+    /// A `constant_score` date range in a `filter` keeps the postings path
+    /// on a segment with a usable date column.
+    #[tokio::test]
+    async fn a_date_filter_projects_onto_doc_values() {
+        let (_dir, idx) = flushed(vec![
+            json!({"title": "apple pie", "ts": "2024-01-15T10:00:00Z"}),
+            json!({"title": "apple", "ts": "2024-01-15T23:00:00Z"}),
+            json!({"title": "apple", "ts": "2020-01-01"}),
+            json!({"title": "c", "ts": "2024-01-15T01:00:00Z"}),
+        ])
+        .await;
+        let (ids, fts, scans) = run(&idx, filtered()).await;
+        assert_eq!(ids, vec!["d0", "d1"]);
+        assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+    }
+
+    /// An optional date field: docs without a value match no range, and the
+    /// rest still come from doc values (the sparse epoch shadow).
+    #[tokio::test]
+    async fn a_date_filter_on_a_sparse_column_projects_onto_doc_values() {
+        let (_dir, idx) = flushed(vec![
+            json!({"title": "apple pie", "ts": "2024-01-15T10:00:00Z"}),
+            json!({"title": "apple", "ts": "2024-01-15T23:00:00Z"}),
+            json!({"title": "apple"}),
+            json!({"title": "apple", "ts": "2020-01-01"}),
+        ])
+        .await;
+        let (ids, fts, scans) = run(&idx, filtered()).await;
+        assert_eq!(ids, vec!["d0", "d1"]);
+        assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+    }
+
+    /// Numbers and strings in one date field ship no doc-values column. The
+    /// match set then comes from a shadow read once from the stored docs.
+    #[tokio::test]
+    async fn a_date_filter_on_numbers_and_strings_projects() {
+        let (_dir, idx) = flushed(vec![
+            json!({"title": "apple pie", "ts": "2024-01-15T10:00:00Z"}),
+            json!({"title": "apple", "ts": 1_705_359_600_000i64}),
+            json!({"title": "apple", "ts": 1_577_836_800_000i64}),
+            json!({"title": "apple", "ts": "2020-01-01"}),
+        ])
+        .await;
+        let (ids, fts, scans) = run(&idx, filtered()).await;
+        assert_eq!(ids, vec!["d0", "d1"]);
+        assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+    }
+
+    /// A multi-valued date field has no column and no shadow. The probe
+    /// still counts the leaf as projectable, so the segment must take the
+    /// stored-doc scan rather than drop the `filter`.
+    #[tokio::test]
+    async fn a_date_filter_without_a_match_set_takes_the_scan() {
+        let (_dir, idx) = flushed(vec![
+            json!({"title": "apple pie", "ts": "2024-01-15T10:00:00Z"}),
+            json!({"title": "apple", "ts": "2024-01-15T23:00:00Z"}),
+            json!({"title": "apple", "ts": ["2020-01-01", "2021-01-01"]}),
+        ])
+        .await;
+        let (ids, _, scans) = run(&idx, filtered()).await;
+        assert_eq!(ids, vec!["d0", "d1"]);
+        assert!(scans > 0, "scans={scans}");
     }
 }
 

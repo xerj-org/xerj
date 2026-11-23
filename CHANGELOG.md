@@ -18,10 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anywhere in that day. A field that the value does not parse for is skipped
   with no error. The typed match scores a constant 1.0 (times its boost). In
   a query that mixes words and numbers, the words keep their BM25 scores.
-  Known limits: a bare number is not read as epoch millis on a date field; a
-  `long` stored as `42.0` or `"042"` is not found by `42`; when `lenient` is
-  off (a `prefix*` pattern without `lenient: true`, or `lenient: false`), ES
-  returns 400 for a value that does not parse, and XERJ skips the field.
+  Since #3492, a bare number on a date field is read through the field's
+  `format`, as ES does. Under the default
+  `strict_date_optional_time||epoch_millis`, four digits are a year and any
+  other integer is epoch millis. A `long` stored as `42.0` is found by `42`.
+  A date match now uses the segment's doc values, so a query that mixes words
+  and a date or number keeps BM25 for its words there too. Known limit: when
+  `lenient` is off (a `prefix*` pattern without `lenient: true`, or
+  `lenient: false`), ES returns 400 for a value that does not parse, and XERJ
+  skips the field.
 
 - **Object sub-fields get their own full-text index (#3464).** Each leaf of an
   `object` mapping (`meta.note`, `meta.tag`) is now indexed under its dotted
