@@ -34558,7 +34558,7 @@ impl Index {
                                         // treating the whole subnet as an empty
                                         // predicate, which counted 0 after flush
                                         // (#786).
-                                        if s.contains('/') {
+                                        if cidr_shaped(s) {
                                             abandoned = true;
                                             break;
                                         }
@@ -35139,7 +35139,7 @@ impl Index {
         // — which expands CIDR via `ip_matches_cidr`, exactly as the memtable's
         // hit path does — answers instead.
         if let Value::String(s) = value {
-            if s.contains('/') {
+            if cidr_shaped(s) {
                 return None;
             }
         }
@@ -35556,6 +35556,9 @@ impl Index {
         let permit = transient_read_permit(&self.segment_hydration_budget, read_budget, estimate);
         let reader = Arc::new(FtsIndexReader::open(fts_dir, segment_id, fields).ok()?);
         let bytes = reader.retained_bytes();
+        if !self.segment_hydration_budget.has_headroom(bytes) {
+            self.make_room_for_fts_reader(bytes);
+        }
         Some(self.publish_current_permitted(
             &self.fts_reader_cache,
             segment_id,
@@ -35566,6 +35569,48 @@ impl Index {
             &self.segment_hydration_budget,
             permit,
         ))
+    }
+
+    /// #3455: let an FTS reader displace this index's decoded stored sections
+    /// when the hydration budget is full.
+    ///
+    /// The budget admits first come, first served and never evicts. One
+    /// top-level `term` that falls to the stored scan decodes every segment's
+    /// stored section and fills it (whole decompressed sections, megabytes per
+    /// segment); after that no FTS reader is admitted, and every FTS-routed
+    /// query reopens and re-mmaps the side-cars of every segment. At the
+    /// 3 GiB cap on 496 segments that held `bool { must: [term, term] }` at
+    /// ~138 ms instead of ~16 ms, for the rest of the process's life. A
+    /// reader is small and reused by every FTS query on the segment; a
+    /// decoded section only serves the next full scan, which can decode
+    /// again. So a refused reader evicts decoded sections, then stored
+    /// slices, until it fits or none are left. Never the other way round, so
+    /// mixed workloads settle instead of thrashing. An evicted entry refunds
+    /// its charge when its last in-flight reader drops it.
+    fn make_room_for_fts_reader(&self, bytes: u64) {
+        let budget = &self.segment_hydration_budget;
+        let decoded: Vec<String> = self
+            .decoded_stored_cache
+            .iter()
+            .map(|e| e.key().clone())
+            .collect();
+        for key in decoded {
+            if budget.has_headroom(bytes) {
+                return;
+            }
+            self.decoded_stored_cache.remove(&key);
+        }
+        let slices: Vec<String> = self
+            .stored_slices_cache
+            .iter()
+            .map(|e| e.key().clone())
+            .collect();
+        for key in slices {
+            if budget.has_headroom(bytes) {
+                return;
+            }
+            self.stored_slices_cache.remove(&key);
+        }
     }
 
     fn dv_columns_for(
@@ -38120,7 +38165,7 @@ impl Index {
                             // silently drops the whole subnet once the docs flush
                             // to a segment (#786). Bail to a full scan instead,
                             // mirroring the memtable fast paths' `/` bailout.
-                            if s.contains('/') {
+                            if cidr_shaped(s) {
                                 return None;
                             }
                             s.clone()
@@ -50979,7 +51024,13 @@ fn field_is_analyzed_text(schema: &Schema, field: &str) -> bool {
 ///   tokens — the #362 trap; numeric/boolean/ip compare by value, not text);
 /// - a non-string query value, and a string that parses as a number (the scan
 ///   matches `"5"` against a stored `5.0`, whose dictionary term is `"5.0"`);
-/// - a value with `/` (the scan expands a CIDR; #786);
+/// - a CIDR-shaped value, `<anything>/<integer>` (the scan expands a CIDR;
+///   #786). Any other `/` is an ordinary character: `ip_matches_cidr` needs
+///   the text after the first `/` to parse as a prefix length, so a path
+///   such as `src/main.rs` is compared as a literal by the scan too. Paths
+///   are the common case: autoindex's `ax_paths` is an array keyword of file
+///   paths, and declining every `/` kept #3412's fix off it entirely
+///   (#3456);
 /// - the empty string (never indexed as a term).
 ///
 /// The per-segment caller adds one more guard: the field's side-car must be
@@ -50995,10 +51046,19 @@ fn keyword_fts_term_oracle<'a>(schema: &Schema, field: &str, value: &'a Value) -
     let Value::String(s) = value else {
         return None;
     };
-    if s.is_empty() || s.contains('/') || s.trim().parse::<f64>().is_ok() {
+    if s.is_empty() || cidr_shaped(s) || s.trim().parse::<f64>().is_ok() {
         return None;
     }
     Some(s.as_str())
+}
+
+/// Could the stored scan read `s` as a CIDR? Mirrors the gate in
+/// `ip_matches_cidr`: a `/` whose suffix parses as a prefix length. Wider
+/// than a real CIDR on purpose (the network part is not checked), so every
+/// value the scan might expand is declined.
+fn cidr_shaped(s: &str) -> bool {
+    s.split_once('/')
+        .is_some_and(|(_, prefix)| prefix.parse::<u32>().is_ok())
 }
 
 /// Does `q` contain a `match` leaf for declared doc-values-only text?
@@ -72563,6 +72623,15 @@ mod multi_valued_keyword_term_3412_tests {
             .unwrap();
         let ok = json!("red");
         assert_eq!(keyword_fts_term_oracle(&schema, "tags", &ok), Some("red"));
+        // #3456: a path is a literal to the scan as well; only a value the
+        // scan could read as a CIDR declines.
+        let path = json!("copy11/crates/xerj-fts/src/search.rs");
+        assert_eq!(
+            keyword_fts_term_oracle(&schema, "tags", &path),
+            Some("copy11/crates/xerj-fts/src/search.rs")
+        );
+        assert!(keyword_fts_term_oracle(&schema, "tags", &json!("docs/12")).is_none());
+        assert!(keyword_fts_term_oracle(&schema, "tags", &json!("fe80::/10")).is_none());
         for (field, value) in [
             ("tags", json!("42")),
             ("tags", json!("4.5e3")),
@@ -72616,5 +72685,200 @@ mod multi_valued_keyword_term_3412_tests {
         assert_eq!(res.total.value, 1);
         let schema = idx.schema().await;
         assert!(keyword_fts_term_oracle(&schema, "tags", &json!("42")).is_none());
+    }
+
+    fn expected_and(n: usize, all: &[&str], none: &[&str]) -> Vec<String> {
+        (0..n)
+            .filter(|&i| {
+                headings_for(i).is_some_and(|h| {
+                    all.iter().all(|t| h.contains(t)) && !none.iter().any(|t| h.contains(t))
+                })
+            })
+            .map(|i| format!("d{i:04}"))
+            .collect()
+    }
+
+    /// #3455: with the hydration budget full of decoded stored sections (a
+    /// top-level `term` that falls to the stored scan: a numeric-looking
+    /// value keeps the scan, see `numeric_string_term_keeps_the_scan`), an
+    /// FTS reader still
+    /// gets admitted, by evicting decoded sections, instead of being
+    /// reopened by every FTS-routed query.
+    #[tokio::test]
+    async fn fts_reader_displaces_decoded_sections_when_the_budget_is_full() {
+        let (_dir, _engine, idx, _n) = multi_segment_index("mvk3455a").await;
+        let req = xerj_query::parse_request(&json!({
+            "size": 10, "track_total_hits": true,
+            "query": {"term": {"headings": "42"}}
+        }))
+        .unwrap();
+        idx.search(&req).await.unwrap();
+        idx.fts_reader_cache.clear();
+        let stored = |idx: &Index| idx.decoded_stored_cache.len() + idx.stored_slices_cache.len();
+        let decoded_before = stored(&idx);
+        assert!(
+            decoded_before > 0,
+            "the stored scan cached its decoded sections"
+        );
+        let budget = &idx.segment_hydration_budget;
+        budget.set_target(budget.used());
+        assert!(!budget.has_headroom(1));
+        let segments_dir = idx.data_dir.join("segments");
+        let seg = idx.store.snapshot().segments[0].id.clone();
+        let reader = idx
+            .fts_reader_for(&segments_dir, &seg, &["headings"])
+            .expect("reader opens");
+        drop(reader);
+        assert_eq!(idx.fts_reader_cache.len(), 1, "the reader was admitted");
+        assert!(stored(&idx) < decoded_before);
+        // Served from the cache now: no second open.
+        assert!(idx
+            .fts_reader_for(&segments_dir, &seg, &["headings"])
+            .is_some());
+        assert_eq!(idx.fts_reader_cache.len(), 1);
+    }
+
+    /// `_search` and `_count` over bool conjunctions of array-keyword terms
+    /// give the exact match set, whatever the clause kind or order.
+    #[tokio::test]
+    async fn bool_conjunction_on_multi_valued_keyword_matches_the_scan() {
+        let (_dir, _engine, idx, n) = multi_segment_index("mvk3455b").await;
+        let t = |v: &str| json!({"term": {"headings": v}});
+        let cases: Vec<(serde_json::Value, Vec<String>)> = vec![
+            (
+                json!({"bool": {"must": [t("Install"), t("raft leader election")]}}),
+                expected_and(n, &["Install", "raft leader election"], &[]),
+            ),
+            (
+                json!({"bool": {"filter": [t("raft leader election"), t("Install")]}}),
+                expected_and(n, &["Install", "raft leader election"], &[]),
+            ),
+            (
+                json!({"bool": {"must": [t("FAQ")], "filter": [t("Install guide")]}}),
+                expected_and(n, &["FAQ", "Install guide"], &[]),
+            ),
+            (
+                json!({"bool": {"must": [t("Install"), t("raft leader election")],
+                                 "must_not": [t("Install guide")]}}),
+                expected_and(n, &["Install", "raft leader election"], &["Install guide"]),
+            ),
+            (
+                json!({"bool": {"must": [t("Install"), t("raft leader election")],
+                                 "should": [t("Install guide")]}}),
+                expected_and(n, &["Install", "raft leader election"], &[]),
+            ),
+            (json!({"bool": {"must": [t("Install"), t("nope")]}}), vec![]),
+            (
+                json!({"bool": {"must": [t("Usage notes"), t("true"), t("FAQ")]}}),
+                expected_and(n, &["Usage notes", "true", "FAQ"], &[]),
+            ),
+        ];
+        for (query, want) in cases {
+            let req = xerj_query::parse_request(&json!({
+                "size": 1000,
+                "track_total_hits": true,
+                "query": query
+            }))
+            .unwrap();
+            let res = idx.search(&req).await.unwrap();
+            assert_eq!(res.total.value as usize, want.len(), "{query}");
+            let mut got: Vec<String> = res.hits.iter().map(|h| h.id.clone()).collect();
+            let full_page = got.clone();
+            got.sort();
+            assert_eq!(got, want, "{query}");
+            let req = xerj_query::parse_request(&json!({
+                "size": 5,
+                "track_total_hits": true,
+                "query": query
+            }))
+            .unwrap();
+            let res = idx.search(&req).await.unwrap();
+            let page: Vec<String> = res.hits.iter().map(|h| h.id.clone()).collect();
+            assert_eq!(
+                page,
+                full_page.into_iter().take(5).collect::<Vec<_>>(),
+                "{query}"
+            );
+        }
+    }
+
+    /// #3456: path values (`/` but not CIDR-shaped) on an array keyword
+    /// (dictionary oracle) and on a single-valued keyword (doc-values column)
+    /// give the scan's totals, for `_search`, `_count` and a bool conjunction;
+    /// a CIDR-shaped value on a keyword still matches only its literal.
+    #[tokio::test]
+    async fn path_values_on_keyword_fields_match_the_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("paths", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("path", FieldType::Keyword))
+            .unwrap();
+        engine.create_index("mvk3456", schema).unwrap();
+        let idx = engine.get_index("mvk3456").unwrap();
+        let dirs = ["src", "docs/guide", "crates/a/src", "10.0.0.0"];
+        let mut n = 0usize;
+        for _round in 0..3 {
+            for _ in 0..40 {
+                let d = dirs[n % dirs.len()];
+                let p = format!("{d}/f{}.rs", n % 5);
+                let alias = format!("{d}/alias{}.rs", n % 3);
+                idx.index_document(
+                    Some(format!("d{n:04}")),
+                    json!({"paths": [p.clone(), alias], "path": p}),
+                )
+                .await
+                .unwrap();
+                n += 1;
+            }
+            idx.flush().await.unwrap();
+        }
+        let expect = |field: &str, v: &str| -> usize {
+            (0..n)
+                .filter(|&i| {
+                    let d = dirs[i % dirs.len()];
+                    let p = format!("{d}/f{}.rs", i % 5);
+                    let alias = format!("{d}/alias{}.rs", i % 3);
+                    if field == "path" {
+                        p == v
+                    } else {
+                        p == v || alias == v
+                    }
+                })
+                .count()
+        };
+        for (field, v) in [
+            ("paths", "src/f0.rs"),
+            ("paths", "docs/guide/alias1.rs"),
+            ("paths", "crates/a/src/f3.rs"),
+            ("paths", "nope/none.rs"),
+            ("path", "docs/guide/f2.rs"),
+            ("path", "nope/none.rs"),
+            ("paths", "10.0.0.0/8"),
+            ("path", "10.0.0.0/8"),
+        ] {
+            let want = expect(field, v);
+            let q = json!({"term": {field: v}});
+            for size in [0usize, 5, 1000] {
+                let req = xerj_query::parse_request(&json!({
+                    "size": size, "track_total_hits": true, "query": q
+                }))
+                .unwrap();
+                let res = idx.search(&req).await.unwrap();
+                assert_eq!(res.total.value as usize, want, "{field}={v} size={size}");
+            }
+            let req = xerj_query::parse_request(&json!({
+                "size": 1000, "track_total_hits": true,
+                "query": {"bool": {"must": [q, {"term": {field: v}}]}}
+            }))
+            .unwrap();
+            let res = idx.search(&req).await.unwrap();
+            assert_eq!(res.total.value as usize, want, "bool {field}={v}");
+        }
     }
 }
