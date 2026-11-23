@@ -12476,6 +12476,16 @@ pub struct Index {
     /// API-layer state (`engine.index_mappings`); the engine propagates the
     /// flag on create/open/put-mapping via [`Index::set_date_detection`].
     date_detection: AtomicBool,
+    /// The ES mapping's root `dynamic` setting (#3514), as the engine mode
+    /// it means: 0 = not set (the schema's own `dynamic` applies), else
+    /// `1 + DynamicMapping as u8`. Owned here for the same reason as
+    /// `date_detection`, and propagated with it; read through
+    /// [`Index::dynamic_mode`].
+    es_dynamic: std::sync::atomic::AtomicU8,
+    /// What the ES mapping declares (#3514), consulted under `dynamic: false`
+    /// before a clause on a field the engine schema does not map is lowered
+    /// to "matches nothing". Propagated with `es_dynamic`.
+    es_coverage: std::sync::RwLock<Arc<xerj_common::mapping_dynamic::MappingCoverage>>,
     /// Fast bail for ingest date validation: true once the schema holds any
     /// `date`-typed field (set at construction and when dynamic inference
     /// adds one; never unset — a stale `true` only costs a schema read).
@@ -13500,6 +13510,8 @@ impl Index {
             name,
             schema: Arc::new(RwLock::new(managed)),
             date_detection: AtomicBool::new(true),
+            es_dynamic: std::sync::atomic::AtomicU8::new(0),
+            es_coverage: std::sync::RwLock::new(Arc::default()),
             has_date_fields: AtomicBool::new(has_dates),
             date_format_exclusions: std::sync::RwLock::new(Arc::new(Default::default())),
             store,
@@ -13994,6 +14006,8 @@ impl Index {
             name,
             schema: Arc::new(RwLock::new(schema)),
             date_detection: AtomicBool::new(true),
+            es_dynamic: std::sync::atomic::AtomicU8::new(0),
+            es_coverage: std::sync::RwLock::new(Arc::default()),
             has_date_fields: AtomicBool::new(has_dates),
             date_format_exclusions: std::sync::RwLock::new(Arc::new(Default::default())),
             max_concurrent_queries: Arc::new(Semaphore::new(64)),
@@ -14997,7 +15011,7 @@ impl Index {
         {
             let schema_guard = self.schema.read().await;
             let is_dynamic = matches!(
-                schema_guard.dynamic,
+                self.dynamic_mode(&schema_guard),
                 xerj_common::schema::DynamicMapping::Dynamic
             );
             // Fast-path: for a stable, non-dynamic schema we can skip
@@ -25836,6 +25850,9 @@ impl Index {
     /// readable). Docs written after the walk started may or may not be seen;
     /// that is the same window any single search has.
     pub async fn fold_match_sources<F: FnMut(&Value)>(&self, query: &QueryNode, f: &mut F) {
+        // #3514: the same `dynamic: false` lowering `search` applies.
+        let masked = self.mask_dynamic_false_query(query).await;
+        let query = masked.as_ref().unwrap_or(query);
         // Resolve the query exactly as `search_inner` does (two guard takes,
         // same as that function's `dmq_schema` then `schema.read()` pair).
         let dmq_schema = self.schema().await;
@@ -26332,6 +26349,11 @@ impl Index {
 
     pub async fn search(&self, request: &SearchRequest) -> Result<SearchResult> {
         use crate::collection_publication::ReadAdmission;
+
+        // #3514: under `dynamic: false`, clauses and agg targets on fields the
+        // mapping leaves unmapped answer as if the field were absent.
+        let masked = self.mask_dynamic_false_unmapped(request).await;
+        let request: &SearchRequest = &masked;
 
         let started = std::time::Instant::now();
         let deadline =
@@ -29511,7 +29533,7 @@ impl Index {
         if let Some(fvf) = fs_fast_fvf {
             if !deletes_present {
                 let unmapped_means_absent = matches!(
-                    self.schema.read().await.dynamic,
+                    self.dynamic_mode(&*self.schema.read().await),
                     xerj_common::schema::DynamicMapping::Dynamic
                         | xerj_common::schema::DynamicMapping::Strict
                 );
@@ -34262,6 +34284,92 @@ impl Index {
         self.date_detection.load(Ordering::Relaxed)
     }
 
+    /// Under a `dynamic: false` mode (`DynamicMapping::Runtime`), a query
+    /// whose clauses on unmapped fields are lowered to `match_none`; `None`
+    /// when the mode is another one or nothing changed.
+    async fn mask_dynamic_false_query(&self, query: &QueryNode) -> Option<QueryNode> {
+        let guard = self.schema.read().await;
+        if self.dynamic_mode(&guard) != xerj_common::schema::DynamicMapping::Runtime {
+            return None;
+        }
+        let coverage = self.es_coverage_snapshot();
+        let hidden = |f: &str| hidden_by_dynamic_false(&guard.schema, &coverage, f);
+        let lowered = lower_unmapped_clauses(query, &hidden);
+        (lowered != *query).then_some(lowered)
+    }
+
+    /// [`Index::mask_dynamic_false_query`] for a whole request: the query,
+    /// plus every agg `field` naming an unmapped field, which is pointed at
+    /// a name no document carries so both agg paths see an absent field.
+    async fn mask_dynamic_false_unmapped<'a>(
+        &self,
+        request: &'a SearchRequest,
+    ) -> std::borrow::Cow<'a, SearchRequest> {
+        use std::borrow::Cow;
+        let guard = self.schema.read().await;
+        if self.dynamic_mode(&guard) != xerj_common::schema::DynamicMapping::Runtime {
+            return Cow::Borrowed(request);
+        }
+        let coverage = self.es_coverage_snapshot();
+        let hidden = |f: &str| hidden_by_dynamic_false(&guard.schema, &coverage, f);
+        let lowered = lower_unmapped_clauses(&request.query, &hidden);
+        let mut aggs = request.aggs.clone();
+        let aggs_changed = aggs
+            .as_mut()
+            .is_some_and(|a| mask_unmapped_agg_fields(a, &hidden));
+        if lowered == request.query && !aggs_changed {
+            return Cow::Borrowed(request);
+        }
+        let mut owned = request.clone();
+        owned.query = lowered;
+        if aggs_changed {
+            owned.aggs = aggs;
+        }
+        Cow::Owned(owned)
+    }
+
+    fn es_coverage_snapshot(&self) -> Arc<xerj_common::mapping_dynamic::MappingCoverage> {
+        self.es_coverage
+            .read()
+            .map(|c| Arc::clone(&c))
+            .unwrap_or_default()
+    }
+
+    /// Set the dynamic mode the ES mapping's root `dynamic` asks for (#3514),
+    /// or `None` to fall back to the schema's own mode. Called by the engine
+    /// on create/open/put-mapping, next to [`Index::set_date_detection`].
+    pub fn set_es_dynamic(
+        &self,
+        mode: Option<xerj_common::schema::DynamicMapping>,
+        coverage: xerj_common::mapping_dynamic::MappingCoverage,
+    ) {
+        use xerj_common::schema::DynamicMapping;
+        if let Ok(mut slot) = self.es_coverage.write() {
+            *slot = Arc::new(coverage);
+        }
+        let code = match mode {
+            None => 0,
+            Some(DynamicMapping::Dynamic) => 1,
+            Some(DynamicMapping::Strict) => 2,
+            Some(DynamicMapping::Runtime) => 3,
+        };
+        self.es_dynamic.store(code, Ordering::Relaxed);
+    }
+
+    /// The dynamic mode in force: the ES mapping's root `dynamic` when one
+    /// was set, else `schema.dynamic`. Every "may an unmapped field be
+    /// mapped / is unmapped proof of absence" decision reads this, never
+    /// `schema.dynamic` directly.
+    pub fn dynamic_mode(&self, schema: &ManagedSchema) -> xerj_common::schema::DynamicMapping {
+        use xerj_common::schema::DynamicMapping;
+        match self.es_dynamic.load(Ordering::Relaxed) {
+            1 => DynamicMapping::Dynamic,
+            2 => DynamicMapping::Strict,
+            3 => DynamicMapping::Runtime,
+            _ => schema.dynamic,
+        }
+    }
+
     /// Replace the set of date fields excluded from default-format ingest
     /// validation (fields with an explicit mapping `format` — validated
     /// separately by `bulk::find_bad_date_field` — or `ignore_malformed`).
@@ -34348,7 +34456,10 @@ impl Index {
         // snapshot.
         let (new_top_level, needs_merge): (Vec<(String, Value)>, Vec<(String, Value)>) = {
             let schema = self.schema.read().await;
-            if !matches!(schema.dynamic, xerj_common::schema::DynamicMapping::Dynamic) {
+            if !matches!(
+                self.dynamic_mode(&schema),
+                xerj_common::schema::DynamicMapping::Dynamic
+            ) {
                 return;
             }
             let mut new_top_level = Vec::new();
@@ -34408,7 +34519,10 @@ impl Index {
 
         let date_detection = self.date_detection_enabled();
         let mut schema = self.schema.write().await;
-        if !matches!(schema.dynamic, xerj_common::schema::DynamicMapping::Dynamic) {
+        if !matches!(
+            self.dynamic_mode(&schema),
+            xerj_common::schema::DynamicMapping::Dynamic
+        ) {
             return;
         }
         // Re-derive against the live schema under the write lock rather than
@@ -34491,7 +34605,10 @@ impl Index {
         // the full rationale (same fix, single-document form).
         let needs_write = {
             let schema = self.schema.read().await;
-            if !matches!(schema.dynamic, xerj_common::schema::DynamicMapping::Dynamic) {
+            if !matches!(
+                self.dynamic_mode(&schema),
+                xerj_common::schema::DynamicMapping::Dynamic
+            ) {
                 return;
             }
             obj.iter().any(|(key, val)| {
@@ -34538,7 +34655,10 @@ impl Index {
         // Upgrade to write lock and persist the updated schema.
         let date_detection = self.date_detection_enabled();
         let mut schema = self.schema.write().await;
-        if !matches!(schema.dynamic, xerj_common::schema::DynamicMapping::Dynamic) {
+        if !matches!(
+            self.dynamic_mode(&schema),
+            xerj_common::schema::DynamicMapping::Dynamic
+        ) {
             return;
         }
         let mut schema_changed = false;
@@ -41277,20 +41397,35 @@ impl Index {
         // empty/null; a name whose root is unmapped is genuinely absent and a
         // valid empty result. Keyed off the schema, not a column probe, since
         // by construction neither of those fields carries a column to probe.
+        //
+        // "Unmapped root means absent" also needs every `_source` field to be
+        // mapped, which `dynamic: false` breaks (#3514): the set carries the
+        // mode so `field_needs_brute_fallback` can tell.
         let (bool_fields, mapped_fields): (
             std::collections::HashSet<String>,
-            std::collections::HashSet<String>,
+            fast_aggs::MappedFields,
         ) = {
             let guard = self.schema.read().await;
             let mut bool_fields = std::collections::HashSet::new();
-            let mut mapped_fields = std::collections::HashSet::new();
+            let mut names = std::collections::HashSet::new();
             for f in &guard.schema.fields {
                 if f.field_type == xerj_common::FieldType::Boolean {
                     bool_fields.insert(f.name.clone());
                 }
-                mapped_fields.insert(f.name.clone());
+                names.insert(f.name.clone());
             }
-            (bool_fields, mapped_fields)
+            let unmapped_means_absent = matches!(
+                self.dynamic_mode(&guard),
+                xerj_common::schema::DynamicMapping::Dynamic
+                    | xerj_common::schema::DynamicMapping::Strict
+            );
+            (
+                bool_fields,
+                fast_aggs::MappedFields {
+                    names,
+                    unmapped_means_absent,
+                },
+            )
         };
         self.try_fast_aggs(
             aggs_def,
@@ -53300,6 +53435,109 @@ fn numeric_field_matches(schema: &Schema, field: &str) -> bool {
     }
 }
 
+/// Agg `field` a `dynamic: false` mapping leaves unmapped is rewritten to
+/// this prefix plus the name: no `_source` key and no column can carry it,
+/// so the columnar and the stored-doc agg paths both answer "absent" (empty
+/// buckets, `null` metrics, every doc `missing`), which is what ES answers
+/// for an unmapped field.
+const UNMAPPED_AGG_FIELD_PREFIX: &str = "\u{1}unmapped\u{1}";
+
+/// Rewrite, in an `aggs` tree, every `"field": "<name>"` that `hidden`
+/// flags (#3514). Agg types whose parameters are a QUERY (`filter`,
+/// `filters`, `adjacency_matrix`) are not walked: their field names are
+/// object keys, not `field` values, and a `term` on a field literally named
+/// `field` must not be touched. Scripts are left alone. Returns whether
+/// anything changed.
+fn mask_unmapped_agg_fields(aggs: &mut Value, hidden: &dyn Fn(&str) -> bool) -> bool {
+    fn params(v: &mut Value, hidden: &dyn Fn(&str) -> bool) -> bool {
+        let mut changed = false;
+        match v {
+            Value::Object(o) => {
+                for (k, child) in o.iter_mut() {
+                    match (k.as_str(), &mut *child) {
+                        ("script", _) => {}
+                        ("field", Value::String(name)) => {
+                            if hidden(name) {
+                                *name = format!("{UNMAPPED_AGG_FIELD_PREFIX}{name}");
+                                changed = true;
+                            }
+                        }
+                        _ => changed |= params(child, hidden),
+                    }
+                }
+            }
+            Value::Array(items) => {
+                for item in items {
+                    changed |= params(item, hidden);
+                }
+            }
+            _ => {}
+        }
+        changed
+    }
+    let Some(named) = aggs.as_object_mut() else {
+        return false;
+    };
+    let mut changed = false;
+    for body in named.values_mut() {
+        let Some(body) = body.as_object_mut() else {
+            continue;
+        };
+        for (kind, value) in body.iter_mut() {
+            changed |= match kind.as_str() {
+                "aggs" | "aggregations" => mask_unmapped_agg_fields(value, hidden),
+                "meta" | "filter" | "filters" | "adjacency_matrix" => false,
+                _ => params(value, hidden),
+            };
+        }
+    }
+    changed
+}
+
+/// The #328 pass over lexically typeless fields; see [`lower_clauses_naming`].
+fn lower_lexically_typeless_clauses(
+    q: &QueryNode,
+    typeless: &std::collections::HashSet<String>,
+) -> QueryNode {
+    lower_clauses_naming(q, &|field: &str| typeless.contains(field), false)
+}
+
+/// #3514: under a root `dynamic: false` a field the mapping does not declare
+/// stays in `_source` but is not indexed, and ES answers every clause on it,
+/// `exists` included, with no hits. The stored-doc scan reads `_source`
+/// whatever the mapping says, so those clauses are lowered to `match_none`
+/// before any path decision, with the same folds as the typeless pass below.
+fn lower_unmapped_clauses(q: &QueryNode, hidden: &dyn Fn(&str) -> bool) -> QueryNode {
+    lower_clauses_naming(q, hidden, true)
+}
+
+/// Whether `field` is one a root `dynamic: false` keeps out of the index: a
+/// name the engine schema does not map (no declared field, and no declared
+/// LEAF ancestor whose multi-field or sub-key it could be) and the ES mapping
+/// does not cover either (`MappingCoverage`: runtime fields, objects that
+/// re-open dynamic mapping, leaves the schema does not model). Metadata
+/// names and patterns are never hidden.
+fn hidden_by_dynamic_false(
+    schema: &Schema,
+    coverage: &xerj_common::mapping_dynamic::MappingCoverage,
+    field: &str,
+) -> bool {
+    if field.is_empty() || field.starts_with('_') || field.contains('*') || field.contains('?') {
+        return false;
+    }
+    if declared_field(schema, field).is_some() || coverage.covers(field) {
+        return false;
+    }
+    let mut rest = field;
+    while let Some((ancestor, _)) = rest.rsplit_once('.') {
+        if let Some(fc) = declared_field(schema, ancestor) {
+            return matches!(fc.field_type, FieldType::Object | FieldType::Nested);
+        }
+        rest = ancestor;
+    }
+    true
+}
+
 /// Lower every LEXICAL clause that names a lexically typeless field to
 /// `QueryNode::MatchNone` — the query half of #328.
 ///
@@ -53386,9 +53624,10 @@ fn numeric_field_matches(schema: &Schema, field: &str) -> bool {
 /// the set is not the same `emb` the inner clause names. Rewriting through it
 /// could turn a legitimate inner clause into a silent zero. The inner clause
 /// keeps exactly today's behaviour.
-fn lower_lexically_typeless_clauses(
+fn lower_clauses_naming(
     q: &QueryNode,
-    typeless: &std::collections::HashSet<String>,
+    unsatisfiable: &dyn Fn(&str) -> bool,
+    exists_too: bool,
 ) -> QueryNode {
     // One entry of a `fields: [...]` list. `"emb^3"` carries a boost.
     //
@@ -53421,7 +53660,7 @@ fn lower_lexically_typeless_clauses(
     // "names one outright" rather than "names one" for exactly this reason.
     let is_typeless_spec = |spec: &String| -> bool {
         let (name, _boost) = parse_field_boost(spec);
-        !name.contains('*') && typeless.contains(name)
+        !name.contains('*') && unsatisfiable(name)
     };
     // A `fields: [...]` list with every vector entry removed. `None` means
     // "leave this node alone": either nothing was dropped, or the list was
@@ -53438,7 +53677,7 @@ fn lower_lexically_typeless_clauses(
                 .collect(),
         )
     };
-    let recurse = |c: &QueryNode| lower_lexically_typeless_clauses(c, typeless);
+    let recurse = |c: &QueryNode| lower_clauses_naming(c, unsatisfiable, exists_too);
     match q {
         // ── Leaves that name exactly one field ────────────────────────────
         QueryNode::Term { field, .. }
@@ -53453,12 +53692,16 @@ fn lower_lexically_typeless_clauses(
         | QueryNode::Regexp { field, .. }
         | QueryNode::Intervals { field, .. }
         | QueryNode::SpanTerm { field, .. } => {
-            if typeless.contains(field) {
+            if unsatisfiable(field) {
                 QueryNode::MatchNone
             } else {
                 q.clone()
             }
         }
+        // `exists` reads `_source` / doc values, which is right for a typeless
+        // field (it has a value) and wrong for one `dynamic: false` left
+        // unmapped (ES: no hits), hence the flag.
+        QueryNode::Exists { field } if exists_too && unsatisfiable(field) => QueryNode::MatchNone,
 
         // ── Multi-field forms: prune the list, empty list → MatchNone ─────
         // The empty case is the specific hole. `query_node_to_fts` returns

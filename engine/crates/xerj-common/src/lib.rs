@@ -63,6 +63,7 @@ pub mod hub_evidence;
 pub mod localauth;
 pub mod localnode;
 pub mod loopback_test;
+pub mod mapping_dynamic;
 pub mod metrics;
 pub mod net;
 pub mod nodedir;
