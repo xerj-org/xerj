@@ -13,6 +13,12 @@
 //! force over the generated documents; for every other shape it is the
 //! engine's own unbounded page (`size` larger than the match count, so nothing
 //! is dropped before the final sort).
+//!
+//! #3509 adds `bool` shapes whose scores differ but are bounded per clause
+//! (single-valued keyword / numeric `term`, `range`, `terms`,
+//! `constant_score`), where the scan skips matches that cannot enter the page
+//! and stops segments at the ceiling: every bounded page must still equal the
+//! slice of the exhaustive page, and the pruning must actually fire.
 
 use super::*;
 use serde_json::json;
@@ -98,6 +104,18 @@ async fn put(idx: &Arc<Index>, live: &mut Vec<Doc>, (doc, body): (Doc, Value)) {
 /// With `churn`, some docs are deleted and some overwritten (new seq_no, new
 /// content), which also turns off the count-authoritative early stop.
 async fn build(name: &str, seed: u64, segs: usize, churn: bool, tail: bool) -> Built {
+    build_sized(name, seed, segs, churn, tail, 24).await
+}
+
+/// [`build`] with segments of 1..=`max_per_seg` docs.
+async fn build_sized(
+    name: &str,
+    seed: u64,
+    segs: usize,
+    churn: bool,
+    tail: bool,
+    max_per_seg: u64,
+) -> Built {
     let dir = tempfile::tempdir().unwrap();
     let mut config = Config::default();
     config.server.data_dir = dir.path().to_string_lossy().into_owned();
@@ -124,7 +142,7 @@ async fn build(name: &str, seed: u64, segs: usize, churn: bool, tail: bool) -> B
     let mut seq = 0u64;
     let mut next_id = 0usize;
     for seg in 0..segs {
-        for _ in 0..1 + rng.below(24) {
+        for _ in 0..1 + rng.below(max_per_seg) {
             let doc = fresh(&mut rng, format!("d{next_id:05}"), seq, seg);
             next_id += 1;
             seq += 1;
@@ -315,8 +333,77 @@ fn shapes() -> Vec<(Value, Option<Option<&'static str>>)> {
     ]
 }
 
+/// #3509: `bool` shapes with differing scores that have a per-clause bound
+/// (single-valued `cat` / numeric `rank`), compared with the unbounded page.
+fn bound_shapes() -> Vec<(Value, Option<Option<&'static str>>)> {
+    let shape = |q: Value| (q, None);
+    vec![
+        // Most docs reach the ceiling: segments end early.
+        shape(json!({"bool": {"should": [
+            {"range": {"rank": {"gte": 1}}},
+            {"term": {"cat": "c1"}}
+        ]}})),
+        shape(json!({"bool": {"should": [
+            {"term": {"cat": {"value": "c1", "boost": 2.0}}},
+            {"term": {"cat": "c2"}},
+            {"range": {"rank": {"gte": 6, "boost": 0.5}}}
+        ]}})),
+        shape(json!({"bool": {
+            "must": [{"range": {"rank": {"gte": 3}}}],
+            "should": [{"term": {"cat": "c0"}}, {"terms": {"cat": ["c1", "c2"]}}]
+        }})),
+        shape(json!({"bool": {"should": [
+            {"bool": {"should": [
+                {"term": {"cat": "c1"}},
+                {"range": {"rank": {"lte": 4}}}
+            ]}},
+            {"range": {"rank": {"gte": 9}}}
+        ]}})),
+        shape(json!({"bool": {"should": [
+            {"constant_score": {"filter": {"term": {"cat": "c3"}}, "boost": 2.5}},
+            {"range": {"rank": {"gte": 7}}}
+        ]}})),
+        shape(json!({"bool": {"should": [
+            {"term": {"rank": 5}},
+            {"term": {"rank": 6}},
+            {"range": {"rank": {"gte": 11}}},
+            {"term": {"cat": "c0"}}
+        ]}})),
+        shape(json!({"bool": {"_name": "n", "should": [
+            {"term": {"cat": "c2"}},
+            {"range": {"rank": {"gte": 2, "lte": 8}}}
+        ]}})),
+        shape(json!({"bool": {"should": [
+            {"term": {"cat": "c1"}},
+            {"term": {"cat": "c1"}},
+            {"range": {"rank": {"gte": 10}}}
+        ]}})),
+        shape(json!({"bool": {
+            "filter": [{"range": {"rank": {"gte": 2}}}],
+            "should": [{"term": {"cat": "c2"}}, {"term": {"cat": "c3"}}]
+        }})),
+        shape(json!({"bool": {"should": [
+            {"term": {"cat": {"value": "c1", "boost": 0.0}}},
+            {"range": {"rank": {"gte": 5}}}
+        ]}})),
+        shape(json!({"bool": {
+            "should": [{"term": {"cat": "c1"}}, {"term": {"cat": "c2"}}],
+            "must_not": [{"range": {"rank": {"gte": 11}}}]
+        }})),
+        // Unbounded: `tags` is multi-valued (no column), so no ceiling.
+        shape(json!({"bool": {"should": [
+            {"term": {"tags": "alpha"}},
+            {"term": {"cat": "c1"}}
+        ]}})),
+    ]
+}
+
 async fn check(b: &Built, label: &str) {
-    for (query, independent) in shapes() {
+    check_shapes(b, label, shapes()).await;
+}
+
+async fn check_shapes(b: &Built, label: &str, shapes: Vec<(Value, Option<Option<&'static str>>)>) {
+    for (query, independent) in shapes {
         for sort in [None, Some(true), Some(false)] {
             let full_label = format!("{label} segs={} q={query} sort={sort:?}", b.segments);
             let (unbounded, unbounded_total) = page(&b.idx, &query, sort, 0, 10_000).await;
@@ -370,6 +457,42 @@ async fn bounded_pages_match_brute_force_with_a_memtable_tail() {
     for seed in SEEDS_B {
         let b = build(&format!("sstkt{seed}"), seed, 8, false, true).await;
         check(&b, &format!("tail seed={seed}")).await;
+    }
+}
+
+const SEEDS_D: std::ops::RangeInclusive<u64> = 300..=307;
+
+/// #3509: bounded `bool` pages under score bounds equal the exhaustive page,
+/// flushed (larger segments, so a segment's share fills mid-walk), merged,
+/// and with a memtable tail (the page floor comes from memtable hits); and the
+/// bound prunes.
+#[tokio::test]
+async fn bounded_bool_pages_under_score_bounds_match_exhaustive() {
+    let before = SCORE_BOUND_PRUNES.load(std::sync::atomic::Ordering::Relaxed);
+    for seed in SEEDS_D {
+        let tail = seed % 2 == 1;
+        let b = build_sized(&format!("sstkb{seed}"), seed, 6, false, tail, 60).await;
+        let label = format!("bound seed={seed} tail={tail}");
+        check_shapes(&b, &label, bound_shapes()).await;
+        if !tail {
+            b.idx.force_merge(1 + seed as usize % 2).await.unwrap();
+            check_shapes(&b, &format!("{label} merged"), bound_shapes()).await;
+        }
+    }
+    let pruned = SCORE_BOUND_PRUNES.load(std::sync::atomic::Ordering::Relaxed) - before;
+    assert!(
+        pruned > 0,
+        "the score bound never pruned a match or a segment"
+    );
+}
+
+/// #3509: with deletes the shortcut is not authoritative, so no bound
+/// applies; pages still equal the exhaustive page.
+#[tokio::test]
+async fn bounded_bool_pages_with_deletes_match_exhaustive() {
+    for seed in 310..=312u64 {
+        let b = build_sized(&format!("sstkbc{seed}"), seed, 8, true, false, 40).await;
+        check_shapes(&b, &format!("bound churn seed={seed}"), bound_shapes()).await;
     }
 }
 
