@@ -991,11 +991,9 @@ impl FtsSearcher {
             None => return Ok(()),
         };
 
+        let lengths = self.reader.field_lengths(&tq.field);
         while let Some(posting) = reader.next() {
-            let doc_len = self
-                .reader
-                .field_length(&tq.field, posting.doc_id)
-                .unwrap_or(1) as u32;
+            let doc_len = lengths.get(posting.doc_id).unwrap_or(1) as u32;
 
             let (score, explanation) = if explain {
                 let bd = scorer.score_term_explain(&tq.term, score_df, posting.term_freq, doc_len);
@@ -1527,17 +1525,17 @@ impl FtsSearcher {
         };
 
         // Build must_not doc_id set
-        let must_not_docs: std::collections::HashSet<u32> = must_not_hits
+        let must_not_docs: rustc_hash::FxHashSet<u32> = must_not_hits
             .iter()
             .flat_map(|hits| hits.iter().map(|h| h.doc_id))
             .collect();
 
         // Intersect must clauses
-        let mut candidate_docs: Option<std::collections::HashSet<u32>> = None;
-        let mut score_map: std::collections::HashMap<u32, f32> = std::collections::HashMap::new();
+        let mut candidate_docs: Option<rustc_hash::FxHashSet<u32>> = None;
+        let mut score_map: rustc_hash::FxHashMap<u32, f32> = rustc_hash::FxHashMap::default();
 
         for must_result in &must_hits {
-            let doc_set: std::collections::HashSet<u32> =
+            let doc_set: rustc_hash::FxHashSet<u32> =
                 must_result.iter().map(|h| h.doc_id).collect();
             candidate_docs = Some(match candidate_docs {
                 None => doc_set,
@@ -1555,7 +1553,7 @@ impl FtsSearcher {
         // contributing to the score; there is nothing to add and then
         // subtract.  Deliberately no `score_map` update below (#361).
         for filter_result in &filter_hits {
-            let doc_set: std::collections::HashSet<u32> =
+            let doc_set: rustc_hash::FxHashSet<u32> =
                 filter_result.iter().map(|h| h.doc_id).collect();
             candidate_docs = Some(match candidate_docs {
                 None => doc_set,
@@ -1564,8 +1562,8 @@ impl FtsSearcher {
         }
 
         // Should clauses: track per-doc match count and scores
-        let mut should_match_count: std::collections::HashMap<u32, u32> =
-            std::collections::HashMap::new();
+        let mut should_match_count: rustc_hash::FxHashMap<u32, u32> =
+            rustc_hash::FxHashMap::default();
         for should_result in &should_hits {
             for hit in should_result {
                 *should_match_count.entry(hit.doc_id).or_insert(0) += 1;

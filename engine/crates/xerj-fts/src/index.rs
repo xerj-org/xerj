@@ -2457,6 +2457,22 @@ fn norm_legacy_byte_to_len(b: u8) -> u16 {
 
 // ── FtsIndexReader ────────────────────────────────────────────────────────────
 
+/// One field's norms, from [`FtsIndexReader::field_lengths`].
+#[derive(Clone, Copy)]
+pub struct FieldLengths<'a> {
+    norms: &'a [(u32, u16, u8)],
+}
+
+impl FieldLengths<'_> {
+    /// Same answer as [`FtsIndexReader::field_length`] for this field.
+    pub fn get(&self, doc_id: u32) -> Option<u16> {
+        self.norms
+            .binary_search_by_key(&doc_id, |(id, _, _)| *id)
+            .ok()
+            .map(|idx| self.norms[idx].1)
+    }
+}
+
 /// Provides term lookup into a segment's FTS data.
 ///
 /// Designed for mmap-friendly usage: the FST and postings data can be backed
@@ -3118,13 +3134,17 @@ impl FtsIndexReader {
     /// every document on a [`Self::open_stats_only`] reader, whose norms
     /// table was deliberately not loaded.
     pub fn field_length(&self, field: &str, doc_id: u32) -> Option<u16> {
-        let loaded = self.fields.get(field)?;
-        // Binary search by doc_id
-        loaded
-            .norms
-            .binary_search_by_key(&doc_id, |(id, _, _)| *id)
-            .ok()
-            .map(|idx| loaded.norms[idx].1)
+        self.field_lengths(field).get(doc_id)
+    }
+
+    /// The field's norms table, resolved once: a postings loop that asks for
+    /// one length per posting looks the field name up once instead of
+    /// hashing it per posting (#3455: the per-posting `fields.get` was ~16%
+    /// of a `bool` of two keyword terms over 496 segments).
+    pub fn field_lengths(&self, field: &str) -> FieldLengths<'_> {
+        FieldLengths {
+            norms: self.fields.get(field).map_or(&[], |f| f.norms.as_slice()),
+        }
     }
 
     /// Every `(doc_id, quantised norm byte)` this field records, ascending by
