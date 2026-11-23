@@ -45,10 +45,11 @@ upgrade a node that serves traffic.
 
 ### Upgrade notes
 
-- **Downgrade needs a reindex.** Segments that rc.105 writes store BM25
-  field lengths on a new scale (#3007). rc.104 and older refuse these
-  norms files instead of misreading them. To go back to rc.104, restore a
-  snapshot taken on rc.104 or reindex from the source. The upgrade itself
+- **Downgrade needs a snapshot or a reindex.** Segments that rc.105 writes
+  store BM25 field lengths on a new scale (#3007). rc.104 opens a data
+  directory that rc.105 wrote without any error, but ranking and scores
+  change silently. To go back to rc.104, restore a snapshot taken on rc.104
+  or reindex from the source. The upgrade itself
   is in place: segments written before keep their old lengths, and object
   sub-fields in old segments answer from stored documents, until a merge
   rewrites them or you reindex.
