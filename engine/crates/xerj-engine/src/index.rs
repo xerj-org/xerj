@@ -12656,6 +12656,14 @@ pub struct Index {
     /// served.  Only ever consulted while `deletes_present` is true;
     /// bounded by wholesale clear (see `ghost_positions_for`).
     ghost_positions_cache: Arc<dashmap::DashMap<String, (u64, Arc<Vec<u64>>)>>,
+    /// [#3467] Live-row doc-values views of segments with resident ghosts
+    /// (#3444), keyed `"<segment_id>\u{1}<column names>"`; each entry holds
+    /// the ghost bitmap it was built from and is served only while the
+    /// segment's current bitmap is identical (see
+    /// `fast_aggs::cached_live_row_view`). Charged to the hydration budget as
+    /// doc values, evicted by segment-id prefix when a merge retires the
+    /// segment, bounded by wholesale clear at `LIVE_VIEW_CACHE_MAX` keys.
+    dv_live_view_cache: Arc<dashmap::DashMap<String, fast_aggs::LiveViewEntry>>,
     /// Regexp term-dictionary expansion cache — keyed by
     /// `(segment_id, field, pattern)`, holds the exact union doc count
     /// plus the first `REGEXP_EXPANSION_POS_CAP` matching doc positions
@@ -13220,6 +13228,7 @@ impl Index {
             vector_column_cache: Arc::new(per_index_map()),
             shortcut_count_cache: Arc::new(per_index_map()),
             ghost_positions_cache: Arc::new(per_index_map()),
+            dv_live_view_cache: Arc::new(per_index_map()),
             regexp_expand_cache: Arc::new(per_index_map()),
             fast_date_cache: Arc::new(per_index_map()),
             fast_date_sorted_cache: Arc::new(per_index_map()),
@@ -13713,6 +13722,7 @@ impl Index {
             vector_column_cache: Arc::new(per_index_map()),
             shortcut_count_cache: Arc::new(per_index_map()),
             ghost_positions_cache: Arc::new(per_index_map()),
+            dv_live_view_cache: Arc::new(per_index_map()),
             regexp_expand_cache: Arc::new(per_index_map()),
             fast_date_cache: Arc::new(per_index_map()),
             fast_date_sorted_cache: Arc::new(per_index_map()),
@@ -32375,6 +32385,7 @@ impl Index {
         self.vector_column_cache.clear();
         self.shortcut_count_cache.clear();
         self.ghost_positions_cache.clear();
+        self.dv_live_view_cache.clear();
         self.regexp_expand_cache.clear();
         self.fast_date_cache.clear();
         self.fast_date_sorted_cache.clear();
@@ -32397,6 +32408,7 @@ impl Index {
             + self.vector_column_cache.len()
             + self.shortcut_count_cache.len()
             + self.ghost_positions_cache.len()
+            + self.dv_live_view_cache.len()
             + self.regexp_expand_cache.len()
             + self.fast_date_cache.len()
             + self.fast_date_sorted_cache.len()
@@ -35544,6 +35556,9 @@ impl Index {
             .retain(|key, _| !key.starts_with(&fts_prefix));
         let shadow_prefix = format!("{segment_id}\u{1}");
         self.sort_shadow_cache
+            .retain(|key, _| !key.starts_with(&shadow_prefix));
+        // #3467: keyed "<segment_id>\u{1}<column names>".
+        self.dv_live_view_cache
             .retain(|key, _| !key.starts_with(&shadow_prefix));
 
         // DashMap retains shard capacity after logical removals. Shrinking
