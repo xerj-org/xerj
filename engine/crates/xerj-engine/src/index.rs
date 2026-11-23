@@ -27070,6 +27070,12 @@ impl Index {
             score
         };
         let score_doc: &(dyn Fn(&Value, &str) -> f32 + Send + Sync) = &score_doc;
+        // #3465: whether `score_doc` gives every match the same score. Only
+        // then may a full stored-scan collector keep a segment's first
+        // matches; otherwise it keeps the segment's best by score.
+        let scan_scores_tied: bool = ids_only
+            || (peeled_fs.is_none()
+                && (leaf_base_const.is_some() || scan_score_is_constant(query)));
 
         // Helper: admit a hit into the bounded `all_hits` collector.
         //
@@ -30541,6 +30547,7 @@ impl Index {
                             &mut dbg_walked,
                             &mut dbg_admitted,
                             score_doc,
+                            scan_scores_tied,
                             &dmq_schema,
                         );
                         dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
@@ -30590,6 +30597,7 @@ impl Index {
                                     Some(search_deadline),
                                     &mut deadline_exceeded,
                                     score_doc,
+                                    scan_scores_tied,
                                     &dmq_schema,
                                 );
                             }
@@ -30613,6 +30621,7 @@ impl Index {
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
                                     score_doc,
+                                    scan_scores_tied,
                                     &dmq_schema,
                                 );
                             }
@@ -30760,6 +30769,7 @@ impl Index {
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
                                     score_doc,
+                                    scan_scores_tied,
                                     &dmq_schema,
                                 );
                                 dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
@@ -39420,8 +39430,12 @@ impl Index {
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
+        // #3465: see `scan_stored_section_into`.
+        scores_tied: bool,
         schema: &Schema,
     ) {
+        // One call hydrates one segment: hits from `segment_floor` on are its own.
+        let segment_floor = all_hits.len();
         // LOSS_BATTLE_PLAN B7 (completed): the positions arrive PRE-SORTED
         // ascending from the cached `PrefilterSet` — zero per-query set
         // collection, selection, or sorting.  With an authoritative count
@@ -39499,6 +39513,29 @@ impl Index {
             if all_hits.len() >= materialisation_limit {
                 if count_authoritative {
                     break;
+                }
+                // #3465: a match that outscores one of this segment's hits
+                // takes its slot (see `scan_stored_section_into`).
+                if !scores_tied && !ids_only && !seen_ids.contains(id_ref) {
+                    let source_ref = doc.get("_source").unwrap_or(&doc);
+                    let score = scorer(source_ref, id_ref);
+                    if let Some(at) = stored_scan_displaced_slot(&all_hits[segment_floor..], score)
+                    {
+                        let id = id_ref.to_string();
+                        seen_ids.insert(id.clone());
+                        all_hits[segment_floor + at] = Hit {
+                            id,
+                            score,
+                            source: source_ref.clone(),
+                            seq_no: hit_seq_no,
+                            version: hit_version,
+                            sort: Vec::new(),
+                            explain: None,
+                            highlight: None,
+                            matched_queries: Vec::new(),
+                            passage: None,
+                        };
+                    }
                 }
                 continue;
             }
@@ -39832,11 +39869,17 @@ impl Index {
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
+        // #3465: every match scores the same (`scan_scores_tied` in
+        // `search_inner`). When false, a full collector keeps this segment's
+        // best hits by score instead of its first ones.
+        scores_tied: bool,
         schema: &Schema,
     ) {
         // #3285: this walk is synchronous, so the scoped analyzer covers
         // every `doc_matches_query_typed` below.
         let _phrase_analyzer = ScanPhraseAnalyzer::enter(self.scan_phrase_analyzer());
+        // One call walks one segment: hits from `segment_floor` on are its own.
+        let segment_floor = all_hits.len();
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
         // JSON array of objects).  We walk the bytes, find each top-level
@@ -40298,7 +40341,29 @@ impl Index {
                     break;
                 }
                 // Count not authoritative for this shape: keep scanning to
-                // tally the exact `hits.total`, just don't materialise sources.
+                // tally the exact `hits.total`, just don't materialise sources
+                // unless this match outscores one of the segment's hits.
+                if !scores_tied && !ids_only && !seen_ids.contains(id_ref) {
+                    let source_ref = doc.get("_source").unwrap_or(&doc);
+                    let score = scorer(source_ref, id_ref);
+                    if let Some(at) = stored_scan_displaced_slot(&all_hits[segment_floor..], score)
+                    {
+                        let id = id_ref.to_string();
+                        seen_ids.insert(id.clone());
+                        all_hits[segment_floor + at] = Hit {
+                            id,
+                            score,
+                            source: source_ref.clone(),
+                            seq_no: hit_seq_no,
+                            version: hit_version,
+                            sort: Vec::new(),
+                            explain: None,
+                            highlight: None,
+                            matched_queries: Vec::new(),
+                            passage: None,
+                        };
+                    }
+                }
                 continue;
             }
 
@@ -58987,6 +59052,48 @@ fn query_tree_contains_ids(q: &QueryNode) -> bool {
     }
 }
 
+/// Whether `score_query_against_doc` gives every matching document the same
+/// score for `q`, so the stored-scan collector may keep the FIRST matches of a
+/// segment (positions are `seq_no` order, and ties go to the earlier arrival).
+/// `false` is always safe: the collector then keeps a segment's best hits by
+/// score instead (#3465). `Term` and `Match` are `false`: they score the
+/// query's token count across every array element (`match_term_frequency`).
+fn scan_score_is_constant(q: &QueryNode) -> bool {
+    matches!(
+        q,
+        QueryNode::MatchAll
+            | QueryNode::MatchNone
+            | QueryNode::Constant { .. }
+            | QueryNode::Boosted { .. }
+            | QueryNode::Terms { .. }
+            | QueryNode::Range { .. }
+            | QueryNode::Prefix { .. }
+            | QueryNode::Wildcard { .. }
+    )
+}
+
+/// The slot a new match takes in a full stored-scan collector, or `None` when
+/// it does not beat any of `segment_hits` (#3465).
+///
+/// `segment_hits` are this segment's admitted hits, and the new match arrived
+/// after all of them (a segment is walked in position = `seq_no` order). The
+/// worst hit is the lowest score, then the latest arrival. The new match must
+/// score strictly higher: on a tie the earlier arrival keeps its place, the
+/// page's `(score DESC, seq_no ASC)` order. Same rule as tantivy's
+/// `TopNComputer` (`collector/top_score_collector.rs:495-520`, MIT; approach
+/// only), which skips a doc scoring at or below the threshold because docs
+/// arrive in ascending doc id.
+fn stored_scan_displaced_slot(segment_hits: &[Hit], score: f32) -> Option<usize> {
+    let (at, worst) = segment_hits.iter().enumerate().min_by(|(_, a), (_, b)| {
+        a.score.total_cmp(&b.score).then_with(|| {
+            b.seq_no
+                .unwrap_or(u64::MAX)
+                .cmp(&a.seq_no.unwrap_or(u64::MAX))
+        })
+    })?;
+    (score.total_cmp(&worst.score) == std::cmp::Ordering::Greater).then_some(at)
+}
+
 fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f32 {
     match q {
         QueryNode::MatchAll => 1.0,
@@ -72932,6 +73039,35 @@ mod multi_valued_keyword_term_3412_tests {
                 .try_shortcut_count(&q, &snap, false, None, &schema, false)
                 .await;
             assert_eq!(page_count, None, "term={term:?}");
+        }
+    }
+
+    /// #3465: one merged segment holds every doc, so its first five
+    /// "Install" matches (d0002 d0004 d0006 d0008 d0010) include d0006, which
+    /// scores lower (one element) than d0016 (two elements) further on. The
+    /// page is the segment's best five, not its first five. Each query runs
+    /// twice: the first walks the stored section and caches its offsets, so
+    /// the repeat can take the warm-slices arm (`hydrate_prefiltered_unsorted`).
+    #[tokio::test]
+    async fn a_merged_segment_pages_its_best_matches_not_its_first() {
+        let (_dir, _engine, idx, n) = multi_segment_index("mvk3465").await;
+        idx.force_merge(1).await.unwrap();
+        assert_eq!(idx.store.snapshot().segments.len(), 1);
+        for term in ["Install", "FAQ", "raft leader election"] {
+            let page = expected_page(n, term);
+            for size in [1usize, 5, 12] {
+                let want: Vec<&str> = page.iter().take(size).map(|s| s.as_str()).collect();
+                for pass in ["cold", "warm"] {
+                    let req = xerj_query::parse_request(&json!({
+                        "size": size,
+                        "query": {"term": {"headings": term}}
+                    }))
+                    .unwrap();
+                    let res = idx.search(&req).await.unwrap();
+                    let got: Vec<&str> = res.hits.iter().map(|h| h.id.as_str()).collect();
+                    assert_eq!(got, want, "term={term:?} size={size} {pass}");
+                }
+            }
         }
     }
 

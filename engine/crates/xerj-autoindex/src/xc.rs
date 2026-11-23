@@ -7178,7 +7178,18 @@ precedence = ["a", "b"]
             r#"{"corpus":"other","indexed_at":"2026-01-02T03:04:05Z","prefix":"xc-other"}"#,
         )
         .unwrap();
-        let before = server.requests().len();
+        // Count catalog reads only (#3468). Each call also opens a bare TCP
+        // connection first (`localnode::ensure_for_cli` asks whether the port
+        // accepts), and the stand-in records it as an empty request whenever
+        // its accept loop gets to it — before or after this call returns.
+        let catalog_reads = || {
+            server
+                .requests()
+                .iter()
+                .filter(|req| req.contains("autoindex-catalog"))
+                .count()
+        };
+        assert_eq!(catalog_reads(), 1, "the empty ledger read the catalog once");
         let done = code_cli_outcome(&[
             "proj".into(),
             "how does it flush".into(),
@@ -7196,8 +7207,8 @@ precedence = ["a", "b"]
         );
         assert!(!out.text.contains("autoindex catalog"), "{}", out.text);
         assert_eq!(
-            server.requests().len(),
-            before,
+            catalog_reads(),
+            1,
             "a non-empty ledger must not probe the catalog"
         );
         drop(_hold);
