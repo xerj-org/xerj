@@ -243,7 +243,14 @@ const PUBLISH_STORED_WARM_TRANSIENT_NUMERATOR: u64 = 2;
 thread_local! {
     /// Publish-time stored-section decodes on this thread (#2427 tests).
     static PUBLISH_STORED_WARM_DECODES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    /// Row-selective GET decodes on this thread, one per segment (#3498 tests).
+    static GET_ROW_DECODES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
+
+/// Turns the #3498 GET row route off (an ignored before/after bench only).
+#[cfg(test)]
+static GET_ROW_DECODE_OFF: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 /// Wait for a publication test barrier, on the runtime and bounded.
 ///
@@ -24637,13 +24644,21 @@ impl Index {
                 ReadAdmission::WriterActive => continue,
             }
         };
-        if let Ok(Some(source)) = &mut res {
+        self.finish_get(&mut res);
+        self.metric_get_total_ms
+            .fetch_add(get_started.elapsed().as_millis() as u64, Ordering::Relaxed);
+        res
+    }
+
+    /// GET's response shaping and exists/missing counters for one answer.
+    fn finish_get(&self, res: &mut Result<Option<Value>>) {
+        if let Ok(Some(source)) = res {
             strip_internal_passage_metadata(source);
             // The stored source keeps embeddings packed (#1940). GET returns
             // the number array callers already see.
             xerj_common::packed_f32::expand_packed_f32_values(source);
         }
-        match &res {
+        match res {
             Ok(Some(_)) => {
                 self.metric_get_exists_count.fetch_add(1, Ordering::Relaxed);
             }
@@ -24653,9 +24668,205 @@ impl Index {
             }
             Err(_) => {}
         }
+    }
+
+    /// [`Self::get_document`] for many ids at once (`_mget`), answers aligned
+    /// with `ids`; each id counts as one GET. The ids whose stored copies sit
+    /// in one segment with no resident stored section are read with ONE
+    /// row-selective decode of that segment (#3498), not one per id.
+    pub async fn get_documents(&self, ids: &[&str]) -> Vec<Result<Option<Value>>> {
+        use crate::collection_publication::ReadAdmission;
+
+        let get_started = std::time::Instant::now();
+        self.metric_get_count
+            .fetch_add(ids.len() as u64, Ordering::Relaxed);
+        let interrupted = || {
+            ids.iter()
+                .map(|_| Err(collection_publication_interrupted()))
+                .collect::<Vec<_>>()
+        };
+        let mut res = loop {
+            let token = loop {
+                let notified = self.collection_publication.notified();
+                tokio::pin!(notified);
+                notified.as_mut().enable();
+                match self.collection_publication.try_admit_reader() {
+                    ReadAdmission::Admitted(token) => break token,
+                    ReadAdmission::Poisoned => return interrupted(),
+                    ReadAdmission::WriterActive => notified.await,
+                }
+            };
+            let result = self.get_documents_uncounted(ids).await;
+            match self.collection_publication.validate_reader(token) {
+                ReadAdmission::Admitted(_) => break result,
+                ReadAdmission::Poisoned => return interrupted(),
+                ReadAdmission::WriterActive => continue,
+            }
+        };
+        for answer in res.iter_mut() {
+            self.finish_get(answer);
+        }
         self.metric_get_total_ms
             .fetch_add(get_started.elapsed().as_millis() as u64, Ordering::Relaxed);
         res
+    }
+
+    /// The segment holding `id`'s live stored copy and its doc count, from the
+    /// version map. RC4 W2 #15: during a merge the version map can already
+    /// point at the merged segment while the snapshot does not list it yet;
+    /// its doc count then comes from the durable segment file's header.
+    fn get_owning_segment(
+        &self,
+        snap: &xerj_storage::IndexSnapshot,
+        id: &str,
+    ) -> Option<(std::sync::Arc<str>, u64)> {
+        let ver = self.store.version_map.get(id)?;
+        let seg_id: std::sync::Arc<str> = std::sync::Arc::clone(&ver.segment_id);
+        drop(ver);
+        let doc_count = match snap.segments.iter().find(|m| m.id.as_str() == &*seg_id) {
+            Some(meta) => meta.doc_count,
+            None if &*seg_id != xerj_storage::version_map::IN_MEMORY_SEGMENT_ID => self
+                .store
+                .open_segment_arc(&seg_id)
+                .ok()
+                .map(|r| r.header().doc_count)?,
+            None => return None,
+        };
+        Some((seg_id, doc_count))
+    }
+
+    /// Whether a segment's stored documents are resident (offset slices or
+    /// the decoded section), so a GET slices them without any decode.
+    fn stored_section_resident(&self, seg_id: &str) -> bool {
+        self.stored_slices_cache.contains_key(seg_id)
+            || self.decoded_stored_cache.contains_key(seg_id)
+    }
+
+    /// #3498: whether a GET on this segment reads its rows (`cold_stored_rows`)
+    /// rather than the slices: the section is not resident and no background
+    /// stored warm is running on this index. While one runs (it was scheduled
+    /// by an earlier cold GET or query), GETs take the slices path as before:
+    /// `stored_slices_for` is single-flight per segment and caches, so a burst
+    /// of GETs on cold segments pays one decode per segment instead of one
+    /// row decode per GET (at most one warm runs per index, so the other cold
+    /// segments of a burst would otherwise stay cold until it finished).
+    fn get_reads_cold_rows(&self, seg_id: &str) -> bool {
+        #[cfg(test)]
+        if GET_ROW_DECODE_OFF.load(Ordering::Relaxed) {
+            return false;
+        }
+        !self.stored_section_resident(seg_id)
+            && !self.cold_stored_warm_running.load(Ordering::Acquire)
+    }
+
+    /// #3498: `(_id, _source)` of the stored rows at `positions` of one
+    /// segment, decoded row-selectively on the calling thread and aligned with
+    /// `positions`. Only those rows become JSON values and nothing is cached:
+    /// `stored_slices_for` decompressed every column, brace-walked every row
+    /// and (budget permitting) kept the whole section for a single GET. `None`
+    /// (legacy LZ4 layout, a column shape the row decoder declines, an
+    /// open/decode error, a missing row) sends the caller to that full path.
+    fn cold_stored_rows(
+        &self,
+        seg_id: &str,
+        doc_count: u64,
+        positions: &[usize],
+    ) -> Option<Vec<(String, Value)>> {
+        use xerj_storage::stored_codec::{
+            decode_stored_v2_rows_projected_parallel, StoredV2RowHydrationResult,
+        };
+        let reader = self.store.open_segment_arc(seg_id).ok()?;
+        let bytes = reader.section(SectionType::Stored).ok()??;
+        let StoredV2RowHydrationResult::Hydrated { rows, .. } =
+            decode_stored_v2_rows_projected_parallel(bytes, positions, None).ok()?
+        else {
+            return None;
+        };
+        let by_ordinal: HashMap<usize, (String, Value)> = rows
+            .into_iter()
+            .filter_map(|row| {
+                let id = row.id.as_str()?.to_string();
+                Some((row.ordinal, (id, Value::Object(row.source))))
+            })
+            .collect();
+        // `get` + clone, not `remove`: one `_mget` may name an id twice.
+        let rows: Option<Vec<(String, Value)>> = positions
+            .iter()
+            .map(|position| by_ordinal.get(position).cloned())
+            .collect();
+        // Later GETs on this segment then slice the warm section, as a
+        // search does after answering a cold segment from its winning rows
+        // (#2422): at most one warm per index, and none when the section
+        // would not fit the hydration budget (then every GET stays a row
+        // decode instead of a transient whole-section decode).
+        if rows.is_some() {
+            #[cfg(test)]
+            GET_ROW_DECODES.with(|n| n.set(n.get() + 1));
+            let fits = self
+                .stored_slices_bound_for(seg_id, doc_count)
+                .is_some_and(|bound| self.segment_hydration_budget.has_headroom(bound));
+            if fits {
+                self.schedule_cold_stored_warm(seg_id, doc_count);
+            }
+        }
+        rows
+    }
+
+    /// Batch form of [`Self::get_document_uncounted`] (see `get_documents`).
+    /// Every id the batched row decode does not answer goes through the
+    /// single-id path, so the lookup semantics are the same.
+    async fn get_documents_uncounted(&self, ids: &[&str]) -> Vec<Result<Option<Value>>> {
+        let mut out: Vec<Option<Result<Option<Value>>>> = ids.iter().map(|_| None).collect();
+        let mut cold: HashMap<std::sync::Arc<str>, (u64, Vec<(usize, usize)>)> = HashMap::new();
+        {
+            let snap = self.store.snapshot();
+            for (slot, id) in ids.iter().enumerate() {
+                match self.store.version_map.get(id) {
+                    Some(entry) if !entry.deleted => {}
+                    _ => {
+                        out[slot] = Some(Ok(None));
+                        continue;
+                    }
+                }
+                if self.memtable.contains(id) {
+                    continue;
+                }
+                let Some((seg_id, doc_count)) = self.get_owning_segment(&snap, id) else {
+                    continue;
+                };
+                if !self.get_reads_cold_rows(&seg_id) {
+                    continue;
+                }
+                let Some(pos_map) = self.id_pos_map_for(&seg_id, doc_count) else {
+                    continue;
+                };
+                if let Some(&pos) = pos_map.get(*id) {
+                    cold.entry(seg_id)
+                        .or_insert_with(|| (doc_count, Vec::new()))
+                        .1
+                        .push((slot, pos as usize));
+                }
+            }
+        }
+        for (seg_id, (doc_count, wanted)) in cold {
+            let positions: Vec<usize> = wanted.iter().map(|&(_, pos)| pos).collect();
+            let Some(rows) = self.cold_stored_rows(&seg_id, doc_count, &positions) else {
+                continue;
+            };
+            for (&(slot, _), (row_id, source)) in wanted.iter().zip(rows) {
+                if row_id == ids[slot] {
+                    out[slot] = Some(Ok(Some(source)));
+                }
+            }
+        }
+        let mut answers: Vec<Result<Option<Value>>> = Vec::with_capacity(ids.len());
+        for (slot, answer) in out.into_iter().enumerate() {
+            answers.push(match answer {
+                Some(answer) => answer,
+                None => self.get_document_uncounted(ids[slot]).await,
+            });
+        }
+        answers
     }
 
     /// Metrics-free internal fetch: `get_document` minus the get.total /
@@ -24725,6 +24936,24 @@ impl Index {
                     None => None,
                 };
             if let Some(doc_count) = seg_doc_count {
+                // #3498: a segment whose stored section is not resident
+                // answers from its one row (`cold_stored_rows`) instead of
+                // decoding, brace-walking and caching every row for one GET.
+                if self.get_reads_cold_rows(&seg_id) {
+                    if let Some(pos_map) = self.id_pos_map_for(&seg_id, doc_count) {
+                        if let Some(&pos) = pos_map.get(id) {
+                            if let Some(mut rows) =
+                                self.cold_stored_rows(&seg_id, doc_count, &[pos as usize])
+                            {
+                                if let Some((row_id, source)) = rows.pop() {
+                                    if row_id == id {
+                                        return Ok(Some(source));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 if let (Some(pos_map), Some(slices)) = (
                     self.id_pos_map_for(&seg_id, doc_count),
                     self.stored_slices_for(&seg_id, doc_count),
@@ -74609,3 +74838,7 @@ mod object_leaf_fts_3464_tests {
         assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
     }
 }
+
+#[cfg(test)]
+#[path = "get_row_decode_tests.rs"]
+mod get_row_decode_tests;
