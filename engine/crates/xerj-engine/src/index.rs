@@ -11421,26 +11421,47 @@ mod fast_aggs;
 /// path (`fast_aggs::compile_top_pred` + `aggs::doc_matches_filter`) can
 /// evaluate over doc-values WITHOUT hydrating `_source`.  Returns `None` for
 /// any query that isn't a plain conjunctive filter over exact/numeric fields
-/// (FTS, wild/prefix, must_not/should bool, date-string ranges, numeric term
-/// keys, …) — the caller then keeps the exact brute path.
+/// (FTS, wild/prefix, must_not/should bool, numeric term keys on a field not
+/// mapped `long`/`double`, …) — the caller then keeps the exact brute path.
 ///
 /// Only the leaf/bool shapes that `doc_matches_filter` and `compile_pred`
 /// jointly support are emitted, so the memtable matcher and the columnar
 /// predicate stay byte-identical.
-fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
+fn query_node_to_agg_filter(node: &QueryNode, schema: &Schema) -> Option<Value> {
     match node {
         QueryNode::MatchAll => Some(serde_json::json!({ "match_all": {} })),
         // `constant_score` is pure filter context — matching is exactly the
         // inner filter's (the wrapper only changes scores, which a size:0
         // agg never sees).
-        QueryNode::Constant { query, .. } => query_node_to_agg_filter(query),
-        // Exact term — keyword (string) values only.  Numeric/bool term keys
-        // have typed-coercion subtleties, so bail (brute path handles them).
+        QueryNode::Constant { query, .. } => query_node_to_agg_filter(query, schema),
+        // Exact term — keyword (string) values.  A numeric value on a numeric
+        // field is the arm below; bool keys and anything else bail (brute).
         QueryNode::Term {
             field,
             value: Value::String(s),
             ..
         } => Some(serde_json::json!({ "term": { field: s } })),
+        // #3466: a numeric `term` on a field mapped `long`/`double` is the
+        // one-point `range` [N, N]. The brute comparator `json_scalar_equal`
+        // matches numbers by value, and so do both sides of the fast path:
+        // `doc_matches_filter`'s numeric range arm on the memtable, and
+        // `Pred::RangeNum` on a numeric column (a column of any other kind
+        // still bails). `seg_term_positions` counts a numeric term the same
+        // way. The mapping gate keeps keyword/date/text fields out: there
+        // the memtable range arm does not mirror the brute comparator.
+        // |N| < 2^53 only: there f64 is exact, so no stored integer can
+        // round onto N, which integers compared exactly would not match.
+        QueryNode::Term {
+            field,
+            value: Value::Number(n),
+            ..
+        } if declared_field(schema, field)
+            .is_some_and(|f| matches!(f.field_type, FieldType::Long | FieldType::Double)) =>
+        {
+            const EXACT: f64 = 9_007_199_254_740_992.0;
+            n.as_f64().filter(|f| f.is_finite() && f.abs() < EXACT)?;
+            Some(serde_json::json!({ "range": { field: { "gte": n, "lte": n } } }))
+        }
         QueryNode::Terms { field, values, .. } => {
             let mut strs: Vec<Value> = Vec::with_capacity(values.len());
             for v in values {
@@ -11523,7 +11544,7 @@ fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
             }
             let mut clauses: Vec<Value> = Vec::with_capacity(must.len() + filter.len());
             for c in must.iter().chain(filter.iter()) {
-                clauses.push(query_node_to_agg_filter(c)?);
+                clauses.push(query_node_to_agg_filter(c, schema)?);
             }
             if clauses.is_empty() {
                 // bool with no positive clauses == match_all
@@ -28522,7 +28543,7 @@ impl Index {
         let agg_filter: Option<Value> = if is_match_all {
             None
         } else {
-            query_node_to_agg_filter(query)
+            query_node_to_agg_filter(query, &dmq_schema)
         };
         if size == 0
             && request.aggs.is_some()
