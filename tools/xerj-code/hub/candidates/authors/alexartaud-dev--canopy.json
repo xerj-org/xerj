@@ -2,8 +2,8 @@
  "corpus": "alexartaud-dev--canopy",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how AlexArtaud-Dev/Canopy implements it: AlexArtaud-Dev/Canopy (TypeScript) (selected work: apps/web, apps/engine, changelog)",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how AlexArtaud-Dev/Canopy implements it: Self-hosted web file manager, a modern successor to FileBrowser. Live progress on long operations, trash with undo, share and drop-off links (selected work: apps/web, apps/engine, changelog)",
  "repos": [
   {
    "repo": "Canopy",

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how fossasia/eventyay implements it: Open Source Event Management, Ticketing and Checkins, Talks and Schedules, Video and Interpretations, Badges, Exhibitions and more https://e (selected work: app/eventyay, app/tests)",
+ "domain": "an agent working on Python queries this for how fossasia/eventyay implements it: Open Source Event Management, Ticketing and Checkins, Talks and Schedules, Video and Interpretations, Badges, Exhibitions and more https://e (selected work: app/tests, app/eventyay)",
  "repos": [
   {
    "repo": "eventyay",
    "url": "https://github.com/fossasia/eventyay",
-   "sha": "6b448a093b7f73c2ab3e48cc1a061264ce8b0b5b",
-   "licence": "Apache-2.0 (LICENSE file at pin 6b448a093b7f, GitHub licence API 2026-11-11)",
+   "sha": "9fa575e8f51eecb4b439cab3f4de6928d248bd05",
+   "licence": "Apache-2.0 (LICENSE file at pin 9fa575e8f51e, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-12T06:48Z",
-    "consent_receipt": "2c25b95fc159",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T06:48Z (receipt 2c25b95fc159); selected commit 6b448a093b7f: \"feat: allow reviewers to update scores inline (#5753)\". LICENSE file at pin 6b448a093b7f detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @fossasia, who has not added it."
+    "at": "2026-11-23T15:16Z",
+    "consent_receipt": "22087a19f7c1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-23T15:16Z (receipt 22087a19f7c1); selected commit 9fa575e8f51e: \"fix(sendmail): enforce monthly bulk email limits in tickets (#6481)\". LICENSE file at pin 9fa575e8f51e detected as Apache-2.0 by the GitHub licence API on 2026-11-23; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @fossasia, who has not added it."
    },
    "paths": [
     "app/eventyay/base",

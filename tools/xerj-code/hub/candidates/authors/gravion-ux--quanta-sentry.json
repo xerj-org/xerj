@@ -8,15 +8,15 @@
   {
    "repo": "quanta-sentry",
    "url": "https://github.com/gravion-ux/quanta-sentry",
-   "sha": "797662500939852be5bf649fc2aa245b7cbfbe3a",
-   "licence": "MIT (LICENSE file at pin 797662500939, GitHub licence API 2026-11-22)",
+   "sha": "aeb75b423ea4c7901076b99c95e283b6901eee63",
+   "licence": "MIT (LICENSE file at pin aeb75b423ea4, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "fb6bcc674734",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt fb6bcc674734); pinned to the default-branch head. LICENSE file at pin 797662500939 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt fb6bcc674734); pinned to the default-branch head. LICENSE file at pin aeb75b423ea4 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]

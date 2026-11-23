@@ -8,15 +8,15 @@
   {
    "repo": "relay-kit",
    "url": "https://github.com/eraevous/relay-kit",
-   "sha": "04c744f0114558285645df3dce39d5b8a9030044",
-   "licence": "MIT (LICENSE file at pin 04c744f01145, GitHub licence API 2026-11-23)",
+   "sha": "cd642843752f7dfe6d7862c23cbfd8273275192a",
+   "licence": "MIT (LICENSE file at pin cd642843752f, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T16:41Z",
     "consent_receipt": "59457654820c",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T16:41Z (receipt 59457654820c); pinned to the default-branch head. LICENSE file at pin 04c744f01145 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T16:41Z (receipt 59457654820c); pinned to the default-branch head. LICENSE file at pin cd642843752f detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how azerozero/saragossa implements it: Fast pure-Rust Metal LLM inference engine for Apple Silicon \u2014 beats mlx_lm on MoE (selected work: src, src/serve, src/qwen_loader)",
+ "domain": "an agent working on apple-silicon, inference, llm queries this for how azerozero/saragossa implements it: Pure-Rust Metal LLM inference engine for Apple Silicon: Qwen and Gemma, MTP and DFlash speculative decoding, Whisper STT, Qwen3-TTS, OpenAI- (selected work: src, src/serve, src/qwen_loader)",
  "repos": [
   {
    "repo": "saragossa",

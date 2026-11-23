@@ -8,15 +8,15 @@
   {
    "repo": "django-vantage",
    "url": "https://github.com/Pythondeveloper6/django-vantage",
-   "sha": "f8030b3a8f47245284304f7e1e1aed8dbac78cf5",
-   "licence": "MIT (LICENSE file at pin f8030b3a8f47, GitHub licence API 2026-11-12)",
+   "sha": "04a79c549183ab48618d713b04041c7947d7d80c",
+   "licence": "MIT (LICENSE file at pin 04a79c549183, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T05:16Z",
     "consent_receipt": "b592043227b3",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:16Z (receipt b592043227b3); pinned to the default-branch head. LICENSE file at pin f8030b3a8f47 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:16Z (receipt b592043227b3); pinned to the default-branch head. LICENSE file at pin 04a79c549183 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]
