@@ -1552,11 +1552,18 @@ pub async fn create_index(
         }
     }
 
+    // #3513: field normalizers resolve against the merged settings' analysis
+    // block, the one the index is created with.
+    let create_analysis = settings_ref.and_then(xerj_common::normalizer::analysis_block);
+    if let Err(reason) = validate_dynamic_template_normalizers(&mappings_val, create_analysis) {
+        let e = xerj_common::XerjError::invalid_mapping(reason);
+        return ApiError::new(e).into_response();
+    }
     let schema = if let Some(props) = mappings_val.get("properties") {
         // #275: a field asked for something this build cannot deliver (an
         // unimplemented or unknown `quantization`). Refuse the create rather
         // than acknowledge it and echo the value back from `GET /_mapping`.
-        match es_properties_to_schema(props) {
+        match es_properties_to_schema(props, create_analysis) {
             Ok(schema) => schema,
             Err(reason) => {
                 let e = xerj_common::XerjError::invalid_mapping(reason);
@@ -1893,22 +1900,6 @@ fn validate_properties(props: &serde_json::Map<String, Value>) -> Result<(), Str
         let Some(obj) = spec.as_object() else {
             continue;
         };
-        // #3513: no normalizer is ever built (a custom one under
-        // `analysis.normalizer` is refused at create, #204), so a field that
-        // names one, built-in `lowercase` included, would be indexed and
-        // matched unchanged: `match tag: "fruit"` silently misses "Fruit".
-        // Refuse it rather than acknowledge it and echo it back.
-        if let Some(normalizer) = obj.get("normalizer").filter(|v| !v.is_null()) {
-            let shown = normalizer
-                .as_str()
-                .map_or_else(|| normalizer.to_string(), str::to_string);
-            return Err(format!(
-                "Failed to parse mapping: normalizer [{shown}] on field [{name}] is not \
-                 supported: xerj does not build normalizers, so the field would be indexed \
-                 and matched unchanged (case-sensitive). Remove the normalizer, or map a \
-                 lowercased copy of the value."
-            ));
-        }
         if let Some(t) = obj.get("type").and_then(Value::as_str) {
             if !is_supported_field_type(t) {
                 return Err(format!(
@@ -3373,6 +3364,12 @@ pub async fn put_mapping(
             }
         }
 
+        // #3513: normalizer names resolve against this index's own analysis.
+        let index_analysis = idx.analysis_in_force().await;
+        if let Err(reason) = validate_dynamic_template_normalizers(&body, index_analysis.as_ref()) {
+            let e = xerj_common::XerjError::invalid_mapping(reason);
+            return ApiError::new(e).into_response();
+        }
         let mut additions = Vec::new();
         if let Some(properties) = body.get("properties") {
             let current = idx.schema().await;
@@ -3381,7 +3378,7 @@ pub async fn put_mapping(
             // runs per target index, so an unimplemented `quantization` in a
             // multi-index `PUT _mapping` must abort before any of it is
             // published rather than after half of it took effect.
-            let parsed = match es_properties_to_fields(properties) {
+            let parsed = match es_properties_to_fields(properties, index_analysis.as_ref()) {
                 Ok(parsed) => parsed,
                 Err(reason) => {
                     let e = xerj_common::XerjError::invalid_mapping(reason);
@@ -3395,6 +3392,10 @@ pub async fn put_mapping(
                             "field [{}] already exists as [{}], cannot add [{}]",
                             field.name, existing_field.field_type, field.field_type
                         ));
+                        return ApiError::new(e).into_response();
+                    }
+                    if let Some(reason) = normalizer_update_conflict(existing_field, &field) {
+                        let e = xerj_common::XerjError::invalid_mapping(reason);
                         return ApiError::new(e).into_response();
                     }
                     continue;
@@ -24921,9 +24922,9 @@ fn resolve_vector_quantization(
     }
 }
 
-fn es_properties_to_schema(properties: &Value) -> Result<Schema, String> {
+fn es_properties_to_schema(properties: &Value, analysis: Option<&Value>) -> Result<Schema, String> {
     let mut schema = Schema::empty();
-    for field in es_properties_to_fields(properties)? {
+    for field in es_properties_to_fields(properties, analysis)? {
         let _ = schema.add_field(field);
     }
     Ok(schema)
@@ -24936,7 +24937,14 @@ fn es_properties_to_schema(properties: &Value) -> Result<Schema, String> {
 /// at the site every engine schema is built from, and not only beside the
 /// handlers: #207's sibling defect survived a fix placed next to one handler
 /// because a second entry point kept building schemas the old way.
-fn es_properties_to_fields(properties: &Value) -> Result<Vec<FieldConfig>, String> {
+///
+/// `analysis` is the index's `analysis` settings block, which a field's
+/// `normalizer` name resolves against (#3513); `None` leaves only the built-in
+/// `lowercase`.
+fn es_properties_to_fields(
+    properties: &Value,
+    analysis: Option<&Value>,
+) -> Result<Vec<FieldConfig>, String> {
     let mut fields = Vec::new();
     let obj = match properties.as_object() {
         Some(o) => o,
@@ -24982,11 +24990,19 @@ fn es_properties_to_fields(properties: &Value) -> Result<Vec<FieldConfig>, Strin
                 .map(str::to_string);
         }
         if let Some(sub_props) = field_def.get("properties") {
-            fc.fields = es_properties_to_fields(sub_props)?;
+            fc.fields = es_properties_to_fields(sub_props, analysis)?;
         }
         // Multi-fields (`title.keyword`) are declared under `fields`.
         if let Some(multi_fields) = field_def.get("fields") {
-            fc.fields.extend(es_properties_to_fields(multi_fields)?);
+            fc.fields
+                .extend(es_properties_to_fields(multi_fields, analysis)?);
+        }
+        // #3513: a keyword `normalizer` is resolved here, once, into the
+        // filter chain the engine applies at index and query time.
+        if let Some(normalizer) = field_def.get("normalizer").filter(|v| !v.is_null()) {
+            fc.options.normalizer = Some(resolve_field_normalizer(
+                field_name, es_type, normalizer, analysis,
+            )?);
         }
 
         // `doc_values` — carry the DECLARED mapping intent onto the field.
@@ -25148,6 +25164,138 @@ fn es_properties_to_fields(properties: &Value) -> Result<Vec<FieldConfig>, Strin
     Ok(fields)
 }
 
+/// Resolve a field's `normalizer` the way ES's keyword mapper does (#3513):
+/// only `keyword` takes one, and the name must be the built-in `lowercase` or
+/// a normalizer declared under the index's `analysis.normalizer`. A declared
+/// normalizer this build cannot apply is refused with the reason, never
+/// accepted and ignored.
+fn resolve_field_normalizer(
+    field_name: &str,
+    es_type: &str,
+    normalizer: &Value,
+    analysis: Option<&Value>,
+) -> Result<xerj_common::normalizer::KeywordNormalizer, String> {
+    use xerj_common::normalizer::{KeywordNormalizer, NormalizerError};
+    if es_type != "keyword" {
+        return Err(format!(
+            "Failed to parse mapping: unknown parameter [normalizer] on mapper [{field_name}] \
+             of type [{es_type}]"
+        ));
+    }
+    let Some(name) = normalizer.as_str() else {
+        return Err(format!(
+            "Failed to parse mapping: [normalizer] on field [{field_name}] must be a string, \
+             got [{normalizer}]"
+        ));
+    };
+    match KeywordNormalizer::resolve(name, analysis) {
+        Ok(resolved) => Ok(resolved),
+        Err(NormalizerError::NotFound) => Err(format!(
+            "Failed to parse mapping: normalizer [{name}] not found for field [{field_name}]"
+        )),
+        Err(NormalizerError::Unsupported(reason)) => Err(format!(
+            "Failed to parse mapping: normalizer [{name}] on field [{field_name}] cannot be \
+             applied: {reason}"
+        )),
+    }
+}
+
+/// A `normalizer` inside a `dynamic_templates` mapping must resolve too
+/// (#3513), checked at create and put-mapping against the same `analysis`
+/// block as `properties`, so a template cannot carry a name nothing applies.
+fn validate_dynamic_template_normalizers(
+    mappings: &Value,
+    analysis: Option<&Value>,
+) -> Result<(), String> {
+    let Some(templates) = mappings.get("dynamic_templates").and_then(Value::as_array) else {
+        return Ok(());
+    };
+    for entry in templates {
+        let Some(obj) = entry.as_object() else {
+            continue;
+        };
+        for (template_name, spec) in obj {
+            let Some(mapping) = spec.get("mapping") else {
+                continue;
+            };
+            let Some(normalizer) = mapping.get("normalizer").filter(|v| !v.is_null()) else {
+                continue;
+            };
+            // ES leaves `type` unset (or `{dynamic_type}`) to mean "the
+            // detected type"; only a string can become a keyword, so those
+            // are checked as keyword.
+            let es_type = match mapping.get("type").and_then(Value::as_str) {
+                None | Some("{dynamic_type}") => "keyword",
+                Some(t) => t,
+            };
+            resolve_field_normalizer(template_name, es_type, normalizer, analysis).map_err(
+                |reason| {
+                    reason.replacen(
+                        "Failed to parse mapping: ",
+                        &format!("Failed to parse mapping: dynamic template [{template_name}]: "),
+                        1,
+                    )
+                },
+            )?;
+        }
+    }
+    Ok(())
+}
+
+/// ES refuses to change a keyword field's normalizer on put-mapping (#3513):
+/// the terms already indexed were normalized with the old one. Compares a
+/// field, and its multi-fields, with the field already mapped under that name.
+fn normalizer_update_conflict(existing: &FieldConfig, update: &FieldConfig) -> Option<String> {
+    fn shown(f: &FieldConfig) -> String {
+        f.options
+            .normalizer
+            .as_ref()
+            .map_or_else(|| "default".to_string(), |n| n.name.clone())
+    }
+    if existing.field_type == FieldType::Keyword
+        && update.field_type == FieldType::Keyword
+        && existing.options.normalizer != update.options.normalizer
+    {
+        return Some(format!(
+            "Mapper for [{}] conflicts with existing mapper:\n\tCannot update parameter \
+             [normalizer] from [{}] to [{}]",
+            update.name,
+            shown(existing),
+            shown(update)
+        ));
+    }
+    for sub in &update.fields {
+        match existing.fields.iter().find(|f| f.name == sub.name) {
+            Some(old) => {
+                if let Some(conflict) = normalizer_update_conflict(old, sub) {
+                    return Some(conflict.replacen(
+                        &format!("[{}]", sub.name),
+                        &format!("[{}.{}]", update.name, sub.name),
+                        1,
+                    ));
+                }
+            }
+            // Put-mapping does not add sub-fields to a field that already
+            // exists in the engine schema; a normalized one would be echoed
+            // by `GET /_mapping` and then matched unnormalized. Refuse it.
+            None if has_normalizer(sub) => {
+                return Some(format!(
+                    "Failed to parse mapping: adding the normalized field [{}.{}] to the \
+                     existing field [{}] is not supported by xerj; declare it when the index \
+                     is created",
+                    update.name, sub.name, update.name
+                ));
+            }
+            None => {}
+        }
+    }
+    None
+}
+
+fn has_normalizer(f: &FieldConfig) -> bool {
+    f.options.normalizer.is_some() || f.fields.iter().any(has_normalizer)
+}
+
 fn field_configs_contain_logical_path(fields: &[FieldConfig], target: &str) -> bool {
     fn walk(fields: &[FieldConfig], prefix: &str, target: &str) -> bool {
         fields.iter().any(|field| {
@@ -25197,9 +25345,12 @@ mod date_precision_mapping_tests {
     /// sort on `title.keyword` fails with "No mapping found".
     #[test]
     fn declared_multi_fields_reach_the_schema() {
-        let fields = es_properties_to_fields(&json!({
-            "title": { "type": "text", "fields": { "keyword": { "type": "keyword" } } }
-        }))
+        let fields = es_properties_to_fields(
+            &json!({
+                "title": { "type": "text", "fields": { "keyword": { "type": "keyword" } } }
+            }),
+            None,
+        )
         .expect("valid mapping");
         assert_eq!(fields[0].fields[0].name, "keyword");
         assert_eq!(fields[0].fields[0].field_type, FieldType::Keyword);
@@ -25211,12 +25362,15 @@ mod date_precision_mapping_tests {
     /// mixes millisecond and nanosecond keys inside one `date` column.
     #[test]
     fn date_and_date_nanos_record_their_declared_precision() {
-        let fields = es_properties_to_fields(&json!({
-            "when": { "type": "date" },
-            "when_ns": { "type": "date_nanos" },
-            "name": { "type": "keyword" },
-            "nested": { "type": "object", "properties": { "at": { "type": "date_nanos" } } }
-        }))
+        let fields = es_properties_to_fields(
+            &json!({
+                "when": { "type": "date" },
+                "when_ns": { "type": "date_nanos" },
+                "name": { "type": "keyword" },
+                "nested": { "type": "object", "properties": { "at": { "type": "date_nanos" } } }
+            }),
+            None,
+        )
         .expect("valid mapping");
         let by_name = |n: &str| {
             fields
@@ -25499,14 +25653,17 @@ mod semantic_companion_schema_tests {
 
     #[test]
     fn implicit_companion_is_a_native_vector_with_semantic_options() {
-        let fields = es_properties_to_fields(&json!({
-            "body": {
-                "type": "semantic_text",
-                "dimensions": 96,
-                "similarity": "dot_product"
-            },
-            "ports": { "type": "object" }
-        }))
+        let fields = es_properties_to_fields(
+            &json!({
+                "body": {
+                    "type": "semantic_text",
+                    "dimensions": 96,
+                    "similarity": "dot_product"
+                },
+                "ports": { "type": "object" }
+            }),
+            None,
+        )
         .expect("valid mapping");
 
         let body = fields.iter().find(|field| field.name == "body").unwrap();
@@ -25529,19 +25686,22 @@ mod semantic_companion_schema_tests {
 
     #[test]
     fn custom_target_is_registered_without_overwriting_an_explicit_companion() {
-        let fields = es_properties_to_fields(&json!({
-            "body": {
-                "type": "semantic_text",
-                "target_field": "model_output",
-                "dimensions": 7,
-                "similarity": "l2_norm"
-            },
-            "model_output": {
-                "type": "dense_vector",
-                "dims": 7,
-                "similarity": "l2_norm"
-            }
-        }))
+        let fields = es_properties_to_fields(
+            &json!({
+                "body": {
+                    "type": "semantic_text",
+                    "target_field": "model_output",
+                    "dimensions": 7,
+                    "similarity": "l2_norm"
+                },
+                "model_output": {
+                    "type": "dense_vector",
+                    "dims": 7,
+                    "similarity": "l2_norm"
+                }
+            }),
+            None,
+        )
         .expect("valid mapping");
 
         assert_eq!(
@@ -25638,15 +25798,18 @@ mod semantic_companion_schema_tests {
 
     #[test]
     fn multiple_semantic_fields_pin_only_declared_companions() {
-        let fields = es_properties_to_fields(&json!({
-            "body": { "type": "semantic_text", "dimensions": 8 },
-            "summary": {
-                "type": "semantic_text",
-                "target_field": "summary_embedding",
-                "dimensions": 16
-            },
-            "measurements": { "type": "object" }
-        }))
+        let fields = es_properties_to_fields(
+            &json!({
+                "body": { "type": "semantic_text", "dimensions": 8 },
+                "summary": {
+                    "type": "semantic_text",
+                    "target_field": "summary_embedding",
+                    "dimensions": 16
+                },
+                "measurements": { "type": "object" }
+            }),
+            None,
+        )
         .expect("valid mapping");
 
         let vectors: Vec<_> = fields
@@ -26326,6 +26489,10 @@ pub fn schema_to_es_properties(schema: &Schema) -> serde_json::Map<String, Value
         field_obj.insert("type".to_string(), Value::String(es_type.to_string()));
         if let Some(n) = field.options.ignore_above {
             field_obj.insert("ignore_above".to_string(), Value::Number(n.into()));
+        }
+        // #3513: a keyword a dynamic template gave a normalizer.
+        if let Some(n) = &field.options.normalizer {
+            field_obj.insert("normalizer".to_string(), Value::String(n.name.clone()));
         }
         if !field.fields.is_empty() {
             let sub_schema = Schema {
@@ -28562,6 +28729,34 @@ fn analyze_tokens_json(tokens: &[xerj_engine::Token], input: &str) -> Vec<Value>
         .collect()
 }
 
+/// `_analyze` tokens for a normalizer (#3513): one token per text value, its
+/// offsets those of the value in the values joined by one space (UTF-16
+/// units, as for analyzers), positions counting the values.
+fn normalizer_tokens_json(
+    normalizer: &xerj_common::normalizer::KeywordNormalizer,
+    text: &Option<Value>,
+) -> Vec<Value> {
+    let values: Vec<&str> = match text {
+        Some(Value::String(s)) => vec![s.as_str()],
+        Some(Value::Array(arr)) => arr.iter().filter_map(Value::as_str).collect(),
+        _ => Vec::new(),
+    };
+    let mut start: usize = 0;
+    let mut out = Vec::with_capacity(values.len());
+    for (position, value) in values.iter().enumerate() {
+        let len = value.encode_utf16().count();
+        out.push(json!({
+            "token": normalizer.normalize(value),
+            "start_offset": start,
+            "end_offset": start + len,
+            "type": "word",
+            "position": position,
+        }));
+        start += len + 1;
+    }
+    out
+}
+
 /// Global `POST /_analyze` (no index prefix).
 pub async fn analyze_text_global(
     State(state): State<AppState>,
@@ -28585,12 +28780,62 @@ pub async fn analyze_text(
         _ => String::new(),
     };
 
-    if body.normalizer.is_some() {
-        return analyze_illegal_argument(
-            "_analyze does not support [normalizer] on xerj (it would otherwise be answered \
-             with another analyzer's tokens)"
-                .to_string(),
-        );
+    // #3513: a normalizer emits one token per text value, the whole value
+    // normalized: the term a keyword field with that normalizer indexes.
+    if let Some(normalizer) = &body.normalizer {
+        if body.analyzer.is_some()
+            || body.field.is_some()
+            || body.tokenizer.is_some()
+            || body.filter.is_some()
+            || body.char_filter.is_some()
+        {
+            return analyze_illegal_argument(
+                "[normalizer] cannot be combined with [analyzer], [field], [tokenizer], \
+                 [filter] or [char_filter]"
+                    .to_string(),
+            );
+        }
+        if body.explain {
+            return analyze_illegal_argument(
+                "_analyze explain is not supported for a [normalizer] on xerj".to_string(),
+            );
+        }
+        let Some(name) = normalizer.as_str() else {
+            return analyze_illegal_argument(format!(
+                "[normalizer] must be a string, got [{normalizer}]"
+            ));
+        };
+        let index_analysis = if index == "_none" {
+            None
+        } else {
+            let targets = resolve_index_selector(&state, &index).await;
+            let Some(idx) = targets
+                .first()
+                .and_then(|name| state.engine.get_index(name).ok())
+            else {
+                return ApiError::new(xerj_common::XerjError::index_not_found(&index))
+                    .into_response();
+            };
+            idx.analysis_in_force().await
+        };
+        let resolved = match xerj_common::normalizer::KeywordNormalizer::resolve(
+            name,
+            index_analysis.as_ref(),
+        ) {
+            Ok(n) => n,
+            Err(xerj_common::normalizer::NormalizerError::NotFound) => {
+                return analyze_illegal_argument(if index == "_none" {
+                    format!("failed to find global normalizer under [{name}]")
+                } else {
+                    format!("failed to find normalizer under [{name}]")
+                });
+            }
+            Err(xerj_common::normalizer::NormalizerError::Unsupported(reason)) => {
+                return analyze_illegal_argument(reason);
+            }
+        };
+        return Json(json!({ "tokens": normalizer_tokens_json(&resolved, &body.text) }))
+            .into_response();
     }
     let adhoc = body.tokenizer.is_some() || body.filter.is_some() || body.char_filter.is_some();
     if adhoc {

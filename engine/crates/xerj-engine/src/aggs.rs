@@ -193,23 +193,51 @@ thread_local! {
     /// installed for and is invisible to a concurrent aggregation elsewhere.
     static FILTER_SCHEMA: std::cell::RefCell<Option<Schema>> =
         const { std::cell::RefCell::new(None) };
+    /// The keyword normalizers of the schema [`run_aggs_with_schema`]
+    /// installed (#3513), `None` when it declares none. A normalized keyword
+    /// field's bucket keys and metric inputs are its normalized values, as its
+    /// doc-values column (the fast-path source) holds them.
+    static AGG_NORMALIZERS: std::cell::RefCell<
+        Option<std::sync::Arc<xerj_common::normalizer::KeywordNormalizers>>,
+    > = const { std::cell::RefCell::new(None) };
 }
 
 /// Restores the previous value on drop, so nested calls compose.
-struct FilterSchemaScope(Option<Schema>);
+struct FilterSchemaScope(
+    Option<Schema>,
+    Option<std::sync::Arc<xerj_common::normalizer::KeywordNormalizers>>,
+);
 
 impl FilterSchemaScope {
     fn install(schema: Option<&Schema>) -> Self {
         let previous =
             FILTER_SCHEMA.with(|cell| std::mem::replace(&mut *cell.borrow_mut(), schema.cloned()));
-        Self(previous)
+        let normalizers = schema
+            .map(xerj_common::normalizer::KeywordNormalizers::from_schema)
+            .filter(|n| !n.is_empty())
+            .map(std::sync::Arc::new);
+        let previous_normalizers =
+            AGG_NORMALIZERS.with(|cell| std::mem::replace(&mut *cell.borrow_mut(), normalizers));
+        Self(previous, previous_normalizers)
     }
 }
 
 impl Drop for FilterSchemaScope {
     fn drop(&mut self) {
         FILTER_SCHEMA.with(|cell| *cell.borrow_mut() = self.0.take());
+        AGG_NORMALIZERS.with(|cell| *cell.borrow_mut() = self.1.take());
     }
+}
+
+/// Normalize `values` of `field` when it is a normalized keyword field of the
+/// installed schema (#3513).
+fn normalize_agg_values(field: &str, values: Vec<String>) -> Vec<String> {
+    AGG_NORMALIZERS.with(
+        |cell| match cell.borrow().as_ref().and_then(|n| n.get(field)) {
+            Some(n) => values.iter().map(|v| n.normalize(v)).collect(),
+            None => values,
+        },
+    )
 }
 
 /// [`run_aggs_with_all`] with the index's mapping available to `filter` and
@@ -3279,7 +3307,7 @@ pub(crate) fn extract_field_values(doc: &Value, field: &str) -> Vec<String> {
         // paths resolve without a dedicated nested walker.
         out = extract_array_path_values(doc, field);
     }
-    out
+    normalize_agg_values(field, out)
 }
 
 /// Walk a dotted path against arrays transparently: when a segment

@@ -34,6 +34,9 @@ libc = "0.2"
 url = "2"
 sha2 = "0.10"
 serde_json_canonicalizer = "0.3.2"
+# `normalizer`: the keyword `asciifolding` normalizer strips the combining
+# marks of the canonical decomposition. Already in the graph via xerj-fts.
+unicode-normalization = "0.1"
 
 [dev-dependencies]
 tempfile.workspace = true

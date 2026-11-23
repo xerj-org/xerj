@@ -1594,7 +1594,8 @@ impl AnalyzerRegistry {
     ///    unregistered so fields naming it silently got `standard`;
     /// 5. `char_filter` — declared at either level and never built by
     ///    `apply_settings`, so the stripping/mapping never happens;
-    /// 6. `normalizer` — accepted by ES for `keyword` fields, never built here;
+    /// 6. a `normalizer` this build cannot apply (anything but chains of
+    ///    `lowercase`/`uppercase`/`asciifolding`/`trim`, #3513);
     /// 7. an analyzer whose `filter` is not an array or whose `tokenizer` is
     ///    not a string: `apply_settings` drops the value shape-first and falls
     ///    back to "no filters" / `standard`;
@@ -1786,18 +1787,12 @@ impl AnalyzerRegistry {
                     .to_string(),
             );
         }
-        // `normalizer` is the keyword-field analogue and is equally unbuilt.
-        if analysis
-            .pointer("/normalizer")
-            .and_then(|v| v.as_object())
-            .is_some_and(|m| !m.is_empty())
-        {
-            problems.push(
-                "normalizers are not supported (analysis.normalizer is declared but never \
-                 built, so keyword fields naming one are indexed unchanged)"
-                    .to_string(),
-            );
-        }
+        // `normalizer` is the keyword-field analogue (#3513). The ones this
+        // build can apply (lowercase/uppercase/asciifolding/trim chains) are
+        // resolved per field at mapping time; anything else is reported here.
+        problems.extend(xerj_common::normalizer::unsupported_declared_normalizers(
+            analysis,
+        ));
 
         if let Some(analyzer_map) = analysis.pointer("/analyzer").and_then(|v| v.as_object()) {
             for (analyzer_name, analyzer_def) in analyzer_map {
@@ -3423,14 +3418,26 @@ mod unsupported_analysis_tests {
     }
 
     #[test]
-    fn normalizers_are_reported_because_they_are_never_built() {
+    fn only_normalizers_this_build_cannot_apply_are_reported() {
+        // #3513: lowercase/uppercase/asciifolding/trim chains are applied.
         let problems = AnalyzerRegistry::unsupported_analysis(&json!({
             "analysis": {
-                "normalizer": { "lower": { "type": "custom", "filter": ["lowercase"] } }
+                "normalizer": {
+                    "lower": { "type": "custom", "filter": ["lowercase", "asciifolding"] }
+                }
+            }
+        }));
+        assert!(problems.is_empty(), "{problems:?}");
+        let problems = AnalyzerRegistry::unsupported_analysis(&json!({
+            "analysis": {
+                "normalizer": { "stem": { "type": "custom", "filter": ["stemmer"] } }
             }
         }));
         assert_eq!(problems.len(), 1, "{problems:?}");
-        assert!(problems[0].contains("normalizer"), "{problems:?}");
+        assert!(
+            problems[0].contains("may not use filter [stemmer]"),
+            "{problems:?}"
+        );
     }
 
     /// `apply_settings` reads `filter` with `as_array()`, so a bare string is
