@@ -1866,8 +1866,12 @@ impl Engine {
                     } else {
                         xerj_ai::local::DEFAULT_DIMS
                     };
-                    let fc =
-                        field_from_template_property(field_name, field_def, semantic_dimensions);
+                    let fc = field_from_template_property(
+                        field_name,
+                        field_def,
+                        semantic_dimensions,
+                        xerj_common::normalizer::analysis_block(&tmpl.settings),
+                    );
                     if let Some(embedding) = fc.embedding.as_ref() {
                         new_semantic_targets.push(
                             embedding
@@ -6426,6 +6430,7 @@ fn field_from_template_property(
     name: &str,
     field_def: &Value,
     semantic_dimensions: usize,
+    analysis: Option<&Value>,
 ) -> xerj_common::types::FieldConfig {
     use xerj_common::types::{EmbeddingConfig, FieldConfig, FieldType};
     let es_type = field_def
@@ -6445,6 +6450,22 @@ fn field_from_template_property(
             .and_then(Value::as_str)
             .filter(|f| !f.trim().is_empty())
             .map(str::to_string);
+    }
+    // #3513: a template keyword's normalizer, resolved against the template's
+    // own analysis settings, as `es_properties_to_fields` does for a mapping.
+    if es_type == "keyword" {
+        if let Some(normalizer) = field_def.get("normalizer").and_then(Value::as_str) {
+            match xerj_common::normalizer::KeywordNormalizer::resolve(normalizer, analysis) {
+                Ok(resolved) => fc.options.normalizer = Some(resolved),
+                Err(error) => tracing::warn!(
+                    field = name,
+                    normalizer,
+                    ?error,
+                    "index template field names a normalizer this build cannot resolve; \
+                     the field is indexed unnormalized"
+                ),
+            }
+        }
     }
     if es_type == "semantic_text" {
         // Same default as `es_properties_to_fields`: analyzed text has no
@@ -7086,6 +7107,7 @@ mod index_template_merge_tests {
             "diagnostic_semantic",
             &json!({ "type": "semantic_text" }),
             768, // #2407: a bare semantic_text takes the caller's backend width
+            None,
         );
         assert_eq!(semantic.field_type, FieldType::Text);
         assert!(!semantic.options.doc_values);
@@ -7100,6 +7122,7 @@ mod index_template_merge_tests {
             "diagnostic_template_marker",
             &json!({ "type": "keyword" }),
             xerj_ai::local::DEFAULT_DIMS,
+            None,
         );
         assert_eq!(keyword.field_type, FieldType::Keyword);
         assert!(keyword.embedding.is_none());

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Keyword normalizers
+  ([#3529](https://github.com/xerj-org/xerj/issues/3529)).** A `keyword`
+  field (top-level, object leaf or multi-field such as `title.raw`) can name
+  the built-in `lowercase` normalizer or a `custom` one under
+  `analysis.normalizer` built from `lowercase`, `uppercase`, `asciifolding`
+  and `trim`. The normalized value is what the field indexes, so `terms`
+  aggregations return it, and `term`, `terms`, `match`, `prefix`,
+  `wildcard`, `fuzzy` and `range` normalize their value, as in
+  Elasticsearch: with `lowercase` + `asciifolding`, `term foo: "BAR"`
+  finds `"BÀR"` and `"bar"`. `_source` keeps the original. Answers are the
+  same before and after `_flush` and after a merge. A `dynamic_templates`
+  entry that maps new strings to a keyword with a normalizer is applied to
+  new top-level fields. `_analyze` accepts `normalizer`, and `field` on a
+  normalized keyword. Still refused with a 400 and the reason: an unknown
+  name, a filter that is not per-character (`Custom normalizer [n] may not
+  use filter [stemmer]`), char filters and the other ES normalizer filters
+  (`cjk_width`, `elision`, ...), a normalizer on a non-keyword field, and
+  changing a field's normalizer on put-mapping. This replaces the #3513
+  refusal below for the supported normalizers. Indices created before keep
+  their mapping as it was.
+
 ### Changed
 
 - **`*` field patterns now also search number, boolean, date and ip fields

@@ -1,0 +1,130 @@
+---
+# Keyword normalizers (#3513). Written for XERJ from the documented ES
+# behaviour of `normalizer` on keyword fields: the normalizer runs before the
+# keyword is indexed and on the values of term-level and match queries, and
+# aggregations return the normalized values. `_source` is unchanged.
+"custom normalizer folds case and accents at index and query time":
+  - do:
+      indices.create:
+        index: test_normalizer
+        body:
+          settings:
+            number_of_shards: 1
+            analysis:
+              normalizer:
+                my_normalizer:
+                  type: custom
+                  char_filter: []
+                  filter: [lowercase, asciifolding]
+          mappings:
+            properties:
+              foo:
+                type: keyword
+                normalizer: my_normalizer
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "test_normalizer", "_id": "1"}}'
+          - '{"foo": "BÀR"}'
+          - '{"index": {"_index": "test_normalizer", "_id": "2"}}'
+          - '{"foo": "bar"}'
+          - '{"index": {"_index": "test_normalizer", "_id": "3"}}'
+          - '{"foo": "baz"}'
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_normalizer
+        body: { "query": { "term": { "foo": "BAR" } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_normalizer
+        body: { "query": { "match": { "foo": "BAR" } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_normalizer
+        body: { "query": { "term": { "foo": "BAR" } }, "sort": [ "_id" ] }
+  - match: { hits.hits.0._source.foo: "BÀR" }
+
+  - do:
+      search:
+        index: test_normalizer
+        body: { "size": 0, "aggs": { "foo_terms": { "terms": { "field": "foo" } } } }
+  - match: { aggregations.foo_terms.buckets.0.key: "bar" }
+  - match: { aggregations.foo_terms.buckets.0.doc_count: 2 }
+  - match: { aggregations.foo_terms.buckets.1.key: "baz" }
+  - match: { aggregations.foo_terms.buckets.1.doc_count: 1 }
+
+---
+"built-in lowercase normalizer on a keyword multi-field":
+  - do:
+      indices.create:
+        index: test_lowercase_normalizer
+        body:
+          settings:
+            number_of_shards: 1
+          mappings:
+            properties:
+              title:
+                type: text
+                fields:
+                  raw:
+                    type: keyword
+                    normalizer: lowercase
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "test_lowercase_normalizer", "_id": "1"}}'
+          - '{"title": "Fruit"}'
+          - '{"index": {"_index": "test_lowercase_normalizer", "_id": "2"}}'
+          - '{"title": "fruit salad"}'
+          - '{"index": {"_index": "test_lowercase_normalizer", "_id": "3"}}'
+          - '{"title": "FRUIT"}'
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_lowercase_normalizer
+        body: { "query": { "match": { "title.raw": "fruit" } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_lowercase_normalizer
+        body: { "query": { "prefix": { "title.raw": "FRUIT S" } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "2" }
+
+---
+"unknown normalizer is refused":
+  - do:
+      catch: bad_request
+      indices.create:
+        index: test_unknown_normalizer
+        body:
+          mappings:
+            properties:
+              foo:
+                type: keyword
+                normalizer: no_such_normalizer
+  - match: { status: 400 }
+  - match: { error.type: mapper_parsing_exception }
+
+---
+"analyze with a normalizer":
+  - do:
+      indices.analyze:
+        body:
+          text: ABc
+          normalizer: lowercase
+  - length: { tokens: 1 }
+  - match: { tokens.0.token: abc }

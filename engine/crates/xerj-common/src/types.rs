@@ -344,6 +344,13 @@ pub struct FieldOptions {
     /// exact default shape ES emits (`ignore_above: 256`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ignore_above: Option<u32>,
+    /// The resolved `normalizer` of a `keyword` field (#3513): the filter
+    /// chain applied to its indexed terms, doc values and aggregation keys,
+    /// and to the values of queries on it. `_source` keeps the original.
+    /// `None` (and absent from a schema.json written before this field) is a
+    /// plain keyword.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub normalizer: Option<crate::normalizer::KeywordNormalizer>,
     /// Declared resolution of a `Date` field (#790, #889).
     ///
     /// `Some(Millis)` for an ES `date`, `Some(Nanos)` for an ES `date_nanos`;
@@ -394,6 +401,7 @@ impl Default for FieldOptions {
             quantization: None,
             null_value: None,
             ignore_above: None,
+            normalizer: None,
             date_precision: None,
             date_format: None,
             multi_value: true,
