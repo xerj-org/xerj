@@ -23,10 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `strict_date_optional_time||epoch_millis`, four digits are a year and any
   other integer is epoch millis. A `long` stored as `42.0` is found by `42`.
   A date match now uses the segment's doc values, so a query that mixes words
-  and a date or number keeps BM25 for its words there too. Known limit: when
+  and a date or number keeps BM25 for its words there too. Since #3511, when
   `lenient` is off (a `prefix*` pattern without `lenient: true`, or
-  `lenient: false`), ES returns 400 for a value that does not parse, and XERJ
-  skips the field.
+  `lenient: false`), a value that does not parse is a 400, as in ES.
 
 - **Object sub-fields get their own full-text index (#3464).** Each leaf of an
   `object` mapping (`meta.note`, `meta.tag`) is now indexed under its dotted
@@ -144,6 +143,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   than the stored scan). A field missing from the mapping is also no longer
   scored as missing on the doc-values path when the schema keeps unmapped
   keys in `_source` (`runtime` dynamic mode). (Refs #3500)
+
+- **A filter-only `bool` scores 0.0 before a flush too
+  ([#3508](https://github.com/xerj-org/xerj/issues/3508)).** A `bool` with
+  only `filter` and `must_not` clauses scored 1.0 while its docs sat in the
+  memtable, 0.0 once flushed, and 1.0 for every doc once one new doc was in
+  the memtable, so ordering changed at `_flush`. Every hit now scores 0.0, as
+  in Elasticsearch.
+
+- **A strict value of the wrong type on a boolean, ip or date field is a 400
+  ([#3511](https://github.com/xerj-org/xerj/issues/3511)).** `term`/`terms`,
+  and `match`, `multi_match` and `query_string` unless `lenient` is on,
+  answered 0 hits for `b: "abc"`, `ip: "abc"` or `d: "abc"`. They now answer
+  400 with the Elasticsearch root cause (`query_shard_exception` for boolean
+  and ip, `parse_exception` for date), as numeric fields have since #1284. A
+  `*` field list with an explicit `lenient: false` gets the same check.
+  `lenient: true`, and `*` or a field-less `query_string` without `lenient`,
+  still skip the field.
+
+- **`field_value_factor` with no `missing` fails on a doc without the field
+  ([#3512](https://github.com/xerj-org/xerj/issues/3512)).** Such a doc
+  scored 0.0. The search now answers 400 `illegal_argument_exception`
+  `Missing value for field [f]`, as Elasticsearch does, when a scored doc has
+  no value (an unmapped field counts). Set `missing` to keep the old ranking.
+  Counts (`size: 0`) and field-sorted pages are not scored and do not fail.
 
 - **A flush near the memory watermark no longer waits for the allocator purge
   ([#3493](https://github.com/xerj-org/xerj/issues/3493)).** From 70% of the

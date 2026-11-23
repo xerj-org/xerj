@@ -3342,7 +3342,8 @@ mod flush_publication_recovery_tests {
                 &segments_dir,
                 10,
                 &schema,
-                true
+                true,
+                &std::sync::OnceLock::new()
             )
             .is_some(),
             "an unmapped field with no column scores every row as missing"
@@ -3354,7 +3355,8 @@ mod flush_publication_recovery_tests {
                 &segments_dir,
                 10,
                 &schema,
-                true
+                true,
+                &std::sync::OnceLock::new()
             )
             .is_none(),
             "a mapped field whose column was suppressed keeps the brute scan"
@@ -3366,7 +3368,8 @@ mod flush_publication_recovery_tests {
                 &segments_dir,
                 10,
                 &schema,
-                true
+                true,
+                &std::sync::OnceLock::new()
             )
             .is_none(),
             "a non-numeric column keeps the brute scan"
@@ -3386,24 +3389,49 @@ mod flush_publication_recovery_tests {
                 (hits, r.total.value)
             }
         };
-        for missing in [json!(2.5), Value::Null] {
-            let mut f = json!({ "field": "nope" });
-            if !missing.is_null() {
-                f["missing"] = missing.clone();
-            }
-            let fast = page(json!({ "size": 12, "query": { "function_score": {
-                "query": { "match_all": {} }, "field_value_factor": f } } }))
-            .await;
-            let brute = page(
-                json!({ "size": 12, "min_score": 0, "query": { "function_score": {
-                "query": { "match_all": {} }, "field_value_factor": f } } }),
+        let f = json!({ "field": "nope", "missing": 2.5 });
+        let fast = page(json!({ "size": 12, "query": { "function_score": {
+            "query": { "match_all": {} }, "field_value_factor": f } } }))
+        .await;
+        let brute = page(
+            json!({ "size": 12, "min_score": 0, "query": { "function_score": {
+            "query": { "match_all": {} }, "field_value_factor": f } } }),
+        )
+        .await;
+        assert_eq!(fast.0.len(), 12);
+        assert!(fast.0.iter().all(|(_, s)| *s == 2.5), "{fast:?}");
+        assert_eq!(fast.0, brute.0);
+        assert_eq!(fast.0[0].0, "doc-0");
+
+        // With no `missing`, a doc without the field fails the request on
+        // both paths, as ES does (`Missing value for field [nope]`).
+        let missing = std::sync::OnceLock::new();
+        assert!(idx
+            .function_score_columnar(
+                &fvf("nope", None),
+                &snap.segments,
+                &segments_dir,
+                10,
+                &schema,
+                true,
+                &missing
             )
-            .await;
-            let want: f32 = if missing.is_null() { 0.0 } else { 2.5 };
-            assert_eq!(fast.0.len(), 12);
-            assert!(fast.0.iter().all(|(_, s)| *s == want), "{fast:?}");
-            assert_eq!(fast.0, brute.0, "missing={missing}");
-            assert_eq!(fast.0[0].0, "doc-0");
+            .is_none());
+        assert_eq!(missing.get().map(String::as_str), Some("nope"));
+        for min_score in [Value::Null, json!(0)] {
+            let mut body = json!({ "size": 12, "query": { "function_score": {
+                "query": { "match_all": {} }, "field_value_factor": { "field": "nope" } } } });
+            if !min_score.is_null() {
+                body["min_score"] = min_score;
+            }
+            let err = idx
+                .search(&xerj_query::parse_request(&body).unwrap())
+                .await
+                .expect_err("no `missing` on an absent field must fail");
+            assert!(
+                err.to_string().contains("Missing value for field [nope]"),
+                "{err}"
+            );
         }
     }
 
@@ -3446,7 +3474,15 @@ mod flush_publication_recovery_tests {
             missing: Some(1.0),
         };
         assert!(
-            idx.function_score_columnar(&fvf, &snap.segments, &segments_dir, 3, &schema, false)
+            idx.function_score_columnar(
+                &fvf,
+                &snap.segments,
+                &segments_dir,
+                3,
+                &schema,
+                false,
+                &std::sync::OnceLock::new()
+            )
                 .is_none(),
             "an unmapped field under a runtime schema may be in _source"
         );
@@ -27700,6 +27736,20 @@ impl Index {
             None
         };
         let fs_min_passed = std::sync::atomic::AtomicU64::new(0);
+        // #3512: a `field_value_factor` with no `missing` fails the request on
+        // the first scored doc without a value for its field, as ES does. ES
+        // only scores when the page is ranked by score (or `min_score` needs
+        // one), so a field sort or a count-only request does not fail. The
+        // scorer records the field; the request fails after the scan.
+        let fvf_needs_value: bool = matches!(
+            peeled_fs,
+            Some((QueryNode::FunctionScore { functions, .. }, _))
+                if functions.iter().any(|f| {
+                    f.field_value_factor.as_ref().is_some_and(|v| v.missing.is_none())
+                })
+        ) && ((size > 0 && !field_sort_active)
+            || request.min_score.is_some());
+        let fvf_missing_field = std::sync::OnceLock::<String>::new();
         // Population max over every score the brute scorer computes.  Under
         // a field sort only ~page hits survive the heap, but ES's
         // `track_scores: true` max_score is the max over ALL matches — the
@@ -27766,6 +27816,11 @@ impl Index {
                     max_boost,
                 } = fs_node
                 {
+                    if fvf_needs_value && fvf_missing_field.get().is_none() {
+                        if let Some(field) = fvf_field_without_value(functions, src, &dmq_schema) {
+                            let _ = fvf_missing_field.set(field.to_string());
+                        }
+                    }
                     let base = leaf_base_const
                         .unwrap_or_else(|| score_query_against_doc(inner, src, &dmq_schema))
                         * outer_boost;
@@ -27836,6 +27891,15 @@ impl Index {
         // input and the surviving tied documents were decided by shard-walk
         // order: `size:5` and `size:1000` disagreed on a 600-document
         // all-tied memtable.
+        // #3508: the score the id-only memtable arms (`AllDocIds`,
+        // `DocValuesHits`) give each hit. A filter-only `bool` scores 0.0, as
+        // ES does and as the segment executors and `score_query_against_doc`
+        // do; every other shape keeps the brute path's constant 1.0.
+        let mem_id_hit_score: f32 = if is_filter_context_bool(query) {
+            0.0
+        } else {
+            1.0
+        };
         macro_rules! admit_hit {
             ($hit:expr) => {{
                 total_count += 1;
@@ -27910,7 +27974,7 @@ impl Index {
                                 topk.offer(
                                     Hit {
                                         id,
-                                        score: 1.0,
+                                        score: mem_id_hit_score,
                                         source,
                                         seq_no,
                                         version,
@@ -27931,7 +27995,7 @@ impl Index {
                             seen_ids.insert(id.clone());
                             all_hits.push(Hit {
                                 id,
-                                score: 1.0,
+                                score: mem_id_hit_score,
                                 source: Value::Null,
                                 // Deferred with `source`: `fill_memtable_sources`
                                 // resolves both from the SAME read once this
@@ -29393,6 +29457,7 @@ impl Index {
                     materialisation_limit,
                     &dmq_schema,
                     unmapped_means_absent,
+                    &fvf_missing_field,
                 ) {
                     seen_ids.clear();
                     seen_ids.extend(hits.iter().map(|h| h.id.clone()));
@@ -29401,6 +29466,11 @@ impl Index {
                     fs_fast_applied = true;
                 }
             }
+        }
+        if let Some(field) = fvf_missing_field.get() {
+            return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
+                fvf_missing_value_reason(field),
+            )));
         }
 
         // ── Columnar scored-family fast path ──────────────────────────────
@@ -31733,6 +31803,15 @@ impl Index {
                     hit.score = f32::from_bits(0x7F00_0001_u32 + (p - rank as u32));
                 }
             }
+        }
+
+        // A `field_value_factor` with no `missing` met a scored doc without a
+        // value during the segment scans (the memtable and columnar paths
+        // were checked before them).
+        if let Some(field) = fvf_missing_field.get() {
+            return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
+                fvf_missing_value_reason(field),
+            )));
         }
 
         // --- Apply / validate function scores ---
@@ -36621,6 +36700,7 @@ impl Index {
         cap: usize,
         schema: &Schema,
         unmapped_means_absent: bool,
+        missing_value: &std::sync::OnceLock<String>,
     ) -> Option<(Vec<Hit>, u64)> {
         use xerj_storage::doc_values::Column;
         let field = fvf.field.as_str();
@@ -36649,6 +36729,10 @@ impl Index {
                 Some(ver) => ver.seq_no.saturating_sub(1),
                 None => u64::MAX,
             };
+            if fvf.missing.is_none() && fvf_value_absent(field, source) {
+                let _ = missing_value.set(field.to_string());
+                return None;
+            }
             let score = compute_field_value_factor(fvf, source);
             if !score.is_finite() || score < 0.0 {
                 return None;
@@ -36685,6 +36769,10 @@ impl Index {
                     {
                         return None;
                     }
+                    if fvf.missing.is_none() && meta.doc_count > 0 {
+                        let _ = missing_value.set(field.to_string());
+                        return None;
+                    }
                     let score = fvf_score_from_raw(fvf, None);
                     if !score.is_finite() || score < 0.0 {
                         return None;
@@ -36718,6 +36806,10 @@ impl Index {
                     // Numeric dv columns store the f64 bit-pattern.
                     Some(f64::from_bits(n.data[row as usize] as u64))
                 };
+                if raw.is_none() && fvf.missing.is_none() {
+                    let _ = missing_value.set(field.to_string());
+                    return None;
+                }
                 let score = fvf_score_from_raw(fvf, raw);
                 if !score.is_finite() || score < 0.0 {
                     return None;
@@ -52419,17 +52511,24 @@ fn check_buildable_query(
     query: &QueryNode,
     schema: &Schema,
 ) -> std::result::Result<QueryNode, xerj_common::XerjError> {
-    let resolved = rewrite_keyword_full_text_to_term(&rewrite_query_aliases(query, schema), schema);
+    let aliased = rewrite_query_aliases(query, schema);
+    let resolved = rewrite_keyword_full_text_to_term(&aliased, schema);
     if let Some(field) = unsearchable_query_field(&resolved, schema) {
         return Err(xerj_common::XerjError::invalid_query(format!(
             "failed to create query: Cannot search on field [{field}] \
              since it is not indexed nor has doc values."
         )));
     }
-    if let Some(value) = non_numeric_term_value(&resolved, schema) {
+    // #3511: the value checks read the tree before field patterns expand:
+    // the expansion (#3413/#3463) turns `*` into lenient typed leaves, which
+    // would hide a mismatch from a clause that set `lenient: false`.
+    if let Some(value) = non_numeric_term_value(&aliased, schema) {
         return Err(xerj_common::XerjError::invalid_query(format!(
             "failed to create query: For input string: \"{value}\""
         )));
+    }
+    if let Some(reason) = mistyped_term_value(&aliased, schema) {
+        return Err(xerj_common::XerjError::invalid_query(reason));
     }
     Ok(resolved)
 }
@@ -52716,6 +52815,160 @@ fn non_numeric_term_value(q: &QueryNode, schema: &Schema) -> Option<String> {
         QueryNode::Knn { filter, .. } | QueryNode::SemanticSearch { filter, .. } => filter
             .as_ref()
             .and_then(|f| non_numeric_term_value(f, schema)),
+        _ => None,
+    }
+}
+
+/// The ES error for the first value a clause sends to a `boolean`, `ip` or
+/// `date` field that the field's type cannot read (#3511): the boolean, ip
+/// and date half of [`non_numeric_term_value`].
+///
+/// ES builds a term query from the whole value on these types, and a value
+/// that does not parse fails the request with a 400 (read for semantics only,
+/// no code copied): `BooleanFieldType.indexedValueForSearch`, `InetAddresses`
+/// `forString` / `parseCidr`, and the date field's format parser. XERJ
+/// answered a silent 0-hit 200. The clauses checked, and the `lenient` rule,
+/// are the same as for numeric fields: `term` / `terms` always, and the
+/// full-text leaves (`match`, `match_phrase`, `multi_match`, and what
+/// `query_string` lowers to) unless lenient. A field pattern checks every
+/// typed field it matches. Only string values are checked; date math (`now`,
+/// `||`) is left to the date resolver.
+///
+/// The reason is the text ES puts in `root_cause`: boolean and ip errors are
+/// wrapped as `failed to create query: …` (`query_shard_exception`), and a
+/// date error is the bare `failed to parse date field …` message, which the
+/// API maps to a `parse_exception` root cause.
+fn mistyped_term_value(q: &QueryNode, schema: &Schema) -> Option<String> {
+    let check = |field: &str, text: &str| -> Option<String> {
+        if text.is_empty() {
+            return None;
+        }
+        if field.contains(['*', '?']) {
+            pattern_field_paths(schema)
+                .into_iter()
+                .filter(|(path, _)| crate::engine::glob_match(field, path))
+                .find_map(|(_, f)| typed_value_error(f, text))
+        } else {
+            declared_field(schema, field).and_then(|f| typed_value_error(f, text))
+        }
+    };
+    let check_value = |field: &str, v: &serde_json::Value| check(field, v.as_str()?);
+    match q {
+        QueryNode::Term { field, value, .. } => check_value(field, value),
+        QueryNode::Terms { field, values, .. } => values.iter().find_map(|v| check_value(field, v)),
+        QueryNode::Match {
+            field,
+            query,
+            lenient: false,
+            ..
+        }
+        | QueryNode::MatchPhrase {
+            field,
+            query,
+            lenient: false,
+            ..
+        } => check(field, query),
+        QueryNode::MultiMatch {
+            fields,
+            query,
+            lenient: false,
+            ..
+        } => fields
+            .iter()
+            .find_map(|f| check(parse_field_boost(f).0, query)),
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should)
+            .chain(must_not)
+            .chain(filter)
+            .find_map(|c| mistyped_term_value(c, schema)),
+        QueryNode::Constant { query, .. }
+        | QueryNode::Boosted { query, .. }
+        | QueryNode::Named { query, .. }
+        | QueryNode::Nested { query, .. }
+        | QueryNode::FunctionScore { query, .. } => mistyped_term_value(query, schema),
+        QueryNode::Pinned { organic, .. } => mistyped_term_value(organic, schema),
+        QueryNode::Boosting {
+            positive, negative, ..
+        } => {
+            mistyped_term_value(positive, schema).or_else(|| mistyped_term_value(negative, schema))
+        }
+        QueryNode::DisMax { queries, .. } => {
+            queries.iter().find_map(|c| mistyped_term_value(c, schema))
+        }
+        QueryNode::Knn { filter, .. } | QueryNode::SemanticSearch { filter, .. } => {
+            filter.as_ref().and_then(|f| mistyped_term_value(f, schema))
+        }
+        _ => None,
+    }
+}
+
+/// The ES error for `text` sent to the boolean, ip or date field `f`, or
+/// `None` when the field reads it (or has another type). See
+/// [`mistyped_term_value`].
+fn typed_value_error(f: &FieldConfig, text: &str) -> Option<String> {
+    match f.field_type {
+        FieldType::Boolean => (text != "true" && text != "false").then(|| {
+            format!(
+                "failed to create query: Can't parse boolean value [{text}], \
+                 expected [true] or [false]"
+            )
+        }),
+        FieldType::Ip => {
+            let not_ip =
+                |s: &str| format!("failed to create query: '{s}' is not an IP string literal.");
+            let parts: Vec<&str> = text.split('/').collect();
+            match parts.as_slice() {
+                [addr] => addr
+                    .parse::<std::net::IpAddr>()
+                    .is_err()
+                    .then(|| not_ip(addr)),
+                [addr, bits] => {
+                    let Ok(ip) = addr.parse::<std::net::IpAddr>() else {
+                        return Some(not_ip(addr));
+                    };
+                    let Ok(bits) = bits.parse::<i32>() else {
+                        return Some(format!(
+                            "failed to create query: For input string: \"{bits}\""
+                        ));
+                    };
+                    let max = if ip.is_ipv4() { 32 } else { 128 };
+                    (!(0..=max).contains(&bits)).then(|| {
+                        format!(
+                            "failed to create query: Illegal prefix length [{bits}] in \
+                             [{text}]. Must be 0-32 for IPv4 ranges, 0-128 for IPv6 ranges"
+                        )
+                    })
+                }
+                _ => Some(format!(
+                    "failed to create query: Expected [ip/prefix] but was [{text}]"
+                )),
+            }
+        }
+        FieldType::Date => {
+            if text.trim_start().starts_with("now") || text.contains("||") {
+                return None;
+            }
+            let format = f
+                .options
+                .date_format
+                .as_deref()
+                .unwrap_or(DEFAULT_DATE_FORMAT);
+            let formats = xerj_query::dates::compile_formats_cached(format).ok()?;
+            match xerj_query::dates::resolve_date_bound_str(text, false, Some(&formats)) {
+                Err(xerj_query::dates::DateResolveError::UnparseableValue(v)) => Some(format!(
+                    "failed to parse date field [{v}] with format [{format}]: \
+                     [failed to parse date field [{v}] with format [{format}]]"
+                )),
+                _ => None,
+            }
+        }
         _ => None,
     }
 }
@@ -60556,6 +60809,23 @@ fn stored_scan_displaced_slot(segment_hits: &[Hit], score: f32) -> Option<usize>
     (score.total_cmp(&worst.score) == std::cmp::Ordering::Greater).then_some(at)
 }
 
+/// Whether `q` is a `bool` with no `must` and no `should` (possibly under
+/// `_name`): every clause runs in filter context and ES scores each hit 0.0
+/// (#3508).
+fn is_filter_context_bool(q: &QueryNode) -> bool {
+    match q {
+        QueryNode::Bool {
+            must,
+            should,
+            filter,
+            must_not,
+            ..
+        } => must.is_empty() && should.is_empty() && !(filter.is_empty() && must_not.is_empty()),
+        QueryNode::Named { query, .. } => is_filter_context_bool(query),
+        _ => false,
+    }
+}
+
 fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f32 {
     match q {
         QueryNode::MatchAll => 1.0,
@@ -60633,6 +60903,17 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
             minimum_should_match,
         } => {
             if !doc_matches_query_typed(q, source, schema) {
+                return 0.0;
+            }
+            // #3508: with no `must` and no `should`, every clause is in
+            // filter context (`filter`, `must_not`), and ES scores the hit
+            // 0.0. A `must_not`-only bool gets a match-all FILTER clause
+            // (`Queries.fixNegativeQueryIfNeeded`), so it also scores 0.0.
+            // The segment executors already returned 0.0; this scorer (the
+            // memtable, and every doc once the memtable is non-empty) fell
+            // through to the 1.0 fallback below, so the score changed at
+            // `_flush`.
+            if is_filter_context_bool(q) {
                 return 0.0;
             }
             // Sum all contributing sub-query scores. DON'T clamp to 1.0
@@ -65187,6 +65468,48 @@ fn compute_field_value_factor(fvf: &FieldValueFactor, source: &Value) -> f32 {
         _ => None,
     });
     fvf_score_from_raw(fvf, raw)
+}
+
+/// The ES error a `field_value_factor` with no `missing` raises on a scored
+/// doc that has no value for its field (#3512): an
+/// `illegal_argument_exception`, 400. Read for semantics only, no code copied:
+/// ES `FieldValueFactorFunction` throws when the doc has no doc value and
+/// `missing` is unset, and an unmapped field reads as no value. XERJ scored
+/// the doc as 0.0.
+fn fvf_missing_value_reason(field: &str) -> String {
+    format!("Missing value for field [{field}]")
+}
+
+/// Whether `source` has no value for `field`: absent, `null`, or an array of
+/// only `null`s.
+fn fvf_value_absent(field: &str, source: &Value) -> bool {
+    match get_field_value(source, field) {
+        None | Some(Value::Null) => true,
+        Some(Value::Array(values)) => values.iter().all(Value::is_null),
+        Some(_) => false,
+    }
+}
+
+/// The field of the first `field_value_factor` with no `missing` that applies
+/// to `source` (no `filter`, or a `filter` the doc matches) while the doc has
+/// no value for its field ([`fvf_value_absent`]).
+fn fvf_field_without_value<'f>(
+    functions: &'f [ScoreFunction],
+    source: &Value,
+    schema: &Schema,
+) -> Option<&'f str> {
+    functions.iter().find_map(|func| {
+        let fvf = func.field_value_factor.as_ref()?;
+        if fvf.missing.is_some() || !fvf_value_absent(&fvf.field, source) {
+            return None;
+        }
+        if let Some(filter) = &func.filter {
+            if !doc_matches_query_typed(filter, source, schema) {
+                return None;
+            }
+        }
+        Some(fvf.field.as_str())
+    })
 }
 
 /// Gate + extractor for the columnar `function_score` fast path.

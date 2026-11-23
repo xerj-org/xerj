@@ -1,0 +1,100 @@
+# #3508: a `bool` with no `must` and no `should` runs every clause in filter
+# context, so ES scores each hit 0.0. XERJ scored 1.0 while the docs were in
+# the memtable, 0.0 once flushed, and 1.0 for every doc (segment docs too)
+# once one new doc sat in the memtable, so ordering changed at `_flush`.
+setup:
+  - do:
+      indices.create:
+        index: fob
+        body:
+          settings:
+            number_of_shards: 1
+          mappings:
+            properties:
+              t: { type: text }
+              n: { type: long }
+              k: { type: keyword }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "fob", "_id": "1"}}'
+          - '{"t": "alpha", "n": 1, "k": "x"}'
+          - '{"index": {"_index": "fob", "_id": "2"}}'
+          - '{"t": "beta", "n": 2, "k": "x"}'
+          - '{"index": {"_index": "fob", "_id": "3"}}'
+          - '{"t": "gamma", "n": 3, "k": "y"}'
+
+---
+"filter-only bool scores 0.0 in the memtable":
+  - do:
+      search:
+        index: fob
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 1 } } } ] } }
+  - match: { hits.total.value: 3 }
+  - match: { hits.max_score: 0.0 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.1._score: 0.0 }
+  - match: { hits.hits.2._score: 0.0 }
+
+  - do:
+      search:
+        index: fob
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 1 } } }, { term: { k: x } } ] } }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.1._score: 0.0 }
+
+  - do:
+      search:
+        index: fob
+        body:
+          query: { bool: { must_not: [ { term: { k: y } } ] } }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.1._score: 0.0 }
+
+---
+"filter-only bool scores 0.0 on segments and in mixed state":
+  - do:
+      indices.flush:
+        index: fob
+  - do:
+      search:
+        index: fob
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 1 } } } ] } }
+  - match: { hits.total.value: 3 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.2._score: 0.0 }
+
+  - do:
+      index:
+        index: fob
+        id: "4"
+        refresh: true
+        body: { t: "delta", n: 4, k: "x" }
+  - do:
+      search:
+        index: fob
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 1 } } } ] } }
+  - match: { hits.total.value: 4 }
+  - match: { hits.max_score: 0.0 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.1._score: 0.0 }
+  - match: { hits.hits.2._score: 0.0 }
+  - match: { hits.hits.3._id: "4" }
+  - match: { hits.hits.3._score: 0.0 }
+
+  - do:
+      search:
+        index: fob
+        body:
+          query: { bool: { must_not: [ { term: { k: y } } ] } }
+  - match: { hits.total.value: 3 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.2._score: 0.0 }

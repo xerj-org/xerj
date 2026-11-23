@@ -1,0 +1,121 @@
+# A `field_value_factor` with no `missing` cannot score a doc that has no
+# value for its field: ES fails the search with `Missing value for field [f]`
+# (illegal_argument_exception, 400). XERJ scored that doc 0.0. With `missing`
+# set, or when no scored doc lacks the field, the search succeeds.
+setup:
+  - do:
+      indices.create:
+        index: fvfm
+        body:
+          settings:
+            number_of_shards: 1
+          mappings:
+            properties:
+              n: { type: long }
+              k: { type: keyword }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "fvfm", "_id": "1"}}'
+          - '{"n": 2, "k": "x"}'
+          - '{"index": {"_index": "fvfm", "_id": "2"}}'
+          - '{"n": 3, "k": "x"}'
+          - '{"index": {"_index": "fvfm", "_id": "3"}}'
+          - '{"k": "y"}'
+
+---
+"no missing and a doc without the field is a 400":
+  - do:
+      catch: bad_request
+      search:
+        index: fvfm
+        body:
+          query:
+            function_score:
+              query: { match_all: {} }
+              field_value_factor: { field: n }
+  - match: { status: 400 }
+  - match: { error.root_cause.0.type: "illegal_argument_exception" }
+  - match: { error.root_cause.0.reason: "Missing value for field [n]" }
+
+  - do:
+      catch: bad_request
+      search:
+        index: fvfm
+        body:
+          query:
+            function_score:
+              query: { match_all: {} }
+              functions: [ { field_value_factor: { field: n } } ]
+              boost_mode: sum
+  - match: { error.root_cause.0.reason: "Missing value for field [n]" }
+
+  # Flushed: the doc-values path fails the same way.
+  - do:
+      indices.flush:
+        index: fvfm
+  - do:
+      catch: bad_request
+      search:
+        index: fvfm
+        body:
+          query:
+            function_score:
+              query: { match_all: {} }
+              field_value_factor: { field: n }
+  - match: { error.root_cause.0.reason: "Missing value for field [n]" }
+
+  - do:
+      catch: bad_request
+      search:
+        index: fvfm
+        body:
+          query:
+            function_score:
+              query: { match_all: {} }
+              field_value_factor: { field: unmapped_field }
+  - match: { error.root_cause.0.reason: "Missing value for field [unmapped_field]" }
+
+---
+"missing set, or every scored doc has the field, succeeds":
+  - do:
+      search:
+        index: fvfm
+        body:
+          query:
+            function_score:
+              query: { match_all: {} }
+              field_value_factor: { field: n, missing: 1 }
+  - match: { hits.total.value: 3 }
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.0._score: 3.0 }
+  - match: { hits.hits.2._id: "3" }
+  - match: { hits.hits.2._score: 1.0 }
+
+  - do:
+      search:
+        index: fvfm
+        body:
+          query:
+            function_score:
+              query: { term: { k: x } }
+              field_value_factor: { field: n }
+              boost_mode: replace
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.0._score: 3.0 }
+
+  # A function filter that excludes the doc without the field.
+  - do:
+      search:
+        index: fvfm
+        body:
+          query:
+            function_score:
+              query: { match_all: {} }
+              functions: [ { filter: { term: { k: x } }, field_value_factor: { field: n } } ]
+              boost_mode: replace
+  - match: { hits.total.value: 3 }
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.0._score: 3.0 }

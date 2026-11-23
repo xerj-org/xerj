@@ -1,0 +1,214 @@
+# A value that a boolean, ip or date field cannot read is a query ES cannot
+# build: `term`/`terms` always, and `match`/`multi_match`/`query_string` unless
+# `lenient` is on, answer 400. With `lenient: true` the field is skipped and
+# the request succeeds. XERJ answered a silent 0-hit 200 either way. Numeric
+# fields got the same rule in #1284 (720_non_numeric_term_value.yml).
+setup:
+  - do:
+      indices.create:
+        index: ltf
+        body:
+          settings:
+            number_of_shards: 1
+          mappings:
+            properties:
+              t: { type: text }
+              b: { type: boolean }
+              ip: { type: ip }
+              d: { type: date }
+              dy: { type: date, format: "yyyy-MM-dd" }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "ltf", "_id": "1"}}'
+          - '{"t": "hello", "b": true, "ip": "10.0.0.1", "d": "2020-01-01", "dy": "2020-01-01"}'
+
+---
+"boolean field: a value that is not true/false is a 400 unless lenient":
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { match: { b: { query: "abc", lenient: false } } }
+  - match: { status: 400 }
+  - match: { error.root_cause.0.type: "query_shard_exception" }
+  - match: { error.root_cause.0.reason: "failed to create query: Can't parse boolean value [abc], expected [true] or [false]" }
+
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { term: { b: "abc" } }
+  - match: { error.root_cause.0.type: "query_shard_exception" }
+
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { multi_match: { query: "abc", fields: [ "b", "t" ] } }
+  - match: { error.root_cause.0.type: "query_shard_exception" }
+
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { query_string: { query: "b:abc", lenient: false } }
+  - match: { error.root_cause.0.type: "query_shard_exception" }
+
+  - do:
+      search:
+        index: ltf
+        body:
+          query: { match: { b: { query: "abc", lenient: true } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: ltf
+        body:
+          query: { multi_match: { query: "abc", fields: [ "b", "t" ], lenient: true } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: ltf
+        body:
+          query: { query_string: { query: "b:abc", lenient: true } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: ltf
+        body:
+          query: { match: { b: "true" } }
+  - match: { hits.total.value: 1 }
+
+---
+"ip field: a value that is not an address or CIDR block is a 400 unless lenient":
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { match: { ip: "abc" } }
+  - match: { status: 400 }
+  - match: { error.root_cause.0.type: "query_shard_exception" }
+  - match: { error.root_cause.0.reason: "failed to create query: 'abc' is not an IP string literal." }
+
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { term: { ip: "10.0.0.0/40" } }
+  - match: { error.root_cause.0.reason: "failed to create query: Illegal prefix length [40] in [10.0.0.0/40]. Must be 0-32 for IPv4 ranges, 0-128 for IPv6 ranges" }
+
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { query_string: { query: "abc", fields: [ "ip", "t" ] } }
+  - match: { error.root_cause.0.type: "query_shard_exception" }
+
+  - do:
+      search:
+        index: ltf
+        body:
+          query: { match: { ip: { query: "abc", lenient: true } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: ltf
+        body:
+          query: { term: { ip: "10.0.0.0/8" } }
+  - match: { hits.total.value: 1 }
+
+---
+"date field: a value the format cannot parse is a 400 unless lenient":
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { match: { d: "abc" } }
+  - match: { status: 400 }
+  - match: { error.root_cause.0.type: "parse_exception" }
+  - match: { error.root_cause.0.reason: "failed to parse date field [abc] with format [strict_date_optional_time||epoch_millis]: [failed to parse date field [abc] with format [strict_date_optional_time||epoch_millis]]" }
+
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { match: { dy: "2020/01/01" } }
+  - match: { error.root_cause.0.type: "parse_exception" }
+  - match: { error.root_cause.0.reason: "failed to parse date field [2020/01/01] with format [yyyy-MM-dd]: [failed to parse date field [2020/01/01] with format [yyyy-MM-dd]]" }
+
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { multi_match: { query: "abc", fields: [ "d", "t" ] } }
+  - match: { error.root_cause.0.type: "parse_exception" }
+
+  - do:
+      search:
+        index: ltf
+        body:
+          query: { match: { d: { query: "abc", lenient: true } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: ltf
+        body:
+          query: { match: { d: "2020-01-01" } }
+  - match: { hits.total.value: 1 }
+
+---
+"a field pattern is lenient unless lenient is false":
+  - do:
+      search:
+        index: ltf
+        body:
+          query: { query_string: { query: "abc", default_field: "*" } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: ltf
+        body:
+          query: { multi_match: { query: "abc", fields: [ "*" ] } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { multi_match: { query: "abc", fields: [ "b*" ] } }
+  - match: { error.root_cause.0.type: "query_shard_exception" }
+
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { multi_match: { query: "abc", fields: [ "*" ], lenient: false } }
+  - match: { status: 400 }
+
+  - do:
+      catch: bad_request
+      search:
+        index: ltf
+        body:
+          query: { query_string: { query: "abc", default_field: "*", lenient: false } }
+  - match: { status: 400 }
