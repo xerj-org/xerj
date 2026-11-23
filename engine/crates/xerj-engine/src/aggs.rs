@@ -257,10 +257,15 @@ fn clause_targets_only_text(node: &QueryNode, schema: &Schema) -> bool {
     match node {
         QueryNode::Match { field, .. }
         | QueryNode::MatchPhrase { field, .. }
-        | QueryNode::MatchPhrasePrefix { field, .. }
-        | QueryNode::Term { field, .. }
-        | QueryNode::Terms { field, .. } => crate::index::declared_field(schema, field)
-            .is_some_and(|f| matches!(f.field_type, FieldType::Text)),
+        | QueryNode::MatchPhrasePrefix { field, .. } => {
+            crate::index::declared_field(schema, field)
+                .is_some_and(|f| matches!(f.field_type, FieldType::Text))
+                || crate::index::is_unmapped_leaf_subfield(schema, field)
+        }
+        QueryNode::Term { field, .. } | QueryNode::Terms { field, .. } => {
+            crate::index::declared_field(schema, field)
+                .is_some_and(|f| matches!(f.field_type, FieldType::Text))
+        }
         QueryNode::Bool {
             must,
             should,
@@ -7322,6 +7327,14 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "match" | "match_phrase" => {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, expected) in field_map {
+                        let unmapped_subfield = FILTER_SCHEMA.with(|cell| {
+                            cell.borrow()
+                                .as_ref()
+                                .is_some_and(|s| crate::index::is_unmapped_leaf_subfield(s, field))
+                        });
+                        if unmapped_subfield {
+                            return false;
+                        }
                         let actual_values = extract_field_values(doc, field);
                         let expected_str = match expected {
                             Value::Object(o) => {

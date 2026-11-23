@@ -25846,10 +25846,13 @@ impl Index {
                 &schema.schema,
             );
             let typeless = crate::memtable::lexically_typeless_fields(&schema.schema);
-            let lowered = if typeless.is_empty() {
+            let lowered = if typeless.is_empty()
+                && (schema.schema.fields.is_empty()
+                    || !query_has_unmapped_leaf_subfield(&resolved, &schema.schema))
+            {
                 resolved
             } else {
-                lower_lexically_typeless_clauses(&resolved, &typeless)
+                lower_unsatisfiable_clauses(&resolved, &typeless, &schema.schema)
             };
             unwrap_single_clause_bool(lowered)
         };
@@ -27122,10 +27125,13 @@ impl Index {
             // the lowering the missing postings hand the clause to the
             // stored-doc scan. See `lower_lexically_typeless_clauses`.
             let typeless = crate::memtable::lexically_typeless_fields(&schema.schema);
-            let lowered = if typeless.is_empty() {
+            let lowered = if typeless.is_empty()
+                && (schema.schema.fields.is_empty()
+                    || !query_has_unmapped_leaf_subfield(&resolved, &schema.schema))
+            {
                 resolved
             } else {
-                lower_lexically_typeless_clauses(&resolved, &typeless)
+                lower_unsatisfiable_clauses(&resolved, &typeless, &schema.schema)
             };
             // #399 — and it belongs HERE for exactly the reason above: every
             // path decision below is made on the SHAPE of this tree, so a
@@ -52594,32 +52600,162 @@ fn lookup_vector_quantization(schema: &Schema, field: &str) -> Option<String> {
 /// `FieldConfig::fields` (object sub-paths and multi-fields). Returns `None`
 /// for anything the schema does not declare — dynamic fields have no declared
 /// mapping options to honour.
-pub(crate) fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a FieldConfig> {
-    fn find<'a>(fields: &'a [FieldConfig], path: &[&str]) -> Option<&'a FieldConfig> {
-        if path.is_empty() {
-            return None;
-        }
-        // Prefer the longest dotted-key match starting at this level, matching
-        // `get_field_value_parts` so literal dotted field names in `Schema::fields`
-        // (such as `files_manifest.json_recorded_at` or its `.keyword`
-        // multi-field) resolve instead of failing with `No mapping found`.
-        for take in (1..=path.len()).rev() {
-            let candidate = path[..take].join(".");
-            let tail = &path[take..];
-            for fc in fields {
-                if fc.name == candidate {
-                    if tail.is_empty() {
-                        return Some(fc);
-                    }
-                    if let Some(found) = find(&fc.fields, tail) {
-                        return Some(found);
-                    }
+/// Zero-allocation dotted-path lookup through `FieldConfig::fields`, preferring
+/// the longest literal dotted key at each level (matching `get_field_value_parts`).
+fn declared_field_in<'a>(fields: &'a [FieldConfig], path: &str) -> Option<&'a FieldConfig> {
+    if path.is_empty() {
+        return None;
+    }
+    if let Some(fc) = fields.iter().find(|fc| fc.name == path) {
+        return Some(fc);
+    }
+    let mut end = path.len();
+    while let Some(dot) = path[..end].rfind('.') {
+        let head = &path[..dot];
+        let tail = &path[dot + 1..];
+        for fc in fields {
+            if fc.name == head {
+                if let Some(found) = declared_field_in(&fc.fields, tail) {
+                    return Some(found);
                 }
             }
         }
-        None
+        end = dot;
     }
-    find(&schema.fields, &field.split('.').collect::<Vec<_>>())
+    None
+}
+
+pub(crate) fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a FieldConfig> {
+    declared_field_in(&schema.fields, field)
+}
+
+/// True when `field` names an undeclared dotted sub-field under a declared
+/// non-container leaf field — e.g. `title.raw` when `title` is a dynamic
+/// `text` field whose only declared multi-field is `.keyword`, or
+/// `obj.name.raw` when `obj.name` is a leaf field without a `.raw`
+/// multi-field (#3515).
+///
+/// Ancestors typed `Object` or `Nested` are skipped: a dotted path under an
+/// object/nested mapping (such as `meta.owner` on an empty `object` mapping)
+/// names a JSON child key rather than a multi-field suffix and resolves
+/// directly against `_source`.
+pub(crate) fn is_unmapped_leaf_subfield(schema: &Schema, field: &str) -> bool {
+    if schema.fields.is_empty()
+        || !field.contains('.')
+        || field.contains('*')
+        || field.starts_with('_')
+    {
+        return false;
+    }
+    if declared_field_in(&schema.fields, field).is_some() {
+        return false;
+    }
+    for (idx, ch) in field.char_indices() {
+        if ch == '.' {
+            if let Some(ancestor) = declared_field_in(&schema.fields, &field[..idx]) {
+                if !matches!(ancestor.field_type, FieldType::Object | FieldType::Nested) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Child schema for elements inside a `nested` query at `path`: field names
+/// after `strip_nested_path_in_query` are relative to the nested element, not
+/// the root document. Returns a borrowed empty schema when `path` is undeclared
+/// or has no child mappings so root fields cannot shadow element fields.
+fn nested_element_schema<'a>(schema: &'a Schema, path: &str) -> std::borrow::Cow<'a, Schema> {
+    static EMPTY_SCHEMA: std::sync::LazyLock<Schema> = std::sync::LazyLock::new(Schema::empty);
+    match declared_field_in(&schema.fields, path) {
+        Some(fc) if !fc.fields.is_empty() => std::borrow::Cow::Owned(Schema {
+            fields: fc.fields.clone(),
+            version: 0,
+            updated_at: schema.updated_at,
+        }),
+        _ => std::borrow::Cow::Borrowed(&EMPTY_SCHEMA),
+    }
+}
+
+/// Cheap pre-check so queries without any unmapped leaf sub-field skip cloning
+/// the query tree in `lower_unsatisfiable_clauses` when `typeless` is empty.
+/// Mapped dotted fields (such as ECS/OTel `obj.name` or `title.keyword`) return
+/// `false` with zero allocation.
+fn query_has_unmapped_leaf_subfield(q: &QueryNode, schema: &Schema) -> bool {
+    match q {
+        QueryNode::Match { field, .. }
+        | QueryNode::MatchPhrase { field, .. }
+        | QueryNode::MatchPhrasePrefix { field, .. }
+        | QueryNode::Prefix { field, .. }
+        | QueryNode::Wildcard { field, .. }
+        | QueryNode::Fuzzy { field, .. }
+        | QueryNode::Intervals { field, .. } => is_unmapped_leaf_subfield(schema, field),
+        QueryNode::MultiMatch { fields, .. } | QueryNode::SimpleQueryString { fields, .. } => {
+            fields
+                .iter()
+                .any(|s| is_unmapped_leaf_subfield(schema, parse_field_boost(s).0))
+        }
+        QueryNode::QueryString {
+            default_field: Some(f),
+            ..
+        } => is_unmapped_leaf_subfield(schema, parse_field_boost(f).0),
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should)
+            .chain(must_not)
+            .chain(filter)
+            .any(|c| query_has_unmapped_leaf_subfield(c, schema)),
+        QueryNode::Constant { query, .. }
+        | QueryNode::Boosted { query, .. }
+        | QueryNode::Named { query, .. } => query_has_unmapped_leaf_subfield(query, schema),
+        QueryNode::FunctionScore {
+            query, functions, ..
+        } => {
+            query_has_unmapped_leaf_subfield(query, schema)
+                || functions
+                    .iter()
+                    .filter_map(|f| f.filter.as_ref())
+                    .any(|c| query_has_unmapped_leaf_subfield(c, schema))
+        }
+        QueryNode::Pinned { organic, .. } => query_has_unmapped_leaf_subfield(organic, schema),
+        QueryNode::Boosting {
+            positive, negative, ..
+        } => {
+            query_has_unmapped_leaf_subfield(positive, schema)
+                || query_has_unmapped_leaf_subfield(negative, schema)
+        }
+        QueryNode::DisMax { queries, .. } => queries
+            .iter()
+            .any(|c| query_has_unmapped_leaf_subfield(c, schema)),
+        QueryNode::Hybrid { queries, .. } => queries
+            .iter()
+            .any(|wq| query_has_unmapped_leaf_subfield(&wq.query, schema)),
+        QueryNode::Knn { filter, .. } | QueryNode::SemanticSearch { filter, .. } => filter
+            .as_deref()
+            .is_some_and(|c| query_has_unmapped_leaf_subfield(c, schema)),
+        QueryNode::SpanNear { clauses, .. } | QueryNode::SpanOr { clauses } => clauses
+            .iter()
+            .any(|c| query_has_unmapped_leaf_subfield(c, schema)),
+        QueryNode::SpanNot { include, exclude } => {
+            query_has_unmapped_leaf_subfield(include, schema)
+                || query_has_unmapped_leaf_subfield(exclude, schema)
+        }
+        QueryNode::SpanFirst { match_query, .. } => {
+            query_has_unmapped_leaf_subfield(match_query, schema)
+        }
+        QueryNode::SpanContaining { little, big } | QueryNode::SpanWithin { little, big } => {
+            query_has_unmapped_leaf_subfield(little, schema)
+                || query_has_unmapped_leaf_subfield(big, schema)
+        }
+        _ => false,
+    }
 }
 
 /// Is `field` an ANALYZED `text` field in `schema`?
@@ -53386,9 +53522,24 @@ fn numeric_field_matches(schema: &Schema, field: &str) -> bool {
 /// the set is not the same `emb` the inner clause names. Rewriting through it
 /// could turn a legitimate inner clause into a silent zero. The inner clause
 /// keeps exactly today's behaviour.
+#[cfg(test)]
 fn lower_lexically_typeless_clauses(
     q: &QueryNode,
     typeless: &std::collections::HashSet<String>,
+) -> QueryNode {
+    static EMPTY_SCHEMA: std::sync::LazyLock<Schema> = std::sync::LazyLock::new(Schema::empty);
+    lower_unsatisfiable_clauses(q, typeless, &EMPTY_SCHEMA)
+}
+
+/// Lower lexically typeless (`dense_vector`, #328) leaves and full-text leaves
+/// naming an undeclared sub-field of a declared leaf field (`title.raw`, #3515)
+/// to `MatchNone`, then fold the resulting `MatchNone` nodes through `Bool`,
+/// `Constant`, and `Boosted` so they never fall back to a stored-doc scan that
+/// strips unknown suffixes or walks unindexed vectors.
+fn lower_unsatisfiable_clauses(
+    q: &QueryNode,
+    typeless: &std::collections::HashSet<String>,
+    schema: &Schema,
 ) -> QueryNode {
     // One entry of a `fields: [...]` list. `"emb^3"` carries a boost.
     //
@@ -53419,41 +53570,48 @@ fn lower_lexically_typeless_clauses(
     // contains a `0`, while `liquidity` never appears in the array. Not a
     // regression (both columns agree) and not closed here; the CHANGELOG says
     // "names one outright" rather than "names one" for exactly this reason.
-    let is_typeless_spec = |spec: &String| -> bool {
+    let is_dead_fulltext_spec = |spec: &String| -> bool {
         let (name, _boost) = parse_field_boost(spec);
-        !name.contains('*') && typeless.contains(name)
+        !name.contains('*') && (typeless.contains(name) || is_unmapped_leaf_subfield(schema, name))
     };
-    // A `fields: [...]` list with every vector entry removed. `None` means
-    // "leave this node alone": either nothing was dropped, or the list was
-    // already empty, which means "all fields" rather than "no fields".
+    // A `fields: [...]` list with every vector / unmapped sub-field entry
+    // removed. `None` means "leave this node alone": either nothing was
+    // dropped, or the list was already empty, which means "all fields" rather
+    // than "no fields".
     let prune_specs = |fields: &Vec<String>| -> Option<Vec<String>> {
-        if fields.is_empty() || !fields.iter().any(is_typeless_spec) {
+        if fields.is_empty() || !fields.iter().any(is_dead_fulltext_spec) {
             return None;
         }
         Some(
             fields
                 .iter()
-                .filter(|spec| !is_typeless_spec(spec))
+                .filter(|spec| !is_dead_fulltext_spec(spec))
                 .cloned()
                 .collect(),
         )
     };
-    let recurse = |c: &QueryNode| lower_lexically_typeless_clauses(c, typeless);
+    let recurse = |c: &QueryNode| lower_unsatisfiable_clauses(c, typeless, schema);
     match q {
         // ── Leaves that name exactly one field ────────────────────────────
         QueryNode::Term { field, .. }
         | QueryNode::Terms { field, .. }
         | QueryNode::Range { field, .. }
-        | QueryNode::Prefix { field, .. }
-        | QueryNode::Wildcard { field, .. }
-        | QueryNode::Match { field, .. }
-        | QueryNode::MatchPhrase { field, .. }
-        | QueryNode::MatchPhrasePrefix { field, .. }
-        | QueryNode::Fuzzy { field, .. }
         | QueryNode::Regexp { field, .. }
-        | QueryNode::Intervals { field, .. }
         | QueryNode::SpanTerm { field, .. } => {
             if typeless.contains(field) {
+                QueryNode::MatchNone
+            } else {
+                q.clone()
+            }
+        }
+        QueryNode::Match { field, .. }
+        | QueryNode::MatchPhrase { field, .. }
+        | QueryNode::MatchPhrasePrefix { field, .. }
+        | QueryNode::Prefix { field, .. }
+        | QueryNode::Wildcard { field, .. }
+        | QueryNode::Fuzzy { field, .. }
+        | QueryNode::Intervals { field, .. } => {
+            if typeless.contains(field) || is_unmapped_leaf_subfield(schema, field) {
                 QueryNode::MatchNone
             } else {
                 q.clone()
@@ -53464,8 +53622,8 @@ fn lower_lexically_typeless_clauses(
         // The empty case is the specific hole. `query_node_to_fts` returns
         // `None` for a field spec it cannot project, and `MultiMatch` is
         // unconditionally in `is_doc_scan_query`, so a list that named ONLY
-        // vector fields would otherwise reach the stored-doc scan and match
-        // every document instead of none.
+        // vector or unmapped sub-fields would otherwise reach the stored-doc
+        // scan and match through the parent field instead of matching nothing.
         QueryNode::MultiMatch {
             fields,
             query,
@@ -53502,7 +53660,7 @@ fn lower_lexically_typeless_clauses(
         QueryNode::QueryString {
             default_field: Some(f),
             ..
-        } if is_typeless_spec(f) => QueryNode::MatchNone,
+        } if is_dead_fulltext_spec(f) => QueryNode::MatchNone,
 
         // ── Composites: recurse, then fold the MatchNone we just created ──
         QueryNode::Bool {
@@ -53695,7 +53853,14 @@ fn lower_lexically_typeless_clauses(
             max_boost,
         } => QueryNode::FunctionScore {
             query: Box::new(recurse(query)),
-            functions: functions.clone(),
+            functions: functions
+                .iter()
+                .map(|f| {
+                    let mut nf = f.clone();
+                    nf.filter = f.filter.as_ref().map(recurse);
+                    nf
+                })
+                .collect(),
             score_mode: *score_mode,
             boost_mode: *boost_mode,
             max_boost: *max_boost,
@@ -53716,10 +53881,21 @@ fn lower_lexically_typeless_clauses(
         QueryNode::DisMax {
             queries,
             tie_breaker,
-        } => QueryNode::DisMax {
-            queries: queries.iter().map(recurse).collect(),
-            tie_breaker: *tie_breaker,
-        },
+        } => {
+            let mut live: Vec<QueryNode> = queries
+                .iter()
+                .map(recurse)
+                .filter(|c| !c.is_match_none())
+                .collect();
+            match live.len() {
+                0 => QueryNode::MatchNone,
+                1 => live.pop().unwrap_or(QueryNode::MatchNone),
+                _ => QueryNode::DisMax {
+                    queries: live,
+                    tie_breaker: *tie_breaker,
+                },
+            }
+        }
         QueryNode::Hybrid { queries, fusion } => QueryNode::Hybrid {
             queries: queries
                 .iter()
@@ -54323,6 +54499,175 @@ mod lexically_typeless_lowering_tests {
             lower_lexically_typeless_clauses(&q, &std::collections::HashSet::new()),
             q
         );
+    }
+
+    #[test]
+    fn unmapped_leaf_subfield_predicate_distinguishes_leaves_multifields_and_objects() {
+        let mut schema = Schema::empty();
+        let mut title = FieldConfig::new("title", FieldType::Text);
+        title
+            .fields
+            .push(FieldConfig::new("keyword", FieldType::Keyword));
+        schema.fields.push(title);
+
+        let mut obj = FieldConfig::new("obj", FieldType::Object);
+        let mut name = FieldConfig::new("name", FieldType::Text);
+        name.fields
+            .push(FieldConfig::new("keyword", FieldType::Keyword));
+        obj.fields.push(name);
+        schema.fields.push(obj);
+
+        schema
+            .fields
+            .push(FieldConfig::new("open_obj", FieldType::Object));
+
+        assert!(is_unmapped_leaf_subfield(&schema, "title.raw"));
+        assert!(is_unmapped_leaf_subfield(&schema, "title.raw.extra"));
+        assert!(is_unmapped_leaf_subfield(&schema, "title.keyword.raw"));
+        assert!(is_unmapped_leaf_subfield(&schema, "obj.name.raw"));
+
+        assert!(!is_unmapped_leaf_subfield(&schema, "title"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "title.keyword"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "obj.name"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "obj.name.keyword"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "open_obj.dynamic_leaf"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "ghost.raw"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "title.*"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "_id.raw"));
+    }
+
+    #[test]
+    fn unmapped_leaf_subfield_lowering_folds_fulltext_and_leaves_term_untouched() {
+        let mut schema = Schema::empty();
+        let mut title = FieldConfig::new("title", FieldType::Text);
+        title
+            .fields
+            .push(FieldConfig::new("keyword", FieldType::Keyword));
+        schema.fields.push(title);
+
+        let empty_typeless = std::collections::HashSet::new();
+        let m = |field: &str| QueryNode::Match {
+            field: field.into(),
+            query: "fruit".into(),
+            operator: xerj_query::ast::BoolOperator::Or,
+            analyzer: None,
+            boost: None,
+            minimum_should_match: None,
+            lenient: false,
+        };
+
+        // Bare match and constant_score bubble up to MatchNone.
+        assert!(
+            lower_unsatisfiable_clauses(&m("title.raw"), &empty_typeless, &schema).is_match_none()
+        );
+        assert!(lower_unsatisfiable_clauses(
+            &QueryNode::Constant {
+                score: 1.0,
+                query: Box::new(m("title.raw")),
+            },
+            &empty_typeless,
+            &schema,
+        )
+        .is_match_none());
+
+        // `bool.should` drops dead unmapped sub-field under default msm,
+        // preserving FTS projection for the live clause.
+        match lower_unsatisfiable_clauses(
+            &bool_of(
+                vec![],
+                vec![m("title.raw"), m("title")],
+                vec![],
+                vec![],
+                None,
+            ),
+            &empty_typeless,
+            &schema,
+        ) {
+            QueryNode::Bool { should, .. } => assert_eq!(should, vec![m("title")]),
+            other => panic!("expected pruned bool, got {other:?}"),
+        }
+
+        // Percentage msm preserves clause count so the denominator does not shift.
+        match lower_unsatisfiable_clauses(
+            &bool_of(
+                vec![],
+                vec![m("title.raw"), m("title")],
+                vec![],
+                vec![],
+                Some(MinShouldMatch::Percentage(100)),
+            ),
+            &empty_typeless,
+            &schema,
+        ) {
+            QueryNode::Bool { should, .. } => {
+                assert_eq!(should.len(), 2);
+                assert!(should[0].is_match_none());
+            }
+            other => panic!("expected bool with MatchNone preserved, got {other:?}"),
+        }
+
+        // Mapped multi-field and Term queries remain untouched.
+        assert_eq!(
+            lower_unsatisfiable_clauses(&m("title.keyword"), &empty_typeless, &schema),
+            m("title.keyword")
+        );
+        let t = term("title.raw", "Fruit");
+        assert_eq!(lower_unsatisfiable_clauses(&t, &empty_typeless, &schema), t);
+
+        // `DisMax` drops dead children, unwraps a single survivor, and folds all-dead to MatchNone.
+        assert_eq!(
+            lower_unsatisfiable_clauses(
+                &QueryNode::DisMax {
+                    queries: vec![m("title.raw"), m("title")],
+                    tie_breaker: 0.3,
+                },
+                &empty_typeless,
+                &schema,
+            ),
+            m("title")
+        );
+        assert!(lower_unsatisfiable_clauses(
+            &QueryNode::DisMax {
+                queries: vec![m("title.raw"), m("title.missing")],
+                tie_breaker: 0.0,
+            },
+            &empty_typeless,
+            &schema,
+        )
+        .is_match_none());
+
+        // Parser-lowered `Prefix`/`Wildcard`/`Fuzzy` and `Intervals` on unmapped sub-fields fold to MatchNone.
+        assert!(lower_unsatisfiable_clauses(
+            &QueryNode::Prefix {
+                field: "title.raw".into(),
+                value: "fru".into(),
+                boost: None,
+                constant_score: false,
+                case_insensitive: false,
+            },
+            &empty_typeless,
+            &schema,
+        )
+        .is_match_none());
+        assert!(lower_unsatisfiable_clauses(
+            &QueryNode::Wildcard {
+                field: "title.raw".into(),
+                value: "fru*".into(),
+                boost: None,
+                constant_score: false,
+                case_insensitive: false,
+            },
+            &empty_typeless,
+            &schema,
+        )
+        .is_match_none());
+
+        // Hot-path pre-check skips mapped dotted fields with zero tree clone.
+        assert!(!query_has_unmapped_leaf_subfield(
+            &m("title.keyword"),
+            &schema
+        ));
+        assert!(query_has_unmapped_leaf_subfield(&m("title.raw"), &schema));
     }
 }
 
@@ -58772,6 +59117,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             case_insensitive,
             ..
         } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             // #396: prefix semantics depend on the field's mapping, and ES never
             // analyses the prefix VALUE itself.
             //  - keyword: match the RAW stored value, case-SENSITIVE by default
@@ -58848,6 +59196,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             case_insensitive,
             ..
         } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             // #396/#668: `wildcard` must mirror its segment path per field type
             // (ES never analyses the pattern):
             //  - analysed TEXT: the segment matches the RAW pattern against the
@@ -59107,6 +59458,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             // so this clause is effectively a no-op pass.
             if field == "_index" {
                 return true;
+            }
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
             }
             // Analyzer-aware case handling: `whitespace` / `keyword`
             // analyzers don't lowercase, so a match query for "BROWN"
@@ -59388,6 +59742,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                 .iter()
                 .filter_map(|field_spec| {
                     let (field, _) = parse_field_boost(field_spec);
+                    if is_unmapped_leaf_subfield(schema, field) {
+                        return None;
+                    }
                     multi_match_field_values_lc(source, field)
                 })
                 .collect();
@@ -59498,6 +59855,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
         QueryNode::MatchPhrase {
             field, query, slop, ..
         } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             // The same analyzer as the field side below (#1280): a split here
             // made `报表` one query term against the field's `报`,`表`, and
             // `3.14` two terms against the field's one.
@@ -59623,6 +59983,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             case_insensitive,
             prefix_length,
         } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             let max_edits = match fuzziness {
                 Fuzziness::Auto => auto_fuzziness(query_value),
                 Fuzziness::Fixed(n) => *n as usize,
@@ -59708,6 +60071,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
         QueryNode::MatchPhrasePrefix {
             field, query, slop, ..
         } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             // POSITIONAL, not substring (issue #230). Pre-fix this arm found
             // the head phrase as a raw substring (`s_lower.find(head)`) and
             // required the prefix to follow it in the raw text — so
@@ -59838,8 +60204,14 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             }
             let mut buf = String::new();
             match default_field.as_deref() {
-                Some(f) if f != "*" && !f.is_empty() => get_field_value(source, f)
-                    .is_some_and(|v| any_token_hit(&v, &terms, query.as_str(), &mut buf)),
+                Some(f) if f != "*" && !f.is_empty() => {
+                    let (field_name, _) = parse_field_boost(f);
+                    if is_unmapped_leaf_subfield(schema, field_name) {
+                        return false;
+                    }
+                    get_field_value(source, field_name)
+                        .is_some_and(|v| any_token_hit(&v, &terms, query.as_str(), &mut buf))
+                }
                 _ => match source {
                     Value::Object(obj) => obj
                         .iter()
@@ -59858,11 +60230,14 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
         // though they resolve against the element — strip the prefix first.
         QueryNode::Nested { path, query, .. } => {
             let inner = strip_nested_path_in_query(query, path);
+            let inner_schema = nested_element_schema(schema, path);
             match get_field_value(source, path) {
                 Some(Value::Array(arr)) => arr
                     .iter()
-                    .any(|elem| doc_matches_query_typed(&inner, elem, schema)),
-                Some(elem @ Value::Object(_)) => doc_matches_query_typed(&inner, &elem, schema),
+                    .any(|elem| doc_matches_query_typed(&inner, elem, &inner_schema)),
+                Some(elem @ Value::Object(_)) => {
+                    doc_matches_query_typed(&inner, &elem, &inner_schema)
+                }
                 _ => false,
             }
         }
@@ -59898,6 +60273,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
 
             // A document matches if any term appears in any of the check fields.
             check_fields.iter().any(|field| {
+                if is_unmapped_leaf_subfield(schema, field) {
+                    return false;
+                }
                 get_field_value(source, field)
                     .and_then(|v| match v {
                         Value::String(s) => {
@@ -60202,6 +60580,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
         // the rule tree into a set of matching intervals, and report
         // `true` if at least one interval survives after filters.
         QueryNode::Intervals { field, rule } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             let text = match get_field_value(source, field) {
                 Some(Value::String(s)) => s,
                 _ => return false,
@@ -61451,6 +61832,9 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
             let mut matched = false;
             for field_spec in fields {
                 let (field, field_boost) = parse_field_boost(field_spec);
+                if is_unmapped_leaf_subfield(schema, field) {
+                    continue;
+                }
                 // Same per-field value extraction as `doc_matches_query`:
                 // strings, arrays (one entry per element, #332), and other
                 // scalars — an array-valued field admitted by membership must
@@ -61484,6 +61868,9 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
                             .iter()
                             .filter_map(|fs| {
                                 let (f, _) = parse_field_boost(fs);
+                                if is_unmapped_leaf_subfield(schema, f) {
+                                    return None;
+                                }
                                 match get_field_value(source, f) {
                                     Some(Value::String(s)) => Some(s.to_lowercase()),
                                     Some(Value::Array(arr)) => Some(
@@ -61575,15 +61962,16 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
             score_mode,
         } => {
             let inner = strip_nested_path_in_query(query, path);
+            let inner_schema = nested_element_schema(schema, path);
             let child_scores: Vec<f32> = match get_field_value(source, path) {
                 Some(Value::Array(arr)) => arr
                     .iter()
-                    .filter(|elem| doc_matches_query_typed(&inner, elem, schema))
-                    .map(|elem| score_query_against_doc(&inner, elem, schema))
+                    .filter(|elem| doc_matches_query_typed(&inner, elem, &inner_schema))
+                    .map(|elem| score_query_against_doc(&inner, elem, &inner_schema))
                     .collect(),
                 Some(elem @ Value::Object(_)) => {
-                    if doc_matches_query_typed(&inner, &elem, schema) {
-                        vec![score_query_against_doc(&inner, &elem, schema)]
+                    if doc_matches_query_typed(&inner, &elem, &inner_schema) {
+                        vec![score_query_against_doc(&inner, &elem, &inner_schema)]
                     } else {
                         Vec::new()
                     }
