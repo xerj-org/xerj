@@ -6345,6 +6345,13 @@ fn field_from_template_property(
     if native_type == FieldType::Date && es_type == "date_nanos" {
         fc.options.date_precision = Some(xerj_common::types::DatePrecision::Nanos);
     }
+    if native_type == FieldType::Date {
+        fc.options.date_format = field_def
+            .get("format")
+            .and_then(Value::as_str)
+            .filter(|f| !f.trim().is_empty())
+            .map(str::to_string);
+    }
     if es_type == "semantic_text" {
         // Same default as `es_properties_to_fields`: analyzed text has no
         // doc values unless the mapping asks. An explicit `true` is kept.

@@ -358,6 +358,13 @@ pub struct FieldOptions {
     /// nobody declared.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub date_precision: Option<DatePrecision>,
+    /// The mapping's `format` for a `Date` field, as written
+    /// (`yyyy-MM-dd||epoch_millis`), #3492. `None` is the ES default,
+    /// `strict_date_optional_time||epoch_millis`. A schema.json written
+    /// before this field existed is back-filled from `es_mapping.json` when
+    /// the index opens, the same way as `date_precision`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date_format: Option<String>,
     /// Allow the field to appear more than once in a document (always `true` for arrays).
     #[serde(default = "bool_true")]
     pub multi_value: bool,
@@ -388,6 +395,7 @@ impl Default for FieldOptions {
             null_value: None,
             ignore_above: None,
             date_precision: None,
+            date_format: None,
             multi_value: true,
             boost: 1.0,
         }

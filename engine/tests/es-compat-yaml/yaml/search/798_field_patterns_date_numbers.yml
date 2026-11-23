@@ -1,0 +1,96 @@
+setup:
+  - do:
+      indices.create:
+          index: test_pattern_dates
+          body:
+              mappings:
+                  properties:
+                      title:
+                          type: text
+                      n:
+                          type: long
+                      d:
+                          type: date
+                      de:
+                          type: date
+                          format: yyyy-MM-dd
+                      dm:
+                          type: date
+                          format: yyyy-MM-dd||epoch_millis
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "test_pattern_dates", "_id": "1"}}'
+              - '{"title": "alpha", "n": 42, "d": "2024-01-15T10:00:00Z"}'
+              - '{"index": {"_index": "test_pattern_dates", "_id": "2"}}'
+              - '{"title": "beta", "n": 42.0, "d": 1705312800000}'
+              - '{"index": {"_index": "test_pattern_dates", "_id": "3"}}'
+              - '{"title": "gamma", "n": 7, "d": "2020-01-01", "de": "2024-01-15", "dm": "2024-01-15"}'
+              - '{"index": {"_index": "test_pattern_dates", "_id": "4"}}'
+              - '{"title": "delta", "n": 8, "d": "2021-03-03", "dm": 1705312800000}'
+
+---
+"a long stored as 42.0 is found by 42 on a * pattern (#3492)":
+  - do:
+      count:
+          index: test_pattern_dates
+          body: { query: { multi_match: { query: "42", fields: ["*"] } } }
+  - match: { count: 2 }
+
+---
+"a bare number is epoch millis on a date field with the default format (#3492)":
+  - do:
+      count:
+          index: test_pattern_dates
+          body: { query: { multi_match: { query: "1705312800000", fields: ["*"] } } }
+  - match: { count: 3 }
+
+---
+"a field-less query_string reads a bare number as epoch millis (#3492)":
+  - do:
+      count:
+          index: test_pattern_dates
+          body: { query: { query_string: { query: "1705312800000" } } }
+  - match: { count: 3 }
+
+---
+"a format without epoch_millis does not read a bare number (#3492)":
+  - do:
+      count:
+          index: test_pattern_dates
+          body: { query: { multi_match: { query: "1705312800000", fields: ["de*"], lenient: true } } }
+  - match: { count: 0 }
+
+---
+"four digits are a year under strict_date_optional_time (#3492)":
+  - do:
+      count:
+          index: test_pattern_dates
+          body: { query: { multi_match: { query: "2020", fields: ["*"] } } }
+  - match: { count: 1 }
+
+---
+"words and an epoch-millis date keep BM25 order (#3492)":
+  - do:
+      search:
+          index: test_pattern_dates
+          body: { query: { query_string: { query: "alpha 1705312800000" } } }
+  - match: { hits.total.value: 3 }
+  - match: { hits.hits.0._id: "1" }
+
+---
+"epoch millis on a date field after a flush (#3492)":
+  - do:
+      indices.flush:
+          index: test_pattern_dates
+  - do:
+      count:
+          index: test_pattern_dates
+          body: { query: { multi_match: { query: "1705312800000", fields: ["*"] } } }
+  - match: { count: 3 }
+  - do:
+      count:
+          index: test_pattern_dates
+          body: { query: { multi_match: { query: "42", fields: ["*"] } } }
+  - match: { count: 2 }

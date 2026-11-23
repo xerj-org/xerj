@@ -24958,6 +24958,12 @@ fn es_properties_to_fields(properties: &Value) -> Result<Vec<FieldConfig>, Strin
             } else {
                 xerj_common::types::DatePrecision::Millis
             });
+            // #3492: the `*` pattern leaf parses query text with this.
+            fc.options.date_format = field_def
+                .get("format")
+                .and_then(Value::as_str)
+                .filter(|f| !f.trim().is_empty())
+                .map(str::to_string);
         }
         if let Some(sub_props) = field_def.get("properties") {
             fc.fields = es_properties_to_fields(sub_props)?;
