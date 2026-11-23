@@ -7,6 +7,130 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.105] - 2026-11-23
+
+<!-- notes-exempt: #3341 #3343 (CLA signatures, .contributors only) -->
+<!-- notes-exempt: #3346 (release-notes gate script, CI only) -->
+<!-- notes-exempt: #3325 #3452 #3494 #3516 #3532 #3534 (test-only: flaky-test fixes, YAML and parity tests, no product code) -->
+<!-- notes-exempt: #3309 (benchmark harnesses and the analyzers docs page, no binary change) #3319 (site SEO date tooling) #3348 (docs and a docs count test) #3371 (field report document) #3403 (MCP catalog size benchmark and script) #3411 (release packaging script for the .mcpb bundle) -->
+
+**rc.105: 93 merged pull requests since rc.104.** BM25 now uses the real
+length of long fields, Chinese folders get a CJK analyzer, searches stop
+waiting on disk syncs while bulk writes run, object sub-fields and
+filtered aggregations take the fast paths, keyword fields get normalizers,
+and many requests now behave as in Elasticsearch, including several that
+used to answer 200 and now answer 400. Read the upgrade notes before you
+upgrade a node that serves traffic.
+
+### Highlights
+
+- **Long documents no longer outrank the answer (#3007).** SearchTome
+  medicine, `multi_match` on title + content: R@1 56.60 → 64.78, R@3
+  76.77 → 81.74 (paired randomization p < 0.001).
+- **Chinese folders under `xerj autoindex` (#3377).** On a 29-file PRC
+  statute corpus, 20 law questions: R@1 0.45 → 0.95, R@3 0.60 → 1.00.
+- **Searches during bulk writes (refs #3324 #3331).** p99 over all reads
+  204-265 ms → 40-85 ms; writer throughput 34-50k → 53-66k docs/s (3 runs
+  each, load 25-50).
+- **Object sub-fields on postings (#3464).** `multi_match` on `*` over 200k
+  documents: p50 539-661 ms → 3.9-5.1 ms, now with BM25 scores.
+- **Filtered aggregations from doc values (#3476, #3510).** A `size: 0`
+  aggregation under a filter-only `bool`: 1111-1631 ms → 13.4-17.2 ms. A
+  filtered `date_histogram` on 300k documents that answered 429 now
+  answers in 143-182 ms right after a cache clear.
+- **`term` on an array keyword (#3412).** 8 clients on a 992,000-document,
+  496-segment index: p50 1940 ms → 9.3 ms, 3.9 → 115.5 queries/s.
+- **Hybrid search reads `_source` for the page only (#3018).** `hybrid`
+  size 10 on 3,000 documents: 7.20 → 4.31 ms (median of six rounds).
+
+### Upgrade notes
+
+- **Downgrade needs a snapshot or a reindex.** Segments that rc.105 writes
+  store BM25 field lengths on a new scale (#3007). rc.104 opens a data
+  directory that rc.105 wrote without any error, but ranking and scores
+  change silently. To go back to rc.104, restore a snapshot taken on rc.104
+  or reindex from the source. The upgrade itself
+  is in place: segments written before keep their old lengths, and object
+  sub-fields in old segments answer from stored documents, until a merge
+  rewrites them or you reindex.
+- **Data directories, provenance and the opt-in model flag are as in
+  rc.101-rc.104.** The rc.105 binaries are built from the same private tree
+  as rc.101-rc.104: public `main` at this cut (`b2ef194f` plus this release
+  commit) plus the XERJ-Query engine lanes plus the **Proprietary** model
+  crates `xerj-infer`, `xerj-serve` and `xerj-exec`. They keep the rc.101
+  storage defaults (ZPS4 postings, row-dictionary stored text, on-disk
+  format 4, or 5 once a writer uses the ZPA postings family), so a data
+  directory that rc.101, rc.102, rc.103 or rc.104 wrote opens in place, with
+  no reindex. A binary built from public `main` at this cut writes format 3
+  and refuses a format-4 or format-5 directory (`DATA_DIR_FORMAT_VERSION` in
+  `engine/crates/xerj-storage/src/index_store.rs`); upgrade an rc.101-rc.104
+  node with the release binaries. `/_facts` answers 404
+  `xerj_query_not_enabled` unless `--facts-model-dir <DIR>` is set, and
+  `/_facts` and `xerj_facts_ask` exist only in the release binaries, not in
+  a build from this repository (#3380).
+- **New segments are bigger.** Each `object` leaf now has its own postings
+  (#3464). On the 200k-document test index with one object field the index
+  grew from 50 MB to 62 MB (+24%). The growth comes from the text and
+  keywords under objects.
+- **Explicit `cjk` indices: reindex for the new tokens.** The `cjk`
+  tokenizer now splits non-CJK runs on word boundaries and drops
+  punctuation (`revenue,` is `revenue`; `，` is no longer a token) (#3377).
+  Documents indexed before keep the tokens they were written with, so
+  reindex an index with an explicit `cjk` analyzer. Indices that
+  `xerj autoindex` built keep their analyzer until they are reindexed.
+- **Keyword sub-fields match whole values, as in Elasticsearch.**
+  `multi_match "fruit"` no longer matches `meta.tag: "Fruit"` (#3464).
+  `match title.raw: "World"` no longer hits `"Hello World"` (#3488). A
+  `match` on a sub-field that is not mapped (`title.raw` when only
+  `title.keyword` exists) now finds nothing; after a flush it used to
+  search the parent `title` (#3515).
+- **Normalizers are supported (#3529).** A `keyword` field can name the
+  built-in `lowercase` normalizer or a `custom` one built from
+  `lowercase`, `uppercase`, `asciifolding` and `trim`. Still a 400
+  `mapper_parsing_exception`: an unknown name, any other filter, char
+  filters, a normalizer on a non-keyword field, and changing a field's
+  normalizer on put-mapping. rc.104 accepted a `normalizer` name on a
+  field and ignored it; an index created that way keeps its case-sensitive
+  behaviour after the upgrade. Reindex into a new index to get normalized
+  values.
+- **`dynamic: false` and `dynamic: strict` are honoured (#3514).**
+  `strict` refuses a document with an undeclared field (400
+  `strict_dynamic_mapping_exception`) on `_bulk`, `_doc`, `_create` and
+  `_update`. Under `false`, a new field stays in `_source` but is not in
+  `GET _mapping` and cannot be searched or aggregated. The setting is read
+  from the stored mapping when an index opens, so an existing index with
+  such a mapping changes on upgrade.
+- **Requests that answered 200 and now answer 400**, as in Elasticsearch:
+  - a `pit` search on `/{index}/_search`, or an `_msearch` item with a
+    `pit` that names an index (#3398);
+  - a `collapse.inner_hits` block with no `name` (#3321);
+  - a value of the wrong type for a boolean, ip or date field in `term`,
+    `terms`, or `match` / `multi_match` / `query_string` without `lenient`
+    (#3511); with `lenient: false`, or a `prefix*` field pattern without
+    `lenient: true`, a value that does not parse for a field (#3463);
+  - `function_score` `field_value_factor` with no `missing` when a scored
+    document has no value (#3512); set `missing` to keep the old ranking;
+  - a document that `dynamic: strict` refuses (#3514, above);
+  - `geotile_grid` / `geohash_grid` that would return more cells than
+    `search.max_buckets` (#3400); they dropped cells silently before.
+- **New 429s near the memory limit.** `_forcemerge` (#2917), a cold kNN
+  segment read (PR #3328) and the semantic embedding step of a `_bulk`
+  group (PR #3338) now answer 429 `circuit_breaking_exception` when they
+  would cross the limit, where they used to allocate anyway (refs #2427).
+- **Scores and order can change.** A filter-only `bool`, and a boost over
+  one, scores 0.0 in every state, as in ES (#3508, #3524). `term` on a text
+  field also matches analysed tokens now, as `terms` does (#3259, PR
+  #3315). `function_score` ties break by `_seq_no` (#3506). New segments
+  use the #3007 field lengths.
+- **Other behaviour changes.** `_msearch` items that stop at their
+  deadline say `timed_out: true` (#2497). A second SIGINT or SIGTERM
+  exits at once (130 / 143), and the
+  first one is bounded by `--shutdown-timeout` (default 30 s) (#3418). The
+  Helm chart's `NOTES.txt` reads `/data/admin.key` (#3461). `xerj
+  autoindex` `txt-lines` blocks keep blank lines; existing indexes keep
+  their old blocks until the file changes or you run with `--fresh`
+  (#3333).
+
 ### Added
 
 - **Keyword normalizers
@@ -29,6 +153,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   changing a field's normalizer on put-mapping. This replaces the #3513
   refusal below for the supported normalizers. Indices created before keep
   their mapping as it was.
+
+- **`xerj ask <folder> "question"` (first slice of #1800, PR #3440).**
+  The command starts
+  or reuses a node, indexes the folder with the normal `xerj autoindex`
+  pipeline, and answers with `xerj search` passages and `file:line`
+  citations; no config file, no separate index step. `--no-reindex`
+  answers a follow-up without another autoindex pass. Measured on a
+  506 MB code folder (16,308 files admitted): 430.1 s cold on a fresh
+  node, 8.9 s for a re-ask with no change, 0.49 s with `--no-reindex`
+  (load 43-62).
+
+- **`xerj trace <session.jsonl>` (#1789, PR #3442).** Reads any
+  agent-harness JSONL, lists the hub answers in the session with the tool
+  call each belongs to, and checks their evidence receipts. With `--repo
+  <checkout>`, every hit and citation is re-read at its pinned commit and
+  checked byte for byte; `--json` for scripts. A first part of #1789,
+  which stays open.
+
+- **`explain: true` on native search adds a per-field score breakdown
+  (partial #1798, PR #3416).** Each hit of `POST /v1/indices/{name}/search` gets
+  `_score_breakdown` with the score each field contributed, how they
+  combine, and any unattributed rest. The numbers are the same before and
+  after `_flush`.
+
+- **`xerj mcp --http` and `xerj_references` (#3066, #2756, first part of
+  #1791, PR #3337).** `xerj mcp --http` serves the MCP tools over
+  Streamable HTTP at
+  `http://127.0.0.1:9330/mcp`, read-only unless `--allow-writes`. A
+  non-loopback bind refuses to start without a bearer token
+  (`XERJ_MCP_TOKEN` or `--token-file`), and a non-loopback `Origin` gets
+  403 unless allowed. stdio stays the default. `xerj_references` returns
+  every indexed line that names an exact identifier, with definitions
+  listed apart. `xerj init` prints the URL-client setup. The MCP server
+  lists 25 tools with a hub key and 22 without.
+
+- **Agent memory: validity windows and as-of recall (#1792, PR #3334).**
+  Memory store takes optional `valid_from` / `valid_to`; `_recall` takes
+  `as_of` (default now) in every recall mode. Storing the same `id` again
+  with `valid_to` retracts a fact. A namespace that never stored a bound
+  recalls as before. The same PR adds `xerj eval`, which scores the
+  `xerj search` body against a qrels file (partial #1798, which stays
+  open).
+
+- **`_msearch?batch_timeout=<time>` (the batch-search half of #2497, PR
+  #3327).** One deadline for
+  the whole `_msearch`; items it does not reach answer `timed_out: true`
+  without running. `_msearch` items now carry the engine's `timed_out`
+  instead of a fixed `false`. MCP `xerj_batch_search` and
+  `xerj batch-search` send `batch_timeout=25000ms`, so a slow item fails
+  alone as `search_incomplete` instead of losing the whole batch: 20
+  `regexp` items over 250k docs went from 0 of 20 answered (client timeout
+  at 30 s) to 8 complete, 1 partial and 11 marked timed out at 25.01 s.
+
+- **MCP search tools name the embedder (#2513, PR #3312).** `xerj_search`,
+  `xerj_semantic_search`, `xerj_hybrid_search` and `xerj search --json`
+  carry `_xerj.embed_mode` from the node's `GET /v1/embedding/identity`,
+  and add a `lexical_embedder` hint when a natural-language question ran
+  on a lexical node. Each release now gets a frozen
+  `mcp-tools-<version>.json` (#3286), and `xerj init` prints setups for
+  desktop agents that take an `mcpServers` block (#2965).
 
 ### Changed
 
@@ -64,9 +248,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Two fixes on the way: a `bool` `should` clause on an object sub-field no
   longer drops its matches after `_flush`, and unflushed documents now match
   a sub-field inside an array of objects (`meta: [{note: …}]`).
+  Measured on 200k documents with one object field (PR #3482, load 24-45):
+  `multi_match` on `*` p50 539-661 ms → 3.9-5.1 ms, a field-less
+  `query_string` 526-745 ms → 4.1-4.6 ms, `match meta.note` 489-605 ms →
+  2.0-2.2 ms. The index grew from 50 MB to 62 MB (+24%), the cost of the
+  leaf postings.
 
 - **`search.max_buckets` counts the buckets a search returns, not the
-  distinct keys a `terms` aggregation sees (#3362).** A top-10 over a field
+  distinct keys a `terms` aggregation sees (#3362, PRs #3383 #3389).** A top-10 over a field
   with more than 65,536 distinct values (user IDs, IPs) is served with exact
   counts, as in Elasticsearch: over 100,000 distinct keys, `terms size:10`
   answers 200 with `sum_other_doc_count` 99,991. Only a request whose kept
@@ -110,7 +299,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   An explicit `cjk` mapping keeps ES's unfolded behaviour. Existing indices
   keep their analyzer until reindexed.
 
-- **Hybrid queries read `_source` for the returned page only (#3018).** The
+- **Hybrid queries read `_source` for the returned page only (#3018, PRs #3366 #3392).** The
   BM25 and kNN legs now return ids, scores and `seq_no`s, fusion moves hits
   instead of copying them, and only the `size` page documents are read
   afterwards, as the version each leg scored. If a page document was
@@ -140,18 +329,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   peak did not move (1,014-1,056 MB both ways). Inputs without mixed fields
   see no difference.
 
+- **Unflushed documents score BM25 for `multi_match`, `match_phrase`,
+  `bool`, `query_string` and `simple_query_string` (#3329, #3349, PRs
+  #3350 #3363).** These scored a flat 1.0 per matched field until `_flush`,
+  so an index that was not flushed came back in doc-id order. They now
+  score the same before and after a flush (13 query shapes each, memtable
+  vs flushed vs merged). BEIR SciFact through `xerj eval`, 5,183 docs not
+  flushed: nDCG@10 0.1933 → 0.6230. A keyword `term` leaf still takes the
+  doc scan before a flush (follow-up). The `xerj search` body on a prose,
+  markdown or log index no longer adds the code-corpus coverage clauses
+  (#3007): `xerj eval` SciFact nDCG@10 0.6229 → 0.6550, NFCorpus 0.2980 →
+  0.3058 (paired randomization, p = 0.002 and 0.008). Code corpora keep
+  the old body.
+
+- **`xerj search` and `xerj code` ranking for agents (#2580, #2513, #1788,
+  PRs #3336 #3367).** A run of two or more CJK characters gets a phrase
+  clause (`雷同`: target rank 3 → 1). On a code corpus, a question that
+  reads as words ranks README, docs, demo and markdown files at half score
+  behind source; one-token lookups are unchanged. `xerj code` adds an
+  identifier lane (snake/camel/Pascal spellings of 2-6 words) and an
+  exact-ID lane: held-out identifier questions 0.2556 → 0.4856, 56 wins /
+  0 losses (p = 0.0001). The proposed name lane was dropped because it
+  cost +135% `took` p50. Client side only; ES `_search` is unchanged.
+
+- **`term` on a multi-valued keyword is answered from the FTS dictionary
+  (#3412, #3455, #3456, PRs #3443 #3459).** A keyword that is an array in
+  any document of a segment has no doc-values column, so every segment
+  decoded its stored section. On 992,000 documents in 496 segments: warm
+  `term` miss 1698 ms → 1.2 ms, `_count` 1934 ms → 0.6 ms, 8 clients p50
+  1940 ms → 9.3 ms (3.9 → 115.5 queries/s, load 6-11). FTS readers stay
+  resident when stored scans fill the cache budget, so a `bool` of two
+  terms stays at 13.5-14.8 ms instead of 200-207 ms after one stored scan.
+  `term` on autoindex's `ax_paths` on a 1.1 GB index: 13.4-14.0 s → 5.2 ms.
+
+- **More `size: 0` aggregations come from doc values (#3444, #3466,
+  #3467, #3476, #3510, PRs #3451 #3474 #3475 #3499 #3522).** A filter-only
+  `bool` of fast leaves, a numeric `term` filter, a filtered
+  `date_histogram`, and indices with overwritten rows still waiting for a
+  merge now use the columnar path instead of copying every `_source`.
+  Requests that answered 429 at the 512 MB query cap now answer 200:
+  filter-only `bool` + `terms` 1111-1631 ms → 13.4-17.2 ms (load 23-34);
+  filtered `date_histogram` on 300k docs 143-182 ms right after a cache
+  clear, 8-31 ms warm (load 37-65); 4 clients on an overwritten index
+  went from 18,369 of 18,369 requests answering 429 to 6,739 of 6,739
+  answering 200, p99 15-114 ms. Response hashes match the brute path.
+
+- **GET and `_mget` on a cold segment decode one row (#3498, PR #3503).**
+  They decoded the segment's whole stored section per call. 100k docs in
+  2 segments: cold GET p50 87.1-88.1 ms → 37.9-43.6 ms, cold `_mget` of 50
+  ids 79.3-113.3 ms → 39.4-50.1 ms. A burst that starts cold is 20-40%
+  slower in wall time (106-153 ms against 79-109 ms) while the first warm
+  runs.
+
+- **`bool` under concurrent writes stops decoding every match (#3331, PR
+  #3335).** When the doc-values count is exact, each segment's residual
+  pass stops at its own best page. Mixed read/write run, 300k preload,
+  60 s × 3: `bool` p50 2518 → 197 ms median, requests per run 9 → 59
+  (load 30-83). Flush fsyncs are batched outside the finalize gate (no
+  end-to-end win measured yet).
+
+- **Memory governor (refs #2427, #3480, PRs #3408 #3481).** The hydration
+  cache is sized to the room left under the watermark, and from 80% of the
+  watermark freed pages go back to the OS at most every 250 ms, on its own
+  thread so the memory sampler is not held. On the 1 GB gate: peak RSS
+  4,535 → 3,848 MB, samples over the cap 32.7% → 11.4%. #2427 stays open:
+  the node still goes over the 3,072 MB cap.
+
+- **`_refresh` publishes shards concurrently (#2929, PR #3354).** With
+  10 ms injected per fsync, finalize-catalog-commit on 449 files went from
+  4.59-5.39 s to 1.28-1.45 s. Not measured on Windows; #2929 stays open.
+
+- **`xerj autoindex` syncs a snapshot in one batch (#3449, PR #3457).**
+  Each file paid two `fsync`s while sealing a snapshot and two `fdatasync`s
+  in the journal; now staged files are synced in one batch before
+  `manifest.json`, and the `Committed` journal record is not synced on its
+  own. Durability at `manifest.json` and the final rename is unchanged.
+
+- Version `1.0.0-rc.105`; landing footer stamps follow.
+
 ### Fixed
 
-- **A field mapping that names a `normalizer` is refused
-  ([#3513](https://github.com/xerj-org/xerj/issues/3513)).** XERJ builds no
-  normalizers. A custom one under `analysis.normalizer` was already refused,
-  but `"normalizer": "lowercase"` (or any name) on a keyword field or
-  multi-field was accepted and then ignored, so `match tag: "fruit"` found
-  nothing for `"Fruit"`. Create-index and put-mapping now answer 400
-  `mapper_parsing_exception` and create nothing. Upgrade note: a client that
-  sent such a mapping got a case-sensitive field before and gets a 400 now;
-  drop the normalizer or index a lowercased copy. Indices that already exist
-  keep opening.
+- **A field mapping that names a `normalizer` XERJ does not build is
+  refused ([#3513](https://github.com/xerj-org/xerj/issues/3513)).** rc.104
+  accepted any `normalizer` name on a keyword field or multi-field and then
+  ignored it, so `match tag: "fruit"` found nothing for `"Fruit"`. The
+  normalizers listed under Added (#3529) now work; any other name answers
+  400 `mapper_parsing_exception` on create-index and put-mapping and
+  creates nothing. Indices that already exist keep opening, with the
+  behaviour they had.
 
 - **`function_score` with `field_value_factor` returns the same tied page on
   every path ([#3506](https://github.com/xerj-org/xerj/issues/3506)).** The
@@ -251,7 +516,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   opaque field-less `query_string` reports `"sum"`.
 
 - **`_forcemerge` respects the process memory cap and survives a dropped
-  client (#2917).** A forced merge was exempt from every memory rule. It now
+  client (#2917, PRs #3395 #3407).** A forced merge was exempt from every memory rule. It now
   waits out an engaged breaker before it starts, stops (inputs kept) when RSS
   reaches the process limit or before an input decode that would reach it,
   and its output write is refused when it would end past the watermark. After
@@ -275,7 +540,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that merged part of its batches per pass got a 429 on its third pass, half
   merged. Only passes in a row that merge nothing now count towards it.
 
-- **Every node a client starts now leads its own session (#3267).** The hub's
+- **Every node a client starts now leads its own session (#3267, PR #3390).** The hub's
   pack node, background `xerj hub pull`s and the server `xerj brain` boots
   were only put in their own process group, so they stayed in the
   terminal's session and could still get SIGHUP (with SIGCONT, once their
@@ -289,7 +554,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   written up in [docs/LOCAL_NODE.md](docs/LOCAL_NODE.md).
 
 - **An MCP or CLI call no longer waits 120 s for a node that is shutting
-  down (#3267).** After SIGTERM a node closes its port and then flushes, for
+  down (#3267, PR #3390).** After SIGTERM a node closes its port and then flushes, for
   ~11 s in one run. An auto-start in that window found `node.lock` held by a
   live pid and waited for that pid to answer. It never would, so the wait ran
   the full 120 s and the call failed. The client now starts the node as soon
@@ -311,14 +576,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the prefix see the indices empty until the rebuild finishes. `--dry-run`
   still only reports.
 
-- **`profile: true` requests always run fresh again (#3315, #3020).** Since
+- **`profile: true` requests always run fresh again (#3315, #3020, PR #3382).** Since
   #3315 a repeated identical profile request was answered from the
   whole-response cache, with the first run's timings. Profile requests now
   never use that cache, as in ES. `profile.shards[*].request_cache` is kept
   and always reads `"bypass"` on a profile response.
 
 - **Searches no longer wait on WAL and snapshot fsyncs while bulk writes run
-  (refs #3324 #3331).** Three code paths held the collection-publication
+  (refs #3324 #3331 #3351, PRs #3352 #3385).** Three code paths held the collection-publication
   bracket (every search on the index waits while it is open) across disk
   waits. A flush kept its bracket open through post-publish maintenance
   (snapshot fsync, WAL rotate and prune). `_bulk` opened its bracket before
@@ -337,6 +602,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (load 14-46). Writer throughput went from 34-50k to 53-66k docs/s.
   Holds and waits of 1 s or more (`XERJ_STALL_TRACE_MS` sets the threshold)
   are now logged at WARN with the holder's call site.
+  A merge also disarms its inputs (five fsyncs) before it opens the
+  bracket, option 1 of the two on #3351, which stays open for option 2:
+  bracket held per merge, median 2243-2566 ms → 363-875 ms over 3 runs
+  each (load 38-67).
 
 - **A `range` bound under `format: date_optional_time` (or
   `date_optional_time_nanos`) whose year is too far from 1970 for epoch
@@ -347,7 +616,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `parse_exception`. Only a bare year is covered: a value that does not
   parse at all and the strict formats keep `parse_exception`, as in
   Elasticsearch, and so, unlike Elasticsearch, do such a year followed by a
-  month (`522000000-01-01`) and a `uuuu` pattern.
+  month (`522000000-01-01`) and a `uuuu` pattern. (PR #3454, thanks
+  @jelbirt.)
 
 - **Short Chinese, Japanese, and Korean document bodies are searchable
   after autoindexing (#3330).** Autoindex now maps these bodies as text
@@ -362,6 +632,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   searched the PIT's indices and ignored the named ones. One such `_msearch`
   item fails the whole request, and the reason lists every such item.
   `/_search` and `_msearch` items that name no index run as before.
+  (PR #3398, thanks @jelbirt.)
 
 - **A collapsed `_search` or `_msearch` whose `collapse.inner_hits` block has
   no `name` is refused with a 400**, as Elasticsearch 8.13 refuses it
@@ -369,7 +640,110 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "inner_hits must have a [name]..."). `_search` ran the search and listed
   the group's hits under a made-up `inner_hits` key; `_msearch` ran it
   ungrouped. Every entry of an `inner_hits` array is checked; one unnamed
-  block fails a whole `_msearch`.
+  block fails a whole `_msearch`. (PR #3321, thanks @jelbirt.)
+
+- **`dynamic: false` and `dynamic: strict` work as in Elasticsearch
+  (#3514, PR #3552).** The mapping root's setting was stored but never
+  applied. Under `false`, `term r: 3` on an undeclared field found 1 doc,
+  `exists r` 6 and `terms r` 6 buckets; all now find nothing and the field
+  is not in `GET _mapping`, in the memtable and after `_flush`. Under
+  `strict`, `PUT {z: 1}` answered 201 and now answers 400
+  `strict_dynamic_mapping_exception` with ES's sentence. An object's own
+  `dynamic` overrides its parent's. Not covered yet (follow-up): an
+  object-level `false` under a `true` root, `dynamic: runtime` (mapped
+  like `true`), and masking in `filter` / `filters` / `adjacency_matrix`
+  aggs and `fields`.
+
+- **Full-text queries on an unmapped sub-field find nothing (#3515, PRs
+  #3527 #3534).** `match title.raw` where `title` is dynamic `text` with
+  only `.keyword` returned 0 hits before `_flush` and searched the parent
+  `title` after it; `constant_score` and other doc-scan routes did so on
+  both sides. Every route now returns no hits, as ES does. Thanks
+  @wasabihu.
+
+- **Filter-context scores match ES in every state (#3524, PR #3567).**
+  `bool{filter, boost: 2}` scored 2.0 (ES: 0.0); a no-`must` `bool` whose
+  `should` did not match scored 1.0 (ES: 0.0); a memtable doc under
+  `constant_score{boost: 3.5}` scored 1.0 on a sorted page while segment
+  docs scored 3.5. A page's order no longer changes at `_flush`. A numeric
+  `range` filter with `should` clauses and no `must` now uses the FTS path
+  on segments: at a range that admits 20% of 200k docs, p50 81.4 ms →
+  9.1 ms (load 2.8-3.7), same hit totals.
+
+- **One-letter `match` and range-filter `bool`s keep their hits after
+  `_flush` (#3507, PR #3518).** `bool{must:[match t: "a"], filter:[range]}`
+  returned 3 hits from the memtable and 0 after `_flush`, and
+  `must_not: match "a"` excluded nothing. Two more flushed-path `bool`
+  bugs found by a new randomized parity test are fixed too (a skipped
+  filter left `should` required). All four probe shapes now give ES's
+  counts in both states.
+
+- **A count shortcut no longer cuts the stored scan short when scores
+  differ (#3497, #3509, PRs #3502 #3521).** `bool{should:[term, range]}`
+  took its count from doc values and kept earlier, lower-scoring docs:
+  over 90 segments `size: 1` returned `d00001` where the full order starts
+  with `d00003`. The scan now stops early only when a per-clause score
+  bound proves the rest cannot win (WAND/MaxScore style). `bool should
+  [term, range]` runs in 12.8-19.5 ms; the first correct version took
+  291-458 ms (load 28-52).
+
+- **A multi-index `terms` aggregation picks the global top terms (#2935,
+  PR #3361).** Each index cut to `size` before the merge, so `size: 1`
+  over two indices returned two buckets, `[1, 2]`, where the true top is
+  `3` with 18 docs. Each index now sends bounded candidates to a
+  coordinator. Built on @parijat1222q's #2957; thank you.
+
+- **Multi-index `value_count` is an integer and geo grids count returned
+  cells (#3399, #3400, PR #3404).** `value_count` over two indices returned
+  `105.0`; it returns `105`. `geotile_grid` and `geohash_grid` stopped
+  adding cells at `search.max_buckets` and dropped the rest silently; they
+  now apply the cap after the `size` cut and answer 400
+  `too_many_buckets_exception` past it, as #3362 does for `terms`.
+
+- **CJK hits are highlighted (#3322, PR #3326).** A Han, kana or Hangul
+  neighbour now ends a word for the highlighter, so `北京` inside
+  `我喜欢北京的天气` is tagged; before, CJK fields had no highlight. Latin
+  rules are unchanged. The same PR stops a node answering `503
+  node_starting_exception` after `/health/ready` was already 200 (#3323).
+
+- **A node stops on one SIGINT or SIGTERM in bounded time (#3418, PR
+  #3441).** A SIGINT during startup could be dropped (a node served on for
+  94 s after it), and a second signal was swallowed. The handler is now
+  installed before the engine opens; the first signal gets one budget,
+  `--shutdown-timeout` / `XERJ_SHUTDOWN_TIMEOUT_SECS` (default 30 s); a
+  second signal exits at once with 130 (SIGINT) or 143 (SIGTERM); a forced
+  exit fsyncs pending WAL batches first. Second SIGINT 1 s after the first:
+  30.1 s → 1.0 s to exit.
+
+- **Object storage flushes no longer hang (#3353, PR #3384).** tokio
+  1.52.0's `spawn_blocking` could leave a task waiting with an idle thread,
+  and `object_storage_e2e` hung at the 300 s flush budget in 10 of 50 runs.
+  `Cargo.lock` moves to tokio 1.53.2: 0 of 50 hang.
+
+- **`xerj search` on a code file puts the matching symbol before the file
+  record (#3378, PR #3387).** The whole-file record matched every word, so
+  a question about what a function does landed on it; the CLI now runs one
+  bounded extra pass for that file's symbols (the MCP `xerj_search` does
+  not get it yet, follow-up). Installers re-run while an MCP client keeps
+  `xerj.exe` running now rename the running file aside, or print `already
+  up to date` when nothing changed (#3379).
+
+- **The console's empty Corpus page names the served data directory
+  (#2409, PR #3313).** `GET /_xerj-console/api/v1/knowledge` returns
+  `data_dir` (owner and admin sessions only) and `data_dir_hint`, and the
+  empty state shows them, so a node started on a new data directory says
+  where it is looking.
+
+- **The autoindex status line keeps legacy dataset counts in a mixed
+  catalog (#3059, PR #3154).** A catalog with one untagged dataset and one
+  from an older run returned no datasets, so the summary dropped the
+  dataset count. Untagged docs are kept when no doc matches the latest
+  run. Thanks @Ganesh2325.
+
+- **Helm `NOTES.txt` reads the admin key from the real data directory
+  (#3461, PR #3485).** The notes said `/var/lib/xerj/admin.key`; the key is
+  at `/data/admin.key`. One value, `persistence.mountPath` (default
+  `/data`), now sets `--data-dir`, the volume mount and the notes.
 
 ## [1.0.0-rc.104] - 2026-11-18
 
