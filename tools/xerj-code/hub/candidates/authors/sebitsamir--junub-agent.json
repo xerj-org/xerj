@@ -1,0 +1,23 @@
+{
+ "corpus": "sebitsamir--junub-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how sebitsamir/junub-agent implements it: sebitsamir/junub-agent (TypeScript) (selected work: src/lib, test, packages/tools)",
+ "repos": [
+  {
+   "repo": "junub-agent",
+   "url": "https://github.com/sebitsamir/junub-agent",
+   "sha": "535502d52a7e560effb77994380f7ad2faf04ccc",
+   "licence": "Apache-2.0 (LICENSE file at pin 535502d52a7e, GitHub licence API 2026-11-23)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-23T08:59Z",
+    "consent_receipt": "ab115f9dc218",
+    "note": "Inclusion consented by the commit author by email at 2026-11-23T08:59Z (receipt ab115f9dc218); selected commit 535502d52a7e: \"feat: land Phase F foundation and production phase packages\". LICENSE file at pin 535502d52a7e detected as Apache-2.0 by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+   }
+  }
+ ]
+}

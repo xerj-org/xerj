@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-coding, appimage, archlinux queries this for how ilysenko/codex-desktop-linux implements it: Unofficial ChatGPT desktop app for Linux (formerly the Codex app), built locally from OpenAI\u2019s official macOS app. Includes Chat, Work, and  (selected work: linux-features)",
+ "domain": "an agent working on ai-coding, appimage, archlinux queries this for how ilysenko/codex-desktop-linux implements it: Unofficial ChatGPT desktop app for Linux (formerly the Codex app), built locally from OpenAI\u2019s official macOS app. Includes Chat, Work, and  (selected work: scripts, the project root)",
  "repos": [
   {
    "repo": "codex-desktop-linux",
    "url": "https://github.com/ilysenko/codex-desktop-linux",
-   "sha": "72d07202b98c06fc4b0ab0dae0890a33048336e1",
-   "licence": "MIT (LICENSE file at pin 72d07202b98c, GitHub licence API 2026-11-11)",
+   "sha": "e874ea11ba8a72ba842ec1b1edf286f5920808da",
+   "licence": "MIT (LICENSE file at pin e874ea11ba8a, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-13T09:06Z",
-    "consent_receipt": "66776cf8ccdd",
-    "note": "Inclusion consented by the commit author by email at 2026-11-13T09:06Z (receipt 66776cf8ccdd); selected commit 72d07202b98c: \"feat(pet-overlay): support Lua-backed Hyprland Mini (#1686)\". LICENSE file at pin 72d07202b98c detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ilysenko, who has not added it."
+    "at": "2026-10-04T10:27Z",
+    "consent_receipt": "9977d32fd149",
+    "note": "Inclusion consented by the commit author by email at 2026-10-04T10:27Z (receipt 9977d32fd149); selected commit e874ea11ba8a: \"Add optional graphical guided installer (#1546)\". LICENSE file at pin e874ea11ba8a detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ilysenko, who has not added it."
    },
    "paths": [
     ".github/workflows",
