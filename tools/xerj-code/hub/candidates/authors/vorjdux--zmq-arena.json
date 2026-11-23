@@ -8,15 +8,15 @@
   {
    "repo": "zmq-arena",
    "url": "https://github.com/vorjdux/zmq-arena",
-   "sha": "7d1b8698204803b2c098b584436aaf181f92e981",
-   "licence": "author's permission (LICENSE at pin 7d1b86982048: NOASSERTION; repository: Apache-2.0)",
+   "sha": "d27b02a222fb167e9f31201858638572a2bd8878",
+   "licence": "author's permission (LICENSE at pin d27b02a222fb: NOASSERTION; repository: Apache-2.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-13T14:30Z",
     "consent_receipt": "c40743d355e4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T14:30Z (receipt c40743d355e4); pinned to the default-branch head. LICENSE at pin 7d1b86982048: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T14:30Z (receipt c40743d355e4); pinned to the default-branch head. LICENSE at pin d27b02a222fb: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
    }
   }
  ]

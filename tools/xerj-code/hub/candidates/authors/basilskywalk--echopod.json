@@ -2,8 +2,8 @@
  "corpus": "basilskywalk--echopod",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on cover-flow, custom-firmware, dap queries this for how BasilSkyWalk/echopod implements it: Replacement firmware for the Snowsky Echo Mini 8 GB music player: Cover Flow, a library built on the player, favorites, playlists and Up Nex (selected work: src/library, tests, tools)",
+ "shelf": "WEB",
+ "domain": "an agent working on cover-flow, custom-firmware, dap queries this for how BasilSkyWalk/echopod implements it: Replacement firmware for the Snowsky Echo Mini 8 GB music player: Cover Flow, a library built on the player, favorites, playlists, Up Next a (selected work: src/library, tests, tools)",
  "repos": [
   {
    "repo": "echopod",

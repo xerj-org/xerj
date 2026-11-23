@@ -8,15 +8,15 @@
   {
    "repo": "rls-open-check",
    "url": "https://github.com/LarytheLord/rls-open-check",
-   "sha": "79d02cd5d890fd52932e15160e6a89fe93659202",
-   "licence": "MIT (LICENSE file at pin 79d02cd5d890, GitHub licence API 2026-11-21)",
+   "sha": "2fef0c7d7502c3fa5fb30bf6b8a0e4cab367333d",
+   "licence": "MIT (LICENSE file at pin 2fef0c7d7502, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-16T04:12Z",
     "consent_receipt": "48e719615d48",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T04:12Z (receipt 48e719615d48); pinned to the default-branch head. LICENSE file at pin 79d02cd5d890 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T04:12Z (receipt 48e719615d48); pinned to the default-branch head. LICENSE file at pin 2fef0c7d7502 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]
