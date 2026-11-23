@@ -8,15 +8,15 @@
   {
    "repo": "Utility",
    "url": "https://github.com/aryan-dani/Utility",
-   "sha": "f5ad832e58dcff6ee1423e9f6ea90902f2684ebc",
-   "licence": "author's permission (LICENSE at pin f5ad832e58dc: NOASSERTION; repository: NOASSERTION)",
+   "sha": "2d859a378e6b152389d286806b6523494fd60548",
+   "licence": "author's permission (LICENSE at pin 2d859a378e6b: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T06:46Z",
     "consent_receipt": "728056a74eca",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:46Z (receipt 728056a74eca); pinned to the default-branch head. LICENSE at pin f5ad832e58dc: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:46Z (receipt 728056a74eca); pinned to the default-branch head. LICENSE at pin 2d859a378e6b: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

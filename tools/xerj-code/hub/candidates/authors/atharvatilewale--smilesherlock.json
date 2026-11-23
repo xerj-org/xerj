@@ -1,0 +1,23 @@
+{
+ "corpus": "atharvatilewale--smilesherlock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bioinformatics, cheminformatics, chemistry queries this for how AtharvaTilewale/SmileSherlock implements it: A high-performance, production-grade tool for SMILES validation, PubChem lookups, and chemical structure retrieval",
+ "repos": [
+  {
+   "repo": "SmileSherlock",
+   "url": "https://github.com/AtharvaTilewale/SmileSherlock",
+   "sha": "7675490055f083b292f25cb7b1aaea0e5be50c7d",
+   "licence": "MIT (LICENSE file at pin 7675490055f0, GitHub licence API 2026-10-28)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T18:01Z",
+    "consent_receipt": "c05ae489fe7c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:01Z (receipt c05ae489fe7c); pinned to the default-branch head. LICENSE file at pin 7675490055f0 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "arianshayestehfard--persian-text-embedding-comparison-tfidf-word2vec-gemma",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on embeddings, gemma-2b, persian-language queries this for how ArianShayestehfard/Persian-Text-Embedding-Comparison-TFIDF-Word2Vec-Gemma implements it: Linear Algebra project Comparison of TF-IDF, Word2Vec, and Gemma-2B embeddings for Persian text semantic similarity with SVD dimensionality ",
+ "repos": [
+  {
+   "repo": "Persian-Text-Embedding-Comparison-TFIDF-Word2Vec-Gemma",
+   "url": "https://github.com/ArianShayestehfard/Persian-Text-Embedding-Comparison-TFIDF-Word2Vec-Gemma",
+   "sha": "eed4a45bcf0350e514164c209b9b2638599fc682",
+   "licence": "author's permission (LICENSE at pin eed4a45bcf03: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T17:00Z",
+    "consent_receipt": "42bccca52626",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T17:00Z (receipt 42bccca52626); pinned to the default-branch head. LICENSE at pin eed4a45bcf03: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

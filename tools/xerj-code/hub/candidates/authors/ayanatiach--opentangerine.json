@@ -1,0 +1,23 @@
+{
+ "corpus": "ayanatiach--opentangerine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on file-converter, macos, menu-bar-app queries this for how Ayanatiach/OpenTangerine implements it: Open-source macOS radial file converter and image toolkit triggered by Shift + Drag in Finder (selected work: Sources, scripts)",
+ "repos": [
+  {
+   "repo": "OpenTangerine",
+   "url": "https://github.com/Ayanatiach/OpenTangerine",
+   "sha": "2f4e579dcec4c79b4c69900fff628b2c7543d5fd",
+   "licence": "MIT (LICENSE file at pin 2f4e579dcec4, GitHub licence API 2026-10-26)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T03:20Z",
+    "consent_receipt": "1a703742da4e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T03:20Z (receipt 1a703742da4e); selected commit 2f4e579dcec4: \"feat: multi-side crop, background removal engine, continuous squircle\u2026\". LICENSE file at pin 2f4e579dcec4 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+   }
+  }
+ ]
+}

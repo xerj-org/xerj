@@ -1,0 +1,23 @@
+{
+ "corpus": "archimetrix--yt-downloader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio-downloader, audio-downloader-from-youtube, downloader queries this for how Archimetrix/Yt-Downloader implements it: A modern yt videos download engine extension . Download videos with many formats and also download audio seperately (selected work: the project root, popup)",
+ "repos": [
+  {
+   "repo": "Yt-Downloader",
+   "url": "https://github.com/Archimetrix/Yt-Downloader",
+   "sha": "90f51bdb87f305811643103862797dbdc26cbf03",
+   "licence": "Apache-2.0 (LICENSE file at pin 90f51bdb87f3, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:38Z",
+    "consent_receipt": "5ba82151bd9c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:38Z (receipt 5ba82151bd9c); selected commit 90f51bdb87f3: \"sepearate download folder for video and audio added\". LICENSE file at pin 90f51bdb87f3 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

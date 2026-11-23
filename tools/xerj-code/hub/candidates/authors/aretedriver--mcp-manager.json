@@ -1,0 +1,23 @@
+{
+ "corpus": "aretedriver--mcp-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, developer-tools, mcp queries this for how AreteDriver/mcp-manager implements it: Discover, diagnose, health-check, and safely sync MCP server configurations across AI development tools",
+ "repos": [
+  {
+   "repo": "mcp-manager",
+   "url": "https://github.com/AreteDriver/mcp-manager",
+   "sha": "acff39d75d0228f602b0951e84a36c3ae21db8c4",
+   "licence": "MIT (LICENSE file at pin acff39d75d02, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T09:45Z",
+    "consent_receipt": "97fb88208e51",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T09:45Z (receipt 97fb88208e51); pinned to the default-branch head. LICENSE file at pin acff39d75d02 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

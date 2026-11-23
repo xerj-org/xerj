@@ -1,0 +1,34 @@
+{
+ "corpus": "auracontent--auracontent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-video, ai-video-production, content-automation queries this for how Auracontent/auracontent implements it: \ud83c\uddec\ud83c\udde7 Automated faceless short-video factory: LLM-written, fact-checked scripts, AI voiceover, stock & archive visuals, FFmpeg editing, and aut (selected work: auracontent, tests, scripts)",
+ "repos": [
+  {
+   "repo": "auracontent",
+   "url": "https://github.com/Auracontent/auracontent",
+   "sha": "3e92fb3d8d1134662d8770677cbe701187bf21b7",
+   "licence": "MIT (LICENSE file at pin 3e92fb3d8d11, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T14:22Z",
+    "consent_receipt": "94aa6c2be1cf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T14:22Z (receipt 94aa6c2be1cf); selected commit 3e92fb3d8d11: \"feat(mystery): carte anim\u00e9e \u00ab o\u00f9 \u00e7a se passe \u00bb (lot 1)\". LICENSE file at pin 3e92fb3d8d11 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Auracontent, who has not added it."
+   },
+   "paths": [
+    "assets/shared/maps",
+    "auracontent/channels/mystery",
+    "auracontent/core",
+    "auracontent/services/publishing",
+    "auracontent/services/scraping",
+    "auracontent/services/visuals",
+    "config/channels",
+    "scripts",
+    "tests"
+   ]
+  }
+ ]
+}

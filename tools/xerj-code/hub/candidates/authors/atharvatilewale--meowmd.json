@@ -1,0 +1,23 @@
+{
+ "corpus": "atharvatilewale--meowmd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on JavaScript queries this for how AtharvaTilewale/meowmd implements it: MeowMD \u2013 The Purrfect Markdown Workspace",
+ "repos": [
+  {
+   "repo": "meowmd",
+   "url": "https://github.com/AtharvaTilewale/meowmd",
+   "sha": "a4055b0bdc6573560e42b441220bf137c8a58b28",
+   "licence": "MIT (LICENSE file at pin a4055b0bdc65, GitHub licence API 2026-10-28)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T18:01Z",
+    "consent_receipt": "2de373c39b9d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:01Z (receipt 2de373c39b9d); pinned to the default-branch head. LICENSE file at pin a4055b0bdc65 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "archaonhw--starmusic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how ArchaonHW/StarMusic implements it: \u5ee3\u64ad\u3001\u65b0\u805e\u3001TV\u3001\u96dc\u8a8c\u3001\u8cfc\u7269\u3001\u6703\u54e1",
+ "repos": [
+  {
+   "repo": "StarMusic",
+   "url": "https://github.com/ArchaonHW/StarMusic",
+   "sha": "2ca5c18859ee5f34e325d765fe6d1a478610adf3",
+   "licence": "MIT (LICENSE file at pin 2ca5c18859ee, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T19:53Z",
+    "consent_receipt": "a43e4205b9fd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt a43e4205b9fd); pinned to the default-branch head. LICENSE file at pin 2ca5c18859ee detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

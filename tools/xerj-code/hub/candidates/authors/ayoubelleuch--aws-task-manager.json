@@ -1,0 +1,23 @@
+{
+ "corpus": "ayoubelleuch--aws-task-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on aws, aws-lambda, cloudfront queries this for how AyoubElleuch/aws-task-manager implements it: Serverless task manager on AWS: React/TypeScript frontend, Cognito auth, API Gateway + Lambda + DynamoDB, CloudFront, Terraform IaC, and Git",
+ "repos": [
+  {
+   "repo": "aws-task-manager",
+   "url": "https://github.com/AyoubElleuch/aws-task-manager",
+   "sha": "8c4c98716064700dc42644ae03873cb3da8c30a6",
+   "licence": "MIT (LICENSE file at pin 8c4c98716064, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T00:15Z",
+    "consent_receipt": "caadbbbb5ee8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:15Z (receipt caadbbbb5ee8); pinned to the default-branch head. LICENSE file at pin 8c4c98716064 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

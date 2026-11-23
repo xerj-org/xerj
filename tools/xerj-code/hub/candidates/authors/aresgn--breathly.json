@@ -1,0 +1,23 @@
+{
+ "corpus": "aresgn--breathly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on browser-extension, disk-cleanup, linux queries this for how AresGn/Breathly implements it: Let your PC breathe \ud83c\udf2c\ufe0f Free, open-source tool that explains why your PC is slow and fixes it safely: diagnosis, safe disk cleanup, tab sleep (selected work: apps/desktop, the project root)",
+ "repos": [
+  {
+   "repo": "Breathly",
+   "url": "https://github.com/AresGn/Breathly",
+   "sha": "2ef0d7dbf195f2d2d629d7963af5e95b0cc5d6f4",
+   "licence": "MIT (LICENSE file at pin 2ef0d7dbf195, GitHub licence API 2026-10-26)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T01:30Z",
+    "consent_receipt": "d94c24ff15ad",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T01:30Z (receipt d94c24ff15ad); selected commit 2ef0d7dbf195: \"feat(desktop): coquille Tauri et SvelteKit, mesures P4, verrou confor\u2026\". LICENSE file at pin 2ef0d7dbf195 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+   }
+  }
+ ]
+}
