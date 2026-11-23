@@ -597,9 +597,12 @@ async fn documented_gaps_are_still_open_and_still_documented() {
     .await;
     assert!(status.is_success(), "index doc 2 failed: {status} {body}");
 
-    // GAP 2 — the FIELD-LESS arms of the stored-document scan are schema-free
-    // and walk every `_source` key, so a token living only in an unsearchable
-    // field still matches when NO field is named.
+    // GAP 2 CLOSED for `query_string` (#3413) — an unqualified term now
+    // resolves `*` against the mapping (searchable text and keyword fields
+    // only, ES's `isSearchable()` rule) instead of reaching the schema-free
+    // stored-document scan, so a token living only in `note` no longer
+    // matches. `more_like_this` keeps the field-less scan and is only checked
+    // for its status here.
     for query in [
         json!({ "query_string": { "query": "zzquagga" } }),
         json!({ "more_like_this": { "like": ["zzquagga"], "min_term_freq": 1, "max_query_terms": 5 } }),
@@ -610,17 +613,15 @@ async fn documented_gaps_are_still_open_and_still_documented() {
     let (_, body) = search(&app, json!({ "query_string": { "query": "zzquagga" } })).await;
     assert_eq!(
         body.pointer("/hits/total/value").and_then(Value::as_u64),
-        Some(1),
-        "GAP 2 changed — the field-less scan no longer reaches `note`, \
-         update the CHANGELOG: {body}"
+        Some(0),
+        "#3413: a field-less `query_string` must not reach the unsearchable \
+         `note`: {body}"
     );
 
-    // GAP 3 — GAP 2 reached through a WILDCARD `fields` spec. A pattern is
-    // never an error (that half is ES's rule and is deliberate), but in
-    // `query_string` a pattern lowers to the field-less `"*"` placeholder,
-    // so it is answered by the schema-free scan and still matches through
-    // `note`. Identical on `main`, and the CHANGELOG says so instead of
-    // claiming a pattern is "answered over the searchable fields".
+    // GAP 3 CLOSED (#3413) — the same through a WILDCARD `fields` spec. A
+    // pattern is never an error (ES's rule), and in `query_string` it lowers
+    // to `match` on the pattern, which the engine now expands over the
+    // searchable fields, so it no longer matches through `note`.
     //
     // `simple_query_string` with `["*"]` no longer belongs here (#2427): it
     // now lowers to the same node as an ABSENT `fields`, which the segment's
@@ -643,12 +644,11 @@ async fn documented_gaps_are_still_open_and_still_documented() {
     );
     for query in [json!({ "query_string": { "query": "zzquagga", "fields": ["*"] } })] {
         let (status, body) = search(&app, query.clone()).await;
-        assert_eq!(status, StatusCode::OK, "GAP 3 changed for {query}: {body}");
+        assert_eq!(status, StatusCode::OK, "{query}: {body}");
         assert_eq!(
             body.pointer("/hits/total/value").and_then(Value::as_u64),
-            Some(1),
-            "GAP 3 changed for {query} — the wildcard form no longer reaches \
-             the field-less scan, update the CHANGELOG: {body}"
+            Some(0),
+            "#3413: {query} must not reach the unsearchable `note`: {body}"
         );
     }
 

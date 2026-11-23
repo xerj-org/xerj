@@ -86,6 +86,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Native `q` and `multi_match` on `*` find documents again (#3413).**
+  `multi_match` with `fields: ["*"]`, which is what the native search `q`
+  parameter sends, matched nothing, so every `q` search returned 0 hits. A
+  `*` or `title*` field pattern in `multi_match`, and the unqualified terms of
+  a `query_string` with no `default_field`, now resolve to the mapped `text`
+  and `keyword` fields the pattern names, as in Elasticsearch. Numeric,
+  boolean, date and ip fields are not searched through a pattern. A
+  field-less `query_string` now ranks by BM25 (a per-term `dis_max` over those
+  fields) instead of counting matched terms, before and after `_flush`. A
+  `query_string` with a `default_field` no longer matches other fields in
+  unflushed documents. Because the pattern resolves against the mapping, a
+  field-less or `fields: ["*"]` `query_string` no longer matches through an
+  `index: false` field, a gap listed when `index` on the mapping started to be
+  honoured (`more_like_this` without `fields` still reaches it). A
+  `multi_match` over text and keyword fields now highlights its matches; it
+  highlighted nothing before. With
+  `explain: true`, a field-less clause reports
+  `combine: "other"` only because its terms take the best field, and an
+  opaque field-less `query_string` reports `"sum"`.
+
 - **`_forcemerge` respects the process memory cap and survives a dropped
   client (#2917).** A forced merge was exempt from every memory rule. It now
   waits out an engaged breaker before it starts, stops (inputs kept) when RSS

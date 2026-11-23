@@ -27472,6 +27472,7 @@ impl Index {
                     QueryNode::MultiMatch { .. }
                         | QueryNode::MatchPhrase { .. }
                         | QueryNode::Bool { .. }
+                        | QueryNode::QueryString { .. }
                 ) {
                 mem.default_analyzer()
             } else {
@@ -44933,6 +44934,15 @@ fn collect_highlight_terms(query: &QueryNode, out: &mut Vec<String>) {
                 collect_highlight_terms(q, out);
             }
         }
+        // A `best_fields` `multi_match` over text and keyword fields reaches
+        // here as a `dis_max` (#572), and since #3413 so does every
+        // unqualified `query_string` term and native `q`. Without this arm
+        // they highlighted nothing.
+        QueryNode::DisMax { queries, .. } => {
+            for q in queries {
+                collect_highlight_terms(q, out);
+            }
+        }
         QueryNode::Boosted { query, .. }
         | QueryNode::Constant { query, .. }
         | QueryNode::FunctionScore { query, .. } => {
@@ -52549,6 +52559,244 @@ mod lexically_typeless_lowering_tests {
     }
 }
 
+/// Whether a `*` / `prefix*` field pattern may expand onto `f` (#3413): a
+/// searchable `text` or `keyword` field. Searchable is the rule the field-less
+/// expansion in `search_inner` already uses (`indexed` or doc values).
+///
+/// ES expands a pattern over every mapped field whose type can be searched as
+/// text and, under the `lenient` that `*` turns on, drops the ones a value
+/// does not parse for (`QueryParserHelper.resolveMappingField`, which skips
+/// `TextSearchInfo.NONE` types and metadata fields for `*`; elasticsearch
+/// `server/src/main/java/org/elasticsearch/index/search/
+/// QueryParserHelper.java:116-150`, AGPL, read for semantics only). XERJ keeps
+/// the text and keyword part of that set. Numeric, boolean, date and ip
+/// fields are left out: a full-text query on them only matches a value that
+/// parses for the type, and the FTS projection has no per-type parse.
+fn field_pattern_target(f: &FieldConfig) -> bool {
+    matches!(f.field_type, FieldType::Text | FieldType::Keyword)
+        && (f.options.indexed || f.options.doc_values)
+        && !f.name.starts_with('_')
+}
+
+/// Every mapped leaf field a pattern can name, by its dotted path: top-level
+/// fields and the properties of `object` fields, recursively. `nested`
+/// properties are left out (ES matches them only inside a `nested` query),
+/// and so are multi-fields (`title.raw`): their parent already holds the
+/// same value, and the expansion does not add a second clause for it.
+fn pattern_field_paths(schema: &Schema) -> Vec<(String, &FieldConfig)> {
+    fn walk<'s>(fields: &'s [FieldConfig], prefix: &str, out: &mut Vec<(String, &'s FieldConfig)>) {
+        for f in fields {
+            let path = if prefix.is_empty() {
+                f.name.clone()
+            } else {
+                format!("{prefix}.{}", f.name)
+            };
+            if matches!(f.field_type, FieldType::Object) {
+                walk(&f.fields, &path, out);
+            } else if !matches!(f.field_type, FieldType::Nested) {
+                out.push((path, f));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(&schema.fields, "", &mut out);
+    out
+}
+
+/// Resolve a `multi_match` style field list that holds at least one pattern
+/// into concrete field names, keeping each `^boost`. A field reached twice
+/// gets the product of its boosts, as ES does
+/// (`QueryParserHelper.resolveMappingFields`). `None` when nothing in the
+/// mapping matches, so the caller keeps the clause as it was.
+fn expand_field_specs(specs: &[String], schema: &Schema) -> Option<Vec<String>> {
+    let mut out: Vec<(String, f32)> = Vec::new();
+    let mut add = |name: &str, boost: f32| match out.iter_mut().find(|(f, _)| f == name) {
+        Some((_, b)) => *b *= boost,
+        None => out.push((name.to_string(), boost)),
+    };
+    for spec in specs {
+        let (name, boost) = parse_field_boost(spec);
+        if name.contains('*') {
+            for (path, f) in pattern_field_paths(schema) {
+                if field_pattern_target(f) && crate::engine::glob_match(name, &path) {
+                    add(&path, boost);
+                }
+            }
+        } else {
+            add(name, boost);
+        }
+    }
+    if out.is_empty() {
+        return None;
+    }
+    Some(
+        out.into_iter()
+            .map(|(f, b)| {
+                if (b - 1.0).abs() < f32::EPSILON {
+                    f
+                } else {
+                    format!("{f}^{b}")
+                }
+            })
+            .collect(),
+    )
+}
+
+/// #3413: a full-text clause whose field is a pattern, rewritten onto the
+/// concrete fields the pattern names, or `None` to leave the clause alone.
+///
+/// - `multi_match` with `"*"` / `"title*"` in `fields` (the native `q`
+///   parameter sends `["*"]`) keeps its type and parameters over the expanded
+///   list. Before this, no projection resolved a pattern: `["*"]` was
+///   dropped as unmapped, the query fell to the stored-doc scan, and it
+///   matched nothing.
+/// - `match` / `match_phrase` on a pattern (what an unqualified `query_string`
+///   term lowers to) becomes a `best_fields` `multi_match` over the expanded
+///   fields, the per-term `dis_max` ES builds for `query_string`
+///   (`QueryStringQueryParser`, type `best_fields`, tie_breaker 0). Before
+///   this the clause was answered by the stored-doc scan, which scores one
+///   point per matched clause, so a field-less `query_string` ranked by match
+///   count instead of BM25. A `match` with `minimum_should_match` has no
+///   `multi_match` form and is left alone.
+///
+/// A `match` / `match_phrase` leaf is also left alone when its text is a
+/// whole date (`2024-01-15`) or ip (`10.0.0.1`) value and the pattern reaches
+/// a field of that type. Those are the values ES would match on such a field,
+/// the expansion has no field for them, and the stored-doc scan the clause
+/// keeps still finds them in `_source`.
+fn expand_field_pattern_clause(q: &QueryNode, schema: &Schema) -> Option<QueryNode> {
+    use xerj_query::ast::{BoolOperator, MultiMatchType};
+    let reaches_date_or_ip_value = |pattern: &str, query: &str| {
+        let is_ip = query.trim().parse::<std::net::IpAddr>().is_ok();
+        let is_date = date_shaped_match_text(query.trim());
+        (is_ip || is_date)
+            && pattern_field_paths(schema).iter().any(|(path, f)| {
+                let typed = match f.field_type {
+                    FieldType::Ip => is_ip,
+                    FieldType::Date => is_date,
+                    _ => false,
+                };
+                typed
+                    && (f.options.indexed || f.options.doc_values)
+                    && crate::engine::glob_match(pattern, path)
+            })
+    };
+    let multi = |fields: Vec<String>,
+                 query: &str,
+                 match_type: MultiMatchType,
+                 operator: Option<BoolOperator>,
+                 analyzer: &Option<String>,
+                 boost: Option<f32>,
+                 slop: u32,
+                 lenient: bool| QueryNode::MultiMatch {
+        fields,
+        query: query.to_string(),
+        match_type,
+        operator,
+        analyzer: analyzer.clone(),
+        boost,
+        slop,
+        max_expansions: 50,
+        lenient,
+    };
+    match q {
+        QueryNode::MultiMatch { fields, .. }
+            if fields.iter().any(|s| parse_field_boost(s).0.contains('*')) =>
+        {
+            let expanded = expand_field_specs(fields, schema)?;
+            let mut out = q.clone();
+            if let QueryNode::MultiMatch { fields, .. } = &mut out {
+                *fields = expanded;
+            }
+            Some(out)
+        }
+        QueryNode::Match {
+            field,
+            query,
+            operator,
+            analyzer,
+            boost,
+            minimum_should_match: None,
+            lenient,
+        } if field.contains('*') => {
+            if reaches_date_or_ip_value(field, query) {
+                return None;
+            }
+            let mut targets = expand_field_specs(std::slice::from_ref(field), schema)?;
+            if targets.len() == 1 {
+                return Some(QueryNode::Match {
+                    field: targets.pop()?,
+                    query: query.clone(),
+                    operator: *operator,
+                    analyzer: analyzer.clone(),
+                    boost: *boost,
+                    minimum_should_match: None,
+                    lenient: *lenient,
+                });
+            }
+            let operator = matches!(operator, BoolOperator::And).then_some(BoolOperator::And);
+            Some(multi(
+                targets,
+                query,
+                MultiMatchType::BestFields,
+                operator,
+                analyzer,
+                *boost,
+                0,
+                *lenient,
+            ))
+        }
+        QueryNode::MatchPhrase {
+            field,
+            query,
+            slop,
+            analyzer,
+            boost,
+            lenient,
+        } if field.contains('*') => {
+            if reaches_date_or_ip_value(field, query) {
+                return None;
+            }
+            let mut targets = expand_field_specs(std::slice::from_ref(field), schema)?;
+            if targets.len() == 1 {
+                return Some(QueryNode::MatchPhrase {
+                    field: targets.pop()?,
+                    query: query.clone(),
+                    slop: *slop,
+                    analyzer: analyzer.clone(),
+                    boost: *boost,
+                    lenient: *lenient,
+                });
+            }
+            Some(multi(
+                targets,
+                query,
+                MultiMatchType::Phrase,
+                None,
+                analyzer,
+                *boost,
+                *slop,
+                *lenient,
+            ))
+        }
+        // The opaque node (a string the parser could not lower) with
+        // `default_field: "*"` means what no `default_field` means, and only
+        // the field-less form has an FTS projection.
+        QueryNode::QueryString {
+            query,
+            default_field: Some(f),
+            default_operator,
+            boost,
+        } if f == "*" => Some(QueryNode::QueryString {
+            query: query.clone(),
+            default_field: None,
+            default_operator: *default_operator,
+            boost: *boost,
+        }),
+        _ => None,
+    }
+}
+
 /// #354: `match`/`multi_match` on a `keyword` field must take the query text
 /// WHOLE (keyword analyzer), not whitespace-tokenise + OR it. The flushed
 /// segment path already does this (per-field analyzer), but the memtable's
@@ -52560,6 +52808,12 @@ mod lexically_typeless_lowering_tests {
 /// over the remaining text fields. Same traversal coverage as
 /// `rewrite_query_aliases`, and applied after it so field names are canonical.
 fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNode {
+    // #3413: resolve `*` / `title*` field patterns against the mapping first,
+    // so the keyword split below and every path after it see concrete names.
+    // The expanded clause names no pattern, so this recursion runs once.
+    if let Some(expanded) = expand_field_pattern_clause(q, schema) {
+        return rewrite_keyword_full_text_to_term(&expanded, schema);
+    }
     fn is_keyword(schema: &Schema, field: &str) -> bool {
         schema
             .fields
@@ -55079,18 +55333,22 @@ fn date_shaped_match_text(query: &str) -> bool {
 /// (`query_node_to_fts_projected`) — the query then keeps its stored-doc
 /// scan route.
 ///
-/// Only a top-level `bool` is planned: the bare leaf shapes already have
-/// their own memtable arms (`match`, `dis_max` #834, `multi_match` and
-/// phrases #3329, filtered `bool` #2403). Leaves: single-field text `match`
+/// Only a top-level `bool` or `query_string` is planned: the other bare leaf
+/// shapes already have their own memtable arms (`match`, `dis_max` #834,
+/// `multi_match` and phrases #3329, filtered `bool` #2403). A bare opaque
+/// `query_string` had none: the generic memtable text arm searched every
+/// field, so `default_field: title` matched `body`-only documents until a
+/// flush (#3413). Leaves: single-field text `match`
 /// (any operator or `minimum_should_match`), text `match_phrase` (slop 0),
 /// field-centric and `phrase` `multi_match`, `query_string` with a text
-/// `default_field`; combinators: `bool`, `dis_max`, `constant_score`.
+/// `default_field` or none (every text field, summed);
+/// combinators: `bool`, `dis_max`, `constant_score`.
 /// Declines everything else, notably a keyword `term` (its segment BM25 runs
 /// on keyword postings the memtable does not keep), `boost` wrappers (the
 /// projection declines them too), a per-query `analyzer`, wildcard or
 /// non-text fields, and a `bool` whose `filter` is its only required clause.
 fn mem_score_plan<'a>(q: &'a QueryNode, cx: &MemPlanCtx<'a>) -> Option<MemScorePlan<'a>> {
-    if !matches!(q, QueryNode::Bool { .. }) {
+    if !matches!(q, QueryNode::Bool { .. } | QueryNode::QueryString { .. }) {
         return None;
     }
     mem_score_plan_node(q, cx)
@@ -55153,6 +55411,43 @@ fn mem_score_plan_node<'a>(q: &'a QueryNode, cx: &MemPlanCtx<'a>) -> Option<MemS
                 query,
                 boost: boost.unwrap_or(1.0),
                 need: MemTokenNeed::Any,
+            })
+        }
+        // #3413: the field-less opaque `query_string`. The segment projects it
+        // as one `should` of every (token, text field) term, i.e. the SUM of
+        // the per-field scores, so the memtable sums the same per-field `Text`
+        // leaves (tie 1.0). Same `tokens × fields` cap as the projection,
+        // which declines past it.
+        QueryNode::QueryString {
+            query,
+            default_field: None,
+            boost,
+            ..
+        } => {
+            let tokens = cx.analyzer.analyze(query).len();
+            if tokens == 0
+                || cx.text_fields.is_empty()
+                || tokens.saturating_mul(cx.text_fields.len()) > 4_096
+                || !cx
+                    .text_fields
+                    .iter()
+                    .all(|f| mem_fts_scorable_text_field(cx.schema, f))
+            {
+                return None;
+            }
+            Some(MemScorePlan::DisMax {
+                subs: cx
+                    .text_fields
+                    .iter()
+                    .map(|field| MemScorePlan::Text {
+                        field,
+                        query,
+                        boost: 1.0,
+                        need: MemTokenNeed::Any,
+                    })
+                    .collect(),
+                tie: 1.0,
+                boost: boost.unwrap_or(1.0),
             })
         }
         QueryNode::MatchPhrase {
@@ -72911,5 +73206,278 @@ mod multi_valued_keyword_term_3412_tests {
             let res = idx.search(&req).await.unwrap();
             assert_eq!(res.total.value as usize, want, "bool {field}={v}");
         }
+    }
+}
+
+#[cfg(test)]
+mod field_pattern_expansion_3413_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn issue_schema() -> Schema {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("title", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("cat", FieldType::Keyword))
+            .unwrap();
+        schema
+    }
+
+    const DOCS: [(&str, &str, &str); 6] = [
+        (
+            "Vitamin D and bone density",
+            "a trial in older adults",
+            "trial",
+        ),
+        ("Bone health", "vitamin intake and bone mass", "review"),
+        ("Calcium", "bone density after vitamin supplements", "trial"),
+        ("Vitamin K", "clotting factors", "review"),
+        ("Exercise", "bone loading and density", "cohort"),
+        ("Unrelated", "nothing to see", "electronics"),
+    ];
+
+    async fn index_with_docs(flush: bool) -> (tempfile::TempDir, Arc<Index>) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("kb3413", issue_schema()).unwrap();
+        let idx = engine.get_index("kb3413").unwrap();
+        for (i, (title, body, cat)) in DOCS.iter().enumerate() {
+            idx.index_document(
+                Some(format!("d{i}")),
+                json!({ "title": title, "body": body, "cat": cat }),
+            )
+            .await
+            .unwrap();
+        }
+        if flush {
+            idx.flush().await.unwrap();
+        }
+        (dir, idx)
+    }
+
+    async fn run(idx: &Index, q: serde_json::Value) -> (Vec<(String, f32)>, usize, usize) {
+        SEG_FTS_HANDLED.with(|c| c.set(0));
+        SEG_STORED_SCANS.with(|c| c.set(0));
+        let req = xerj_query::parse_request(&json!({
+            "size": 20, "track_total_hits": true, "query": q
+        }))
+        .unwrap();
+        let res = idx.search(&req).await.unwrap();
+        let fts = SEG_FTS_HANDLED.with(|c| c.get());
+        let scans = SEG_STORED_SCANS.with(|c| c.get());
+        let mut hits: Vec<(String, f32)> = res.hits.into_iter().map(|h| (h.id, h.score)).collect();
+        hits.sort_by(|a, b| a.0.cmp(&b.0));
+        (hits, fts, scans)
+    }
+
+    fn assert_same_scores(a: &[(String, f32)], b: &[(String, f32)], what: &str) {
+        assert_eq!(
+            a.iter().map(|h| &h.0).collect::<Vec<_>>(),
+            b.iter().map(|h| &h.0).collect::<Vec<_>>(),
+            "{what}: hit sets differ"
+        );
+        for (x, y) in a.iter().zip(b) {
+            assert!(
+                (x.1 - y.1).abs() < 1e-4,
+                "{what}: {} scored {} vs {}",
+                x.0,
+                x.1,
+                y.1
+            );
+        }
+    }
+
+    /// FAIL-BEFORE: `multi_match` with `fields: ["*"]` (what native `q`
+    /// sends) returned 0 hits in the memtable and after `_flush`.
+    #[tokio::test]
+    async fn multi_match_star_matches_like_the_explicit_field_list() {
+        for flush in [false, true] {
+            let (_dir, idx) = index_with_docs(flush).await;
+            let star = run(
+                &idx,
+                json!({"multi_match": {"query": "vitamin bone density", "fields": ["*"]}}),
+            )
+            .await;
+            let named = run(
+                &idx,
+                json!({"multi_match": {
+                    "query": "vitamin bone density", "fields": ["title", "body", "cat"]
+                }}),
+            )
+            .await;
+            assert_eq!(star.0.len(), 5, "flush={flush}: {:?}", star.0);
+            assert_same_scores(&star.0, &named.0, &format!("flush={flush}"));
+            if flush {
+                assert!(
+                    star.1 > 0 && star.2 == 0,
+                    "`*` must be served by the inverted index: fts={} stored_scans={}",
+                    star.1,
+                    star.2
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn multi_match_prefix_pattern_and_keyword_target() {
+        let (_dir, idx) = index_with_docs(true).await;
+        let (hits, _, _) = run(
+            &idx,
+            json!({"multi_match": {"query": "vitamin", "fields": ["tit*"]}}),
+        )
+        .await;
+        let ids: Vec<&str> = hits.iter().map(|h| h.0.as_str()).collect();
+        assert_eq!(ids, vec!["d0", "d3"], "only `title` holds `vitamin` here");
+
+        // `*` reaches the keyword field, by whole value, as ES does.
+        let (hits, _, _) = run(
+            &idx,
+            json!({"multi_match": {"query": "electronics", "fields": ["*"]}}),
+        )
+        .await;
+        let ids: Vec<&str> = hits.iter().map(|h| h.0.as_str()).collect();
+        assert_eq!(ids, vec!["d5"]);
+
+        // A pattern that names no field still matches nothing.
+        let (hits, _, _) = run(
+            &idx,
+            json!({"multi_match": {"query": "vitamin", "fields": ["nope*"]}}),
+        )
+        .await;
+        assert!(hits.is_empty());
+    }
+
+    /// FAIL-BEFORE: a field-less `query_string` scored 3.0 / 2.0 / 1.0 (one
+    /// point per matched term) on both the memtable and flushed segments.
+    /// It must now score exactly like the same string over the explicit
+    /// field list, which is what ES treats it as (a per-term `dis_max`).
+    #[tokio::test]
+    async fn field_less_query_string_scores_bm25() {
+        let (_dir, idx) = index_with_docs(true).await;
+        let bare = run(
+            &idx,
+            json!({"query_string": {"query": "vitamin bone density"}}),
+        )
+        .await;
+        let named = run(
+            &idx,
+            json!({"query_string": {
+                "query": "vitamin bone density", "fields": ["title", "body", "cat"]
+            }}),
+        )
+        .await;
+        assert_eq!(bare.0.len(), 5);
+        assert_same_scores(&bare.0, &named.0, "flushed");
+        assert!(
+            bare.0.iter().any(|(_, s)| s.fract().abs() > 1e-3),
+            "scores look like match counts: {:?}",
+            bare.0
+        );
+        assert!(bare.1 > 0 && bare.2 == 0, "fts={} scans={}", bare.1, bare.2);
+    }
+
+    /// `field_explain` reports an opaque field-less `query_string` as
+    /// additive: its score must be the sum of the same clause run with each
+    /// text field as `default_field`, in the memtable and after `_flush`.
+    #[tokio::test]
+    async fn opaque_field_less_query_string_sums_its_fields() {
+        for flush in [false, true] {
+            let (_dir, idx) = index_with_docs(flush).await;
+            let run_node = |default_field: Option<&str>| {
+                let idx = idx.clone();
+                let node = QueryNode::QueryString {
+                    query: "vitamin bone density".into(),
+                    default_field: default_field.map(str::to_string),
+                    default_operator: None,
+                    boost: None,
+                };
+                async move {
+                    let mut req = xerj_query::parse_request(&json!({"size": 20})).unwrap();
+                    req.query = node;
+                    let res = idx.search(&req).await.unwrap();
+                    res.hits
+                        .into_iter()
+                        .map(|h| (h.id, h.score))
+                        .collect::<HashMap<String, f32>>()
+                }
+            };
+            let total = run_node(None).await;
+            let title = run_node(Some("title")).await;
+            let body = run_node(Some("body")).await;
+            assert_eq!(total.len(), 5, "flush={flush}: {total:?}");
+            // FAIL-BEFORE (memtable): a bare `default_field: title` searched
+            // every field and returned all 5 documents.
+            let mut title_ids: Vec<&String> = title.keys().collect();
+            title_ids.sort();
+            assert_eq!(title_ids, vec!["d0", "d1", "d3"], "flush={flush}");
+            for (id, score) in &total {
+                let sum =
+                    title.get(id).copied().unwrap_or(0.0) + body.get(id).copied().unwrap_or(0.0);
+                assert!(
+                    (score - sum).abs() < 1e-3,
+                    "flush={flush}: {id} scored {score}, per-field sum {sum}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn expand_field_specs_follows_the_mapping() {
+        let mut schema = issue_schema();
+        let mut hidden = FieldConfig::new("secret", FieldType::Text);
+        hidden.options.indexed = false;
+        hidden.options.doc_values = false;
+        schema.add_field(hidden).unwrap();
+        schema
+            .add_field(FieldConfig::new("count", FieldType::Long))
+            .unwrap();
+        let mut obj = FieldConfig::new("obj", FieldType::Object);
+        obj.fields.push(FieldConfig::new("inner", FieldType::Text));
+        schema.add_field(obj).unwrap();
+        let mut nested = FieldConfig::new("nest", FieldType::Nested);
+        nested
+            .fields
+            .push(FieldConfig::new("deep", FieldType::Text));
+        schema.add_field(nested).unwrap();
+        let star = expand_field_specs(&["*".to_string()], &schema).unwrap();
+        assert_eq!(star, vec!["title", "body", "cat", "obj.inner"]);
+        assert_eq!(
+            expand_field_specs(&["obj.*".to_string()], &schema).unwrap(),
+            vec!["obj.inner"]
+        );
+        // Boosts multiply when a field is reached twice; order is first seen.
+        let boosted =
+            expand_field_specs(&["title^2".to_string(), "*^3".to_string()], &schema).unwrap();
+        assert_eq!(boosted, vec!["title^6", "body^3", "cat^3", "obj.inner^3"]);
+        assert_eq!(expand_field_specs(&["zz*".to_string()], &schema), None);
+    }
+
+    #[test]
+    fn date_or_ip_values_keep_the_stored_scan_route() {
+        let mut schema = issue_schema();
+        schema
+            .add_field(FieldConfig::new("ts", FieldType::Date))
+            .unwrap();
+        let leaf = |q: &str| QueryNode::Match {
+            field: "*".into(),
+            query: q.into(),
+            operator: Default::default(),
+            analyzer: None,
+            boost: None,
+            minimum_should_match: None,
+            lenient: true,
+        };
+        assert!(expand_field_pattern_clause(&leaf("2024-01-15"), &schema).is_none());
+        assert!(matches!(
+            expand_field_pattern_clause(&leaf("2024"), &schema),
+            Some(QueryNode::MultiMatch { .. })
+        ));
     }
 }

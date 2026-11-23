@@ -24,32 +24,68 @@
 //!   fields) plus float rounding.
 //! - `"other"`: the query combines fields some other way (`best_fields` /
 //!   `dis_max` take the max, `function_score` and `boosting` multiply,
-//!   `cross_fields` blends statistics, and a field-less `q` / `query_string`
-//!   is scored as one clause over every text field). Field scores are still each field's
+//!   `cross_fields` blends statistics). A field-less `q` (`multi_match` on
+//!   `*`) and each unqualified `query_string` term are `best_fields` over
+//!   every field `*` expands onto, so they report `"other"` by that same rule
+//!   once more than one field is mapped. Field scores are still each field's
 //!   own score, but they do not add up to `_score`, so no `unattributed` is
 //!   reported.
 
 use std::collections::HashMap;
 
 use serde_json::{json, Value};
-use xerj_common::types::{FieldType, Schema};
+use xerj_common::types::{FieldConfig, FieldType, Schema};
 use xerj_query::ast::{MultiMatchType, QueryNode};
 use xerj_query::executor::Hit;
 
 /// Upper bound on the fields one request re-scores (one engine search each).
 pub const MAX_EXPLAIN_FIELDS: usize = 64;
 
-/// The fields a field-less clause (`q`, `query_string` without
-/// `default_field`, `multi_match` on `*`) expands onto: searchable `text`
-/// fields, the same set the engine projects such a clause onto.
-pub fn text_fields(schema: &Schema) -> Vec<String> {
-    schema
-        .fields
-        .iter()
-        .filter(|f| matches!(f.field_type, FieldType::Text))
-        .filter(|f| f.options.indexed || f.options.doc_values)
-        .map(|f| f.name.clone())
-        .collect()
+/// The fields a field-less clause expands onto, as the engine expands it.
+pub struct Fields {
+    /// Searchable `text` fields: what an opaque field-less `query_string` and
+    /// an empty `multi_match` field list are scored over.
+    text: Vec<String>,
+    /// Searchable `text` and `keyword` fields: what a `*` / `prefix*` field
+    /// pattern resolves to (`q`, an unqualified `query_string` term,
+    /// `multi_match` on `*`; #3413, `expand_field_specs` in the engine).
+    pattern: Vec<String>,
+}
+
+impl Fields {
+    pub fn from_schema(schema: &Schema) -> Self {
+        fn searchable(f: &FieldConfig) -> bool {
+            (f.options.indexed || f.options.doc_values) && !f.name.starts_with('_')
+        }
+        // `object` properties by dotted path, as the engine's pattern
+        // expansion walks them; `nested` properties and multi-fields are not
+        // pattern targets.
+        fn walk(fields: &[FieldConfig], prefix: &str, out: &mut Vec<String>) {
+            for f in fields {
+                let path = if prefix.is_empty() {
+                    f.name.clone()
+                } else {
+                    format!("{prefix}.{}", f.name)
+                };
+                match f.field_type {
+                    FieldType::Object => walk(&f.fields, &path, out),
+                    FieldType::Text | FieldType::Keyword if searchable(f) => out.push(path),
+                    _ => {}
+                }
+            }
+        }
+        let mut pattern = Vec::new();
+        walk(&schema.fields, "", &mut pattern);
+        Fields {
+            text: schema
+                .fields
+                .iter()
+                .filter(|f| matches!(f.field_type, FieldType::Text) && searchable(f))
+                .map(|f| f.name.clone())
+                .collect(),
+            pattern,
+        }
+    }
 }
 
 fn split_boost(spec: &str) -> (&str, Option<&str>) {
@@ -59,27 +95,38 @@ fn split_boost(spec: &str) -> (&str, Option<&str>) {
     }
 }
 
+/// `*` glob over a field name, `*` matching any run of characters (ES
+/// simple-match patterns: `*`, `title*`, `*_text`).
 fn pattern_matches(pattern: &str, field: &str) -> bool {
-    if pattern == "*" {
-        return true;
+    let mut parts = pattern.split('*');
+    let first = parts.next().unwrap_or("");
+    let Some(mut rest) = field.strip_prefix(first) else {
+        return false;
+    };
+    let tail: Vec<&str> = parts.collect();
+    let Some((last, middle)) = tail.split_last() else {
+        return rest.is_empty();
+    };
+    for part in middle {
+        match rest.find(part) {
+            Some(at) => rest = &rest[at + part.len()..],
+            None => return false,
+        }
     }
-    match pattern.strip_suffix('*') {
-        Some(prefix) => field.starts_with(prefix),
-        None => pattern == field,
-    }
+    rest.ends_with(last)
 }
 
-/// Concrete fields a multi-field spec list names. Empty or `*` means every
-/// text field.
-fn expand_specs(specs: &[String], text_fields: &[String]) -> Vec<(String, Option<String>)> {
+/// Concrete fields a multi-field spec list names. Empty means every text
+/// field; a pattern resolves over `fields.pattern`.
+fn expand_specs(specs: &[String], fields: &Fields) -> Vec<(String, Option<String>)> {
     if specs.is_empty() {
-        return text_fields.iter().map(|f| (f.clone(), None)).collect();
+        return fields.text.iter().map(|f| (f.clone(), None)).collect();
     }
     let mut out: Vec<(String, Option<String>)> = Vec::new();
     for spec in specs {
         let (name, boost) = split_boost(spec);
         if name.contains('*') {
-            for f in text_fields.iter().filter(|f| pattern_matches(name, f)) {
+            for f in fields.pattern.iter().filter(|f| pattern_matches(name, f)) {
                 if !out.iter().any(|(o, _)| o == f) {
                     out.push((f.clone(), boost.map(str::to_string)));
                 }
@@ -147,9 +194,9 @@ fn retarget(q: &QueryNode, to: &str) -> QueryNode {
 }
 
 /// Every field the query scores on, in first-seen order.
-pub fn scoring_fields(q: &QueryNode, text_fields: &[String]) -> Vec<String> {
+pub fn scoring_fields(q: &QueryNode, fields: &Fields) -> Vec<String> {
     let mut out = Vec::new();
-    collect_fields(q, text_fields, &mut out);
+    collect_fields(q, fields, &mut out);
     out
 }
 
@@ -159,20 +206,20 @@ fn push_unique(out: &mut Vec<String>, f: &str) {
     }
 }
 
-fn collect_fields(q: &QueryNode, text_fields: &[String], out: &mut Vec<String>) {
+fn collect_fields(q: &QueryNode, cx: &Fields, out: &mut Vec<String>) {
     if let Some(f) = leaf_field(q) {
         push_unique(out, f);
         return;
     }
     if let Some(pattern) = wildcard_leaf(q) {
-        for f in text_fields.iter().filter(|f| pattern_matches(pattern, f)) {
+        for f in cx.pattern.iter().filter(|f| pattern_matches(pattern, f)) {
             push_unique(out, f);
         }
         return;
     }
     match q {
         QueryNode::MultiMatch { fields, .. } | QueryNode::SimpleQueryString { fields, .. } => {
-            for (f, _) in expand_specs(fields, text_fields) {
+            for (f, _) in expand_specs(fields, cx) {
                 push_unique(out, &f);
             }
         }
@@ -183,48 +230,48 @@ fn collect_fields(q: &QueryNode, text_fields: &[String], out: &mut Vec<String>) 
         } if query_string_is_field_free(query) => match default_field.as_deref() {
             Some(f) if f != "*" => push_unique(out, f),
             _ => {
-                for f in text_fields {
+                for f in &cx.text {
                     push_unique(out, f);
                 }
             }
         },
         QueryNode::Bool { must, should, .. } => {
             for c in must.iter().chain(should) {
-                collect_fields(c, text_fields, out);
+                collect_fields(c, cx, out);
             }
         }
         QueryNode::DisMax { queries, .. } => {
             for c in queries {
-                collect_fields(c, text_fields, out);
+                collect_fields(c, cx, out);
             }
         }
         QueryNode::Boosted { query, .. } | QueryNode::Named { query, .. } => {
-            collect_fields(query, text_fields, out)
+            collect_fields(query, cx, out)
         }
         QueryNode::Constant { query, .. } => {
-            let inner = scoring_fields(query, text_fields);
+            let inner = scoring_fields(query, cx);
             if inner.len() == 1 {
                 push_unique(out, &inner[0]);
             }
         }
-        QueryNode::Boosting { positive, .. } => collect_fields(positive, text_fields, out),
+        QueryNode::Boosting { positive, .. } => collect_fields(positive, cx, out),
         _ => {}
     }
 }
 
 /// `q` with every scoring clause on a field other than `field` removed, or
 /// `None` when nothing in `q` scores on `field`.
-pub fn project_onto_field(q: &QueryNode, field: &str, text_fields: &[String]) -> Option<QueryNode> {
+pub fn project_onto_field(q: &QueryNode, field: &str, cx: &Fields) -> Option<QueryNode> {
     if let Some(f) = leaf_field(q) {
         return (f == field).then(|| q.clone());
     }
     if let Some(pattern) = wildcard_leaf(q) {
-        let targets = text_fields.iter().any(|f| f == field) && pattern_matches(pattern, field);
+        let targets = cx.pattern.iter().any(|f| f == field) && pattern_matches(pattern, field);
         return targets.then(|| retarget(q, field));
     }
     match q {
         QueryNode::MultiMatch { fields, .. } => {
-            let kept: Vec<String> = expand_specs(fields, text_fields)
+            let kept: Vec<String> = expand_specs(fields, cx)
                 .iter()
                 .filter(|(f, _)| f == field)
                 .map(|(f, b)| with_boost(f, b))
@@ -239,7 +286,7 @@ pub fn project_onto_field(q: &QueryNode, field: &str, text_fields: &[String]) ->
             Some(projected)
         }
         QueryNode::SimpleQueryString { query, fields } => {
-            let kept: Vec<String> = expand_specs(fields, text_fields)
+            let kept: Vec<String> = expand_specs(fields, cx)
                 .iter()
                 .filter(|(f, _)| f == field)
                 .map(|(f, b)| with_boost(f, b))
@@ -257,7 +304,7 @@ pub fn project_onto_field(q: &QueryNode, field: &str, text_fields: &[String]) ->
         } if query_string_is_field_free(query) => {
             let targets = match default_field.as_deref() {
                 Some(f) if f != "*" => f == field,
-                _ => text_fields.iter().any(|f| f == field),
+                _ => cx.text.iter().any(|f| f == field),
             };
             targets.then(|| QueryNode::QueryString {
                 query: query.clone(),
@@ -270,7 +317,7 @@ pub fn project_onto_field(q: &QueryNode, field: &str, text_fields: &[String]) ->
             let mut kept: Vec<QueryNode> = must
                 .iter()
                 .chain(should)
-                .filter_map(|c| project_onto_field(c, field, text_fields))
+                .filter_map(|c| project_onto_field(c, field, cx))
                 .collect();
             match kept.len() {
                 0 => None,
@@ -290,7 +337,7 @@ pub fn project_onto_field(q: &QueryNode, field: &str, text_fields: &[String]) ->
         } => {
             let mut kept: Vec<QueryNode> = queries
                 .iter()
-                .filter_map(|c| project_onto_field(c, field, text_fields))
+                .filter_map(|c| project_onto_field(c, field, cx))
                 .collect();
             match kept.len() {
                 0 => None,
@@ -302,29 +349,37 @@ pub fn project_onto_field(q: &QueryNode, field: &str, text_fields: &[String]) ->
             }
         }
         QueryNode::Boosted { boost, query } => {
-            project_onto_field(query, field, text_fields).map(|inner| QueryNode::Boosted {
+            project_onto_field(query, field, cx).map(|inner| QueryNode::Boosted {
                 boost: *boost,
                 query: Box::new(inner),
             })
         }
-        QueryNode::Named { query, .. } => project_onto_field(query, field, text_fields),
+        QueryNode::Named { query, .. } => project_onto_field(query, field, cx),
         QueryNode::Constant { query, .. } => {
-            let inner = scoring_fields(query, text_fields);
+            let inner = scoring_fields(query, cx);
             (inner.len() == 1 && inner[0] == field).then(|| q.clone())
         }
-        QueryNode::Boosting { positive, .. } => project_onto_field(positive, field, text_fields),
+        QueryNode::Boosting { positive, .. } => project_onto_field(positive, field, cx),
         _ => None,
     }
 }
 
 /// Whether `q` adds its field contributions, so that
 /// `_score == Σ field scores + unattributed`.
-pub fn is_additive(q: &QueryNode, text_fields: &[String]) -> bool {
+pub fn is_additive(q: &QueryNode, cx: &Fields) -> bool {
     if leaf_field(q).is_some() {
         return true;
     }
-    if wildcard_leaf(q).is_some() {
-        return false;
+    // The engine turns a pattern leaf into a `best_fields` `multi_match` over
+    // the fields the pattern names (#3413): additive only when that is one
+    // field, the same rule as an explicit `multi_match` below.
+    if let Some(pattern) = wildcard_leaf(q) {
+        return cx
+            .pattern
+            .iter()
+            .filter(|f| pattern_matches(pattern, f))
+            .count()
+            <= 1;
     }
     match q {
         QueryNode::MatchAll
@@ -333,35 +388,31 @@ pub fn is_additive(q: &QueryNode, text_fields: &[String]) -> bool {
         | QueryNode::Constant { .. }
         | QueryNode::Knn { .. }
         | QueryNode::SemanticSearch { .. } => true,
-        // Field-less clauses are scored by the engine as one clause over every
-        // text field (on 2026-11-22 a match count, not a BM25 sum, on both the
-        // memtable and flushed segments), so their per-field BM25 numbers do
-        // not add up to `_score`.
+        // The engine scores an opaque `query_string` as one BM25 `should`
+        // over its tokens on every field it targets, so per-field scores sum
+        // to `_score` with or without a `default_field` (a `title*` pattern
+        // there has no projection and is the exception).
         QueryNode::QueryString {
             query,
             default_field,
             ..
         } => {
             query_string_is_field_free(query)
-                && matches!(default_field.as_deref(), Some(f) if f != "*")
+                && !matches!(default_field.as_deref(), Some(f) if f != "*" && f.contains('*'))
         }
         QueryNode::MultiMatch {
             fields, match_type, ..
         } => {
-            matches!(match_type, MultiMatchType::MostFields)
-                || expand_specs(fields, text_fields).len() <= 1
+            matches!(match_type, MultiMatchType::MostFields) || expand_specs(fields, cx).len() <= 1
         }
-        QueryNode::SimpleQueryString { fields, .. } => expand_specs(fields, text_fields).len() <= 1,
-        QueryNode::Bool { must, should, .. } => must
-            .iter()
-            .chain(should)
-            .all(|c| is_additive(c, text_fields)),
+        QueryNode::SimpleQueryString { fields, .. } => expand_specs(fields, cx).len() <= 1,
+        QueryNode::Bool { must, should, .. } => {
+            must.iter().chain(should).all(|c| is_additive(c, cx))
+        }
         QueryNode::DisMax { queries, .. } => {
-            queries.len() <= 1 && queries.iter().all(|c| is_additive(c, text_fields))
+            queries.len() <= 1 && queries.iter().all(|c| is_additive(c, cx))
         }
-        QueryNode::Boosted { query, .. } | QueryNode::Named { query, .. } => {
-            is_additive(query, text_fields)
-        }
+        QueryNode::Boosted { query, .. } | QueryNode::Named { query, .. } => is_additive(query, cx),
         _ => false,
     }
 }
@@ -419,7 +470,7 @@ pub async fn breakdowns(idx: &xerj_engine::Index, query: &QueryNode, hits: &[Hit
     if hits.is_empty() {
         return Vec::new();
     }
-    let text = text_fields(&idx.schema().await);
+    let text = Fields::from_schema(&idx.schema().await);
     let mut fields = scoring_fields(query, &text);
     let truncated = fields.len() > MAX_EXPLAIN_FIELDS;
     fields.truncate(MAX_EXPLAIN_FIELDS);
@@ -488,6 +539,13 @@ mod tests {
         vec!["title".into(), "body".into()]
     }
 
+    fn fx() -> Fields {
+        Fields {
+            text: text(),
+            pattern: text(),
+        }
+    }
+
     #[test]
     fn bool_projects_each_field_and_drops_filters() {
         let q = QueryNode::Bool {
@@ -501,8 +559,8 @@ mod tests {
             }],
             minimum_should_match: None,
         };
-        assert_eq!(scoring_fields(&q, &text()), vec!["title", "body"]);
-        match project_onto_field(&q, "title", &text()).unwrap() {
+        assert_eq!(scoring_fields(&q, &fx()), vec!["title", "body"]);
+        match project_onto_field(&q, "title", &fx()).unwrap() {
             QueryNode::Bool { should, must, .. } => {
                 assert!(must.is_empty());
                 assert_eq!(should, vec![m("title", "bone"), m("title", "density")]);
@@ -510,11 +568,11 @@ mod tests {
             other => panic!("{other:?}"),
         }
         assert_eq!(
-            project_onto_field(&q, "body", &text()),
+            project_onto_field(&q, "body", &fx()),
             Some(m("body", "vitamin"))
         );
-        assert_eq!(project_onto_field(&q, "kind", &text()), None);
-        assert!(is_additive(&q, &text()));
+        assert_eq!(project_onto_field(&q, "kind", &fx()), None);
+        assert!(is_additive(&q, &fx()));
     }
 
     #[test]
@@ -525,9 +583,9 @@ mod tests {
             default_operator: None,
             boost: None,
         };
-        assert_eq!(scoring_fields(&q, &text()), text());
+        assert_eq!(scoring_fields(&q, &fx()), text());
         assert_eq!(
-            project_onto_field(&q, "body", &text()),
+            project_onto_field(&q, "body", &fx()),
             Some(QueryNode::QueryString {
                 query: "vitamin bone".into(),
                 default_field: Some("body".into()),
@@ -535,15 +593,18 @@ mod tests {
                 boost: None,
             })
         );
-        assert!(!is_additive(&q, &text()));
+        // The engine sums the opaque clause's per-field BM25.
+        assert!(is_additive(&q, &fx()));
 
+        // An unqualified term is `best_fields` over the fields `*` names.
         let star = m("*", "vitamin bone");
-        assert_eq!(scoring_fields(&star, &text()), text());
+        assert_eq!(scoring_fields(&star, &fx()), text());
         assert_eq!(
-            project_onto_field(&star, "title", &text()),
+            project_onto_field(&star, "title", &fx()),
             Some(m("title", "vitamin bone"))
         );
-        assert!(!is_additive(&star, &text()));
+        assert!(!is_additive(&star, &fx()));
+        assert!(is_additive(&m("tit*", "vitamin"), &fx()));
 
         let fielded = QueryNode::QueryString {
             query: "title:vitamin".into(),
@@ -551,8 +612,35 @@ mod tests {
             default_operator: None,
             boost: None,
         };
-        assert!(scoring_fields(&fielded, &text()).is_empty());
-        assert!(!is_additive(&fielded, &text()));
+        assert!(scoring_fields(&fielded, &fx()).is_empty());
+        assert!(!is_additive(&fielded, &fx()));
+    }
+
+    #[test]
+    fn patterns_reach_keyword_fields_but_the_opaque_clause_does_not() {
+        let cx = Fields {
+            text: text(),
+            pattern: vec!["title".into(), "body".into(), "cat".into()],
+        };
+        let star = m("*", "trial");
+        assert_eq!(scoring_fields(&star, &cx), vec!["title", "body", "cat"]);
+        assert_eq!(
+            project_onto_field(&star, "cat", &cx),
+            Some(m("cat", "trial"))
+        );
+        let opaque = QueryNode::QueryString {
+            query: "trial".into(),
+            default_field: None,
+            default_operator: None,
+            boost: None,
+        };
+        assert_eq!(scoring_fields(&opaque, &cx), text());
+        assert_eq!(project_onto_field(&opaque, "cat", &cx), None);
+        assert!(pattern_matches("*", "cat"));
+        assert!(pattern_matches("*_text", "body_text"));
+        assert!(pattern_matches("a*c*e", "abcde"));
+        assert!(!pattern_matches("tit*", "body"));
+        assert!(!pattern_matches("a*c*e", "abcd"));
     }
 
     #[test]
@@ -568,16 +656,16 @@ mod tests {
             max_expansions: 50,
             lenient: false,
         };
-        match project_onto_field(&q, "title", &text()).unwrap() {
+        match project_onto_field(&q, "title", &fx()).unwrap() {
             QueryNode::MultiMatch { fields, .. } => assert_eq!(fields, vec!["title^3"]),
             other => panic!("{other:?}"),
         }
-        assert!(!is_additive(&q, &text()));
+        assert!(!is_additive(&q, &fx()));
         let mut most = q.clone();
         if let QueryNode::MultiMatch { match_type, .. } = &mut most {
             *match_type = MultiMatchType::MostFields;
         }
-        assert!(is_additive(&most, &text()));
+        assert!(is_additive(&most, &fx()));
     }
 
     #[test]
