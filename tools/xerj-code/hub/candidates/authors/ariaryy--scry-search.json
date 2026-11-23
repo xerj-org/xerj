@@ -1,0 +1,23 @@
+{
+ "corpus": "ariaryy--scry-search",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on file-search, ntfs, rust queries this for how Ariaryy/scry-search implements it: A resource-conscious realtime file index and search backend for Windows (selected work: scry-core, scry-daemon)",
+ "repos": [
+  {
+   "repo": "scry-search",
+   "url": "https://github.com/Ariaryy/scry-search",
+   "sha": "e994a40e464328d4ce602f07cbde5ebdad30e9c0",
+   "licence": "MIT (LICENSE file at pin e994a40e4643, GitHub licence API 2026-10-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T13:28Z",
+    "consent_receipt": "cadd89afade3",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T13:28Z (receipt cadd89afade3); selected commit e994a40e4643: \"fix(core): cap retained path-query scratch memory\". LICENSE file at pin e994a40e4643 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

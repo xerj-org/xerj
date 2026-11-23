@@ -1,0 +1,32 @@
+{
+ "corpus": "aqta-ai--attestation-spec",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on attestation, audit, cryptography queries this for how Aqta-ai/attestation-spec implements it: Open specification and reference verifiers for Seal records: ATTESTATION-v1 for AI model calls, ACTION-v1 for agent actions, and GRANT-v1 ap (selected work: test-vectors, packages/verify-receipt-py, packages/verify-receipt)",
+ "repos": [
+  {
+   "repo": "attestation-spec",
+   "url": "https://github.com/Aqta-ai/attestation-spec",
+   "sha": "8d0a745218563f233793d780f3ca9f952d720d7f",
+   "licence": "author's permission (LICENSE at pin 8d0a74521856: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-15T11:55Z",
+    "consent_receipt": "95bf2e946b72",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T11:55Z (receipt 95bf2e946b72); selected commit 8d0a74521856: \"Verifiers agree on line feeds, non-ASCII digits and lone surrogates\". LICENSE at pin 8d0a74521856: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Aqta-ai, who has not added it."
+   },
+   "paths": [
+    "examples",
+    "packages/verify-receipt",
+    "packages/verify-receipt-py/src/aqta_verify_receipt",
+    "packages/verify-receipt-py/tests",
+    "scripts",
+    "spec",
+    "test-vectors"
+   ]
+  }
+ ]
+}

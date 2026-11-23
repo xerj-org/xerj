@@ -1,0 +1,23 @@
+{
+ "corpus": "astreox--ubotcore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on simulation, ubot, ue5-plugin queries this for how AstreoX/uBotCore implements it: uBot core for Unreal Engine 5.5: frame header, sim clock, coordinate conventions between UE and right-handed SI, shared interfaces and packa (selected work: Source, Index, the project root)",
+ "repos": [
+  {
+   "repo": "uBotCore",
+   "url": "https://github.com/AstreoX/uBotCore",
+   "sha": "24682f7bca819e22774faa399c30777ffa7643b6",
+   "licence": "Apache-2.0 (LICENSE file at pin 24682f7bca81, GitHub licence API 2026-10-28)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T06:10Z",
+    "consent_receipt": "9c2eee929610",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T06:10Z (receipt 9c2eee929610); selected commit 24682f7bca81: \"feat(wind): add world-scoped wind provider contract\". LICENSE file at pin 24682f7bca81 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+   }
+  }
+ ]
+}

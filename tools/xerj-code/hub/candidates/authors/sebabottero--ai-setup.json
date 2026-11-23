@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how sebabottero/ai-setup implements it: A local harness for AI coding agents: permissions and sandbox, a one-writer ticket flow, independent review with a merge gate, and logs to m (selected work: core/guard, tests, core)",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how sebabottero/ai-setup implements it: Let your AI coding agent work fast, without handing it the keys: a permission guard that asks before the irreversible, one policy for Claude (selected work: core/guard, tests, core)",
  "repos": [
   {
    "repo": "ai-setup",

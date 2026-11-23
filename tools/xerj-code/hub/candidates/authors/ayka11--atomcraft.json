@@ -1,0 +1,23 @@
+{
+ "corpus": "ayka11--atomcraft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how Ayka11/atomcraft implements it: The app must act as a universal engine capable of evaluating ANY valid chemical formula or element combination, mapping its nanoscale bondin",
+ "repos": [
+  {
+   "repo": "atomcraft",
+   "url": "https://github.com/Ayka11/atomcraft",
+   "sha": "5525db7b0fd7b65df8f477ed148b549536f1972d",
+   "licence": "MIT (LICENSE file at pin 5525db7b0fd7, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T06:14Z",
+    "consent_receipt": "e4ad92f5513d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:14Z (receipt e4ad92f5513d); pinned to the default-branch head. LICENSE file at pin 5525db7b0fd7 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

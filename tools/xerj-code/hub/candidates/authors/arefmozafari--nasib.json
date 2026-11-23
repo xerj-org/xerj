@@ -1,0 +1,23 @@
+{
+ "corpus": "arefmozafari--nasib",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on censorship-circumvention, macos, menu-bar queries this for how ArefMozafari/Nasib implements it: Nasib: An app that finds a working Windscribe server and protocol from censored networks and keeps you connected (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "Nasib",
+   "url": "https://github.com/ArefMozafari/Nasib",
+   "sha": "531af44909f8cb9e365322deb1402355f375ea25",
+   "licence": "MIT (LICENSE file at pin 531af44909f8, GitHub licence API 2026-10-26)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T09:54Z",
+    "consent_receipt": "90186291bd0e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T09:54Z (receipt 90186291bd0e); selected commit 531af44909f8: \"feat: add Settings tab for cities and protocol order\". LICENSE file at pin 531af44909f8 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Pinned to head 531af44909f8 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

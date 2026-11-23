@@ -1,0 +1,23 @@
+{
+ "corpus": "atharvatilewale--felbuilder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on fel, md, md-simulation queries this for how AtharvaTilewale/FELBuilder implements it: FELBuilder is an automated Python pipeline that automates the complex workflow of Principal Component Analysis (PCA) and Free Energy Landsca",
+ "repos": [
+  {
+   "repo": "FELBuilder",
+   "url": "https://github.com/AtharvaTilewale/FELBuilder",
+   "sha": "c62f11c6bfa8799d4341b375f3e1c3dfde92d5bb",
+   "licence": "MIT (LICENSE file at pin c62f11c6bfa8, GitHub licence API 2026-10-28)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T18:01Z",
+    "consent_receipt": "bfa178d55ef1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:01Z (receipt bfa178d55ef1); pinned to the default-branch head. LICENSE file at pin c62f11c6bfa8 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+   }
+  }
+ ]
+}

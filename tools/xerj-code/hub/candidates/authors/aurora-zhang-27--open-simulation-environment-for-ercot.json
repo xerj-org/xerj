@@ -1,0 +1,23 @@
+{
+ "corpus": "aurora-zhang-27--open-simulation-environment-for-ercot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on battery-storage, electricity-markets, energy-arbitrage queries this for how Aurora-Zhang-27/Open-Simulation-Environment-For-ERCOT implements it: Open battery-storage environment for the post-RTC+B ERCOT market: real-time and day-ahead (two-settlement), exact upper bounds, reproducible (selected work: results, review, rtcb_gym)",
+ "repos": [
+  {
+   "repo": "Open-Simulation-Environment-For-ERCOT",
+   "url": "https://github.com/Aurora-Zhang-27/Open-Simulation-Environment-For-ERCOT",
+   "sha": "921352e9864cd78cf6e4f2657a2672b2c2d374ae",
+   "licence": "MIT (LICENSE file at pin 921352e9864c, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T04:16Z",
+    "consent_receipt": "563a34b34328",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:16Z (receipt 563a34b34328); selected commit 921352e9864c: \"Add reproducible CPU demo and offline ECRS tooling\". LICENSE file at pin 921352e9864c detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

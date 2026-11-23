@@ -1,0 +1,23 @@
+{
+ "corpus": "archaonhw--stonepotatoes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how ArchaonHW/StonePotatoes implements it: \u4e00\u500b\u53f2\u8a69\u7d1a\u904a\u6232\u5f15\u64ce (selected work: src/rendering)",
+ "repos": [
+  {
+   "repo": "StonePotatoes",
+   "url": "https://github.com/ArchaonHW/StonePotatoes",
+   "sha": "116d8fe2cb1d1d20b0235a22fe4bfc8bfc00b8d3",
+   "licence": "MIT (LICENSE file at pin 116d8fe2cb1d, GitHub licence API 2026-10-25)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-14T20:32Z",
+    "consent_receipt": "62643b3d2c3e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T20:32Z (receipt 62643b3d2c3e); selected commit 116d8fe2cb1d: \"feat(rendering): integrate Vulkan renderer\". LICENSE file at pin 116d8fe2cb1d detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution."
+   }
+  }
+ ]
+}

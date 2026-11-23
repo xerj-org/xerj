@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how indkhan/Fieldnote implements it: A free, open-source desktop notebook for interviews and conversations. Record audio, write answers, and hand it all to Claude Code or Codex (selected work: src-tauri, src, the project root)",
+ "domain": "an agent working on TypeScript queries this for how indkhan/Fieldnote implements it: A free, open-source desktop notebook for interviews and conversations. Record audio, write answers, and hand it all to Claude Code or Codex (selected work: src-tauri, src, the project root)",
  "repos": [
   {
    "repo": "Fieldnote",

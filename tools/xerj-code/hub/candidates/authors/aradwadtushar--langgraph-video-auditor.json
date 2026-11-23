@@ -1,0 +1,23 @@
+{
+ "corpus": "aradwadtushar--langgraph-video-auditor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on azure-openai, fastapi, langgraph queries this for how AradwadTushar/langgraph-video-auditor implements it: Video ad compliance auditor. LangGraph pipeline with Azure Video Indexer, RAG over FTC/YouTube rules, and GPT-4o. FastAPI + React (selected work: backend, frontend, the project root)",
+ "repos": [
+  {
+   "repo": "langgraph-video-auditor",
+   "url": "https://github.com/AradwadTushar/langgraph-video-auditor",
+   "sha": "e164fcb9a704c2607d633252367ec9eb147d1534",
+   "licence": "MIT (LICENSE file at pin e164fcb9a704, GitHub licence API 2026-10-25)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-15T06:24Z",
+    "consent_receipt": "b674abb5ee34",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T06:24Z (receipt b674abb5ee34); selected commit e164fcb9a704: \"fix: resolve model temperature compatibility, add direct api fallback\u2026\". LICENSE file at pin e164fcb9a704 detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution."
+   }
+  }
+ ]
+}

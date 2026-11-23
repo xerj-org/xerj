@@ -1,0 +1,23 @@
+{
+ "corpus": "ayoubelleuch--tetris-in-c",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cpp, game-development, sdl2 queries this for how AyoubElleuch/Tetris-in-C- implements it: Tetris written by hand in C++ with SDL2: rotation, collision detection, line clearing, next-piece preview, and restart",
+ "repos": [
+  {
+   "repo": "Tetris-in-C-",
+   "url": "https://github.com/AyoubElleuch/Tetris-in-C-",
+   "sha": "60de5a19b7733a69cc6435b3295082507416ac69",
+   "licence": "MIT (LICENSE file at pin 60de5a19b773, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T00:15Z",
+    "consent_receipt": "6ec37189ae27",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:15Z (receipt 6ec37189ae27); pinned to the default-branch head. LICENSE file at pin 60de5a19b773 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

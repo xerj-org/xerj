@@ -1,0 +1,23 @@
+{
+ "corpus": "atharvatilewale--chemlitmus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on chebi, chembl, cheminformatics queries this for how AtharvaTilewale/ChemLitmus implements it: SMILES validation and diagnosis, molecular identity, SMARTS auditing, and multi-database compound lookup (PubChem, ChEMBL, ChEBI, KEGG)",
+ "repos": [
+  {
+   "repo": "ChemLitmus",
+   "url": "https://github.com/AtharvaTilewale/ChemLitmus",
+   "sha": "4f627ce801493ed2693ebfa8c5a54fc6611b7ad2",
+   "licence": "MIT (LICENSE file at pin 4f627ce80149, GitHub licence API 2026-10-28)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T18:01Z",
+    "consent_receipt": "d5a704bb37d2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:01Z (receipt d5a704bb37d2); pinned to the default-branch head. LICENSE file at pin 4f627ce80149 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+   }
+  }
+ ]
+}
