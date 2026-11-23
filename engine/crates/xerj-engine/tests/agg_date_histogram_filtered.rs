@@ -76,9 +76,8 @@ fn schema() -> Schema {
 }
 
 /// One filter: the ES query, the same predicate in Rust, and whether the
-/// fast path must serve it. A top-level `bool` reaches the aggregation on the
-/// brute path today, before the columnar filter is ever tried (not this
-/// change); it stays in the mix to cross-check the brute oracle.
+/// fast path must serve it. Since #3510 the conjunctive `bool` is served from
+/// doc values too.
 type Filter = (Value, Box<dyn Fn(&Value) -> bool>, bool);
 
 fn filters() -> Vec<Filter> {
@@ -105,7 +104,7 @@ fn filters() -> Vec<Filter> {
                 { "range": { "n": { "gte": 9000 } } }
             ] } }),
             Box::new(move |d: &Value| d["cat"] == "c1" && num(d, "n").unwrap() >= 9000),
-            false,
+            true,
         ),
         (
             json!({ "range": { "ts": { "gte": T0 + 40 * 86_400_000, "lt": T0 + 95 * 86_400_000 } } }),

@@ -11828,6 +11828,33 @@ mod fast_aggs;
 /// Only the leaf/bool shapes that `doc_matches_filter` and `compile_pred`
 /// jointly support are emitted, so the memtable matcher and the columnar
 /// predicate stay byte-identical.
+/// #3510: whether `q` is a pure conjunction (`bool` with only `must` /
+/// `filter`, nested, or under `constant_score`) whose every leaf passes
+/// `leaf_ok`. A leaf on its own is just checked. Used to admit a filter-only
+/// `bool` to the `size:0` agg fast path when each leaf would take that path by
+/// itself (`query_node_to_agg_filter` mirrors this shape).
+fn filter_conjunction_leaves_all(q: &QueryNode, leaf_ok: &dyn Fn(&QueryNode) -> bool) -> bool {
+    match q {
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            minimum_should_match,
+        } => {
+            should.is_empty()
+                && must_not.is_empty()
+                && minimum_should_match.is_none()
+                && must
+                    .iter()
+                    .chain(filter)
+                    .all(|c| filter_conjunction_leaves_all(c, leaf_ok))
+        }
+        QueryNode::Constant { query, .. } => filter_conjunction_leaves_all(query, leaf_ok),
+        leaf => leaf_ok(leaf),
+    }
+}
+
 fn query_node_to_agg_filter(node: &QueryNode, schema: &Schema) -> Option<Value> {
     match node {
         QueryNode::MatchAll => Some(serde_json::json!({ "match_all": {} })),
@@ -11837,6 +11864,14 @@ fn query_node_to_agg_filter(node: &QueryNode, schema: &Schema) -> Option<Value> 
         QueryNode::Constant { query, .. } => query_node_to_agg_filter(query, schema),
         // Exact term — keyword (string) values.  A numeric value on a numeric
         // field is the arm below; bool keys and anything else bail (brute).
+        // #3510: a `term` / `terms` on analysed text matches the token stream
+        // (#3259), which no doc-values column holds. A top-level one never
+        // got here (it needs FTS); inside a conjunctive `bool` it now would.
+        QueryNode::Term { field, .. } | QueryNode::Terms { field, .. }
+            if field_is_analyzed_text(schema, field) =>
+        {
+            None
+        }
         QueryNode::Term {
             field,
             value: Value::String(s),
@@ -29325,10 +29360,40 @@ impl Index {
         } else {
             query_node_to_agg_filter(query, &dmq_schema)
         };
+        // #3510: a filter-only `bool` (`must`/`filter`, nested, under
+        // `constant_score`) projects to an FTS conjunction as a whole, so
+        // `query_needs_fts` kept it off this path even when every leaf takes
+        // it on its own (`term cat` and `range n` each do; `bool.filter
+        // [term cat, range n]` ran the brute `_source` corpus). The columnar
+        // filter is the AND of its leaves, so the bool matches the brute path
+        // exactly when each leaf does: the leaf converts
+        // (`agg_filter.is_some()` covers the whole tree) and would not need
+        // FTS alone. A leaf that does (a `term` on analysed text, `match`)
+        // keeps the bool on the brute path. Each leaf is projected exactly as
+        // it would be at the top level, where a keyword `term` sees no FTS
+        // keyword fields (#1359, `fts_kw_fields` above).
+        let fts_conjunction_columnar = query_needs_fts
+            && agg_filter.is_some()
+            && filter_conjunction_leaves_all(query, &|leaf| {
+                query_node_to_fts_projected(
+                    leaf,
+                    &text_fields,
+                    &exact_fields,
+                    if matches!(leaf, QueryNode::Term { .. }) {
+                        &empty_kw_fields
+                    } else {
+                        fts_kw_fields
+                    },
+                    self.segment_analyzer_binding(),
+                    pinned_probe,
+                    DateDocs::Probe(&date_doc_fields),
+                )
+                .is_none()
+            });
         if size == 0
             && request.aggs.is_some()
             && request.min_score.is_none()
-            && !query_needs_fts
+            && (!query_needs_fts || fts_conjunction_columnar)
             && (is_match_all || agg_filter.is_some())
         {
             if let Some(aggs_def) = &request.aggs {
