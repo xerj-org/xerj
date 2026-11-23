@@ -81,6 +81,56 @@ fn pressure_purge_due(
     due
 }
 
+/// Runs the sampler's pressure purge on a thread of its own (#2427).
+///
+/// A purge hands every freed allocator page back to the kernel, and the
+/// call takes about as long as the bytes it returns, roughly 125-200 ms per
+/// GiB: about three quarters of it is `madvise(MADV_DONTNEED)` over many
+/// small extents (median 16-32 KiB, ~2,300 calls per purge), and the stats
+/// epoch is ~5%. Skipping calls with nothing to free would save little:
+/// such a call costs ~2 ms. Run on the sampler thread, each call held back
+/// the next RSS sample, so the breaker read an RSS figure up to 389 ms old
+/// (1,722 ms once) during exactly the bursts the purge is there for. The
+/// sampler now only asks. The channel is a rendezvous channel, so a
+/// request lands only when the worker is idle; one that arrives mid-purge
+/// is dropped and the next due tick asks again. Same
+/// shape as ClickHouse's `MemoryWorker`, whose RSS thread flags a separate
+/// purge thread (`src/Common/MemoryWorker.cpp:924-962`, `:1154-1230`,
+/// Apache-2.0), written fresh here. Without a worker (the spawn failed)
+/// the purge runs inline, as before.
+struct PressurePurgeWorker {
+    purge: Arc<dyn Fn() + Send + Sync + 'static>,
+    tx: Option<std::sync::mpsc::SyncSender<()>>,
+}
+
+impl PressurePurgeWorker {
+    fn spawn(purge: Arc<dyn Fn() + Send + Sync + 'static>) -> Self {
+        let (tx, rx) = std::sync::mpsc::sync_channel::<()>(0);
+        let worker = Arc::clone(&purge);
+        let running = spawn_governor_thread("xerj-mem-purge", move || {
+            while let Ok(()) = rx.recv() {
+                worker();
+            }
+        });
+        Self {
+            purge,
+            tx: running.then_some(tx),
+        }
+    }
+
+    /// Ask for a purge without waiting for it. Returns whether one was
+    /// started: `false` means the worker is still on the previous one.
+    fn request(&self) -> bool {
+        match &self.tx {
+            Some(tx) => tx.try_send(()).is_ok(),
+            None => {
+                (self.purge)();
+                true
+            }
+        }
+    }
+}
+
 /// Whether this sampler tick should ask the drain worker to run on the fixed
 /// window (#948, #2238).
 ///
@@ -353,6 +403,56 @@ mod pressure_cache_release_gate_tests {
         ));
         let mut never = None;
         assert!(!pressure_purge_due(u64::MAX, 0, &mut never, t0));
+    }
+
+    /// #2427: asking for a pressure purge never waits for it. A purge that
+    /// is still running drops the next request instead of queueing it, and
+    /// the worker takes requests again once it is done.
+    #[test]
+    fn a_pressure_purge_request_does_not_wait_for_the_purge() {
+        use super::PressurePurgeWorker;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+        let runs = Arc::new(AtomicUsize::new(0));
+        let (started_tx, started_rx) = std::sync::mpsc::channel::<()>();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let started_tx = std::sync::Mutex::new(started_tx);
+        let release_rx = std::sync::Mutex::new(release_rx);
+        let counted = Arc::clone(&runs);
+        let worker = PressurePurgeWorker::spawn(Arc::new(move || {
+            started_tx.lock().unwrap().send(()).unwrap();
+            release_rx.lock().unwrap().recv().unwrap();
+            counted.fetch_add(1, Ordering::SeqCst);
+        }));
+        let wait_until = |what: &str, mut f: Box<dyn FnMut() -> bool + '_>| {
+            let by = Instant::now() + Duration::from_secs(10);
+            while !f() {
+                assert!(Instant::now() < by, "{what}");
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        };
+        wait_until("the worker never went idle", Box::new(|| worker.request()));
+        started_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the purge must start on the worker");
+        let t = Instant::now();
+        assert!(!worker.request(), "a busy worker must drop the request");
+        assert!(
+            t.elapsed() < Duration::from_secs(1),
+            "a request must not block"
+        );
+        assert_eq!(runs.load(Ordering::SeqCst), 0);
+        release_tx.send(()).unwrap();
+        wait_until(
+            "the worker never took a request again",
+            Box::new(|| worker.request()),
+        );
+        started_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        release_tx.send(()).unwrap();
+        wait_until(
+            "the second purge never finished",
+            Box::new(|| runs.load(Ordering::SeqCst) == 2),
+        );
     }
 
     #[test]
@@ -5108,6 +5208,7 @@ impl Engine {
                 crate::governor::MemoryDrainSchedule::new(MEMORY_DRAIN_MIN_INTERVAL);
             let mut last_memtable_drain_at: Option<std::time::Instant> = None;
             let mut last_pressure_purge_at: Option<std::time::Instant> = None;
+            let pressure_purge = PressurePurgeWorker::spawn(Arc::new(purge_allocator_pages));
             let mut disk_hint_shown = false;
             loop {
                 std::thread::sleep(period);
@@ -5131,7 +5232,7 @@ impl Engine {
                     &mut last_pressure_purge_at,
                     std::time::Instant::now(),
                 ) {
-                    purge_allocator_pages();
+                    pressure_purge.request();
                 }
                 // #3282: name the drive and the `--data-dir` fix once per
                 // engagement (the first sample after startup included), so a
