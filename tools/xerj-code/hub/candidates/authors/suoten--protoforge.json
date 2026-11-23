@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on bacnet, edge-computing, fieldbus queries this for how suoten/ProtoForge implements it: Zero-hardware simulator for 28 industrial protocols \u2014 Modbus TCP/S7/OPC UA/BACnet/MQTT & more. Test SCADA, HMI & IoT gateway software withou (selected work: protoforge, tests, the project root)",
+ "domain": "an agent working on bacnet, industrial-iot, iot-gateway queries this for how suoten/ProtoForge implements it: Zero-hardware simulator for 28 industrial protocols \u2014 Modbus TCP/S7/OPC UA/BACnet/MQTT & more. Test SCADA, HMI & IoT gateway software withou (selected work: protoforge, tests, the project root)",
  "repos": [
   {
    "repo": "ProtoForge",

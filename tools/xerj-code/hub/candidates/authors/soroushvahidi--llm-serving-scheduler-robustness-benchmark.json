@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on benchmarking, llm-serving, performance-evaluation queries this for how SoroushVahidi/llm-serving-scheduler-robustness-benchmark implements it: Benchmark for portability of LLM-serving scheduler rankings across workloads, operating regions, metrics, and SLO definitions (selected work: paper)",
+ "domain": "an agent working on benchmarking, llm-serving, performance-evaluation queries this for how SoroushVahidi/llm-serving-scheduler-robustness-benchmark implements it: LSSP: do LLM-serving scheduler rankings transfer across workloads (BurstGPT, Azure, Bailian), operating regions, metrics and SLOs? Simulator (selected work: paper)",
  "repos": [
   {
    "repo": "llm-serving-scheduler-robustness-benchmark",

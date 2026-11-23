@@ -8,15 +8,15 @@
   {
    "repo": "lifepot",
    "url": "https://github.com/tugrulguner/lifepot",
-   "sha": "427d116110cd09f3938dd51b75baceb3d5920c1b",
-   "licence": "MIT (LICENSE file at pin 427d116110cd, GitHub licence API 2026-11-23)",
+   "sha": "c8b2f347b72cdafdde7a9cad25f3d87920213699",
+   "licence": "MIT (LICENSE file at pin c8b2f347b72c, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:45Z",
     "consent_receipt": "97d955cdf44e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:45Z (receipt 97d955cdf44e); pinned to the default-branch head. LICENSE file at pin 427d116110cd detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:45Z (receipt 97d955cdf44e); pinned to the default-branch head. LICENSE file at pin c8b2f347b72c detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]

@@ -8,15 +8,15 @@
   {
    "repo": "dota-assistant",
    "url": "https://github.com/DrunkUnderstanding/dota-assistant",
-   "sha": "623f2da5e13a7c81a424474e8188625ecf019ccb",
-   "licence": "MIT (LICENSE file at pin 623f2da5e13a, GitHub licence API 2026-11-20)",
+   "sha": "5a8c9aadaf32ab6f05c93fb55dd22d67ef4a922e",
+   "licence": "MIT (LICENSE file at pin 5a8c9aadaf32, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-27T11:32Z",
     "consent_receipt": "9ffa5411a7aa",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T11:32Z (receipt 9ffa5411a7aa); selected commit 623f2da5e13a: \"feat: \u65b0\u589e\u5bf9\u9762\u5206\u8def\u4e0e\u5bf9\u7ebf\u6253\u6cd5\u3001\u8bbe\u7f6e\u7a97\u53e3\u3001AI \u6765\u6e90\u53ef\u9009\u4e0e\u514d\u5b89\u88c5\u6253\u5305\". LICENSE file at pin 623f2da5e13a detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution. Pinned to head 623f2da5e13a (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T11:32Z (receipt 9ffa5411a7aa); selected commit 5a8c9aadaf32: \"feat: \u65b0\u589e\u5bf9\u9762\u5206\u8def\u4e0e\u5bf9\u7ebf\u6253\u6cd5\u3001\u8bbe\u7f6e\u7a97\u53e3\u3001AI \u6765\u6e90\u53ef\u9009\u4e0e\u514d\u5b89\u88c5\u6253\u5305\". LICENSE file at pin 5a8c9aadaf32 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head 5a8c9aadaf32 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
