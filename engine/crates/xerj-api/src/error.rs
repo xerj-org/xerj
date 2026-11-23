@@ -168,7 +168,9 @@ impl ApiError {
         // `parse error: <msg>`; strip that so the reason matches ES
         // byte-for-byte, and surface ES's exception types
         // (`illegal_argument_exception` for a bad format string,
-        // `parse_exception` in root_cause for unparseable values/math).
+        // `parse_exception` in root_cause for unparseable values/math,
+        // `illegal_argument_exception` in root_cause for a date too far from
+        // 1970 to fit epoch millis).
         let mut reason = reason;
         let mut date_root: Option<&'static str> = None;
         {
@@ -176,6 +178,12 @@ impl ApiError {
             if stripped.starts_with("Invalid format: [") {
                 reason = stripped.to_string();
                 error_type = "illegal_argument_exception".into();
+                status_code = 400;
+                date_root = Some("illegal_argument_exception");
+            } else if stripped.starts_with("date[")
+                && stripped.ends_with("to be represented in a long milliseconds variable")
+            {
+                reason = stripped.to_string();
                 status_code = 400;
                 date_root = Some("illegal_argument_exception");
             } else if stripped.starts_with("failed to parse date field [")
