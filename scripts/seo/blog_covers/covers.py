@@ -135,6 +135,11 @@ POSTS: list[dict[str, str]] = [
          subtitle="A neurosymbolic model that compiles prompts to verifiable search queries.",
          alt="Three grids of 160 squares: XERJ Query-1 1 wrong (given each question’s own records), RAG with BM25 top-10 on Opus 5.5 9 wrong, Opus 5.5 reading the whole store 6 wrong; filled squares right, blue wrong, rings declined",
          og_alt="Cover: “XERJ Query-1” beside three grids of 160 squares from our 160-question test: XERJ Query-1, given each question’s own records, 1 wrong and 35 declined; RAG with BM25 top-10 on Opus 5.5, 9 wrong; Opus 5.5 reading the whole store, 6 wrong. Filled squares are right answers, blue squares wrong answers, rings declined"),
+    dict(slug="rc105-long-pages-cjk-exact-top-n", date="2026-11-23", motif="recall105",
+         title="rc.105",
+         subtitle="Better ranking on long pages and CJK text.",
+         alt="Cover art: two pairs of square grids. On the left, two grids of 100 squares for the long-page test, 57 filled in ink beside 65 filled in yellow. On the right, two grids of 20 squares for the Chinese law questions, 9 filled in ink beside 19 filled in yellow",
+         og_alt="Cover: “rc.105” in display type beside the post’s square-matrix art, labelled R@1 56.60 to 64.78 and R@1 0.45 to 0.95. The art: two grids of 100 squares for the long-page test, 57 filled in ink beside 65 filled in yellow, and two grids of 20 squares for the Chinese law questions, 9 filled in ink beside 19 filled in yellow"),
 ]
 
 # og: title + motif with its labels, for social feeds that show the card alone.

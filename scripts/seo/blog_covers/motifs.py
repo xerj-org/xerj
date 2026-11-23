@@ -665,6 +665,57 @@ def m_wrong160(w: float, h: float, rng: random.Random) -> str:
     return "".join(out)
 
 
+def m_recall105(w: float, h: float, rng: random.Random) -> str:
+    """rc105-long-pages-cjk-exact-top-n.
+
+    Left: two 10x10 grids, recall at 1 on the 121-page medical reference
+    (1,993 questions) before and after the BM25 length fix (CHANGELOG #3007:
+    R@1 56.60 -> 64.78), drawn as 57 and 65 filled cells of 100 (rounded).
+    Right: two 4x5 grids, the 20 PRC statute questions (CHANGELOG #3377:
+    R@1 0.45 -> 0.95), drawn as 9 and 19 filled cells of 20. Ink is before,
+    yellow is after. rng is unused; the layout is fixed.
+    """
+    del rng
+    top = 30.0 if LABELS else 4.0
+    bottom = 26.0 if LABELS else 4.0
+    gh = h - top - bottom
+    gap = max(14.0, w * 0.03)
+    group_gap = max(30.0, w * 0.07)
+    k = 1.6
+    pitch = min(gh / 10, (w - 2 * gap - group_gap) / (20 + 8 * k))
+    pitch2 = min(gh / 5, pitch * k)
+    total = 20 * pitch + 2 * 4 * pitch2 + 2 * gap + group_gap
+    x = (w - total) / 2
+    y0 = top + (gh - 10 * pitch) / 2
+    y1 = top + (gh - 5 * pitch2) / 2
+    out: list[str] = []
+
+    def grid(gx: float, gy: float, cols: int, rows: int, p: float, filled: int, ink: str) -> None:
+        for n in range(cols * rows):
+            i, j = n % cols, n // cols
+            cx, cy = gx + (i + 0.5) * p, gy + (j + 0.5) * p
+            if n < filled:
+                out.append(dot(cx, cy, p * 0.40, ink))
+            else:
+                out.append(ring(cx, cy, p * 0.30, "f", 1.0))
+
+    gx = x
+    out.append(label(gx, y0 - 12, "LONG PAGES · R@1", "lab"))
+    grid(gx, y0, 10, 10, pitch, 57, "w")
+    out.append(label(gx, y0 + 10 * pitch + 20, "56.60", "num w"))
+    gx += 10 * pitch + gap
+    grid(gx, y0, 10, 10, pitch, 65, "y")
+    out.append(label(gx, y0 + 10 * pitch + 20, "64.78", "num y"))
+    gx += 10 * pitch + group_gap
+    out.append(label(gx, y1 - 12, "CJK LAW · R@1", "lab"))
+    grid(gx, y1, 4, 5, pitch2, 9, "w")
+    out.append(label(gx, y1 + 5 * pitch2 + 20, "0.45", "num w"))
+    gx += 4 * pitch2 + gap
+    grid(gx, y1, 4, 5, pitch2, 19, "y")
+    out.append(label(gx, y1 + 5 * pitch2 + 20, "0.95", "num y"))
+    return "".join(out)
+
+
 MOTIFS: dict[str, Callable[[float, float, random.Random], str]] = {
     "index28": m_index28,
     "jevbars": m_jevbars,
@@ -678,4 +729,5 @@ MOTIFS: dict[str, Callable[[float, float, random.Random], str]] = {
     "budget": m_budget,
     "fieldgate": m_fieldgate,
     "wrong160": m_wrong160,
+    "recall105": m_recall105,
 }
