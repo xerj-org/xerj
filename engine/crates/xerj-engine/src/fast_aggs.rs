@@ -478,9 +478,10 @@ pub(super) struct FastCtx<'a> {
     /// present, EVERY executor restricts its columnar reduction to matching
     /// segment rows (via the `fused_seg_pass` row gate + `exec_metric_top`'s
     /// filtered loop) and every memtable-doc walk is gated by
-    /// `doc_matches_filter(doc, top_filter_query)`.  Only metric + terms aggs
-    /// support filtering; other agg types bail (None) so the caller falls back
-    /// to the exact brute path.
+    /// `doc_matches_filter(doc, top_filter_query)`.  Only the agg types in
+    /// `exec_agg`'s filtered whitelist (metrics, terms, percentiles,
+    /// date_histogram, …) support filtering; other agg types bail (None) so
+    /// the caller falls back to the exact brute path.
     top_filter: Option<Pred>,
     /// The original ES-JSON query for the top-level filter, used for the
     /// memtable per-doc match (the trusted sibling of `compile_pred`, exactly
@@ -1784,6 +1785,9 @@ impl<'a> FastCtx<'a> {
         // report whole-index statistics for a filtered query.  The exclusion
         // meant a filtered `percentiles` fell to the O(N) `_source` scan:
         // measured 11.9 s on 1.12 M docs, 70 s on 5.6 M.
+        // `date_histogram` joined once its segment fold walked the matching
+        // rows instead of the whole-segment ord histogram (#3476): the brute
+        // fallback took 0.8-1.6 s on 200 k docs and answered 429 at 300 k.
         if self.top_filter.is_some()
             && !matches!(
                 agg_type,
@@ -1800,6 +1804,7 @@ impl<'a> FastCtx<'a> {
                     | "percentiles"
                     | "percentile_ranks"
                     | "median_absolute_deviation"
+                    | "date_histogram"
             )
         {
             return None;
@@ -4886,7 +4891,114 @@ impl<'a> FastCtx<'a> {
         };
 
         let mut missing_sort_seen = false;
-        for si in 0..self.segs.len() {
+        // [#3476] Under a top-level query filter the whole-segment shortcuts
+        // below are wrong twice over: `per_ord_count` counts every row, and
+        // the ord → slot table creates a bucket for every timestamp in the
+        // segment, which would widen the `min_doc_count: 0` gap-fill span past
+        // the matching docs. The filtered arm walks the rows instead: ghost
+        // gate, columnar predicate, then bucket. A bucket exists only once a
+        // matching row lands in it, exactly as `aggs::run_date_histogram`
+        // builds its key set from the filtered docs. Segments serve either
+        // arm, never both.
+        let filtered = self.top_filter.is_some();
+        let unfiltered_segs = if filtered { 0 } else { self.segs.len() };
+        if let Some(pred) = &self.top_filter {
+            for si in 0..self.segs.len() {
+                let seg = &self.segs[si];
+                let (kw, num) = match seg.col(field) {
+                    Some(Column::Keyword(k)) => (Some(k), None),
+                    Some(Column::Numeric(n)) => (None, Some(n)),
+                    _ => continue,
+                };
+                let ord_ms = match kw {
+                    Some(_) => Some(self.date_ord_index(seg, field)?),
+                    None => None,
+                };
+                let sp = resolve_pred(&seg.cols, pred, &self.segs, self.mapped_fields)?;
+                if matches!(sp, SegPred::Never) {
+                    continue;
+                }
+                let seg_ghosts = seg.ghosts.as_deref();
+                let mut row_slot: Vec<i32> = if has_row_work {
+                    vec![-1; seg.docs as usize]
+                } else {
+                    Vec::new()
+                };
+                // Same [start, end) run memo as the keyword arm: rows of a
+                // time-ordered index fall into the current bucket, so the
+                // calendar math + HashMap probe run ~once per bucket.
+                let mut run: Option<(i64, i64, usize)> = None;
+                for row in 0..seg.docs {
+                    if let Some(g) = seg_ghosts {
+                        if ghost_bit(g, row) {
+                            continue;
+                        }
+                    }
+                    if !seg_pred_matches(&sp, row) {
+                        continue;
+                    }
+                    let ms = if let (Some(k), Some(ord_ms)) = (kw, ord_ms.as_deref()) {
+                        let Some(ord) = k.ord_for(row) else {
+                            continue;
+                        };
+                        match ord_ms.get(ord as usize) {
+                            Some(&ms) if ms != i64::MIN => ms,
+                            _ => continue,
+                        }
+                    } else if let Some(n) = num {
+                        match n.get(row) {
+                            // f64 BITS, as in the unfiltered numeric arm.
+                            Some(bits) => f64::from_bits(bits as u64) as i64,
+                            None => continue,
+                        }
+                    } else {
+                        continue;
+                    };
+                    let slot = match run {
+                        Some((start, end, slot)) if ms >= start && ms < end => slot,
+                        _ => {
+                            let key = bucket_of(ms);
+                            let slot = ensure_bucket(
+                                key,
+                                &mut bucket_ids,
+                                &mut bucket_keys,
+                                &mut counts,
+                                &mut accs,
+                            );
+                            run = Some((key, next_bucket(key), slot));
+                            slot
+                        }
+                    };
+                    counts[slot] += 1;
+                    if has_row_work {
+                        row_slot[row as usize] = slot as i32;
+                    }
+                }
+                if !has_row_work {
+                    continue;
+                }
+                let n_slots = bucket_keys.len();
+                let mut tops: Vec<Vec<(f64, u64, DocRef)>> = vec![Vec::new(); n_slots.max(1)];
+                let mut slot_of_row = |row: u32| -> Option<usize> {
+                    let s = *row_slot.get(row as usize)?;
+                    if s < 0 {
+                        None
+                    } else {
+                        Some(s as usize)
+                    }
+                };
+                self.fused_seg_pass(
+                    si,
+                    &mut slot_of_row,
+                    n_slots,
+                    &plan,
+                    &mut accs,
+                    &mut tops,
+                    &mut missing_sort_seen,
+                )?;
+            }
+        }
+        for si in 0..unfiltered_segs {
             let seg = &self.segs[si];
             let Some(Column::Keyword(k)) = seg.col(field) else {
                 continue;
@@ -4968,7 +5080,7 @@ impl<'a> FastCtx<'a> {
         // per doc). Segments are keyword XOR numeric for a field, so exactly
         // one of these two loops does work. Counts are bumped here; sub-metrics
         // fold via `fused_seg_pass`, mirroring the keyword arm above.
-        for si in 0..self.segs.len() {
+        for si in 0..unfiltered_segs {
             let seg = &self.segs[si];
             let Some(Column::Numeric(n)) = seg.col(field) else {
                 continue;
@@ -5022,8 +5134,20 @@ impl<'a> FastCtx<'a> {
         }
 
         // Memtable docs — brute multi-value date extraction with per-doc
-        // bucket dedup.
-        for doc in self.mem().iter() {
+        // bucket dedup. Under a filter only the matching docs fold: the
+        // O(matching) columnar candidates when the filter columnarises, else
+        // the full walk, both re-checked against the JSON matcher.
+        let mem_docs: Box<dyn Iterator<Item = &Value> + '_> =
+            match (self.filtered_mem(), self.top_filter_query.as_ref()) {
+                (Some(fdocs), Some(_)) => Box::new(fdocs.iter().map(|(_, d)| d.as_ref())),
+                _ => self.mem().iter(),
+            };
+        for doc in mem_docs {
+            if let Some(q) = &self.top_filter_query {
+                if !doc_matches_filter(doc, q) {
+                    continue;
+                }
+            }
             let raws = extract_date_ms_values(doc, field);
             let weight = doc_count_weight(doc);
             let mut seen: Vec<i64> = Vec::with_capacity(raws.len());
