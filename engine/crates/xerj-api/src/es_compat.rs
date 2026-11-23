@@ -27775,21 +27775,31 @@ pub async fn mget(
     }
     let mut docs: Vec<Value> = Vec::with_capacity(body.docs.len());
 
-    for req_doc in &body.docs {
-        let idx = match state.engine.get_index(&req_doc.index) {
-            Ok(i) => i,
-            Err(_) => {
-                docs.push(json!({
-                    "_index": req_doc.index,
-                    "_id": req_doc.id,
-                    "found": false,
-                }));
-                continue;
-            }
+    // #3498: one `get_documents` call per index, so the ids whose stored
+    // copies share a segment without a resident stored section are read with
+    // one row-selective decode of it, not one whole-section decode per id.
+    let mut slots_by_index: HashMap<&str, Vec<usize>> = HashMap::new();
+    for (slot, req_doc) in body.docs.iter().enumerate() {
+        slots_by_index
+            .entry(req_doc.index.as_str())
+            .or_default()
+            .push(slot);
+    }
+    let mut answers: Vec<Option<(std::sync::Arc<xerj_engine::Index>, Option<Value>)>> =
+        body.docs.iter().map(|_| None).collect();
+    for (name, slots) in slots_by_index {
+        let Ok(idx) = state.engine.get_index(name) else {
+            continue;
         };
+        let ids: Vec<&str> = slots.iter().map(|&s| body.docs[s].id.as_str()).collect();
+        for (&slot, answer) in slots.iter().zip(idx.get_documents(&ids).await) {
+            answers[slot] = Some((std::sync::Arc::clone(&idx), answer.ok().flatten()));
+        }
+    }
 
-        match idx.get_document(&req_doc.id).await {
-            Ok(Some(source)) => {
+    for (req_doc, answer) in body.docs.iter().zip(answers) {
+        match answer {
+            Some((idx, Some(source))) => {
                 // Real per-doc `_seq_no` / `_version` — same resolvers the
                 // `_search` hit metadata and GET `_doc` use; were hardcoded
                 // 0 / 1.
@@ -27876,26 +27886,63 @@ pub async fn mget_index(
             .into_response();
     }
 
-    let mut docs: Vec<Value> = Vec::with_capacity(entries.len());
-    for (ix, id, src_spec) in &entries {
-        // Resolve the entry's index through the shared resolver (#451): an
-        // alias expands to every member, so a doc in any member is found — not
-        // just the first. `get_index` collapsed an alias to `aliased.first()`,
-        // so a non-first member's doc reported `found:false` (class B).
-        let members = match resolve_selector_with_filters(&state, ix).await {
-            Ok((m, _filters)) => m,
-            Err(_) => {
-                docs.push(json!({ "_index": ix, "_id": id, "found": false }));
+    // #3498: entries whose index resolves to ONE concrete index are fetched
+    // with one `get_documents` call per index (one row-selective decode per
+    // cold segment). An alias over several members keeps the per-entry
+    // member walk below.
+    type Found = (String, std::sync::Arc<xerj_engine::Index>, Value);
+    let mut prefetched: Vec<Option<Option<Found>>> = entries.iter().map(|_| None).collect();
+    {
+        let mut slots_by_index: HashMap<&str, Vec<usize>> = HashMap::new();
+        for (slot, (ix, _, _)) in entries.iter().enumerate() {
+            slots_by_index.entry(ix.as_str()).or_default().push(slot);
+        }
+        for (ix, slots) in slots_by_index {
+            let Ok((members, _filters)) = resolve_selector_with_filters(&state, ix).await else {
                 continue;
-            }
-        };
-        let mut hit = None;
-        for (mname, midx) in &members {
-            if let Ok(Some(source)) = midx.get_document(id).await {
-                hit = Some((mname.clone(), midx.clone(), source));
-                break;
+            };
+            let [(mname, midx)] = members.as_slice() else {
+                continue;
+            };
+            let ids: Vec<&str> = slots.iter().map(|&s| entries[s].1.as_str()).collect();
+            for (&slot, answer) in slots.iter().zip(midx.get_documents(&ids).await) {
+                prefetched[slot] = Some(
+                    answer
+                        .ok()
+                        .flatten()
+                        .map(|source| (mname.clone(), midx.clone(), source)),
+                );
             }
         }
+    }
+
+    let mut docs: Vec<Value> = Vec::with_capacity(entries.len());
+    for ((ix, id, src_spec), prefetched) in entries.iter().zip(prefetched) {
+        let hit = match prefetched {
+            Some(hit) => hit,
+            None => {
+                // Resolve the entry's index through the shared resolver (#451):
+                // an alias expands to every member, so a doc in any member is
+                // found — not just the first. `get_index` collapsed an alias to
+                // `aliased.first()`, so a non-first member's doc reported
+                // `found:false` (class B).
+                let members = match resolve_selector_with_filters(&state, ix).await {
+                    Ok((m, _filters)) => m,
+                    Err(_) => {
+                        docs.push(json!({ "_index": ix, "_id": id, "found": false }));
+                        continue;
+                    }
+                };
+                let mut hit = None;
+                for (mname, midx) in &members {
+                    if let Ok(Some(source)) = midx.get_document(id).await {
+                        hit = Some((mname.clone(), midx.clone(), source));
+                        break;
+                    }
+                }
+                hit
+            }
+        };
         match hit {
             Some((mname, midx, source)) => {
                 // Real per-doc `_seq_no` / `_version` (were hardcoded 0 / 1) —
