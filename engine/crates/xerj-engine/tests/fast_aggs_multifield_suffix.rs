@@ -23,6 +23,20 @@
 //! skipped the segment, so a panel returned a small plausible number built
 //! from the memtable alone.
 //!
+//! #3533 changed the first fact for QUERY and FILTER leaves: `extension` is
+//! dynamically mapped as `text` with a `.keyword` multi-field, so every
+//! other suffix on it is an unmapped leaf sub-field and a `term` / `terms`
+//! on it now matches nothing on the brute path either, as in ES. The
+//! lowering in `search_inner` and the guards in `doc_matches_query_typed`
+//! and `doc_matches_filter` run before `get_field_value`'s recursive
+//! fallback is reached. The bullets above still describe the resolvers for
+//! the names #3533 does not cover (aggregation TARGETS, and schemaless
+//! callers whose schema has no declared ancestor). The absolute assertions
+//! below were moved with that change: the query-filter and
+//! filters-predicate legs pin 0 for the unmapped suffixes and 3 200 for the
+//! bare field and the declared `.keyword` multi-field, so the agreement
+//! check still has a live non-zero leg to stand on.
+//!
 //! The fix keeps resolution narrow — widening it would make the fast path
 //! claim shapes it cannot prove byte-identical, and per the above there is
 //! no single behaviour to widen TO — and instead BAILS to the brute path
@@ -203,6 +217,12 @@ fn nested_sub_metric_on_raw() -> serde_json::Value {
 
 /// `filters` sub-agg whose leaf is a `term` on `<field>.raw` — the
 /// predicate resolver's fail-closed path.
+///
+/// #3533: `extension` is dynamically mapped as `text` with a `.keyword`
+/// multi-field, so `extension.raw` is an unmapped leaf sub-field and a
+/// `term` on it now matches nothing on BOTH paths, as in ES. The agreement
+/// below is still the invariant (fast == brute); the absolute counts moved
+/// from 3 200 / 3 000 to 0 with the brute reference itself.
 #[tokio::test]
 async fn fast_and_brute_agree_on_raw_filters_agg() {
     let brute = agree(
@@ -212,14 +232,13 @@ async fn fast_and_brute_agree_on_raw_filters_agg() {
          `filters` agg keyed by `<field>.raw`",
     )
     .await;
-    assert_eq!(
-        brute["aggs"]["by_ext"]["buckets"]["css"]["doc_count"],
-        3_200
-    );
-    assert_eq!(brute["aggs"]["by_ext"]["buckets"]["gz"]["doc_count"], 3_000);
+    assert_eq!(brute["aggs"]["by_ext"]["buckets"]["css"]["doc_count"], 0);
+    assert_eq!(brute["aggs"]["by_ext"]["buckets"]["gz"]["doc_count"], 0);
 }
 
 /// Single `filter` agg with a `terms` leaf on `<field>.raw`.
+/// #3533: see `fast_and_brute_agree_on_raw_filters_agg`; `terms` on the
+/// unmapped `extension.raw` now matches nothing on both paths, as in ES.
 #[tokio::test]
 async fn fast_and_brute_agree_on_raw_filter_terms_agg() {
     let brute = agree(
@@ -229,11 +248,14 @@ async fn fast_and_brute_agree_on_raw_filter_terms_agg() {
          `filter` agg with a `terms` leaf on `<field>.raw`",
     )
     .await;
-    assert_eq!(brute["aggs"]["css_or_gz"]["doc_count"], 6_200);
+    assert_eq!(brute["aggs"]["css_or_gz"]["doc_count"], 0);
 }
 
 /// Top-level query `term` on `<field>.raw` — this one moves `hits.total`,
 /// not just a bucket count.
+/// #3533: see `fast_and_brute_agree_on_raw_filters_agg`; the top-level
+/// `term` on the unmapped `extension.raw` now matches nothing on both
+/// paths, as in ES, so the `sum` over zero docs is 0.0.
 #[tokio::test]
 async fn fast_and_brute_agree_on_raw_query_filter() {
     let brute = agree(
@@ -243,8 +265,8 @@ async fn fast_and_brute_agree_on_raw_query_filter() {
          top-level `term` query against `<field>.raw`",
     )
     .await;
-    assert_eq!(brute["total"], 6_000);
-    assert_eq!(brute["aggs"]["total_v"]["value"], 600_000.0);
+    assert_eq!(brute["total"], 0);
+    assert_eq!(brute["aggs"]["total_v"]["value"], 0.0);
 }
 
 /// Aggregation TARGET on `<field>.raw`.  Broader than the predicate case:
@@ -365,24 +387,33 @@ async fn genuinely_absent_dotted_field_is_empty_on_both_paths() {
 /// Every multi-field suffix SHAPE, not just the one-segment `.raw` the issue
 /// happened to name.
 ///
-/// The resolver a top-level query filter is measured against is
-/// `index.rs::get_field_value`, and its multi-field fallback RECURSES
-/// (`get_field_value(source, &field[..idx])`), so it strips an unbounded
-/// number of trailing segments: `extension.raw.raw` and
-/// `extension.keyword.raw` both resolve to `extension`'s value on the brute
-/// path.  A columnar bail keyed on the immediate parent alone therefore
-/// still failed closed for every doubly-suffixed name.
+/// The resolver a top-level query filter used to be measured against is
+/// `index.rs::get_field_value`, whose multi-field fallback RECURSES
+/// (`get_field_value(source, &field[..idx])`) and strips an unbounded number
+/// of trailing segments: `extension.raw.raw` and `extension.keyword.raw`
+/// both resolved to `extension`'s value on the brute path. #3533 changed
+/// that for query leaves: `extension` is dynamically mapped as `text` with
+/// a `.keyword` multi-field, so every other suffix on it is an unmapped
+/// leaf sub-field and a `term` on it now matches nothing on the brute path
+/// either, as in ES. The doubled and tripled forms below still pin the
+/// columnar bail's depth (a one-level bail would have missed them), now
+/// with the brute leg at 0 instead of 3 200.
 ///
 /// One corpus, one process: run every shape on the columnar path, flip the
 /// index onto the brute path without changing a live value, run them all
 /// again, and compare the two maps whole.  Agreement is the invariant; the
 /// absolute assertions below exist only so a change that empties BOTH paths
-/// cannot pass.
+/// cannot pass, and after #3533 the unmapped suffixes DO empty both paths
+/// by design, so the non-vacuity for the query legs rests on the bare
+/// field and the declared `.keyword` multi-field, which still resolve.
 #[tokio::test]
 async fn fast_and_brute_agree_across_multi_field_suffix_shapes() {
     /// `.raw`/`.sort`/`.en` are real Logstash/ES multi-field conventions;
     /// the doubled and tripled forms are the shapes an unbounded-strip brute
-    /// resolver still walks and a one-level columnar bail still missed.
+    /// resolver used to walk and a one-level columnar bail still missed.
+    /// Since #3533 the brute query leg answers 0 for every unmapped suffix,
+    /// so they now pin that the bail still agrees there rather than the old
+    /// 3 200.
     /// `nosuchfield.raw` is the control: no ancestor column anywhere, so
     /// BOTH paths must read it as genuinely empty rather than falling back.
     const SHAPES: [&str; 10] = [
@@ -473,27 +504,69 @@ async fn fast_and_brute_agree_across_multi_field_suffix_shapes() {
     // measurement of what the reference actually does, not a restatement of
     // what the fix assumes.  Without it, "both paths returned nothing" would
     // pass the agreement check above.
+    //
+    // #3533 changed what the brute reference does for QUERY and FILTER
+    // predicates: `extension` is dynamically mapped as `text` with a
+    // `.keyword` multi-field, so every other suffix on it is an unmapped
+    // leaf sub-field and a `term` / `terms` on it now matches nothing, as
+    // in ES, on the query-filter leg AND on the `filters`-predicate leg,
+    // which both used to resolve through the parent. The bare field and the
+    // declared `.keyword` multi-field still resolve (3 200), so the
+    // agreement above is not vacuous: the corpus is live and both paths
+    // still answer real matches where a field exists. Aggregation TARGETS
+    // are untouched by #3533 (they are not query leaves), so the
+    // `terms`-target leg still measures the agg-side resolver's one-segment
+    // strip below.
 
-    // 1. The top-level query filter resolves EVERY suffix depth, because
-    //    `get_field_value`'s fallback recurses.  3 000 flushed `css` docs +
-    //    200 in the memtable.  This is the assertion that fails on a fix
-    //    keyed to the immediate parent only.
-    for shape in SHAPES {
-        if shape == "nosuchfield.raw" {
-            continue;
-        }
+    // 1. The top-level query filter resolves the bare field and the declared
+    //    `.keyword` multi-field only. Every other suffix is an unmapped
+    //    leaf sub-field (#3533) and matches nothing. 3 000 flushed `css`
+    //    docs + 200 in the memtable where the field exists.
+    for shape in ["extension", "extension.keyword"] {
         assert_eq!(
             brute[&format!("{shape}/query-term")]["total"],
             3_200,
             "the top-level-query resolver must reach `extension` from `{shape}`"
         );
     }
+    for shape in [
+        "extension.raw",
+        "extension.sort",
+        "extension.en",
+        "extension.raw.raw",
+        "extension.keyword.raw",
+        "extension.raw.keyword",
+        "extension.raw.raw.raw",
+    ] {
+        assert_eq!(
+            brute[&format!("{shape}/query-term")]["total"],
+            0,
+            "#3533: `term` on the unmapped sub-field `{shape}` must match nothing"
+        );
+    }
 
-    // 2. The agg-side resolver does NOT: `get_nested_field` strips exactly
-    //    one segment, so a `filters` leaf or a `terms` target sees the value
-    //    for a single suffix and nothing at all for a double one.  The fast
-    //    path has to match THIS here and the recursive one above, which is
-    //    why the fix bails rather than picking one resolution rule.
+    // 2. The agg-side TARGET resolver still strips exactly one segment, so
+    //    a `terms` target sees the value for a single suffix and nothing at
+    //    all for a double one. The `filters`-predicate leg no longer
+    //    measures that rule: a `term` / `terms` filter leaf on an unmapped
+    //    suffix is a query leaf, so #3533 makes it match nothing, while the
+    //    bare field and the declared `.keyword` multi-field still resolve.
+    for shape in ["extension", "extension.keyword"] {
+        assert_eq!(
+            brute[&format!("{shape}/filters-predicate")]["aggs"]["split"]["buckets"]["css"]
+                ["doc_count"],
+            3_200,
+            "the agg-side filter on `{shape}` must resolve"
+        );
+    }
+    for shape in ["extension.raw", "extension.sort", "extension.en"] {
+        assert_eq!(
+            brute[&format!("{shape}/filters-predicate")]["aggs"]["split"]["buckets"]["css"]
+                ["doc_count"],
+            0,
+            "#3533: a filter leaf on the unmapped sub-field `{shape}` must match nothing"
+        );
+    }
     for shape in [
         "extension",
         "extension.raw",
@@ -501,12 +574,6 @@ async fn fast_and_brute_agree_across_multi_field_suffix_shapes() {
         "extension.sort",
         "extension.en",
     ] {
-        assert_eq!(
-            brute[&format!("{shape}/filters-predicate")]["aggs"]["split"]["buckets"]["css"]
-                ["doc_count"],
-            3_200,
-            "the agg-side resolver strips one segment, so `{shape}` must resolve"
-        );
         assert_eq!(
             brute[&format!("{shape}/terms-target")]["aggs"]["by"]["buckets"]
                 .as_array()
@@ -526,8 +593,8 @@ async fn fast_and_brute_agree_across_multi_field_suffix_shapes() {
             brute[&format!("{shape}/filters-predicate")]["aggs"]["split"]["buckets"]["css"]
                 ["doc_count"],
             0,
-            "the agg-side resolver strips ONE segment only, so `{shape}` must \
-             find nothing there even though the query-filter resolver reaches it"
+            "#3533: a filter leaf on the doubly-suffixed `{shape}` must \
+             find nothing there"
         );
         assert_eq!(
             brute[&format!("{shape}/terms-target")]["aggs"]["by"]["buckets"],
