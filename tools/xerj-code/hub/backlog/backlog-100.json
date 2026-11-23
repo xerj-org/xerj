@@ -7360,6 +7360,7 @@
     ]
    }
   },
+  {"cat": "AI", "domain": "An agent deciding how much code to write queries this for a YAGNI decision ladder: reuse the responsible layer before writing new code, separate required behaviour from speculative scaffolding, name the smallest sufficient proof, and compress the guidance without dropping safety or verification obligations.", "lane": "A", "refresh": "pinned", "slug": "hermes-minimizer", "sources": [{"licence_hint": "MIT; reviewed LICENSE at pin, see manifest", "url": "https://github.com/nosliwhtes/hermes-minimizer"}], "status": "live", "tags": {"region": "GLOBAL", "topics": ["hermes-agent", "plugin", "yagni", "refactoring", "python"]}},
   {
    "cat": "WEB",
    "domain": "An agent building against IBM's design system queries this for Carbon component APIs, design tokens and accessibility/content guidance.",
