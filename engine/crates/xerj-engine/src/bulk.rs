@@ -1594,6 +1594,22 @@ pub async fn process_bulk_with_opts(
         has
     };
 
+    // `dynamic: strict` anywhere in the mapping (#3514): the per-item loop
+    // refuses a document that introduces a field, so such an index is
+    // diverted from the turbo path, which never parses the body.
+    let mut index_needs_strict_dynamic: HashMap<String, bool> = HashMap::new();
+    let index_has_strict_dynamic = |target: &str, cache: &mut HashMap<String, bool>| -> bool {
+        if let Some(b) = cache.get(target) {
+            return *b;
+        }
+        let has = engine
+            .index_mappings
+            .get(target)
+            .is_some_and(|m| xerj_common::mapping_dynamic::mapping_has_strict(&m));
+        cache.insert(target.to_string(), has);
+        has
+    };
+
     // Same gate for dynamic-templates with `copy_to`: the ingest
     // loop below materialises the copy into the doc body so the
     // stored source reflects it. The turbo path skips doc parsing,
@@ -1799,6 +1815,8 @@ pub async fn process_bulk_with_opts(
         let has_dynamic_copy =
             index_has_dynamic_copy(&action.target_index, &mut index_needs_dynamic_copy);
         let has_embedding = index_has_embedding(&action.target_index, &mut index_needs_embedding);
+        let has_strict_dynamic =
+            index_has_strict_dynamic(&action.target_index, &mut index_needs_strict_dynamic);
         let has_plain_metadata = action.action_type == "index"
             && action.if_seq_no.is_none()
             && action.if_primary_term.is_none()
@@ -1807,6 +1825,7 @@ pub async fn process_bulk_with_opts(
             && action.pipeline.is_none()
             && !has_strict_date
             && !has_dynamic_copy
+            && !has_strict_dynamic
             && (sequential_keys.is_empty()
                 || !action.doc_id.as_ref().is_some_and(|id| {
                     sequential_keys.contains(&(action.target_index.clone(), id.clone()))
@@ -2651,6 +2670,40 @@ pub async fn process_bulk_with_opts(
                         continue;
                     }
                 }
+            }
+        }
+        // `dynamic: strict` (#3514): a document that introduces a field a
+        // strict object does not declare is refused per item with ES's
+        // `strict_dynamic_mapping_exception`. Checked after the pipeline,
+        // like ES. An `update` is checked on its partial `doc` and its
+        // `upsert`, the two bodies that can carry new fields.
+        if index_has_strict_dynamic(&target_index, &mut index_needs_strict_dynamic) {
+            let violation = doc_body.as_ref().and_then(|body| {
+                let mapping = engine.index_mappings.get(&target_index)?;
+                let bodies: Vec<&Value> = match action_type.as_str() {
+                    "index" | "create" => vec![body],
+                    "update" => ["doc", "upsert"]
+                        .iter()
+                        .filter_map(|k| body.get(*k))
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                bodies.into_iter().find_map(|b| {
+                    xerj_common::mapping_dynamic::first_strict_violation(b.as_object()?, &mapping)
+                })
+            });
+            if let Some(violation) = violation {
+                items[item_idx] = Some(BulkItemResult {
+                    action: action_type.to_string(),
+                    index: target_index.clone(),
+                    id: error_id.clone(),
+                    status: 400,
+                    result: None,
+                    error: Some(violation.reason()),
+                    get_source: None,
+                });
+                errors = true;
+                continue;
             }
         }
         // Numeric / boolean type enforcement (issue #781). A field mapped

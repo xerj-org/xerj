@@ -2106,9 +2106,18 @@ impl Engine {
     /// default-format ingest validation (explicit `format` — those are
     /// validated against their own format by the bulk path — or
     /// `ignore_malformed`).
+    ///
+    /// The root `dynamic` setting rides along (#3514): `false` stops the
+    /// engine mapping new fields, `strict` too (the write paths refuse the
+    /// document before it gets here).
     pub(crate) fn apply_date_mapping_flags(idx: &crate::index::Index, mapping: &Value) {
         idx.set_date_detection(Self::mapping_date_detection(mapping));
         idx.set_date_format_exclusions(Self::mapping_date_exclusions(mapping));
+        idx.set_es_dynamic(
+            xerj_common::mapping_dynamic::root_dynamic(mapping)
+                .map(xerj_common::mapping_dynamic::DynamicSetting::engine_mode),
+            xerj_common::mapping_dynamic::MappingCoverage::of(mapping),
+        );
     }
 
     /// Read the `date_detection` toggle out of a raw mapping blob

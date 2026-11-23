@@ -24297,6 +24297,8 @@ fn bulk_item_error_type(e: &str) -> &'static str {
         || e.starts_with("pipeline with id")
     {
         "illegal_argument_exception"
+    } else if e.starts_with("mapping set to strict, dynamic introduction of") {
+        xerj_common::mapping_dynamic::STRICT_DYNAMIC_MAPPING_EXCEPTION
     } else if e.starts_with("version conflict") {
         "version_conflict_engine_exception"
     } else if e.contains("index not found") || e.starts_with("no such index") {
@@ -26812,6 +26814,18 @@ pub async fn update_doc(
         Ok(body) => body,
         Err(e) => return ApiError::new(e).into_response(),
     };
+    // `dynamic: strict` (#3514): a partial `doc` or an `upsert` that brings a
+    // field the mapping does not declare is refused before anything is read.
+    if let Some(mapping) = state.engine.index_mappings.get(&index).map(|m| m.clone()) {
+        if let Some(violation) = [body.doc.as_ref(), body.upsert.as_ref()]
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_object)
+            .find_map(|o| xerj_common::mapping_dynamic::first_strict_violation(o, &mapping))
+        {
+            return strict_dynamic_mapping_error(&violation);
+        }
+    }
     if state.engine.has_cluster() {
         match crate::cluster_shard::dispatch_update(&state, &index, &id, &body, &query_params).await
         {
@@ -52555,6 +52569,27 @@ fn document_parsing_error(reason: &str, caused_by: &str) -> Response {
         .into_response()
 }
 
+/// The 400 ES sends when a `dynamic: strict` object meets a field it does
+/// not declare (#3514).
+pub(crate) fn strict_dynamic_mapping_error(
+    violation: &xerj_common::mapping_dynamic::StrictViolation,
+) -> Response {
+    let kind = xerj_common::mapping_dynamic::STRICT_DYNAMIC_MAPPING_EXCEPTION;
+    let reason = violation.reason();
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({
+            "error": {
+                "root_cause": [{ "type": kind, "reason": reason }],
+                "type": kind,
+                "reason": reason
+            },
+            "status": 400
+        })),
+    )
+        .into_response()
+}
+
 /// Enforce the declared type of every numeric/boolean field on a single-doc
 /// write (issue #781).
 ///
@@ -52576,6 +52611,14 @@ pub(crate) fn enforce_field_types(
     let Some(mapping) = state.engine.index_mappings.get(index).map(|v| v.clone()) else {
         return Ok(doc);
     };
+    // `dynamic: strict` (#3514) is part of parsing the document against the
+    // mapping, so it is refused here, before any coercion, as in ES.
+    if let Some(violation) = doc
+        .as_object()
+        .and_then(|o| xerj_common::mapping_dynamic::first_strict_violation(o, &mapping))
+    {
+        return Err(strict_dynamic_mapping_error(&violation));
+    }
     // Borrow the properties out of the cloned blob rather than cloning them
     // again — one clone per write is what `apply_ignore_malformed` already
     // pays to keep the DashMap shard lock off the coercion walk.

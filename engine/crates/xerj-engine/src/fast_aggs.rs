@@ -355,7 +355,7 @@ fn dotted_suffix_diverges_from_brute(cols: &super::DocValueMap, field: &str) -> 
 fn field_needs_brute_fallback(
     field: &str,
     segs: &[SegEntry],
-    mapped_fields: &std::collections::HashSet<String>,
+    mapped_fields: &MappedFields,
 ) -> bool {
     if segs
         .iter()
@@ -382,8 +382,41 @@ fn field_needs_brute_fallback(
     // segment's docs, and only the suppressed case has data for brute to
     // find. A name whose root is unmapped is genuinely absent everywhere and
     // stays on the fast path as a real empty result.
+    //
+    // That "unmapped root means absent" step holds only while every field in
+    // `_source` is mapped, i.e. under `dynamic` or `strict` mapping. Under
+    // `dynamic: false` (#3514) an unmapped object leaf is still in `_source`
+    // with no column, so a miss proves nothing and the request bails, like
+    // the function_score columnar guard (#3506).
+    if !mapped_fields.unmapped_means_absent {
+        return true;
+    }
     let root = field.split_once('.').map_or(field, |(r, _)| r);
     mapped_fields.contains(field) || mapped_fields.contains(root)
+}
+
+/// The schema facts [`field_needs_brute_fallback`] keys off: every field name
+/// the schema maps, and whether an unmapped name is proof the field is absent
+/// from `_source` (true under `dynamic` / `strict` mapping only).
+pub(super) struct MappedFields {
+    pub(super) names: std::collections::HashSet<String>,
+    pub(super) unmapped_means_absent: bool,
+}
+
+impl MappedFields {
+    fn contains(&self, field: &str) -> bool {
+        self.names.contains(field)
+    }
+}
+
+/// Nothing mapped, under a mode where unmapped means absent.
+impl Default for MappedFields {
+    fn default() -> Self {
+        Self {
+            names: std::collections::HashSet::new(),
+            unmapped_means_absent: true,
+        }
+    }
 }
 
 /// Memtable docs for the fast path.
@@ -472,7 +505,7 @@ pub(super) struct FastCtx<'a> {
     /// than answer it empty.  A name whose root is absent from this set is
     /// genuinely absent and stays on the fast path.  See
     /// `field_needs_brute_fallback`.
-    mapped_fields: &'a std::collections::HashSet<String>,
+    mapped_fields: &'a MappedFields,
     /// Top-level query filter (from `{size:0, query:Q, aggs:…}`), compiled to
     /// a columnar predicate.  `None` == match_all (the whole corpus). When
     /// present, EVERY executor restricts its columnar reduction to matching
@@ -1016,7 +1049,7 @@ impl Index {
         snap: &xerj_storage::index_store::IndexSnapshot,
         segments_dir: &std::path::Path,
         bool_fields: &std::collections::HashSet<String>,
-        mapped_fields: &std::collections::HashSet<String>,
+        mapped_fields: &MappedFields,
     ) -> Option<(Value, Option<u64>)> {
         if fast_aggs_disabled() {
             return None;
@@ -6004,7 +6037,7 @@ fn compile_pred(filter: &Value) -> Option<Pred> {
 fn miss_is_genuinely_empty<'a>(
     field: &str,
     segs: &[SegEntry],
-    mapped_fields: &std::collections::HashSet<String>,
+    mapped_fields: &MappedFields,
 ) -> Option<SegPred<'a>> {
     if field_needs_brute_fallback(field, segs, mapped_fields) {
         None
@@ -6050,7 +6083,7 @@ fn resolve_pred<'a>(
     cols: &'a super::DocValueMap,
     pred: &Pred,
     segs: &[SegEntry],
-    mapped_fields: &std::collections::HashSet<String>,
+    mapped_fields: &MappedFields,
 ) -> Option<SegPred<'a>> {
     Some(match pred {
         Pred::MatchAll => SegPred::Always,
@@ -6774,8 +6807,48 @@ mod range_kw_tests {
         }
     }
 
-    fn mapped_fields(names: &[&str]) -> std::collections::HashSet<String> {
-        names.iter().map(|s| s.to_string()).collect()
+    fn mapped_fields(names: &[&str]) -> MappedFields {
+        MappedFields {
+            names: names.iter().map(|s| s.to_string()).collect(),
+            unmapped_means_absent: true,
+        }
+    }
+
+    /// #3514: under `dynamic: false` an unmapped root is not proof of
+    /// absence, so a name no segment carries a column for bails to brute,
+    /// while a fully covered name stays on the fast path.
+    #[test]
+    fn unmapped_root_bails_when_unmapped_does_not_mean_absent() {
+        let mut cols = std::collections::BTreeMap::new();
+        cols.insert(
+            "n".to_string(),
+            Column::Numeric(NumericColumn::from_iter(vec![Some(1)])),
+        );
+        let seg = seg_with_cols(cols);
+        let open = MappedFields {
+            unmapped_means_absent: false,
+            ..MappedFields::default()
+        };
+        assert!(field_needs_brute_fallback(
+            "obj.r",
+            std::slice::from_ref(&seg),
+            &open
+        ));
+        assert!(field_needs_brute_fallback(
+            "r",
+            std::slice::from_ref(&seg),
+            &open
+        ));
+        assert!(!field_needs_brute_fallback(
+            "n",
+            std::slice::from_ref(&seg),
+            &open
+        ));
+        assert!(!field_needs_brute_fallback(
+            "obj.r",
+            std::slice::from_ref(&seg),
+            &mapped_fields(&[])
+        ));
     }
 
     // Regression: a genuinely nested JSON field (`geo.dest`, `machine.ram`)
@@ -7061,8 +7134,7 @@ mod range_kw_tests {
         // These fixtures all resolve (or bail inside `resolve_pred` on a
         // type/width gate), never through the column-miss path, so the
         // segment set and schema map are unused here.
-        let sp =
-            resolve_pred(cols, pred, &[], &std::collections::HashSet::new()).expect("resolvable");
+        let sp = resolve_pred(cols, pred, &[], &MappedFields::default()).expect("resolvable");
         let by_count = seg_pred_count(&sp, docs);
         let by_scan = (0..docs).filter(|r| seg_pred_matches(&sp, *r)).count() as u64;
         assert_eq!(by_count, by_scan, "seg_pred_count disagrees with row scan");
@@ -7144,7 +7216,7 @@ mod range_kw_tests {
         m.insert("ts".to_string(), Column::Keyword(k));
         let p = rng(Some(&ts(2, 0)), true, Some(&ts(3, 0)), false);
         assert!(
-            resolve_pred(&m, &p, &[], &std::collections::HashSet::new()).is_none(),
+            resolve_pred(&m, &p, &[], &MappedFields::default()).is_none(),
             "ragged dictionary must bail"
         );
     }
@@ -7155,7 +7227,7 @@ mod range_kw_tests {
         let c = cols();
         let p = rng(Some("2026-06-02"), true, Some("2026-06-03"), false);
         assert!(
-            resolve_pred(&c, &p, &[], &std::collections::HashSet::new()).is_none(),
+            resolve_pred(&c, &p, &[], &MappedFields::default()).is_none(),
             "short bound must bail"
         );
     }
@@ -7169,7 +7241,7 @@ mod range_kw_tests {
         let n = NumericColumn::from_iter((0..10).map(|i| Some((i as f64).to_bits() as i64)));
         m.insert("ts".to_string(), Column::Numeric(n));
         let p = rng(Some(&ts(2, 0)), true, None, true);
-        assert!(resolve_pred(&m, &p, &[], &std::collections::HashSet::new()).is_none());
+        assert!(resolve_pred(&m, &p, &[], &MappedFields::default()).is_none());
     }
 
     /// Regression: the *predicate* resolver must apply the same `.keyword`
@@ -7298,7 +7370,7 @@ mod range_kw_tests {
             value: "x".into(),
         };
         assert!(matches!(
-            resolve_pred(&c, &p, &[], &std::collections::HashSet::new()).expect("resolvable"),
+            resolve_pred(&c, &p, &[], &MappedFields::default()).expect("resolvable"),
             SegPred::Never
         ));
     }
