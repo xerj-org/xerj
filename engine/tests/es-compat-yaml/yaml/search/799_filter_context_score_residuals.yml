@@ -1,0 +1,286 @@
+# #3524: three filter-context shapes scored differently in the memtable and
+# on segments, so a page's order could change when nothing but `_flush`
+# happened (residuals of #3508). ES values:
+#   - `bool{filter, boost: 2}` scores 2 × 0.0 = 0.0 (memtable 1.0, segments 2.0)
+#   - `bool{filter, should:[<no match>]}` scores 0.0: an unmatched `should`
+#     adds nothing (memtable 1.0, segments 0.0)
+#   - `bool{must:[constant_score{.., boost: B}]}` scores B (memtable 1.0)
+# Each case runs in the memtable, after `_flush`, and in mixed state
+# (flushed docs plus one new doc in the memtable).
+# #3518: `bool{filter:[range], should}` with no `must` keeps its hits and
+# scores after `_flush`: a doc matching the `should` ranks first, the others
+# score 0.0.
+setup:
+  - do:
+      indices.create:
+        index: fcr
+        body:
+          settings:
+            number_of_shards: 1
+          mappings:
+            properties:
+              t: { type: text }
+              n: { type: long }
+              k: { type: keyword }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "fcr", "_id": "1"}}'
+          - '{"t": "alpha", "n": 1, "k": "x"}'
+          - '{"index": {"_index": "fcr", "_id": "2"}}'
+          - '{"t": "beta", "n": 2, "k": "x"}'
+          - '{"index": {"_index": "fcr", "_id": "3"}}'
+          - '{"t": "gamma", "n": 3, "k": "y"}'
+
+---
+"boosted filter-only bool scores 0.0, memtable":
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 1 } } } ], boost: 2 } }
+  - match: { hits.total.value: 3 }
+  - match: { hits.max_score: 0.0 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.2._score: 0.0 }
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { term: { k: x } } ], boost: 2 } }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.1._score: 0.0 }
+
+---
+"boosted filter-only bool scores 0.0, flushed and mixed":
+  - do:
+      indices.flush:
+        index: fcr
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 1 } } } ], boost: 2 } }
+  - match: { hits.total.value: 3 }
+  - match: { hits.max_score: 0.0 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.2._score: 0.0 }
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { term: { k: x } } ], boost: 2 } }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.1._score: 0.0 }
+  - do:
+      index:
+        index: fcr
+        id: "4"
+        refresh: true
+        body: { t: "delta", n: 4, k: "x" }
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 1 } } } ], boost: 2 } }
+  - match: { hits.total.value: 4 }
+  - match: { hits.max_score: 0.0 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.3._id: "4" }
+  - match: { hits.hits.3._score: 0.0 }
+
+---
+"filter plus an unmatched should scores 0.0, memtable":
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 1 } } } ], should: [ { term: { k: nope } } ] } }
+  - match: { hits.total.value: 3 }
+  - match: { hits.max_score: 0.0 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.2._score: 0.0 }
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { term: { k: x } } ], should: [ { match: { t: nope } } ] } }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.1._score: 0.0 }
+
+---
+"filter plus an unmatched should scores 0.0, flushed and mixed":
+  - do:
+      indices.flush:
+        index: fcr
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 1 } } } ], should: [ { term: { k: nope } } ] } }
+  - match: { hits.total.value: 3 }
+  - match: { hits.max_score: 0.0 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.2._score: 0.0 }
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { term: { k: x } } ], should: [ { match: { t: nope } } ] } }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.1._score: 0.0 }
+  - do:
+      index:
+        index: fcr
+        id: "4"
+        refresh: true
+        body: { t: "delta", n: 4, k: "x" }
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 1 } } } ], should: [ { term: { k: nope } } ] } }
+  - match: { hits.total.value: 4 }
+  - match: { hits.max_score: 0.0 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.0._score: 0.0 }
+  - match: { hits.hits.3._id: "4" }
+  - match: { hits.hits.3._score: 0.0 }
+
+---
+"constant_score inside must scores its boost, memtable":
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { must: [ { constant_score: { filter: { range: { n: { gte: 1 } } }, boost: 3.5 } } ] } }
+  - match: { hits.total.value: 3 }
+  - match: { hits.max_score: 3.5 }
+  - match: { hits.hits.0._score: 3.5 }
+  - match: { hits.hits.2._score: 3.5 }
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { must: [ { constant_score: { filter: { term: { k: x } }, boost: 3.5 } } ] } }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._score: 3.5 }
+  - match: { hits.hits.1._score: 3.5 }
+
+---
+"constant_score inside must scores its boost, flushed and mixed":
+  - do:
+      indices.flush:
+        index: fcr
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { must: [ { constant_score: { filter: { range: { n: { gte: 1 } } }, boost: 3.5 } } ] } }
+  - match: { hits.total.value: 3 }
+  - match: { hits.max_score: 3.5 }
+  - match: { hits.hits.0._score: 3.5 }
+  - match: { hits.hits.2._score: 3.5 }
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { must: [ { constant_score: { filter: { term: { k: x } }, boost: 3.5 } } ] } }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._score: 3.5 }
+  - match: { hits.hits.1._score: 3.5 }
+  - do:
+      index:
+        index: fcr
+        id: "4"
+        refresh: true
+        body: { t: "delta", n: 4, k: "x" }
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { must: [ { constant_score: { filter: { range: { n: { gte: 1 } } }, boost: 3.5 } } ] } }
+  - match: { hits.total.value: 4 }
+  - match: { hits.max_score: 3.5 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.0._score: 3.5 }
+  - match: { hits.hits.3._id: "4" }
+  - match: { hits.hits.3._score: 3.5 }
+  # The memtable doc-values arm answers a field-sorted page: doc 4 scored 1.0.
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { must: [ { constant_score: { filter: { range: { n: { gte: 1 } } }, boost: 3.5 } } ] } }
+          sort: [ { n: asc } ]
+          track_scores: true
+  - match: { hits.total.value: 4 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.0._score: 3.5 }
+  - match: { hits.hits.3._id: "4" }
+  - match: { hits.hits.3._score: 3.5 }
+
+---
+"filter range plus should keeps hits and scores, memtable":
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 2 } } } ], should: [ { match: { t: gamma } } ] } }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._id: "3" }
+  - match: { hits.hits.1._id: "2" }
+  - match: { hits.hits.1._score: 0.0 }
+
+---
+"filter range plus should keeps hits and scores, flushed and mixed":
+  - do:
+      indices.flush:
+        index: fcr
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 2 } } } ], should: [ { match: { t: gamma } } ] } }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._id: "3" }
+  - match: { hits.hits.1._id: "2" }
+  - match: { hits.hits.1._score: 0.0 }
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 2 } } } ], should: [ { match: { t: gamma } } ], minimum_should_match: 0 } }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._id: "3" }
+  - match: { hits.hits.1._score: 0.0 }
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 2 } } } ], should: [ { match: { t: gamma } } ], minimum_should_match: 1 } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "3" }
+  - do:
+      index:
+        index: fcr
+        id: "4"
+        refresh: true
+        body: { t: "delta", n: 4, k: "x" }
+  - do:
+      search:
+        index: fcr
+        body:
+          query: { bool: { filter: [ { range: { n: { gte: 2 } } } ], should: [ { match: { t: gamma } } ] } }
+  - match: { hits.total.value: 3 }
+  - match: { hits.hits.0._id: "3" }
+  - match: { hits.hits.1._id: "2" }
+  - match: { hits.hits.1._score: 0.0 }
+  - match: { hits.hits.2._id: "4" }
+  - match: { hits.hits.2._score: 0.0 }

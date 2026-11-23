@@ -27930,11 +27930,11 @@ impl Index {
         // `DocValuesHits`) give each hit. A filter-only `bool` scores 0.0, as
         // ES does and as the segment executors and `score_query_against_doc`
         // do; every other shape keeps the brute path's constant 1.0.
-        let mem_id_hit_score: f32 = if is_filter_context_bool(query) {
-            0.0
-        } else {
-            1.0
-        };
+        // #3524: any constant-scoring shape scores its ES constant here, the
+        // value `score_query_against_doc` gives the same doc once it is in a
+        // segment: `bool{filter, boost: 2}` 0.0, `bool{must:[constant_score
+        // {boost: B}]}` B (both were 1.0, so the order changed at `_flush`).
+        let mem_id_hit_score: f32 = es_constant_score(query).unwrap_or(1.0);
         macro_rules! admit_hit {
             ($hit:expr) => {{
                 total_count += 1;
@@ -37175,7 +37175,7 @@ impl Index {
         // silently reverting every segment to per-segment BM25 statistics.
         pinned: Option<PinnedIds<'_>>,
         // #3492: the same holds for the date leaves (`DateDocs`).
-        date_doc_fields: &HashSet<String>,
+        date_doc_fields: &DocSetFields,
     ) -> Option<xerj_fts::CollectionStats> {
         // Widest pre-pass we will pay for, budgeted per COST CLASS (#1186):
         //
@@ -39344,32 +39344,63 @@ impl Index {
     /// [`DateDocs`]). `None` when one of them cannot be built (no column, a
     /// multi-valued field, a sparse date column): the segment then takes the
     /// stored-doc scan.
+    ///
+    /// #3518: the same for each `range` filter [`filter_ranges_as_doc_sets`]
+    /// admits (a numeric or date column; any bounds). Those sets are cached
+    /// like any range prefilter: a filter's bounds repeat across queries.
     fn date_docs_for_segment(
         &self,
         segments_dir: &std::path::Path,
         segment_id: &str,
         doc_count: u64,
         query: &QueryNode,
-        fields: &HashSet<String>,
+        fields: &DocSetFields,
     ) -> Option<HashMap<String, Arc<PrefilterSet>>> {
         let mut out = HashMap::new();
-        if fields.is_empty() {
+        if fields.dates.is_empty() && fields.ranges.is_empty() {
             return Some(out);
         }
         let mut leaves = Vec::new();
         collect_date_docs_leaves(query, fields, &mut leaves);
-        for leaf in leaves {
+        for (leaf, filter_range) in leaves {
             let QueryNode::Range {
-                field, gte, lte, ..
+                field,
+                gte,
+                gt,
+                lte,
+                lt,
+                ..
             } = leaf
             else {
                 continue;
             };
-            let Some((_, key)) = date_docs_key(leaf) else {
+            let key = if filter_range {
+                range_docs_key(leaf)
+            } else {
+                date_docs_key(leaf)
+            };
+            let Some((_, key)) = key else {
                 continue;
             };
             if out.contains_key(&key) {
                 continue;
+            }
+            let (gt, lt) = if filter_range {
+                (gt.as_ref(), lt.as_ref())
+            } else {
+                (None, None)
+            };
+            // A long / double field's set must come from its numeric column.
+            // Strings coerced into it at ingest file a keyword column, whose
+            // date-shadow reading `range_prefilter` would otherwise apply.
+            if filter_range {
+                let cols = self.dv_columns_for(segments_dir, segment_id)?;
+                if !matches!(
+                    cols.get(field),
+                    Some(xerj_storage::doc_values::Column::Numeric(_))
+                ) {
+                    return None;
+                }
             }
             let set = self
                 .range_prefilter(
@@ -39377,13 +39408,17 @@ impl Index {
                     segment_id,
                     field,
                     gte.as_ref(),
-                    None,
+                    gt,
                     lte.as_ref(),
-                    None,
+                    lt,
                     usize::MAX,
-                    false,
+                    filter_range,
                 )
                 .or_else(|| {
+                    // Date leaves only (`gte`/`lte`): the sparse shadow.
+                    if filter_range {
+                        return None;
+                    }
                     self.sparse_date_range_set(
                         segments_dir,
                         segment_id,
@@ -61111,7 +61146,11 @@ fn scan_score_upper_bound(
         QueryNode::MatchAll => Some(1.0),
         QueryNode::MatchNone => Some(0.0),
         QueryNode::Constant { score, .. } => nonneg(*score),
-        QueryNode::Boosted { boost, .. } => nonneg(*boost),
+        // #3524: the brute scorer multiplies a constant-scoring query's
+        // score by the boost (`bool{must:[range, range]}^2` is 4.0).
+        QueryNode::Boosted { boost, query } => {
+            nonneg(es_constant_score(query).map_or(*boost, |s| s * boost))
+        }
         QueryNode::Terms { boost, .. }
         | QueryNode::Range { boost, .. }
         | QueryNode::Prefix { boost, .. }
@@ -61247,13 +61286,45 @@ fn is_filter_context_bool(q: &QueryNode) -> bool {
     }
 }
 
+/// #3524: the score ES gives EVERY hit of `q`, for the shapes where that is
+/// one constant; `None` when the score depends on the document (BM25 leaves)
+/// or the shape is not covered here.
+///
+/// Lucene composes these multiplicatively and additively without looking at
+/// the document: `BoostQuery` multiplies its query's score, `ConstantScore`
+/// replaces it, a `range` / `terms` leaf scores its `boost`, a filter-context
+/// `bool` scores 0.0 and a `bool` with no `should` sums its `must` clauses
+/// (`filter` / `must_not` add nothing). `bool{filter:[..], boost: 2}` is
+/// `2 × 0.0`, and `bool{must:[constant_score{.., boost: B}]}` is `B`.
+fn es_constant_score(q: &QueryNode) -> Option<f32> {
+    match q {
+        QueryNode::MatchAll => Some(1.0),
+        QueryNode::Constant { score, .. } => Some(*score),
+        QueryNode::Named { query, .. } => es_constant_score(query),
+        QueryNode::Boosted { boost, query } => es_constant_score(query).map(|s| s * boost),
+        QueryNode::Range { boost, .. } | QueryNode::Terms { boost, .. } => {
+            Some(boost.unwrap_or(1.0))
+        }
+        QueryNode::Bool { .. } if is_filter_context_bool(q) => Some(0.0),
+        QueryNode::Bool { must, should, .. } if should.is_empty() && !must.is_empty() => must
+            .iter()
+            .map(es_constant_score)
+            .try_fold(0.0f32, |acc, s| s.map(|s| acc + s)),
+        _ => None,
+    }
+}
+
 fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f32 {
     match q {
         QueryNode::MatchAll => 1.0,
         QueryNode::MatchNone => 0.0,
         QueryNode::Boosted { boost, query } => {
             if doc_matches_query_typed(query, source, schema) {
-                *boost
+                // #3524: a boost multiplies its query's score. For a
+                // constant-scoring query that is exact (`bool{filter,
+                // boost: 2}` is 2 × 0.0, not 2.0); other shapes keep the
+                // flat boost.
+                es_constant_score(query).map_or(*boost, |s| s * boost)
             } else {
                 0.0
             }
@@ -61349,6 +61420,22 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
                 score += score_query_against_doc(sub, source, schema);
             }
             let _ = (must_not, minimum_should_match);
+            // #3524: a zero sum is the ES score when every `must` clause
+            // scores a constant 0.0 (none at all: `bool{filter, should}`
+            // where no `should` matched; or filter-context / boost-0
+            // children). ES adds nothing for an unmatched `should`, so
+            // `bool{filter:[range], should:[<no match>]}` scores 0.0, not the
+            // 1.0 floor below.
+            // A `should` that matched yet scored 0.0 here is an approximation
+            // gap of this scorer, not an ES zero, and keeps the floor.
+            if score == 0.0
+                && must.iter().all(|c| es_constant_score(c) == Some(0.0))
+                && should.iter().all(|c| {
+                    es_constant_score(c) == Some(0.0) || !doc_matches_query_typed(c, source, schema)
+                })
+            {
+                return 0.0;
+            }
             if score == 0.0 {
                 // ids clauses score their exact constant (`boost`,
                 // default 1.0; 0.0 in filter context) — live-verified on
@@ -64509,31 +64596,74 @@ impl PinnedIds<'_> {
 enum DateDocs<'a> {
     /// The leaf does not project (every caller outside the segment search).
     Decline,
-    /// Shape probe for these date fields: an empty leaf, so "does this
-    /// project at all?" answers yes, as [`PinnedIds::Probe`] does.
-    Probe(&'a HashSet<String>),
-    /// One segment's match sets for these date fields, by
-    /// [`date_docs_key`]. The segment search builds a set for every leaf the
+    /// Shape probe for these fields: an empty leaf, so "does this project at
+    /// all?" answers yes, as [`PinnedIds::Probe`] does.
+    Probe(&'a DocSetFields),
+    /// One segment's match sets for these fields, by [`date_docs_key`] /
+    /// [`range_docs_key`]. The segment search builds a set for every leaf the
     /// probe covers, or skips the projection for the segment.
-    Segment(&'a HashSet<String>, &'a HashMap<String, Arc<PrefilterSet>>),
+    Segment(&'a DocSetFields, &'a HashMap<String, Arc<PrefilterSet>>),
+}
+
+/// The fields whose `range` leaves [`DateDocs`] may resolve to a doc-values
+/// match set.
+struct DocSetFields {
+    /// Date fields with doc values: `constant_score` over a date range
+    /// (#3492).
+    dates: HashSet<String>,
+    /// Long / double fields with doc values: a `range` FILTER of a `bool`
+    /// with no `must` and at least one `should` (#3518, see
+    /// [`filter_ranges_as_doc_sets`]). Date fields are left out: their
+    /// string bounds round (`lte: "2020-01-01"` is the end of that day), and
+    /// the stored-doc scan stays the reference for them.
+    ranges: HashSet<String>,
 }
 
 impl DateDocs<'_> {
+    fn fields(&self) -> Option<&DocSetFields> {
+        match self {
+            DateDocs::Decline => None,
+            DateDocs::Probe(fields) | DateDocs::Segment(fields, _) => Some(fields),
+        }
+    }
+
     fn covers(&self, q: &QueryNode) -> bool {
-        match (self, date_docs_key(q)) {
-            (DateDocs::Decline, _) | (_, None) => false,
-            (DateDocs::Probe(fields), Some((field, _)))
-            | (DateDocs::Segment(fields, _), Some((field, _))) => fields.contains(field),
+        match (self.fields(), date_docs_key(q)) {
+            (Some(fields), Some((field, _))) => fields.dates.contains(field),
+            _ => false,
         }
     }
 
     fn resolve(&self, q: &QueryNode, score: f32) -> Option<FtsQuery> {
         let (_, key) = date_docs_key(q)?;
+        self.resolve_key(&key, score)
+    }
+
+    /// #3518: whether `q` is a `range` filter leaf [`Self::resolve_range`]
+    /// answers.
+    fn covers_range(&self, q: &QueryNode) -> bool {
+        match (self.fields(), range_docs_key(q)) {
+            (Some(fields), Some((field, _))) => fields.ranges.contains(field),
+            _ => false,
+        }
+    }
+
+    /// #3518: the segment's exact match set of the `range` leaf `q`, as a
+    /// filter (the score is unused). `None` in a segment with no set for it:
+    /// the caller then declines the whole projection, because the probe
+    /// already counted the leaf as projected and a dropped filter would
+    /// widen the match set.
+    fn resolve_range(&self, q: &QueryNode) -> Option<FtsQuery> {
+        let (_, key) = range_docs_key(q)?;
+        self.resolve_key(&key, 0.0)
+    }
+
+    fn resolve_key(&self, key: &str, score: f32) -> Option<FtsQuery> {
         let docs: Vec<(u32, f32)> = match self {
             DateDocs::Decline => return None,
             DateDocs::Probe(_) => Vec::new(),
             DateDocs::Segment(_, sets) => sets
-                .get(&key)?
+                .get(key)?
                 .sorted
                 .iter()
                 .map(|&pos| (pos, score))
@@ -64542,6 +64672,50 @@ impl DateDocs<'_> {
         Some(FtsQuery::DocScores(xerj_fts::search::DocScoresQuery::new(
             docs,
         )))
+    }
+}
+
+/// #3518: whether a `bool`'s `range` filters project as doc-values match
+/// sets ([`DateDocs::resolve_range`]): no `must` and at least one `should`.
+///
+/// A `range` has no postings, so such a filter used to be skipped and
+/// re-applied by the residual gate. With no `must`, that left the FTS bool
+/// with only its `should` clauses, which then became REQUIRED (#3507), so the
+/// projection was declined and the whole bool took the stored-doc scan. The
+/// range's exact match set keeps the filter in the FTS bool: it narrows the
+/// hits, and the `should` clauses stay optional (or follow
+/// `minimum_should_match`) and add their BM25, as ES scores them.
+fn filter_ranges_as_doc_sets(must: &[QueryNode], should: &[QueryNode]) -> bool {
+    must.is_empty() && !should.is_empty()
+}
+
+/// The field and cache key of a `range` leaf [`DateDocs::resolve_range`] can
+/// resolve: at least one bound, not lenient (a lenient range lowered from a
+/// `query_string` keeps the existing paths).
+fn range_docs_key(q: &QueryNode) -> Option<(&str, String)> {
+    match q {
+        QueryNode::Range {
+            field,
+            gte,
+            gt,
+            lte,
+            lt,
+            lenient: false,
+            ..
+        } if gte.is_some() || gt.is_some() || lte.is_some() || lt.is_some() => {
+            let b = |v: &Option<Value>| v.as_ref().map(Value::to_string).unwrap_or_default();
+            Some((
+                field.as_str(),
+                format!(
+                    "{field}\u{2}{}\u{1}{}\u{1}{}\u{1}{}",
+                    b(gte),
+                    b(gt),
+                    b(lte),
+                    b(lt)
+                ),
+            ))
+        }
+        _ => None,
     }
 }
 
@@ -64562,28 +64736,46 @@ fn date_docs_key(q: &QueryNode) -> Option<(&str, String)> {
     }
 }
 
-/// The date fields (object leaves by dotted path) with doc values, whose
-/// date leaves [`DateDocs`] may resolve.
-fn date_doc_field_names(schema: &Schema) -> HashSet<String> {
-    pattern_field_paths(schema)
-        .into_iter()
-        .filter(|(_, f)| matches!(f.field_type, FieldType::Date) && f.options.doc_values)
-        .map(|(path, _)| path)
-        .collect()
+/// The fields (object leaves by dotted path) with doc values whose `range`
+/// leaves [`DateDocs`] may resolve.
+fn date_doc_field_names(schema: &Schema) -> DocSetFields {
+    let mut out = DocSetFields {
+        dates: HashSet::new(),
+        ranges: HashSet::new(),
+    };
+    for (path, f) in pattern_field_paths(schema) {
+        if !f.options.doc_values {
+            continue;
+        }
+        match f.field_type {
+            FieldType::Date => {
+                out.dates.insert(path);
+            }
+            FieldType::Long | FieldType::Double => {
+                out.ranges.insert(path);
+            }
+            _ => {}
+        }
+    }
+    out
 }
 
-/// The `constant_score` date leaves in `q` on `fields`, through `bool`,
-/// `dis_max` and `constant_score`, the shapes the projection walks.
+/// The leaves in `q` [`DateDocs`] resolves: `constant_score` date leaves
+/// (#3492) and the #3518 `range` filters, through `bool`, `dis_max`,
+/// `constant_score`, `boost` and `_name`, the shapes the projection walks.
 fn collect_date_docs_leaves<'q>(
     q: &'q QueryNode,
-    fields: &HashSet<String>,
-    out: &mut Vec<&'q QueryNode>,
+    fields: &DocSetFields,
+    out: &mut Vec<(&'q QueryNode, bool)>,
 ) {
     match q {
         QueryNode::Constant { query, .. } => match date_docs_key(query) {
-            Some((field, _)) if fields.contains(field) => out.push(query),
+            Some((field, _)) if fields.dates.contains(field) => out.push((query, false)),
             _ => collect_date_docs_leaves(query, fields, out),
         },
+        QueryNode::Boosted { query, .. } | QueryNode::Named { query, .. } => {
+            collect_date_docs_leaves(query, fields, out)
+        }
         QueryNode::Bool {
             must,
             should,
@@ -64591,7 +64783,16 @@ fn collect_date_docs_leaves<'q>(
             filter,
             ..
         } => {
-            for c in must.iter().chain(should).chain(must_not).chain(filter) {
+            let ranges = filter_ranges_as_doc_sets(must, should);
+            for c in filter {
+                match range_docs_key(c) {
+                    Some((field, _)) if ranges && fields.ranges.contains(field) => {
+                        out.push((c, true))
+                    }
+                    _ => collect_date_docs_leaves(c, fields, out),
+                }
+            }
+            for c in must.iter().chain(should).chain(must_not) {
                 collect_date_docs_leaves(c, fields, out);
             }
         }
@@ -65247,7 +65448,19 @@ fn query_node_to_fts_projected(
             // #361: these used to be projected as `must`, which made
             // `bool{must:[text], filter:[term]}` score the filter's BM25 on
             // top of the text clause and reorder the page.
+            let ranges_as_doc_sets = filter_ranges_as_doc_sets(must, should);
             for sub in filter {
+                // #3518: a numeric `range` filter beside `should` clauses and
+                // no `must` projects as its exact doc-values match set. A
+                // segment without that set declines the whole projection
+                // (`?`): the probe counted the filter as projected, so the
+                // residual gate is off and skipping it would widen the hits.
+                if ranges_as_doc_sets && date_docs.covers_range(sub) {
+                    bool_q = bool_q.filter(date_docs.resolve_range(sub)?);
+                    projected_filter = true;
+                    projected_positive = true;
+                    continue;
+                }
                 // #361: a non-projecting filter child (e.g. `exists`,
                 // non-numeric `range`) is a NON-SCORING residual — skip it
                 // (instead of `?`-aborting the whole projection) so the scoring
@@ -65352,11 +65565,15 @@ fn query_node_to_fts_projected(
             // which no residual pass can widen. FTS cannot enumerate "all
             // docs" for the optional clauses, so decline: the stored scan
             // answers the whole bool.
+            //
+            // #3518: an explicit `minimum_should_match: 0` is the same shape
+            // (the FTS bool applied 0 but still enumerated only the `should`
+            // docs, so `filter`-only matches were lost).
             if must.is_empty()
                 && !filter.is_empty()
                 && !projected_filter
                 && projected_should
-                && minimum_should_match.is_none()
+                && matches!(minimum_should_match, None | Some(MinShouldMatch::Fixed(0)))
             {
                 return None;
             }
@@ -65782,7 +65999,13 @@ fn bool_has_nonprojectable_nonscoring(
             filter,
             ..
         } => {
-            for sub in filter.iter().chain(must_not.iter()) {
+            // #3518: these `range` filters project as exact doc-values sets
+            // (the `Bool` arm of `query_node_to_fts_projected`): no gate.
+            let ranges_as_doc_sets = filter_ranges_as_doc_sets(must, should);
+            let gated_filters = filter
+                .iter()
+                .filter(|sub| !(ranges_as_doc_sets && date_docs.covers_range(sub)));
+            for sub in gated_filters.chain(must_not.iter()) {
                 if query_node_to_fts_projected(
                     sub,
                     text_fields,
@@ -67275,6 +67498,32 @@ fn scored_fast_plan(
                 must_not: Vec::new(),
                 score: *score,
             })
+        }
+        // #3524: a boosted filter-only `bool` (`bool{filter, boost: 2}`) is
+        // the same Filtered plan; its score is `boost × 0.0`.
+        QueryNode::Boosted {
+            boost,
+            query: inner,
+        } if boost.is_finite() && *boost >= 0.0 && is_filter_context_bool(inner) => {
+            match scored_fast_plan(
+                inner,
+                request,
+                _size,
+                keyword_fields,
+                numeric_fields,
+                boolean_fields,
+            )? {
+                ScoredPlan::Filtered {
+                    filter,
+                    must_not,
+                    score,
+                } => Some(ScoredPlan::Filtered {
+                    filter,
+                    must_not,
+                    score: score * *boost,
+                }),
+                _ => None,
+            }
         }
         // Scoring bool / dis_max tree, possibly `Boosted`-wrapped, or a
         // bare scoring leaf (wrapped as a single-must bool — Σ over one
@@ -76700,3 +76949,7 @@ mod get_row_decode_tests;
 #[cfg(test)]
 #[path = "bool_flush_parity_tests.rs"]
 mod bool_flush_parity_tests;
+
+#[cfg(test)]
+#[path = "filter_should_fast_path_tests.rs"]
+mod filter_should_fast_path_tests;
