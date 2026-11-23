@@ -142,6 +142,7 @@ impl ClusterRunner {
     /// task stops when this runner stops.
     fn spawn_replica_backfill(&self) -> tokio::task::JoinHandle<()> {
         let applier = self.node.applier();
+        let passes = self.node.backfill_passes();
         let mut shutdown = self.shutdown.clone();
         tokio::spawn(async move {
             let Some(applier) = applier else {
@@ -152,6 +153,7 @@ impl ClusterRunner {
                     break;
                 }
                 applier.backfill_local_replicas().await;
+                passes.send_modify(|passes| *passes += 1);
                 tokio::select! {
                     changed = shutdown.changed() => {
                         if changed.is_err() || *shutdown.borrow() {
