@@ -32,7 +32,7 @@ spec:
             - --insecure
             {{- end }}
             - --data-dir
-            - /data
+            - {{ include "xerj.dataDir" . | quote }}
           ports:
             - name: es-compat
               containerPort: 9200
@@ -72,7 +72,7 @@ spec:
               value: {{ .Values.network.allowInsecureNetworkBind | quote }}
           volumeMounts:
             - name: data
-              mountPath: /data
+              mountPath: {{ include "xerj.dataDir" . | quote }}
             {{- if and .Values.tls.enabled .Values.tls.secretName }}
             - name: tls
               mountPath: /etc/xerj
