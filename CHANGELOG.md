@@ -86,6 +86,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A `match_all` page no longer decodes a whole segment for each hit
+  (#3470).** The doc-values page executors (plain `match_all`, `dis_max`,
+  `boosting`, `pinned`, scoring `bool` on keyword fields,
+  `function_score` with `field_value_factor`) read each winning document by
+  decoding its segment's whole stored section, once per hit, when the
+  segment cache had no room to keep it. The zero-hit `unknown_value` hint runs
+  `match_all` with `size: 256`. On a 504k-doc autoindex index that took 47-52 s
+  per hint at load 28-43, and 820 s at load 45-112. Each segment is now read
+  once per page, and a segment that is not cached reads only the winning rows.
+  The hint sample now takes 0.7-0.9 s and `match_all size: 250` 0.6-1.4 s.
+  Results are unchanged.
+
 - **Native `q` and `multi_match` on `*` find documents again (#3413).**
   `multi_match` with `fields: ["*"]`, which is what the native search `q`
   parameter sends, matched nothing, so every `q` search returned 0 hits. A

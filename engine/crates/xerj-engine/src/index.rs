@@ -3380,6 +3380,115 @@ mod flush_publication_recovery_tests {
         drop(engine);
     }
 
+    /// #3470: the columnar executors (`scored_columnar` serves a plain
+    /// `match_all` page, `function_score_columnar` a `field_value_factor`
+    /// one) pick winners from doc-values columns and then hydrated each
+    /// winner through `stored_slices_for` — a whole stored-section decode per
+    /// hit whenever the hydration budget refused to keep it (820 s for the
+    /// zero-hit hint's `match_all size:256` on a 504k-doc index). On a cold
+    /// segment the page must read only its winning rows and leave the
+    /// section undecoded, with the same answer as the warm read.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cold_columnar_page_reads_only_winning_rows_3470() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut schema = topk_projection_schema();
+        schema
+            .add_field(FieldConfig::new("kind", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("rank", FieldType::Long))
+            .unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine.create_index("columnar-cold", schema).unwrap();
+        let idx = engine.get_index("columnar-cold").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..4096u64 {
+            let kind = ["code", "csv", "txt-prose"][(i % 3) as usize];
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({
+                    "title": format!("title {i}"),
+                    "body": format!("body text {i}"),
+                    "blob": "x",
+                    "kind": kind,
+                    "rank": i % 997,
+                }),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        drop(idx);
+        drop(engine);
+
+        let reopen = || {
+            let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+            let idx = engine.get_index("columnar-cold").unwrap();
+            idx.abort_background_tasks();
+            let segs: Vec<_> = idx.store.snapshot().segments.clone();
+            assert!(segs.iter().any(|s| s.doc_count > 1024), "precondition");
+            // Hold the background warm back so each query is observed alone.
+            for s in &segs {
+                idx.cold_stored_warms.insert(s.id.to_string(), ());
+            }
+            (engine, idx, segs)
+        };
+        let all_cold = |idx: &Index, segs: &[xerj_storage::segment::SegmentMeta]| {
+            segs.iter().all(|s| {
+                !idx.stored_slices_cache.contains_key(&s.id)
+                    && !idx.decoded_stored_cache.contains_key(&s.id)
+            })
+        };
+        let key = |r: &xerj_query::executor::SearchResult| -> Vec<(String, u32, Value)> {
+            let mut v: Vec<_> = r
+                .hits
+                .iter()
+                .map(|h| (h.id.clone(), h.score.to_bits(), h.source.clone()))
+                .collect();
+            v.sort_by(|a, b| a.0.cmp(&b.0));
+            v
+        };
+        let requests: Vec<SearchRequest> = [
+            // The zero-hit `unknown_value` hint's sample request.
+            json!({"query": {"match_all": {}}, "size": 256}),
+            json!({"query": {"function_score": {
+                "query": {"match_all": {}},
+                "field_value_factor": {"field": "rank"},
+            }}, "size": 64}),
+        ]
+        .iter()
+        .map(|b| xerj_query::parse_request(b).unwrap())
+        .collect();
+
+        let (engine, idx, segs) = reopen();
+        let mut cold = Vec::new();
+        for r in &requests {
+            cold.push(idx.search(r).await.unwrap());
+            assert!(
+                all_cold(&idx, &segs),
+                "a columnar page must not decode the whole stored section"
+            );
+        }
+        assert_eq!(cold[0].hits.len(), 256);
+        assert_eq!(cold[1].hits.len(), 64);
+        assert!(cold[0].hits.iter().all(|h| h.source["kind"].is_string()));
+        drop(idx);
+        drop(engine);
+
+        let (engine, idx, segs) = reopen();
+        for s in &segs {
+            let warmed = idx.stored_slices_for(&s.id, s.doc_count).is_some();
+            assert!(warmed || s.doc_count <= 1024, "segment {} must warm", s.id);
+        }
+        for (r, cold) in requests.iter().zip(&cold) {
+            let warm = idx.search(r).await.unwrap();
+            assert_eq!(key(cold), key(&warm));
+            assert_eq!(cold.total.value, warm.total.value);
+        }
+        drop(idx);
+        drop(engine);
+    }
+
     /// #2427: a cold query over a many-segment index must not start one
     /// whole-section stored decode per segment at once. Before the fix every
     /// cold segment the query hydrated from its winning rows spawned its own
@@ -21193,6 +21302,79 @@ impl Index {
         Some(page)
     }
 
+    /// Stored documents (`{"_id", "_source", …}`) at `positions` of one
+    /// segment, keyed by position, for the columnar executors' page
+    /// hydration (`scored_columnar`, `function_score_columnar`).
+    ///
+    /// Those executors pick their winners from doc-values columns and used to
+    /// call [`Self::stored_slices_for`] once PER WINNER. When the hydration
+    /// budget has no room for the segment, that build is transient — decoded,
+    /// used for one row, dropped — so a `size: 256` page decoded the whole
+    /// stored section of its segment 256 times. On a 504k-doc autoindex index
+    /// (929 MB, 138k-doc segments) an uncached `match_all` `size: 256` took
+    /// 38 s at load ~36 and 820 s at load 45-112, and the zero-hit
+    /// `unknown_value` hint runs exactly that request (#3470).
+    ///
+    /// Read order, the same as [`Self::hydrate_deferred_hybrid_page`]: the
+    /// warm offset index when resident (one JSON parse per row), else only
+    /// the wanted rows of a columnar section (the cold FTS page read,
+    /// #2422/#2423), else one offset-index build for the whole group. `None`
+    /// when a row cannot be read; the callers then bail to the brute path, as
+    /// a failed per-row read did before.
+    fn segment_docs_at(
+        &self,
+        seg_id: &str,
+        doc_count: u64,
+        positions: &[u32],
+    ) -> Option<HashMap<u32, Value>> {
+        let from_slices = |slices: &StoredSlices| -> Option<HashMap<u32, Value>> {
+            let mut docs = HashMap::with_capacity(positions.len());
+            for &pos in positions {
+                let &(start, end) = slices.offsets.get(pos as usize)?;
+                let slice = slices.bytes.get(start as usize..end as usize)?;
+                // serde_json, not simd_json: see ffd49ac.
+                docs.insert(pos, serde_json::from_slice::<Value>(slice).ok()?);
+            }
+            Some(docs)
+        };
+        let warm = self
+            .stored_slices_cache
+            .get(seg_id)
+            .map(|entry| Arc::clone(entry.value()));
+        if let Some(slices) = warm {
+            return from_slices(slices.value());
+        }
+        if let Some(rows) = self.hydrate_fts_rows_cold(seg_id, positions, None) {
+            self.schedule_cold_stored_warm(seg_id, doc_count);
+            return Some(rows);
+        }
+        let slices = self.stored_slices_for(seg_id, doc_count)?;
+        from_slices(slices.value())
+    }
+
+    /// [`Self::segment_docs_at`] for every segment a columnar page touches:
+    /// `rows` are `(segment index, row)` pairs into `segments`. Each segment
+    /// is read once, however many winners it holds.
+    fn columnar_page_docs(
+        &self,
+        segments: &[xerj_storage::segment::SegmentMeta],
+        rows: impl IntoIterator<Item = (u32, u32)>,
+    ) -> Option<HashMap<(u32, u32), Value>> {
+        let mut by_segment: HashMap<u32, Vec<u32>> = HashMap::new();
+        for (si, row) in rows {
+            by_segment.entry(si).or_default().push(row);
+        }
+        let mut out = HashMap::new();
+        for (si, positions) in by_segment {
+            let meta = segments.get(si as usize)?;
+            let docs = self.segment_docs_at(meta.id.as_str(), meta.doc_count, &positions)?;
+            for (row, doc) in docs {
+                out.insert((si, row), doc);
+            }
+        }
+        Some(out)
+    }
+
     #[allow(clippy::too_many_arguments)]
     async fn run_knn_brute_force_with_deadline(
         &self,
@@ -35811,6 +35993,14 @@ impl Index {
         // post-loop score sort, keyed by the re-applied function score) ──────
         let mut hits: Vec<Hit> = Vec::with_capacity(keep);
         let mut seen: HashSet<String> = HashSet::with_capacity(keep);
+        // One read per segment, not one per winner (#3470).
+        let mut page_docs = self.columnar_page_docs(
+            segments,
+            cands.iter().filter_map(|(_, cand)| match cand {
+                Cand::Seg(si, row) => Some((*si, *row)),
+                Cand::Mem(_) => None,
+            }),
+        )?;
         for (_score, cand) in cands {
             match cand {
                 Cand::Mem(i) => {
@@ -35840,14 +36030,11 @@ impl Index {
                     });
                 }
                 Cand::Seg(si, row) => {
-                    let meta = &segments[si as usize];
-                    let slices = self.stored_slices_for(meta.id.as_str(), meta.doc_count)?;
-                    let &(start, end) = slices.offsets.get(row as usize)?;
-                    let slice = slices.bytes.get(start as usize..end as usize)?;
-                    // serde_json (not simd_json) for the per-doc slice parse:
-                    // only `cap` winners are parsed, and serde handles every
-                    // raw-bytes-flush payload correctly (see `stored_values_for`).
-                    let doc: Value = serde_json::from_slice(slice).ok()?;
+                    // Every row is in the map (`columnar_page_docs` fails whole);
+                    // a miss is a repeated candidate, which `seen` would skip anyway.
+                    let Some(doc) = page_docs.remove(&(si, row)) else {
+                        continue;
+                    };
                     let id = doc
                         .get("_id")
                         .and_then(Value::as_str)
@@ -37616,12 +37803,15 @@ impl Index {
         // these shapes; the caller's score sort finalises the order).
         let mut hits: Vec<Hit> = Vec::with_capacity(cands.len());
         let mut seen: HashSet<String> = HashSet::with_capacity(cands.len());
+        // One read per segment, not one per winner (#3470).
+        let mut page_docs =
+            self.columnar_page_docs(segments, cands.iter().map(|&(_, _, si, row)| (si, row)))?;
         for (score, _seq, si, row) in cands {
-            let meta = &segments[si as usize];
-            let slices = self.stored_slices_for(meta.id.as_str(), meta.doc_count)?;
-            let &(start, end) = slices.offsets.get(row as usize)?;
-            let slice = slices.bytes.get(start as usize..end as usize)?;
-            let doc: Value = serde_json::from_slice(slice).ok()?;
+            // Every row is in the map (`columnar_page_docs` fails whole);
+            // a miss is a repeated candidate, which `seen` would skip anyway.
+            let Some(doc) = page_docs.remove(&(si, row)) else {
+                continue;
+            };
             let id = doc
                 .get("_id")
                 .and_then(Value::as_str)
