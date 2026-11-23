@@ -1,0 +1,23 @@
+{
+ "corpus": "dip-bash--tstrip",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cli, golang, terminal queries this for how dip-bash/tstrip implements it: A niri-wm like terminal multiplexer (selected work: internal/mux, internal/vt, internal/input)",
+ "repos": [
+  {
+   "repo": "ananta",
+   "url": "https://github.com/dip-bash/ananta",
+   "sha": "4ed0c6a166a40e1970e2cfa12d591981cd157c09",
+   "licence": "MIT (LICENSE file at pin 4ed0c6a166a4, GitHub licence API 2026-11-23)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T06:26Z",
+    "consent_receipt": "cf7bc0dbe64f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T06:26Z (receipt cf7bc0dbe64f); selected commit 4ed0c6a166a4: \"resolve neovim cursor problem, add clickable widhet\". LICENSE file at pin 4ed0c6a166a4 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head 4ed0c6a166a4 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "dodoflix--dodobox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on hls, media-server, nodejs queries this for how dodoflix/dodobox implements it: Self-hosted streaming app for movies, series and anime: torrent playback, subtitles, profiles, any screen on your network (selected work: public, src, test)",
+ "repos": [
+  {
+   "repo": "dodobox",
+   "url": "https://github.com/dodoflix/dodobox",
+   "sha": "e0547dca32bda2d1f7dac326777f92b004c68b31",
+   "licence": "MIT (LICENSE file at pin e0547dca32bd, GitHub licence API 2026-11-23)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-23T13:47Z",
+    "consent_receipt": "1d9721a50990",
+    "note": "Inclusion consented by the commit author by email at 2026-11-23T13:47Z (receipt 1d9721a50990); selected commit e0547dca32bd: \"feat: watch party chat with emoji, reactions and activity lines (#30)\". LICENSE file at pin e0547dca32bd detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+   }
+  }
+ ]
+}

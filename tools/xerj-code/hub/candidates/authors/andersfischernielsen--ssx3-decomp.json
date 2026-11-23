@@ -1,9 +1,9 @@
 {
- "corpus": "andersfischernielsen--ssx3-decomp-tricky-plugin",
+ "corpus": "andersfischernielsen--ssx3-decomp",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how andersfischernielsen/ssx3-decomp-tricky-plugin implements it: A decompilation/port of SSX 3 in Rust (selected work: crates/ssx3-ps2)",
+ "domain": "an agent working on Rust queries this for how andersfischernielsen/ssx3-decomp implements it: A decompilation/port of SSX 3 in Rust (selected work: crates/ssx3-ps2)",
  "repos": [
   {
    "repo": "ssx3-decomp",

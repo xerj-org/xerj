@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how Realwaan/ytdlp-workstation implements it: Realwaan/ytdlp-workstation (Python) (selected work: ytdlp_workstation, tests)",
+ "domain": "an agent working on automation, cli, ffmpeg queries this for how Realwaan/ytdlp-workstation implements it: Clipboard-aware cyber-styled yt-dlp terminal workstation with interactive quality picker, browser cookie auth, video trimming, and lossless  (selected work: ytdlp_workstation, tests)",
  "repos": [
   {
    "repo": "ytdlp-workstation",
