@@ -131,6 +131,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drop the normalizer or index a lowercased copy. Indices that already exist
   keep opening.
 
+- **`function_score` with `field_value_factor` returns the same tied page on
+  every path ([#3506](https://github.com/xerj-org/xerj/issues/3506)).** The
+  doc-values path picked tied hits by segment row, which is not arrival
+  order, so `size: 3` over six equal-scoring docs returned ids 1 2 4 after a
+  `_bulk` and 2 3 4 after one PUT per doc, where the stored scan (and ES)
+  return 1 2 3. Ties now break by `_seq_no`. On a 42-segment 200k-doc index
+  the old path returned a different top 64 from the stored scan; it now
+  returns the same one. The first request after a new segment or
+  `_cache/clear` pays to build that segment's `_seq_no` map once (about
+  115-180 ms more on 200k docs, shared box at load ~60; still 5-9x faster
+  than the stored scan). A field missing from the mapping is also no longer
+  scored as missing on the doc-values path when the schema keeps unmapped
+  keys in `_source` (`runtime` dynamic mode). (Refs #3500)
+
 - **A flush near the memory watermark no longer waits for the allocator purge
   ([#3493](https://github.com/xerj-org/xerj/issues/3493)).** From 70% of the
   watermark, a finished flush build returned its freed pages to the OS
