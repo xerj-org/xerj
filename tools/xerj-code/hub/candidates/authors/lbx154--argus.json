@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how lbx154/Argus implements it: A self-evolving multi-agent system for autonomous research, operating 24/7 to explore, learn, and improve (selected work: frontend, desktop-tauri)",
+ "domain": "an agent working on TypeScript queries this for how lbx154/Argus implements it: A self-evolving multi-agent system for autonomous research, operating 24/7 to explore, learn, and improve (selected work: frontend, desktop-tauri)",
  "repos": [
   {
    "repo": "Argus",

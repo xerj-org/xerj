@@ -8,15 +8,15 @@
   {
    "repo": "hactl-companion",
    "url": "https://github.com/hemm-ems/hactl-companion",
-   "sha": "7feeb298a617df7a17090ec457597576e941a3c1",
-   "licence": "MIT (LICENSE file at pin 7feeb298a617, GitHub licence API 2026-11-16)",
+   "sha": "678d07884b4b5c173ac04271d5f861cd27fc23ba",
+   "licence": "MIT (LICENSE file at pin 678d07884b4b, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-13T09:21Z",
     "consent_receipt": "9e52183c3ed5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T09:21Z (receipt 9e52183c3ed5); selected commit 7feeb298a617: \"fix(resolver): !include_dir_* reads the files HA reads, merged the wa\u2026\". LICENSE file at pin 7feeb298a617 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 7feeb298a617 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hemm-ems, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T09:21Z (receipt 9e52183c3ed5); selected commit 678d07884b4b: \"fix(resolver): !include_dir_* reads the files HA reads, merged the wa\u2026\". LICENSE file at pin 678d07884b4b detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head 678d07884b4b (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hemm-ems, who has not added it."
    },
    "paths": [
     "docs",

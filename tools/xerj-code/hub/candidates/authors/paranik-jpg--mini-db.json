@@ -8,15 +8,15 @@
   {
    "repo": "mini_DB",
    "url": "https://github.com/paranik-jpg/mini_DB",
-   "sha": "7ed7757da3da99dad99f5e2ef523f04b74b3b692",
-   "licence": "MIT (LICENSE file at pin 7ed7757da3da, GitHub licence API 2026-11-15)",
+   "sha": "426fbfc6411e242408c1a887bd84e22d11054829",
+   "licence": "MIT (LICENSE file at pin 426fbfc6411e, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T09:19Z",
     "consent_receipt": "cfb46ccf3e46",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:19Z (receipt cfb46ccf3e46); pinned to the default-branch head. LICENSE file at pin 7ed7757da3da detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:19Z (receipt cfb46ccf3e46); pinned to the default-branch head. LICENSE file at pin 426fbfc6411e detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
    }
   }
  ]

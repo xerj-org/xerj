@@ -2,8 +2,8 @@
  "corpus": "helenananaa--candlescope",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how helenananaa/CandleScope implements it: helenananaa/CandleScope (Python) (selected work: backend, frontend, packages/candlescope-external-provider)",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on algorithmic-trading, backtesting, bar-replay queries this for how helenananaa/CandleScope implements it: Open-source, local-first crypto charting workstation: 100+ exchanges, any custom interval, unlimited indicators & alerts, bar replay trainin (selected work: backend, frontend, packages/candlescope-external-provider)",
  "repos": [
   {
    "repo": "CandleScope",

@@ -2,8 +2,8 @@
  "corpus": "pwr-control--library",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on MATLAB queries this for how pwr-control/library implements it: pwr-control/library (MATLAB) (selected work: library)",
+ "shelf": "WEB",
+ "domain": "an agent working on MATLAB queries this for how pwr-control/library implements it: Simscape components and Simulink models for power electronics, electrical machines, control and multi-domain systems, with design notes. Ple (selected work: library)",
  "repos": [
   {
    "repo": "library",

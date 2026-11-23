@@ -8,15 +8,15 @@
   {
    "repo": "agentp",
    "url": "https://github.com/bitifet/agentp",
-   "sha": "f417c4efe8debaf87915741e0b93b0007694f035",
-   "licence": "author's permission (LICENSE at pin f417c4efe8de: NONE; repository: none)",
+   "sha": "e252eee96a274a52132fe25b315efed924b879f6",
+   "licence": "author's permission (LICENSE at pin e252eee96a27: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:33Z",
     "consent_receipt": "fa2d2cfe7c71",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:33Z (receipt fa2d2cfe7c71); pinned to the default-branch head. LICENSE at pin f417c4efe8de: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:33Z (receipt fa2d2cfe7c71); pinned to the default-branch head. LICENSE at pin e252eee96a27: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
