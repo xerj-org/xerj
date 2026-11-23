@@ -52,15 +52,21 @@ upgrade a node that serves traffic.
   is in place: segments written before keep their old lengths, and object
   sub-fields in old segments answer from stored documents, until a merge
   rewrites them or you reindex.
-- **Data directory format and build tree.** A binary built from public
-  `main` at this cut still writes on-disk format 3 and refuses the format-4
-  directory that the rc.101-rc.104 release binaries wrote
-  (`DATA_DIR_FORMAT_VERSION` in
-  `engine/crates/xerj-storage/src/index_store.rs`). The release page says
-  which tree the rc.105 binaries were built from; check it before you point
-  rc.105 at an rc.104 data directory. `/_facts` and `xerj_facts_ask` exist
-  only in the release binaries, not in a build from this repository
-  (#3380).
+- **Data directories, provenance and the opt-in model flag are as in
+  rc.101-rc.104.** The rc.105 binaries are built from the same private tree
+  as rc.101-rc.104: public `main` at this cut (`b2ef194f` plus this release
+  commit) plus the XERJ-Query engine lanes plus the **Proprietary** model
+  crates `xerj-infer`, `xerj-serve` and `xerj-exec`. They keep the rc.101
+  storage defaults (ZPS4 postings, row-dictionary stored text, on-disk
+  format 4, or 5 once a writer uses the ZPA postings family), so a data
+  directory that rc.101, rc.102, rc.103 or rc.104 wrote opens in place, with
+  no reindex. A binary built from public `main` at this cut writes format 3
+  and refuses a format-4 or format-5 directory (`DATA_DIR_FORMAT_VERSION` in
+  `engine/crates/xerj-storage/src/index_store.rs`); upgrade an rc.101-rc.104
+  node with the release binaries. `/_facts` answers 404
+  `xerj_query_not_enabled` unless `--facts-model-dir <DIR>` is set, and
+  `/_facts` and `xerj_facts_ask` exist only in the release binaries, not in
+  a build from this repository (#3380).
 - **New segments are bigger.** Each `object` leaf now has its own postings
   (#3464). On the 200k-document test index with one object field the index
   grew from 50 MB to 62 MB (+24%). The growth comes from the text and
