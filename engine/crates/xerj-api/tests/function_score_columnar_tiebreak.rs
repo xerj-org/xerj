@@ -112,7 +112,9 @@ fn tied_cases() -> Vec<Value> {
     vec![
         // An absent, unmapped field (#3500 serves it columnarly).
         json!({ "field": "absent", "missing": 1 }),
-        json!({ "field": "absent" }),
+        // No `missing` on an absent field is a 400 since #3512 (as in ES),
+        // so the second tie is an explicit `missing: 0`.
+        json!({ "field": "absent", "missing": 0 }),
         // A mapped numeric column with a zero factor.
         json!({ "field": "r", "factor": 0, "missing": 1 }),
     ]
@@ -244,7 +246,7 @@ async fn dynamic_false_columnar_page_equals_stored_scan() {
                 ["12", "11", "10"],
             ),
             (json!({ "field": "absent", "missing": 1 }), ["1", "2", "3"]),
-            (json!({ "field": "absent" }), ["1", "2", "3"]),
+            (json!({ "field": "absent", "missing": 0 }), ["1", "2", "3"]),
         ];
         for (fvf, want) in cases {
             let fast = page(&app, index, fvf_query(&fvf, 3, false)).await;
