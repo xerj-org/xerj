@@ -3341,7 +3341,8 @@ mod flush_publication_recovery_tests {
                 &snap.segments,
                 &segments_dir,
                 10,
-                &schema
+                &schema,
+                true
             )
             .is_some(),
             "an unmapped field with no column scores every row as missing"
@@ -3352,7 +3353,8 @@ mod flush_publication_recovery_tests {
                 &snap.segments,
                 &segments_dir,
                 10,
-                &schema
+                &schema,
+                true
             )
             .is_none(),
             "a mapped field whose column was suppressed keeps the brute scan"
@@ -3363,7 +3365,8 @@ mod flush_publication_recovery_tests {
                 &snap.segments,
                 &segments_dir,
                 10,
-                &schema
+                &schema,
+                true
             )
             .is_none(),
             "a non-numeric column keeps the brute scan"
@@ -3401,6 +3404,90 @@ mod flush_publication_recovery_tests {
             assert!(fast.0.iter().all(|(_, s)| *s == want), "{fast:?}");
             assert_eq!(fast.0, brute.0, "missing={missing}");
             assert_eq!(fast.0[0].0, "doc-0");
+        }
+    }
+
+    /// #3500 under a `runtime` schema: unmapped keys stay in `_source`
+    /// without a mapping, so "unmapped" no longer proves "absent". `obj.r`
+    /// under an unmapped `obj` has no column (objects never get one) and the
+    /// brute scorer reads it from `_source`; the columnar path must not score
+    /// it as missing. Ingest uses several shards so segment rows are not in
+    /// arrival order (#3506), and the tied cases must still equal the scan.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn fvf_columnar_page_equals_scan_under_runtime_mapping_and_ties() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = topk_projection_config(dir.path());
+        config.engine.ingest_shards = 4;
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("fvf-runtime", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("fvf-runtime").unwrap();
+        idx.abort_background_tasks();
+        idx.schema.write().await.dynamic = xerj_common::schema::DynamicMapping::Runtime;
+        for i in 1..=40u64 {
+            idx.index_document(
+                Some(i.to_string()),
+                json!({ "title": format!("t{i}"), "r": i, "obj": { "r": i } }),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let schema = idx.schema().await;
+        assert!(schema.field("obj").is_none() && schema.field("r").is_none());
+
+        let snap = idx.store.snapshot();
+        let segments_dir = idx.data_dir.join("segments");
+        let fvf = FieldValueFactor {
+            field: "obj.r".to_string(),
+            factor: 1.0,
+            modifier: Modifier::None,
+            missing: Some(1.0),
+        };
+        assert!(
+            idx.function_score_columnar(&fvf, &snap.segments, &segments_dir, 3, &schema, false)
+                .is_none(),
+            "an unmapped field under a runtime schema may be in _source"
+        );
+
+        let page = |body: Value| {
+            let idx = idx.clone();
+            async move {
+                let r = idx
+                    .search(&xerj_query::parse_request(&body).unwrap())
+                    .await
+                    .unwrap();
+                r.hits
+                    .iter()
+                    .map(|h| (h.id.clone(), h.score))
+                    .collect::<Vec<_>>()
+            }
+        };
+        let cases = [
+            (
+                json!({ "field": "obj.r", "missing": 1 }),
+                ["40", "39", "38"],
+            ),
+            (json!({ "field": "r", "missing": 1 }), ["40", "39", "38"]),
+            (json!({ "field": "absent", "missing": 1 }), ["1", "2", "3"]),
+            (
+                json!({ "field": "r", "factor": 0, "missing": 1 }),
+                ["1", "2", "3"],
+            ),
+        ];
+        for (f, want) in cases {
+            let fast = page(json!({ "size": 3, "query": { "function_score": {
+                "query": { "match_all": {} }, "field_value_factor": f } } }))
+            .await;
+            let brute = page(
+                json!({ "size": 3, "min_score": 0, "query": { "function_score": {
+                "query": { "match_all": {} }, "field_value_factor": f } } }),
+            )
+            .await;
+            let ids: Vec<&str> = fast.iter().map(|(id, _)| id.as_str()).collect();
+            assert_eq!(ids, want, "{f}");
+            assert_eq!(fast, brute, "{f}: columnar page != stored scan");
         }
     }
 
@@ -29294,12 +29381,18 @@ impl Index {
         let mut fs_fast_applied = false;
         if let Some(fvf) = fs_fast_fvf {
             if !deletes_present {
+                let unmapped_means_absent = matches!(
+                    self.schema.read().await.dynamic,
+                    xerj_common::schema::DynamicMapping::Dynamic
+                        | xerj_common::schema::DynamicMapping::Strict
+                );
                 if let Some((hits, total)) = self.function_score_columnar(
                     fvf,
                     &snap.segments,
                     &segments_dir,
                     materialisation_limit,
                     &dmq_schema,
+                    unmapped_means_absent,
                 ) {
                     seen_ids.clear();
                     seen_ids.extend(hits.iter().map(|h| h.id.clone()));
@@ -36491,15 +36584,26 @@ impl Index {
     /// rule). A mapped field without a column may be a suppressed array or an
     /// object leaf the brute resolver still reads, so it bails (#3486:
     /// `ax_line` on a 504k-doc autoindex index took the brute scan,
-    /// 11-16 s, to score every doc as `missing`).
+    /// 11-16 s, to score every doc as `missing`). "Unmapped" proves absence
+    /// only under `dynamic` or `strict` mapping (`unmapped_means_absent`):
+    /// a `runtime` schema keeps unmapped keys in `_source` without mapping
+    /// them, and the brute scorer reads them there (`obj.r` under an unmapped
+    /// `obj` has no column either), so that case bails too.
     ///
-    /// Ties are broken by candidate position — segment order, then row, then
-    /// the memtable — so the page is deterministic and an all-missing segment
-    /// contributes only its first `cap` rows.
+    /// Ties are broken by arrival order (`_seq_no` ascending), the order the
+    /// stored scan and the caller's final page sort use, so a tied page does
+    /// not depend on which path served it. Segment ROW order is not arrival
+    /// order (the sharded memtable flush interleaves rows, and the memtable
+    /// lists its shards one after another), so rows are ranked through the
+    /// cached per-segment `row_seqs_for` map, as `scored_columnar` does. An
+    /// all-missing segment contributes only its `cap` earliest rows (#3506:
+    /// 6 docs, size 3 returned ids 1 2 4 after `_bulk` and 2 3 4 after one
+    /// PUT per doc, where the stored scan returned 1 2 3).
     ///
     /// Returns `None` — so the caller falls back to the unchanged brute scan —
     /// for any segment with a non-numeric dv column for the field, a mapped
-    /// field without a column, a shape/count mismatch, a malformed stored slice, or any per-row score that is
+    /// field without a column, a segment without a complete `_id → seq_no`
+    /// map, a shape/count mismatch, a malformed stored slice, or any per-row score that is
     /// non-finite / negative (the ES `illegal_argument_exception` path, which
     /// the brute fallback reproduces with the exact reason + doc index).
     ///
@@ -36516,6 +36620,7 @@ impl Index {
         segments_dir: &std::path::Path,
         cap: usize,
         schema: &Schema,
+        unmapped_means_absent: bool,
     ) -> Option<(Vec<Hit>, u64)> {
         use xerj_storage::doc_values::Column;
         let field = fvf.field.as_str();
@@ -36529,33 +36634,26 @@ impl Index {
             Mem(u32),
             Seg(u32, u32),
         }
-        impl Cand {
-            /// Selection tie-break: segments in snapshot order, rows in
-            /// order, the memtable (newest docs) last.
-            fn pos(&self) -> (u32, u32) {
-                match self {
-                    Cand::Seg(si, row) => (*si, *row),
-                    Cand::Mem(i) => (u32::MAX, *i),
-                }
-            }
-        }
-        let mut cands: Vec<(f32, Cand)> = Vec::new();
+        // `(score, seq_no, candidate)`: the seq is the selection tie-break.
+        let mut cands: Vec<(f32, u64, Cand)> = Vec::new();
 
         // ── Live memtable docs ────────────────────────────────────────────
         // Sources are already parsed Values in memory; score them through the
         // identical `compute_field_value_factor` for byte-for-byte parity.
         let mem_docs = self.memtable.all_docs_with_sources_arc();
         for (i, (id, source)) in mem_docs.iter().enumerate() {
-            if let Some(ver) = self.store.version_map.get(id) {
-                if ver.deleted {
-                    continue;
-                }
-            }
+            // Same seq transform as `lookup_seq_no`, which the final page
+            // sort keys ties on.
+            let seq = match self.store.version_map.get(id) {
+                Some(ver) if ver.deleted => continue,
+                Some(ver) => ver.seq_no.saturating_sub(1),
+                None => u64::MAX,
+            };
             let score = compute_field_value_factor(fvf, source);
             if !score.is_finite() || score < 0.0 {
                 return None;
             }
-            cands.push((score, Cand::Mem(i as u32)));
+            cands.push((score, seq, Cand::Mem(i as u32)));
         }
 
         // ── Segment numeric doc-values columns ────────────────────────────
@@ -36565,6 +36663,7 @@ impl Index {
         // per-row `_source`/`Value`/map lookup.
         for (si, meta) in segments.iter().enumerate() {
             let cols = self.dv_columns_for(segments_dir, &meta.id)?;
+            let seqs = self.row_seqs_for(meta.id.as_str(), meta.doc_count)?;
             let n = match cols.get(field) {
                 Some(Column::Numeric(n)) => n,
                 Some(_) => return None,
@@ -36579,16 +36678,33 @@ impl Index {
                     // An empty map is a segment written before `.dv`
                     // side-cars (every field reads absent), and `_`-prefixed
                     // source keys never get a column: neither proves absence.
-                    if field_mapped || cols.is_empty() || field.starts_with('_') {
+                    if field_mapped
+                        || !unmapped_means_absent
+                        || cols.is_empty()
+                        || field.starts_with('_')
+                    {
                         return None;
                     }
                     let score = fvf_score_from_raw(fvf, None);
                     if !score.is_finite() || score < 0.0 {
                         return None;
                     }
+                    // Every row ties, so only the `cap` earliest arrivals can
+                    // reach the page.
                     let rows = u32::try_from(meta.doc_count).ok()?;
-                    let take = rows.min(u32::try_from(cap).unwrap_or(u32::MAX));
-                    cands.extend((0..take).map(|row| (score, Cand::Seg(si as u32, row))));
+                    let mut order: Vec<u32> = (0..rows).collect();
+                    if cap < order.len() {
+                        if cap == 0 {
+                            continue;
+                        }
+                        order.select_nth_unstable_by_key(cap - 1, |&row| seqs[row as usize]);
+                        order.truncate(cap);
+                    }
+                    cands.extend(
+                        order
+                            .into_iter()
+                            .map(|row| (score, seqs[row as usize], Cand::Seg(si as u32, row))),
+                    );
                     continue;
                 }
             };
@@ -36606,7 +36722,7 @@ impl Index {
                 if !score.is_finite() || score < 0.0 {
                     return None;
                 }
-                cands.push((score, Cand::Seg(si as u32, row)));
+                cands.push((score, seqs[row as usize], Cand::Seg(si as u32, row)));
             }
         }
 
@@ -36620,7 +36736,7 @@ impl Index {
             cands.select_nth_unstable_by(keep - 1, |a, b| {
                 b.0.partial_cmp(&a.0)
                     .unwrap_or(std::cmp::Ordering::Equal)
-                    .then_with(|| a.1.pos().cmp(&b.1.pos()))
+                    .then_with(|| a.1.cmp(&b.1))
             });
             cands.truncate(keep);
         }
@@ -36632,12 +36748,12 @@ impl Index {
         // One read per segment, not one per winner (#3470).
         let mut page_docs = self.columnar_page_docs(
             segments,
-            cands.iter().filter_map(|(_, cand)| match cand {
+            cands.iter().filter_map(|(_, _, cand)| match cand {
                 Cand::Seg(si, row) => Some((*si, *row)),
                 Cand::Mem(_) => None,
             }),
         )?;
-        for (_score, cand) in cands {
+        for (_score, _seq, cand) in cands {
             match cand {
                 Cand::Mem(i) => {
                     let (id, source) = &mem_docs[i as usize];
