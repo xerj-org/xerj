@@ -58531,10 +58531,13 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             }
             // Tokenize both query and field — honor the operator: AND requires
             // every query token to be present in the field; OR requires any.
-            // Short single-character tokens are kept when numeric (to preserve
-            // `match: {field: 1}` against a numeric field doc value 1); only
-            // single-character alphabetic tokens (historic stopword noise) are
-            // dropped.
+            // #3507: every analysed token counts, one-letter ones included.
+            // The `standard` analyzer has no stop words, and the segment side
+            // (`query_node_to_fts_projected`) keeps `a` as a term. This used
+            // to drop one-letter alphabetic tokens, so a flushed
+            // `bool{must:[match t:"a"], filter:[range]}` (FTS superset, then
+            // this re-test in the `residual_gate` pass) found the query empty
+            // and kept 0 of 3 hits, and `must_not: match "a"` excluded nothing.
             let fold = |s: &str| -> String {
                 if preserve_case {
                     s.to_string()
@@ -58553,15 +58556,6 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                 // until `_refresh`; and it splits `foo_bar`, `don't` and
                 // `3.14`, so `foo` matched here and not after `_refresh`.
                 phrase_tokens(query)
-                    .into_iter()
-                    .filter(|w| {
-                        w.len() >= 2
-                            || w.chars()
-                                .next()
-                                .map(|c| c.is_ascii_digit())
-                                .unwrap_or(false)
-                    })
-                    .collect()
             };
             if q_tokens.is_empty() {
                 return false;
@@ -64397,6 +64391,9 @@ fn query_node_to_fts_projected(
             // scan (whose base is all docs) answers, exactly as a `must_not`-
             // only keyword `term` (which never projects) already does.
             let mut projected_positive = false;
+            // #3507: which clause kinds actually reached the FTS bool.
+            let mut projected_filter = false;
+            let mut projected_should = false;
             // CRITICAL: if a `must` child can't be projected to FTS we
             // CANNOT lift just the projectable subset — the bool would
             // become more permissive than the original query.  Return
@@ -64447,6 +64444,7 @@ fn query_node_to_fts_projected(
                     date_docs,
                 ) {
                     bool_q = bool_q.filter(fq);
+                    projected_filter = true;
                     projected_positive = true;
                 }
             }
@@ -64481,6 +64479,7 @@ fn query_node_to_fts_projected(
                     date_docs,
                 )?;
                 bool_q = bool_q.should(fq);
+                projected_should = true;
                 projected_positive = true;
             }
             // `must_not` children that don't project are similar: dropping
@@ -64490,6 +64489,26 @@ fn query_node_to_fts_projected(
                 // non-scoring residual — skip it (don't `?`-abort); the
                 // `residual_gate` pass in `search` re-excludes it via
                 // `doc_matches_query` over the original query.
+                //
+                // #3507: a child that projects but NOT exactly — a nested
+                // `bool` that skipped its own residual `filter`/`must_not` —
+                // projects a SUPERSET of its matches. Negating a superset
+                // excludes true hits, and the residual gate can only remove
+                // docs, never restore them (`bool{must:[match t:b],
+                // must_not:[bool{must:[match t:x], filter:[range n<=5]}]}`
+                // lost every `b x` doc with n > 5 after `_flush`). Leave such
+                // a child to the gate as a whole.
+                if bool_has_nonprojectable_nonscoring(
+                    sub,
+                    text_fields,
+                    exact_fields,
+                    keyword_fields,
+                    binding,
+                    pinned,
+                    date_docs,
+                ) {
+                    continue;
+                }
                 if let Some(fq) = query_node_to_fts_projected(
                     sub,
                     text_fields,
@@ -64501,6 +64520,23 @@ fn query_node_to_fts_projected(
                 ) {
                     bool_q = bool_q.must_not(fq);
                 }
+            }
+            // #3507: a skipped residual `filter` can leave the FTS bool with
+            // only `should` clauses, and a should-only bool REQUIRES one of
+            // them — while in the original, the `filter` makes every `should`
+            // optional (default `minimum_should_match` 0). The projection is
+            // then a SUBSET (`bool{filter:[range], should:[match cat],
+            // must_not:[match dog]}` kept only the `cat` docs after `_flush`),
+            // which no residual pass can widen. FTS cannot enumerate "all
+            // docs" for the optional clauses, so decline: the stored scan
+            // answers the whole bool.
+            if must.is_empty()
+                && !filter.is_empty()
+                && !projected_filter
+                && projected_should
+                && minimum_should_match.is_none()
+            {
+                return None;
             }
             if !projected_positive {
                 return None;
@@ -75796,3 +75832,7 @@ mod stored_scan_topk_tests;
 #[cfg(test)]
 #[path = "get_row_decode_tests.rs"]
 mod get_row_decode_tests;
+
+#[cfg(test)]
+#[path = "bool_flush_parity_tests.rs"]
+mod bool_flush_parity_tests;
