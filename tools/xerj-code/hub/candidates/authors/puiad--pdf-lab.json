@@ -8,15 +8,15 @@
   {
    "repo": "pdf-lab",
    "url": "https://github.com/puIad/pdf-lab",
-   "sha": "4979346f7a9aee4c00a0c9b533c0b6f32fea5c2c",
-   "licence": "MIT (LICENSE file at pin 4979346f7a9a, GitHub licence API 2026-11-23)",
+   "sha": "baa7cd8e2f337ce6b798ce43e3ffcec694f2eeec",
+   "licence": "MIT (LICENSE file at pin baa7cd8e2f33, GitHub licence API 2026-11-23)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T23:00Z",
     "consent_receipt": "f80984810a66",
-    "note": "Inclusion consented by the commit author by email at 2026-11-11T23:00Z (receipt f80984810a66); selected commit 4979346f7a9a: \"radar: read stored markets and signals only, move sample topics to te\u2026\". LICENSE file at pin 4979346f7a9a detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head 4979346f7a9a (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T23:00Z (receipt f80984810a66); selected commit baa7cd8e2f33: \"radar: read stored markets and signals only, move sample topics to te\u2026\". LICENSE file at pin baa7cd8e2f33 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head baa7cd8e2f33 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

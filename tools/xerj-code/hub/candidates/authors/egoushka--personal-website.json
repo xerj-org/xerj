@@ -8,15 +8,15 @@
   {
    "repo": "personal-website",
    "url": "https://github.com/Egoushka/personal-website",
-   "sha": "bb6cf81ee7534a005fc6f945d15ed3e9ec6135b6",
-   "licence": "author's permission (LICENSE at pin bb6cf81ee753: NOASSERTION; repository: Apache-2.0)",
+   "sha": "26ffd7b52ed02037e7dd0251c04b9d9df3b3046a",
+   "licence": "author's permission (LICENSE at pin 26ffd7b52ed0: NOASSERTION; repository: Apache-2.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "87a07067b9d1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 87a07067b9d1); pinned to the default-branch head. LICENSE at pin bb6cf81ee753: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 87a07067b9d1); pinned to the default-branch head. LICENSE at pin 26ffd7b52ed0: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
    }
   }
  ]

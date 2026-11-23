@@ -2,8 +2,8 @@
  "corpus": "pwr-control--library",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on control-systems-engineering, library, modulators queries this for how pwr-control/library implements it: **please, add this repo to matlab path.** Library for simscape models (selected work: library)",
+ "shelf": "API",
+ "domain": "an agent working on MATLAB queries this for how pwr-control/library implements it: pwr-control/library (MATLAB) (selected work: library)",
  "repos": [
   {
    "repo": "library",
