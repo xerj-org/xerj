@@ -8,15 +8,15 @@
   {
    "repo": "XiaoMaoShare",
    "url": "https://github.com/xiaomaoJT/XiaoMaoShare",
-   "sha": "25981a09760fe9371d83877faccf79b092867c88",
-   "licence": "MIT (LICENSE file at pin 25981a09760f, GitHub licence API 2026-11-24)",
+   "sha": "c979fec30aaad061d30e922180536e3cd1002936",
+   "licence": "MIT (LICENSE file at pin c979fec30aaa, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T23:22Z",
     "consent_receipt": "8096ade6c8be",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T23:22Z (receipt 8096ade6c8be); selected commit 25981a09760f: \"fix(desktop): \u6570\u636e\u76ee\u5f55\u6539\u4e3a\u754c\u9762\u5185\u5f15\u5bfc\u9009\u62e9 + Windows \u56fe\u6807\u4fee\u590d\". LICENSE file at pin 25981a09760f detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head 25981a09760f (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T23:22Z (receipt 8096ade6c8be); selected commit c979fec30aaa: \"fix(desktop): \u6570\u636e\u76ee\u5f55\u6539\u4e3a\u754c\u9762\u5185\u5f15\u5bfc\u9009\u62e9 + Windows \u56fe\u6807\u4fee\u590d\". LICENSE file at pin c979fec30aaa detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head c979fec30aaa (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
