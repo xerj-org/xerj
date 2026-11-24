@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on asp, asp-net, asp-net-mvc queries this for how mchinchilla/NetFirewall implements it: Small Firewall developed in C# (selected work: NetFirewall.Services, NetFirewall.Web, NetFirewall.Tests)",
+ "domain": "an agent working on asp, asp-net, asp-net-mvc queries this for how mchinchilla/NetFirewall implements it: NetFirewall - Firewall rules, DHCP, WireGuard, MultiWAN, QoS and policy routing, all kept in one PostgreSQL database and turned into nftable (selected work: NetFirewall.Services, NetFirewall.Web, NetFirewall.Tests)",
  "repos": [
   {
    "repo": "NetFirewall",

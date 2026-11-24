@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C queries this for how VG-Os-Team/vg-os-system implements it: A custom x86 operating system built from scratch with a custom kernel, bootloader, and basic keyboard support (selected work: src/mm, include, comandos)",
+ "domain": "an agent working on C queries this for how VG-Os-Team/vg-os-system implements it: A custom x86 operating system built from scratch with a custom kernel, bootloader, and basic keyboard support (selected work: src/drivers, the project root, include)",
  "repos": [
   {
    "repo": "vg-os-system",
    "url": "https://github.com/VG-Os-Team/vg-os-system",
-   "sha": "b6b0dda0d4167ce1939d65ddf081dd71feb9efae",
-   "licence": "MIT (LICENSE file at pin b6b0dda0d416, GitHub licence API 2026-11-05)",
+   "sha": "fbaccc294d283a3105c81eeb2b5244f5d9fae0a5",
+   "licence": "MIT (LICENSE file at pin fbaccc294d28, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-05T20:33Z",
-    "consent_receipt": "e882c73316af",
-    "note": "Inclusion consented by the commit author by email at 2026-11-05T20:33Z (receipt e882c73316af); selected commit b6b0dda0d416: \"feat: implementa alocador de p\u00e1ginas f\u00edsicas (PMM) de 4KB com bitmap\". LICENSE file at pin b6b0dda0d416 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @VG-Os-Team, who has not added it."
+    "at": "2026-11-10T13:02Z",
+    "consent_receipt": "dd6c576e0983",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T13:02Z (receipt dd6c576e0983); selected commit fbaccc294d28: \"Feat: Alocacao do Backbuffer na RAM para Double Buffering (Tarefa 16)\". LICENSE file at pin fbaccc294d28 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @VG-Os-Team, who has not added it."
    },
    "paths": [
     "comandos",

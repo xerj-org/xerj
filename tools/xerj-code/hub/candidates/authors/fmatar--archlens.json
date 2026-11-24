@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how fmatar/archlens implements it: Clean Architecture Dynamic UML Workbench with interactive AST scanning, metrics, and refactoring agent support (selected work: backend, cli)",
+ "domain": "an agent working on Java queries this for how fmatar/archlens implements it: Clean Architecture Dynamic UML Workbench with interactive AST scanning, metrics, and refactoring agent support (selected work: backend, cli)",
  "repos": [
   {
    "repo": "archlens",
