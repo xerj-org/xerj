@@ -2366,6 +2366,13 @@ mod flush_publication_recovery_tests {
 
     static FLUSH_FAULT_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
+    /// Hang guard for a wait on an event, not a latency budget. Each wait it
+    /// bounds ends when the event happens, so only an event that never comes
+    /// reaches the guard. A 1 s or 5 s bound on "the search finishes" or "the
+    /// finalizer publishes" fails a correct engine whenever a starved
+    /// runtime does not schedule the task in time (load 200+).
+    const EVENT_HANG_GUARD: std::time::Duration = std::time::Duration::from_secs(60);
+
     fn data_dir_format_version(index: &Index) -> u64 {
         let marker: serde_json::Value =
             serde_json::from_slice(&std::fs::read(index.data_dir.join("xerj_meta.json")).unwrap())
@@ -2547,7 +2554,7 @@ mod flush_publication_recovery_tests {
         let read_idx = Arc::clone(&idx);
         let read_request = request.clone();
         let read = tokio::spawn(async move { read_idx.search(&read_request).await });
-        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        tokio::time::timeout(EVENT_HANG_GUARD, async {
             while idx.collection_publication.reader_admission_attempts() == attempts_before {
                 tokio::task::yield_now().await;
             }
@@ -2557,14 +2564,22 @@ mod flush_publication_recovery_tests {
         // #1015: the detached finalizer is parked in the BUILD phase, which
         // holds no publication bracket — the search must run to completion
         // against the frozen generation instead of waiting out the flush.
-        let early = tokio::time::timeout(std::time::Duration::from_secs(1), read)
+        // Nothing else can open a bracket while the build is parked, so the
+        // search cannot be refused admission: the bracket count says it,
+        // without reading a clock, and the join below is the event.
+        assert_eq!(
+            idx.collection_publication.state().1,
+            0,
+            "the parked flush build must hold no publication bracket"
+        );
+        let early = tokio::time::timeout(EVENT_HANG_GUARD, read)
             .await
             .expect("search stayed blocked across the detached flush build")
             .unwrap()
             .unwrap();
         assert_eq!(early.hits[0].id, "winner");
         release_tx.send(()).unwrap();
-        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        tokio::time::timeout(EVENT_HANG_GUARD, async {
             while idx.store.snapshot().segments.is_empty()
                 || idx.dataset_version.load(Ordering::Acquire) == version_before_flush
             {
@@ -75411,6 +75426,17 @@ mod exact_scan_hydration_tests {
     /// plus a live memtable, with every awkward document shape the scan has a
     /// rule for.
     async fn seed(idx: &Arc<Index>) {
+        // Hand-driven: every flush and merge below is explicit, so no
+        // background merge may publish under a test. The oracles read the
+        // memtable and then the segments with no publication bracket around
+        // the pair, and the cache test reads a segment snapshot after its
+        // scan; a merge landing in either window shows a segment the other
+        // read never saw. With 60 flush + force_merge rounds running beside
+        // `legacy_scan`, 164 of 10,760 oracle scans came back 1-5
+        // documents short of 282; `run_knn_brute_force`, which validates its
+        // capture against the publication, answered 282 in all 3,621. The
+        // oracle tears; the engine does not.
+        idx.abort_background_tasks();
         let mut rng = Lcg(0x939);
         let shared = rng.vector();
         for id in 0..150 {

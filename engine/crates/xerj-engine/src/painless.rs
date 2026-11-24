@@ -2700,6 +2700,20 @@ mod tests {
         PainlessCtx::new(doc, params, score)
     }
 
+    /// A context whose wall-clock slice cannot run out, for a test that is
+    /// about something other than the time budget.
+    ///
+    /// The slice is anchored when the context is built and read every
+    /// [`OPS_PER_CLOCK_CHECK`] work units, so a thread that is not scheduled
+    /// for 500 ms in the middle of an evaluation fails it with
+    /// `SCRIPT_OVER_TIME_MSG` whatever the script does. The work budget
+    /// ([`MAX_SCRIPT_OPS`]) is counted, not timed, and still applies.
+    fn untimed_ctx<'a>(doc: &'a Value, params: &'a Value, score: f32) -> PainlessCtx<'a> {
+        let mut c = PainlessCtx::new(doc, params, score);
+        c.eval_deadline = std::time::Instant::now() + std::time::Duration::from_secs(24 * 60 * 60);
+        c
+    }
+
     #[test]
     fn doc_value_times_param() {
         let doc = json!({"num_likes": 150});
@@ -3692,11 +3706,13 @@ mod tests {
         // Distinct ~33 KiB scripts (each legal under MAX_SCRIPT_LEN, and
         // flat rather than deep so they compile and run cleanly). Well under
         // MAX_SCRIPT_CACHE_ENTRIES of them already exceed the byte budget,
-        // so the byte bound has to be what stops the growth.
+        // so the byte bound has to be what stops the growth. The work budget
+        // still applies; the wall-clock slice is not under test here, so none
+        // is applied.
         for i in 0..24 {
             let src = format!("{}return {i};", "def a = 1;".repeat(3300));
             assert!(src.len() > 32 * 1024);
-            eval_painless(&src, &ctx(&doc, &params, 0.0)).unwrap();
+            eval_painless(&src, &untimed_ctx(&doc, &params, 0.0)).unwrap();
         }
         let (entries, src_bytes, actual) = cache_stats();
         assert!(
