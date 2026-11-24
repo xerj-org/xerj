@@ -1,0 +1,23 @@
+{
+ "corpus": "fantuz--entropy-service",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on qrng, random-data, random-number-generators queries this for how fantuz/entropy-service implements it: Self-hosted Go server and client for DRBG-generated random data, seeded from hardware or OS sources, with HTTP/WebSocket APIs, live visualiz (selected work: cmd/entropy-client)",
+ "repos": [
+  {
+   "repo": "entropy-service",
+   "url": "https://github.com/fantuz/entropy-service",
+   "sha": "7393e779fa9b97dd41d44305c49e49a90a85795a",
+   "licence": "MIT (LICENSE file at pin 7393e779fa9b, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T12:22Z",
+    "consent_receipt": "21e3139d36e4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T12:22Z (receipt 21e3139d36e4); selected commit 7393e779fa9b: \"quality improvements P2\". LICENSE file at pin 7393e779fa9b detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}
