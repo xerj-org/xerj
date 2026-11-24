@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on local-ai, macos, meeting-notes queries this for how Gbally/Hesper implements it: Meeting notes that stay on your Mac: local AI transcripts, speakers, summaries and to-dos for Teams, Zoom and Meet (selected work: eval)",
+ "domain": "an agent working on local-ai, macos, meeting-notes queries this for how Gbally/Hesper implements it: Private meeting notes, fully offline, for Mac and Windows: local AI transcripts, who said what, summaries and to-dos for Teams, Zoom and Mee (selected work: eval)",
  "repos": [
   {
    "repo": "MeetScribe-releases",

@@ -1,9 +1,9 @@
 {
- "corpus": "clankclub--repo-rat",
+ "corpus": "tdotlab--repo-rat",
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on github-releases, llm, python queries this for how ClankClub/repo-rat implements it: A tiny self-hosted release monitor that filters GitHub release noise down to what's worth reading (selected work: tests, release_rat, the project root)",
+ "domain": "an agent working on github-releases, llm, python queries this for how tdotlab/repo-rat implements it: A tiny self-hosted release monitor that filters GitHub release noise down to what's worth reading (selected work: tests, release_rat, the project root)",
  "repos": [
   {
    "repo": "repo-rat",

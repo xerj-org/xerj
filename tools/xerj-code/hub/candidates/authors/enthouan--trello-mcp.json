@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on docker, llm, mcp queries this for how enthouan/trello-mcp implements it: Self-hostable MCP server for Trello, built for LLM clients and local workflows (selected work: scripts, tests, the project root)",
+ "domain": "an agent working on docker, llm, mcp queries this for how enthouan/trello-mcp implements it: Self-hostable MCP server for managing Trello boards, lists, cards, and checklists via stdio or Streamable HTTP. Docker-ready (selected work: scripts, tests, the project root)",
  "repos": [
   {
    "repo": "trello-mcp",
