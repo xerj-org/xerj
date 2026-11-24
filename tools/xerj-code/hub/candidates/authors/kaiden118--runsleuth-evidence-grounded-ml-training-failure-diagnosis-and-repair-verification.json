@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agents, chatgpt-api, gemini queries this for how Kaiden118/RunSleuth-Evidence-Grounded-ML-Training-Failure-Diagnosis-and-Repair-Verification implements it: An evidence-grounded LLM agent for diagnosing PyTorch training failures and verifying proposed repairs through bounded retraining (selected work: tests, src/runsleuth)",
+ "domain": "an agent working on agents, chatgpt-api, gemini queries this for how Kaiden118/RunSleuth-Evidence-Grounded-ML-Training-Failure-Diagnosis-and-Repair-Verification implements it: Checks what LLM agents claim about the medical image classifiers and training code they build, against evidence rather than their words (selected work: tests, src/runsleuth)",
  "repos": [
   {
    "repo": "RunSleuth-Evidence-Grounded-ML-Training-Failure-Diagnosis-and-Repair-Verification",

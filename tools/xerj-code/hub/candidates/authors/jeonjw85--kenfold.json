@@ -8,15 +8,15 @@
   {
    "repo": "kenfold",
    "url": "https://github.com/jeonjw85/kenfold",
-   "sha": "d6949bc66cafa70d10b9cdc55cfd8b4fa414bbb3",
-   "licence": "MIT (LICENSE file at pin d6949bc66caf, GitHub licence API 2026-11-23)",
+   "sha": "e38e10ace55d1cd21a88140f9026c32fa07b93ea",
+   "licence": "MIT (LICENSE file at pin e38e10ace55d, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-14T02:17Z",
     "consent_receipt": "4c232e6eec21",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T02:17Z (receipt 4c232e6eec21); selected commit d6949bc66caf: \"bench: add experimental temporal and claim-scoped reader policies\". LICENSE file at pin d6949bc66caf detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head d6949bc66caf (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T02:17Z (receipt 4c232e6eec21); selected commit e38e10ace55d: \"bench: add experimental temporal and claim-scoped reader policies\". LICENSE file at pin e38e10ace55d detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head e38e10ace55d (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

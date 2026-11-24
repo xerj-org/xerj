@@ -1,0 +1,23 @@
+{
+ "corpus": "liuyouwu1999--novax-player",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, dlna, exoplayer queries this for how liuyouwu1999/NovaX-Player implements it: An Android video player for local and network media: SMB / SFTP / WebDAV / Jellyfin / local storage, dual engine (ExoPlayer + libVLC), DLNA  (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "NovaX-Player",
+   "url": "https://github.com/liuyouwu1999/NovaX-Player",
+   "sha": "1feb8814e0b8531f03967827cdde1404ca6248a8",
+   "licence": "GPL-3.0 (LICENSE file at pin 1feb8814e0b8, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-24T00:45Z",
+    "consent_receipt": "b213035d38b7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-24T00:45Z (receipt b213035d38b7); selected commit 1feb8814e0b8: \"fix(creds): \u51ed\u636e\u4fdd\u5b58\u4e09\u5206\u8fa8+\u77e5\u60c5\u786e\u8ba4\u2014\u2014\u89e3\u5bc6\u5931\u8d25\u4e0d\u8986\u76d6\u539f\u5217\u675c\u7edd\u9759\u9ed8\u6e05\u7a7a,\u52a0\u5bc6\u5931\u8d25\u5f39\u7a97\u77e5\u60c5\u540e\u53ef\u660e\u6587+\u964d\u7ea7\u6807\u8bb0(\u673a\u6784\u6574\u6539 spec\u2026\". LICENSE file at pin 1feb8814e0b8 detected as GPL-3.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

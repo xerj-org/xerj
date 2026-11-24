@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on android, audiobook, dart queries this for how ch6vip/novel-sound implements it: \u5185\u5bb9\u805a\u5408 Android \u5ba2\u6237\u7aef\uff1a\u5c0f\u8bf4/\u77ed\u5267/\u6f2b\u5267/\u542c\u4e66/\u6f2b\u753b\uff0cFlutter UI + \u8fdb\u7a0b\u5185 Rust \u6838\u5fc3\uff0c\u65e0\u81ea\u5efa\u670d\u52a1\u5668\u3001\u65e0\u9700 root (selected work: lib/pages, test, lib/services)",
+ "domain": "an agent working on android, audiobook, dart queries this for how ch6vip/novel-sound implements it: \u300c\u4ec0\u9526\u94fa\u300d\u514d\u8d39\u5f00\u6e90\u7684\u5185\u5bb9\u805a\u5408\u5ba2\u6237\u7aef\uff1a\u5c0f\u8bf4\u3001\u77ed\u5267\u3001\u6f2b\u5267\u3001\u542c\u4e66\u3001\u6f2b\u753b\u4e00\u7ad9\u641e\u5b9a | Flutter UI + Rust \u6838\u5fc3 | Android / Windows / Linux | \u65e0\u5e7f\u544a (selected work: lib/pages, test, lib/services)",
  "repos": [
   {
    "repo": "novel-sound",
