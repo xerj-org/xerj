@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how brunorodmoreira/cam implements it: Pick the Claude Code account per folder via .claude-account files (selected work: src, tests)",
+ "domain": "an agent working on claude, claude-code, cli queries this for how brunorodmoreira/cam implements it: Pick the Claude Code account per folder via .claude-account files (selected work: src, tests)",
  "repos": [
   {
    "repo": "cam",

@@ -2,7 +2,7 @@
  "corpus": "rcooler--ajaxbridge",
  "cloned_at": null,
  "status": "draft",
- "shelf": "SEC",
+ "shelf": "OPS",
  "domain": "an agent working on ajax-security, home-assistant, prometheus queries this for how RCooLeR/AjaxBridge implements it: Receives Ajax security hub SIA DC-09 events, keeps the current alarm state in memory, and exposes Prometheus metrics on `/metrics` (selected work: bridge, deploy)",
  "repos": [
   {

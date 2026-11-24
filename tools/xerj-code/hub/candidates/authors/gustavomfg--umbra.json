@@ -8,15 +8,15 @@
   {
    "repo": "nocturne-greeter",
    "url": "https://github.com/gustavomfg/nocturne-greeter",
-   "sha": "851798c00af4fb2bd239b992e10d1a2e920596f8",
-   "licence": "MIT (LICENSE file at pin 851798c00af4, GitHub licence API 2026-11-23)",
+   "sha": "e373e8d5d764afbf97cd2f8cae15aacb3bb3eeb2",
+   "licence": "MIT (LICENSE file at pin e373e8d5d764, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T20:06Z",
     "consent_receipt": "b91b712fbde9",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:06Z (receipt b91b712fbde9); selected commit 851798c00af4: \"feat(compat): select outputs and validate recovery in disposable envi\u2026\". LICENSE file at pin 851798c00af4 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head 851798c00af4 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:06Z (receipt b91b712fbde9); selected commit e373e8d5d764: \"feat(compat): select outputs and validate recovery in disposable envi\u2026\". LICENSE file at pin e373e8d5d764 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head e373e8d5d764 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

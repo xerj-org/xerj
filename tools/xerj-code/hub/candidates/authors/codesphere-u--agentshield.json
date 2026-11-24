@@ -8,15 +8,15 @@
   {
    "repo": "agentshield",
    "url": "https://github.com/codesphere-u/agentshield",
-   "sha": "3221154ea0d3eabbd7f104c457fdfd0d6e194634",
-   "licence": "author's permission (LICENSE at pin 3221154ea0d3: NOASSERTION; repository: NOASSERTION)",
+   "sha": "2e05ea3d9952fc151dcca02c7634478d8ec5e5e2",
+   "licence": "Apache-2.0 (LICENSE file at pin 2e05ea3d9952, GitHub licence API 2026-11-24)",
    "review": {
-    "spdx": "NOASSERTION",
+    "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-17T02:03Z",
     "consent_receipt": "71fc99b26665",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T02:03Z (receipt 71fc99b26665); pinned to the default-branch head. LICENSE at pin 3221154ea0d3: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T02:03Z (receipt 71fc99b26665); pinned to the default-branch head. LICENSE file at pin 2e05ea3d9952 detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
    }
   }
  ]

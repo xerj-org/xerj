@@ -1,9 +1,9 @@
 {
- "corpus": "lotusxanderyang--pocketpythonide",
+ "corpus": "lotusxanderyang--pocketandroidide",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Java queries this for how LotusXanderYang/PocketPythonIDE implements it: Lightweight ARM64 Android IDE with installable Python and C/C++ language packs (selected work: app/src, tools, app)",
+ "domain": "an agent working on Java queries this for how LotusXanderYang/PocketAndroidIDE implements it: Lightweight ARM64 Android IDE with installable Python and C/C++ language packs (selected work: app/src, tools, app)",
  "repos": [
   {
    "repo": "PocketPythonIDE",

@@ -2,8 +2,8 @@
  "corpus": "guardtrellis--guardtrellis",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how guardtrellis/guardtrellis implements it: A lightweight Python SDK for local checks around LLM inputs, outputs, retrieval, and tool calls (selected work: tests, examples, scripts)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-safety, guardrails, llm queries this for how guardtrellis/guardtrellis implements it: A lightweight Python SDK for local checks around LLM inputs, outputs, retrieval, and tool calls (selected work: tests, examples, scripts)",
  "repos": [
   {
    "repo": "guardtrellis",
