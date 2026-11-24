@@ -1,0 +1,23 @@
+{
+ "corpus": "tronyx--tronitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on uptimerobot, uptime-robot, uptimerobot-api queries this for how tronyx/tronitor implements it: Python script to work with UptimeRobot and HealthChecks.io monitoring providers",
+ "repos": [
+  {
+   "repo": "tronitor",
+   "url": "https://github.com/tronyx/tronitor",
+   "sha": "fa43ce34aa4b740f254efc229a974ff17a7a8669",
+   "licence": "MIT (LICENSE file at pin fa43ce34aa4b, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-24T01:42Z",
+    "consent_receipt": "b260cbb4a0b4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T01:42Z (receipt b260cbb4a0b4); pinned to the default-branch head. LICENSE file at pin fa43ce34aa4b detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

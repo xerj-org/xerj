@@ -1,0 +1,23 @@
+{
+ "corpus": "tronyx--set-stereo-default",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how tronyx/Set-Stereo-Default implements it: A small command-line tool that bulk-fixes a common annoyance in ripped or downloaded video files: the audio track flagged as \"default\" isn't",
+ "repos": [
+  {
+   "repo": "Set-Stereo-Default",
+   "url": "https://github.com/tronyx/Set-Stereo-Default",
+   "sha": "b6516b65561616381bdad75df940ab1919756d2a",
+   "licence": "MIT (LICENSE file at pin b6516b655616, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-24T01:42Z",
+    "consent_receipt": "e2f2588c2fb1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T01:42Z (receipt e2f2588c2fb1); pinned to the default-branch head. LICENSE file at pin b6516b655616 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

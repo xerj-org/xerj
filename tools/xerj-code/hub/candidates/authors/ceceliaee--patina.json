@@ -2,8 +2,8 @@
  "corpus": "ceceliaee--patina",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how Ceceliaee/patina implements it: A beautiful Windows desktop time tracking app built with Tauri & React (selected work: tests, src/shared, src/features)",
+ "shelf": "API",
+ "domain": "an agent working on patina, time-tracking, screen-time queries this for how Ceceliaee/patina implements it: A local-first time tracker. Step back into your day, from the first page you opened to the last line you wrote (selected work: tests, src/shared, src/features)",
  "repos": [
   {
    "repo": "patina",
