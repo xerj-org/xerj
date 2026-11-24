@@ -8,15 +8,15 @@
   {
    "repo": "preproc-city-hospital",
    "url": "https://github.com/raslmm/preproc-city-hospital",
-   "sha": "ad264d194ea590ad4b399aa2cf234a28098345d2",
-   "licence": "author's permission (LICENSE at pin ad264d194ea5: NONE; repository: none)",
+   "sha": "0e3971c3ad0fa58ae2aeb1f199336a57f88c8c18",
+   "licence": "author's permission (LICENSE at pin 0e3971c3ad0f: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-12T02:04Z",
     "consent_receipt": "9d7fe6ef87bd",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T02:04Z (receipt 9d7fe6ef87bd); pinned to the default-branch head. LICENSE at pin ad264d194ea5: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T02:04Z (receipt 9d7fe6ef87bd); pinned to the default-branch head. LICENSE at pin 0e3971c3ad0f: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

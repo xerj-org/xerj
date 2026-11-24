@@ -1,0 +1,23 @@
+{
+ "corpus": "prasanth-nature--eluthu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on almalinux, almalinux10, ibus queries this for how prasanth-nature/eluthu implements it: Tamil IBus Keyboard for Linux (selected work: tamil-keyboard)",
+ "repos": [
+  {
+   "repo": "tamil-keyboard",
+   "url": "https://github.com/prasanth-nature/tamil-keyboard",
+   "sha": "858e91ed5c3d83cc2ad55ec0e66986a793991433",
+   "licence": "MIT (LICENSE file at pin 858e91ed5c3d, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T08:00Z",
+    "consent_receipt": "1f03a0c16cf2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T08:00Z (receipt 1f03a0c16cf2); selected commit 858e91ed5c3d: \"Add files via upload\". LICENSE file at pin 858e91ed5c3d detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head 858e91ed5c3d (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

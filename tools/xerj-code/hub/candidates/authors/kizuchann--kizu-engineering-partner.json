@@ -1,0 +1,23 @@
+{
+ "corpus": "kizuchann--kizu-engineering-partner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, ai-coding queries this for how Kizuchann/kizu-engineering-partner implements it: Portable Agent Skills contract for GPT/Codex, Claude, Cursor, OpenCode, Codebuff/Freebuff and other AI coding agents. SSOT, project map, sec",
+ "repos": [
+  {
+   "repo": "kizu-engineering-partner",
+   "url": "https://github.com/Kizuchann/kizu-engineering-partner",
+   "sha": "5d66f829f69965e5a03653390845cd7835665372",
+   "licence": "MIT (LICENSE file at pin 5d66f829f699, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-24T15:24Z",
+    "consent_receipt": "4e34a936bd26",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T15:24Z (receipt 4e34a936bd26); pinned to the default-branch head. LICENSE file at pin 5d66f829f699 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

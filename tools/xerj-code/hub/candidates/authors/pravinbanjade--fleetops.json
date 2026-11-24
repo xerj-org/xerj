@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on container-management, container-orchestration, devops queries this for how pravinbanjade/fleetops implements it: A fast, live web UI for Docker and Kubernetes, in one small self-hosted binary (selected work: the project root, scripts, crates/fleetops-api)",
+ "domain": "an agent working on Rust queries this for how pravinbanjade/fleetops implements it: A fast, live web UI for Docker and Kubernetes, in one small self-hosted binary (selected work: the project root, scripts, crates/fleetops-api)",
  "repos": [
   {
    "repo": "fleetops",

@@ -1,9 +1,9 @@
 {
- "corpus": "mettifire--dropwheel",
+ "corpus": "mettignis--dropwheel",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on file-converter, macos, menubar-app queries this for how MettiFire/dropwheel implements it: Drag-and-drop file converter for macOS (selected work: Sources, scripts, engine)",
+ "domain": "an agent working on file-converter, macos, menubar-app queries this for how mettignis/dropwheel implements it: Drag-and-drop file converter for macOS (selected work: Sources, scripts, engine)",
  "repos": [
   {
    "repo": "dropwheel",
