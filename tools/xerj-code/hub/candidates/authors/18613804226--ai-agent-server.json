@@ -8,15 +8,15 @@
   {
    "repo": "ai-agent-server",
    "url": "https://github.com/18613804226/ai-agent-server",
-   "sha": "a941bfc79fbd66d388be4de3335638edd8af893f",
-   "licence": "author's permission (LICENSE at pin a941bfc79fbd: NONE; repository: none)",
+   "sha": "dc5a92b7d42cc11010bfcc89c4bec834c2c29de3",
+   "licence": "author's permission (LICENSE at pin dc5a92b7d42c: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-16T01:14Z",
     "consent_receipt": "9de788ffc15f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T01:14Z (receipt 9de788ffc15f); pinned to the default-branch head. LICENSE at pin a941bfc79fbd: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T01:14Z (receipt 9de788ffc15f); pinned to the default-branch head. LICENSE at pin dc5a92b7d42c: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

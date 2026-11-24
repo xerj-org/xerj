@@ -1,9 +1,9 @@
 {
- "corpus": "endymi0n74--koharu",
+ "corpus": "endymi0n74--koharubatch",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how Endymi0n74/Koharu implements it: Endymi0n74/Koharu (Rust) (selected work: crates/koharu-pipeline, crates/koharu-ml)",
+ "domain": "an agent working on Rust queries this for how Endymi0n74/KoharuBatch implements it: Endymi0n74/KoharuBatch (Rust) (selected work: crates/koharu-pipeline, crates/koharu-ml)",
  "repos": [
   {
    "repo": "Koharu",

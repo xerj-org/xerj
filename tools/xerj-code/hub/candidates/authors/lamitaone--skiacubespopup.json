@@ -8,15 +8,15 @@
   {
    "repo": "SkiaCubesPopup",
    "url": "https://github.com/LaMitaOne/SkiaCubesPopup",
-   "sha": "0a59f0deefdd98f26b36905e7d3405995298fa7b",
-   "licence": "MIT (LICENSE file at pin 0a59f0deefdd, GitHub licence API 2026-11-15)",
+   "sha": "5c693176444c2822c7b57282392e0ddd7851da80",
+   "licence": "MIT (LICENSE file at pin 5c693176444c, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T18:06Z",
     "consent_receipt": "1354890f6b49",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 1354890f6b49); pinned to the default-branch head. LICENSE file at pin 0a59f0deefdd detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 1354890f6b49); pinned to the default-branch head. LICENSE file at pin 5c693176444c detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
    }
   }
  ]
