@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on angular, crm, nestjs queries this for how inesin1/TandeloCRM implements it: Self-hosted CRM for sales workflows, built with Angular, NestJS, PostgreSQL, and Nx (selected work: apps/api, apps/web, apps/web-e2e)",
+ "domain": "an agent working on angular, crm, nestjs queries this for how inesin1/TandeloCRM implements it: Self-hosted CRM for sales workflows, built with Angular, NestJS, PostgreSQL, and Nx. Live demo: https://inesin1.github.io/TandeloCRM/ (selected work: apps/api, apps/web, apps/web-e2e)",
  "repos": [
   {
    "repo": "TandeloCRM",

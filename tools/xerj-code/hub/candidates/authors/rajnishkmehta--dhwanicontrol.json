@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on accessibility, android, android-app queries this for how RajnishKMehta/DhwaniControl implements it: DhwaniControl is an Android utility designed to restore volume control functionality for devices with broken or unresponsive physical volume (selected work: app/src)",
+ "domain": "an agent working on android, android-app, quick-settings-tile queries this for how RajnishKMehta/DhwaniControl implements it: DhwaniControl is an Android utility designed to restore volume control functionality for devices with broken or unresponsive physical volume (selected work: app/src)",
  "repos": [
   {
    "repo": "DhwaniControl",

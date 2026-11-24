@@ -8,15 +8,15 @@
   {
    "repo": "LightLine",
    "url": "https://github.com/mehmoodulhaq570/LightLine",
-   "sha": "70b2d77fb39979d784548ad116833acc7427659d",
-   "licence": "MIT (LICENSE file at pin 70b2d77fb399, GitHub licence API 2026-11-24)",
+   "sha": "e401e212dd10b1b9f2b35aca2ffe4a72d3338620",
+   "licence": "MIT (LICENSE file at pin e401e212dd10, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T01:45Z",
     "consent_receipt": "8232bf2c8d86",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T01:45Z (receipt 8232bf2c8d86); pinned to the default-branch head. LICENSE file at pin 70b2d77fb399 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T01:45Z (receipt 8232bf2c8d86); pinned to the default-branch head. LICENSE file at pin e401e212dd10 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
    }
   }
  ]

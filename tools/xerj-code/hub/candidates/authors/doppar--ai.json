@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, ai-models, llm queries this for how doppar/ai implements it: Seamless AI integration of Doppar (selected work: src/AgentFactory, tests, src)",
+ "domain": "an agent working on ai, doppar-ai, php queries this for how doppar/ai implements it: Machine learning, NLP, and transformer models for Doppar (selected work: src/AgentFactory, tests, src)",
  "repos": [
   {
    "repo": "ai",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Shell queries this for how Dijo-404/hype_niri implements it: A clean, professional, highly functional Wayland setup based on the Niri scrollable-tiling compositor and a minimalist Monochrome theme (selected work: tests, scripts, the project root)",
+ "domain": "an agent working on Rust queries this for how Dijo-404/hype_niri implements it: A clean, professional, highly functional Wayland setup based on the Niri scrollable-tiling compositor and a minimalist Monochrome theme (selected work: tests, scripts, the project root)",
  "repos": [
   {
    "repo": "Hype_Niri",
