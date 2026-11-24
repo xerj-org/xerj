@@ -1,0 +1,23 @@
+{
+ "corpus": "vitofico--galley",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai, crdt queries this for how vitofico/galley implements it: AI-native, local-first, model-agnostic document workspace built on Typst, a compile-feedback agent loop with a human Accept gate",
+ "repos": [
+  {
+   "repo": "galley",
+   "url": "https://github.com/vitofico/galley",
+   "sha": "aa90276fca47038a3be9518a3de50b37f2cf9858",
+   "licence": "AGPL-3.0 (LICENSE file at pin aa90276fca47, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-24T10:44Z",
+    "consent_receipt": "33d5f90a3e46",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T10:44Z (receipt 33d5f90a3e46); pinned to the default-branch head. LICENSE file at pin aa90276fca47 detected as AGPL-3.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

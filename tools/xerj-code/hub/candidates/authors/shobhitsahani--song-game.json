@@ -1,0 +1,23 @@
+{
+ "corpus": "shobhitsahani--song-game",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how shobhitsahani/Song-Game implements it: shobhitsahani/Song-Game (TypeScript)",
+ "repos": [
+  {
+   "repo": "Song-Game",
+   "url": "https://github.com/shobhitsahani/Song-Game",
+   "sha": "a0fb05b698079b7a08312e9d97cccad5804f678c",
+   "licence": "author's permission (LICENSE at pin a0fb05b69807: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-24T10:46Z",
+    "consent_receipt": "359ff3a8cb90",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T10:46Z (receipt 359ff3a8cb90); pinned to the default-branch head. LICENSE at pin a0fb05b69807: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

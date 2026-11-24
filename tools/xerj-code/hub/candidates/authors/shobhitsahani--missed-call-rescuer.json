@@ -1,0 +1,23 @@
+{
+ "corpus": "shobhitsahani--missed-call-rescuer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how shobhitsahani/Missed-Call-Rescuer implements it: shobhitsahani/Missed-Call-Rescuer (TypeScript)",
+ "repos": [
+  {
+   "repo": "Missed-Call-Rescuer",
+   "url": "https://github.com/shobhitsahani/Missed-Call-Rescuer",
+   "sha": "6cc75f0396e0ef48e567d377825e2bc12bb38975",
+   "licence": "MIT (LICENSE file at pin 6cc75f0396e0, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-24T10:46Z",
+    "consent_receipt": "830c39644164",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T10:46Z (receipt 830c39644164); pinned to the default-branch head. LICENSE file at pin 6cc75f0396e0 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

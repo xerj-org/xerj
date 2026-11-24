@@ -1,0 +1,23 @@
+{
+ "corpus": "vitofico--kubernetes-homelab-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on hermes-agent, homelab, infrastructure-as-code queries this for how vitofico/kubernetes-homelab-kit implements it: Configurable Kubernetes homelab template with private local inputs, Docker kind tests, and optional bounded Hermes remote assistance",
+ "repos": [
+  {
+   "repo": "kubernetes-homelab-kit",
+   "url": "https://github.com/vitofico/kubernetes-homelab-kit",
+   "sha": "9a8c50f709ab28e77714ee78773350ffeb5a14a9",
+   "licence": "MIT (LICENSE file at pin 9a8c50f709ab, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-24T10:44Z",
+    "consent_receipt": "586173157653",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T10:44Z (receipt 586173157653); pinned to the default-branch head. LICENSE file at pin 9a8c50f709ab detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}
