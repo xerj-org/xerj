@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Zig queries this for how krypticlogan/zig-graph-compiler implements it: Ahead-of-time numerical computation graph compiler (selected work: examples)",
+ "domain": "an agent working on zig, zig-package queries this for how krypticlogan/zig-graph-compiler implements it: Ahead-of-time numerical computation graph compiler (selected work: examples)",
  "repos": [
   {
    "repo": "zig-graph-compiler",

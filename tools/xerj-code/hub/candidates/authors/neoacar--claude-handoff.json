@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how NeoAcar/claude-handoff implements it: Make Claude Code session context portable between machines via git",
+ "domain": "an agent working on ai-agents, anthropic, claude queries this for how NeoAcar/claude-handoff implements it: Move or share Claude Code sessions with another machine or a teammate. Rewrites paths, redacts secrets, claude --resume picks it up",
  "repos": [
   {
    "repo": "claude-handoff",
    "url": "https://github.com/NeoAcar/claude-handoff",
-   "sha": "0f91ede274c61767d8c5b7622233f2be1d84f955",
-   "licence": "MIT (LICENSE file at pin 0f91ede274c6, GitHub licence API 2026-11-20)",
+   "sha": "a770174ef49d049636920ce183b6be7829117acb",
+   "licence": "MIT (LICENSE file at pin a770174ef49d, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T12:59Z",
     "consent_receipt": "99cd4fea13a0",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:59Z (receipt 99cd4fea13a0); pinned to the default-branch head. LICENSE file at pin 0f91ede274c6 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:59Z (receipt 99cd4fea13a0); pinned to the default-branch head. LICENSE file at pin a770174ef49d detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
    }
   }
  ]

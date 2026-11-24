@@ -1,9 +1,9 @@
 {
- "corpus": "niv20--obsidian-plugin-callout-studio",
+ "corpus": "callout-studio--obsidian",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on appearance-customization, callout, obsidian queries this for how Niv20/obsidian-plugin-callout-studio implements it: Callout Studio is the only callout plugin you'll ever need to download. It offers regular callouts, inline callouts, and callout headings. P (selected work: tests, src/editor, src/usage)",
+ "domain": "an agent working on appearance-customization, callout, obsidian queries this for how Callout-Studio/obsidian implements it: Callout Studio is the only callout plugin you'll ever need to download. It offers regular callouts, inline callouts, and callout headings. P (selected work: tests, src/editor, src/usage)",
  "repos": [
   {
    "repo": "obsidian-plugin-callout-studio",
