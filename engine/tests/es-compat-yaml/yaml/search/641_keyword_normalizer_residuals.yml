@@ -1,0 +1,655 @@
+---
+# Residual keyword normalizer compatibility (#3640):
+# 1. `fields`, `docvalue_fields` and `sort` return normalized values while `_source` stays original.
+# 2. `query_string` and `simple_query_string` normalize terms on normalized keywords.
+# 3. `dynamic_templates` apply to object leaves, nested paths, `path_match`/`path_unmatch`,
+#    multi-fields and other mapping shapes.
+# Every behaviour is checked both before and after `_flush`.
+"fields, docvalue_fields and sort return normalized values before and after flush":
+  - do:
+      indices.create:
+        index: test_norm_output
+        body:
+          settings:
+            number_of_shards: 1
+            analysis:
+              normalizer:
+                fold_lower:
+                  type: custom
+                  filter: [lowercase, asciifolding]
+          mappings:
+            properties:
+              foo:
+                type: keyword
+                normalizer: fold_lower
+              tag:
+                type: keyword
+                normalizer: lowercase
+              plain:
+                type: keyword
+              title:
+                type: text
+                fields:
+                  raw:
+                    type: keyword
+                    normalizer: lowercase
+              meta:
+                properties:
+                  owner:
+                    type: keyword
+                    normalizer: lowercase
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "test_norm_output", "_id": "1"}}'
+          - '{"foo": "BÀR", "tag": "Fruit", "plain": "Fruit", "title": "Fruit", "meta": {"owner": "Bob"}}'
+          - '{"index": {"_index": "test_norm_output", "_id": "2"}}'
+          - '{"foo": "bap", "tag": "Banana", "plain": "Banana", "title": "Banana", "meta": {"owner": "alice"}}'
+          - '{"index": {"_index": "test_norm_output", "_id": "3"}}'
+          - '{"foo": "BAS", "tag": ["Zebra", "apple"], "plain": "apple", "title": "apple", "meta": {"owner": "Cara"}}'
+
+  # Pre-flush: fields + docvalue_fields + sort on top-level, multi-field, object leaf, array
+  - do:
+      search:
+        index: test_norm_output
+        body:
+          sort: [{ "tag": "asc" }]
+          fields: ["foo", "tag", "plain", "title.raw", "meta.owner"]
+  - match: { hits.hits.0._id: "3" }
+  - match: { hits.hits.0.sort.0: "apple" }
+  - match: { hits.hits.0._source.foo: "BAS" }
+  - match: { hits.hits.0.fields.foo.0: "bas" }
+  - match: { hits.hits.0.fields.plain.0: "apple" }
+  - match: { hits.hits.0.fields.title\.raw.0: "apple" }
+  - match: { hits.hits.0.fields.meta\.owner.0: "cara" }
+  - match: { hits.hits.1._id: "2" }
+  - match: { hits.hits.1.sort.0: "banana" }
+  - match: { hits.hits.2._id: "1" }
+  - match: { hits.hits.2.sort.0: "fruit" }
+  - match: { hits.hits.2._source.foo: "BÀR" }
+  - match: { hits.hits.2.fields.foo.0: "bar" }
+  - match: { hits.hits.2.fields.tag.0: "fruit" }
+  - match: { hits.hits.2.fields.plain.0: "Fruit" }
+  - match: { hits.hits.2.fields.title\.raw.0: "fruit" }
+  - match: { hits.hits.2.fields.meta\.owner.0: "bob" }
+
+  - do:
+      search:
+        index: test_norm_output
+        body:
+          sort: [{ "foo": "asc" }]
+          docvalue_fields: ["foo", "tag", "plain", "title.raw", "meta.owner"]
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.0.sort.0: "bap" }
+  - match: { hits.hits.1._id: "1" }
+  - match: { hits.hits.1.sort.0: "bar" }
+  - match: { hits.hits.1.fields.foo.0: "bar" }
+  - match: { hits.hits.1.fields.tag.0: "fruit" }
+  - match: { hits.hits.1.fields.plain.0: "Fruit" }
+  - match: { hits.hits.1.fields.title\.raw.0: "fruit" }
+  - match: { hits.hits.1.fields.meta\.owner.0: "bob" }
+  - match: { hits.hits.2._id: "3" }
+  - match: { hits.hits.2.sort.0: "bas" }
+
+  - do:
+      search:
+        index: test_norm_output
+        body:
+          sort: [{ "meta.owner": "asc" }]
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.0.sort.0: "alice" }
+  - match: { hits.hits.1._id: "1" }
+  - match: { hits.hits.1.sort.0: "bob" }
+  - match: { hits.hits.2._id: "3" }
+  - match: { hits.hits.2.sort.0: "cara" }
+
+  - do:
+      indices.flush:
+        index: test_norm_output
+
+  # Post-flush: identical normalized answers
+  - do:
+      search:
+        index: test_norm_output
+        body:
+          sort: [{ "tag": "asc" }]
+          fields: ["foo", "tag", "plain", "title.raw", "meta.owner"]
+  - match: { hits.hits.0._id: "3" }
+  - match: { hits.hits.0.sort.0: "apple" }
+  - match: { hits.hits.0.fields.foo.0: "bas" }
+  - match: { hits.hits.0.fields.title\.raw.0: "apple" }
+  - match: { hits.hits.1._id: "2" }
+  - match: { hits.hits.1.sort.0: "banana" }
+  - match: { hits.hits.2._id: "1" }
+  - match: { hits.hits.2.sort.0: "fruit" }
+  - match: { hits.hits.2._source.foo: "BÀR" }
+  - match: { hits.hits.2.fields.foo.0: "bar" }
+  - match: { hits.hits.2.fields.plain.0: "Fruit" }
+  - match: { hits.hits.2.fields.meta\.owner.0: "bob" }
+
+  - do:
+      search:
+        index: test_norm_output
+        body:
+          sort: [{ "foo": "asc" }]
+          docvalue_fields: ["foo", "tag", "plain", "title.raw", "meta.owner"]
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.0.sort.0: "bap" }
+  - match: { hits.hits.1._id: "1" }
+  - match: { hits.hits.1.sort.0: "bar" }
+  - match: { hits.hits.1.fields.foo.0: "bar" }
+  - match: { hits.hits.1.fields.title\.raw.0: "fruit" }
+  - match: { hits.hits.1.fields.plain.0: "Fruit" }
+  - match: { hits.hits.2._id: "3" }
+  - match: { hits.hits.2.sort.0: "bas" }
+
+---
+"query_string and simple_query_string normalize keyword terms before and after flush":
+  - do:
+      indices.create:
+        index: test_norm_qs
+        body:
+          settings:
+            number_of_shards: 1
+            analysis:
+              normalizer:
+                fold_lower:
+                  type: custom
+                  filter: [lowercase, asciifolding]
+          mappings:
+            properties:
+              foo:
+                type: keyword
+                normalizer: fold_lower
+              tag:
+                type: keyword
+                normalizer: lowercase
+              plain:
+                type: keyword
+              title:
+                type: text
+                fields:
+                  raw:
+                    type: keyword
+                    normalizer: lowercase
+              meta:
+                properties:
+                  owner:
+                    type: keyword
+                    normalizer: lowercase
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "test_norm_qs", "_id": "1"}}'
+          - '{"foo": "BÀR", "tag": "Fruit", "plain": "Fruit", "title": "Fruit", "meta": {"owner": "Alice"}}'
+          - '{"index": {"_index": "test_norm_qs", "_id": "2"}}'
+          - '{"foo": "bar", "tag": "fruit salad", "plain": "fruit", "title": "fruit salad", "meta": {"owner": "Bob"}}'
+          - '{"index": {"_index": "test_norm_qs", "_id": "3"}}'
+          - '{"foo": "baz", "tag": "FRUIT", "plain": "Other", "title": "FRUIT", "meta": {"owner": "ALICE"}}'
+
+  # Pre-flush query_string & simple_query_string
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "query_string": { "query": "foo:BAR" } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "query_string": { "query": "tag:\"FRUIT SALAD\"" } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "2" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "query_string": { "query": "\"FRUIT SALAD\"", "default_field": "title.raw" } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "2" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "query_string": { "query": "BÀ*" } } }
+  - match: { hits.total: 3 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "simple_query_string": { "query": "BAR" } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "simple_query_string": { "query": "BAR", "fields": ["*"] } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "simple_query_string": { "query": "\"FRUIT SALAD\"", "fields": ["tag"] } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "2" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "simple_query_string": { "query": "FRU*", "fields": ["tag"] } } }
+  - match: { hits.total: 3 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "simple_query_string": { "query": "BAR", "fields": ["foo^2"] } } }
+  - match: { hits.total: 2 }
+
+  # Negative control: unnormalized keyword remains case-sensitive
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "query_string": { "query": "plain:FRUIT" } } }
+  - match: { hits.total: 0 }
+
+  - do:
+      indices.flush:
+        index: test_norm_qs
+
+  # Post-flush: identical answers
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "query_string": { "query": "foo:BAR" } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "query_string": { "query": "tag:\"FRUIT SALAD\"" } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "2" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "query_string": { "query": "\"FRUIT SALAD\"", "default_field": "title.raw" } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "2" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "query_string": { "query": "BÀ*" } } }
+  - match: { hits.total: 3 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "simple_query_string": { "query": "BAR" } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "simple_query_string": { "query": "BAR", "fields": ["*"] } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "simple_query_string": { "query": "\"FRUIT SALAD\"", "fields": ["tag"] } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "2" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "simple_query_string": { "query": "FRU*", "fields": ["tag"] } } }
+  - match: { hits.total: 3 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "simple_query_string": { "query": "BAR", "fields": ["foo^2"] } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_qs
+        body: { "query": { "query_string": { "query": "plain:FRUIT" } } }
+  - match: { hits.total: 0 }
+
+---
+"dynamic templates apply to object leaves, path_match, multi-fields and non-normalizer mappings":
+  - do:
+      indices.create:
+        index: test_norm_dyn
+        body:
+          settings:
+            number_of_shards: 1
+            analysis:
+              normalizer:
+                fold_lower:
+                  type: custom
+                  filter: [lowercase, asciifolding]
+          mappings:
+            properties:
+              items:
+                type: nested
+            dynamic_templates:
+              - meta_lower:
+                  path_match: "meta.*"
+                  path_unmatch: "*.raw_id"
+                  match_mapping_type: string
+                  mapping:
+                    type: keyword
+                    normalizer: lowercase
+              - nested_fold:
+                  path_match: "items.*"
+                  match_mapping_type: string
+                  mapping:
+                    type: keyword
+                    normalizer: fold_lower
+              - text_with_raw:
+                  match: "*_text"
+                  match_mapping_type: string
+                  mapping:
+                    type: text
+                    fields:
+                      raw:
+                        type: keyword
+                        normalizer: lowercase
+              - plain_ids:
+                  match: "*_id"
+                  mapping:
+                    type: keyword
+  - do:
+      index:
+        index: test_norm_dyn
+        id: "1"
+        refresh: true
+        body:
+          meta:
+            owner: "Alice"
+            raw_id: "ID-1"
+          items:
+            - code: "BÀR"
+          note_text: "Fruit Salad"
+          user_id: "AB"
+  # Second doc adds a brand-new leaf `meta.region` into the already-mapped `meta` object.
+  - do:
+      index:
+        index: test_norm_dyn
+        id: "2"
+        refresh: true
+        body:
+          meta:
+            owner: "ALICE"
+            region: "North"
+            raw_id: "id-1"
+          items:
+            - code: "bar"
+          note_text: "fruit salad"
+          user_id: "ab"
+
+  - do:
+      indices.get_mapping:
+        index: test_norm_dyn
+  - match: { test_norm_dyn.mappings.properties.meta.properties.owner.type: keyword }
+  - match: { test_norm_dyn.mappings.properties.meta.properties.owner.normalizer: lowercase }
+  - match: { test_norm_dyn.mappings.properties.meta.properties.region.type: keyword }
+  - match: { test_norm_dyn.mappings.properties.meta.properties.region.normalizer: lowercase }
+  - match: { test_norm_dyn.mappings.properties.meta.properties.raw_id.type: keyword }
+  - is_false: test_norm_dyn.mappings.properties.meta.properties.raw_id.normalizer
+  - match: { test_norm_dyn.mappings.properties.items.properties.code.type: keyword }
+  - match: { test_norm_dyn.mappings.properties.items.properties.code.normalizer: fold_lower }
+  - match: { test_norm_dyn.mappings.properties.note_text.type: text }
+  - match: { test_norm_dyn.mappings.properties.note_text.fields.raw.normalizer: lowercase }
+  - match: { test_norm_dyn.mappings.properties.user_id.type: keyword }
+  - is_false: test_norm_dyn.mappings.properties.user_id.fields
+
+  # Pre-flush checks
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_dyn
+        body: { "query": { "term": { "meta.owner": "alice" } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_dyn
+        body: { "query": { "term": { "meta.region": "NORTH" } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "2" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_dyn
+        body: { "query": { "term": { "meta.raw_id": "ID-1" } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_dyn
+        body: { "query": { "term": { "note_text.raw": "FRUIT SALAD" } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_dyn
+        body:
+          query:
+            nested:
+              path: items
+              query:
+                term:
+                  items.code: "BAR"
+  - match: { hits.total: 2 }
+
+  - do:
+      indices.flush:
+        index: test_norm_dyn
+
+  # Post-flush checks
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_dyn
+        body: { "query": { "term": { "meta.owner": "alice" } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_dyn
+        body: { "query": { "term": { "meta.region": "NORTH" } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "2" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_dyn
+        body: { "query": { "term": { "meta.raw_id": "ID-1" } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_dyn
+        body: { "query": { "term": { "note_text.raw": "FRUIT SALAD" } } }
+  - match: { hits.total: 2 }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_dyn
+        body:
+          query:
+            nested:
+              path: items
+              query:
+                term:
+                  items.code: "BAR"
+  - match: { hits.total: 2 }
+
+---
+"collapse, match_phrase_prefix, fields wildcards and heterogeneous nested arrays normalize before and after flush":
+  - do:
+      indices.create:
+        index: test_norm_edge
+        body:
+          settings:
+            number_of_shards: 1
+            analysis:
+              normalizer:
+                fold_lower:
+                  type: custom
+                  filter: [lowercase, asciifolding]
+          mappings:
+            dynamic_templates:
+              - nested_codes:
+                  match_mapping_type: string
+                  path_match: "items.*"
+                  mapping:
+                    type: keyword
+                    normalizer: fold_lower
+            properties:
+              foo:
+                type: keyword
+                normalizer: fold_lower
+              title:
+                type: text
+                fields:
+                  raw:
+                    type: keyword
+                    normalizer: fold_lower
+              meta:
+                properties:
+                  owner:
+                    type: keyword
+                    normalizer: fold_lower
+              items:
+                type: nested
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "test_norm_edge", "_id": "1"}}'
+          - '{"foo": "BÀR Baz", "title": "BÀR", "meta": {"owner": "BÀR"}, "items": [{"id": 1}, {"id": 2, "code": "BÀR"}]}'
+          - '{"index": {"_index": "test_norm_edge", "_id": "2"}}'
+          - '{"foo": "bar qux", "title": "bar", "meta": {"owner": "bar"}, "items": [{"id": 3, "code": "QUX"}]}'
+
+  # Pre-flush checks
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_edge
+        body: { "query": { "match_phrase_prefix": { "foo": "BÀR B" } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+  - do:
+      search:
+        index: test_norm_edge
+        body:
+          sort: [{ "_id": "asc" }]
+          collapse: { "field": "meta.owner" }
+  - length: { hits.hits: 1 }
+  - match: { hits.hits.0.fields.meta\.owner.0: "bar" }
+
+  - do:
+      search:
+        index: test_norm_edge
+        body:
+          query: { "ids": { "values": ["1"] } }
+          fields: ["title.*"]
+  - match: { hits.hits.0.fields.title\.raw.0: "bar" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_edge
+        body:
+          query:
+            nested:
+              path: items
+              query:
+                query_string:
+                  query: "items.code:BAR"
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+  - do:
+      indices.flush:
+        index: test_norm_edge
+
+  # Post-flush checks
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_edge
+        body: { "query": { "match_phrase_prefix": { "foo": "BÀR B" } } }
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+  - do:
+      search:
+        index: test_norm_edge
+        body:
+          sort: [{ "_id": "asc" }]
+          collapse: { "field": "meta.owner" }
+  - length: { hits.hits: 1 }
+  - match: { hits.hits.0.fields.meta\.owner.0: "bar" }
+
+  - do:
+      search:
+        index: test_norm_edge
+        body:
+          query: { "ids": { "values": ["1"] } }
+          fields: ["title.*"]
+  - match: { hits.hits.0.fields.title\.raw.0: "bar" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test_norm_edge
+        body:
+          query:
+            nested:
+              path: items
+              query:
+                query_string:
+                  query: "items.code:BAR"
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "1" }

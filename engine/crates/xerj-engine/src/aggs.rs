@@ -209,13 +209,19 @@ struct FilterSchemaScope(
 );
 
 impl FilterSchemaScope {
-    fn install(schema: Option<&Schema>) -> Self {
+    fn install(
+        schema: Option<&Schema>,
+        cached_normalizers: Option<std::sync::Arc<xerj_common::normalizer::KeywordNormalizers>>,
+    ) -> Self {
         let previous =
             FILTER_SCHEMA.with(|cell| std::mem::replace(&mut *cell.borrow_mut(), schema.cloned()));
-        let normalizers = schema
-            .map(xerj_common::normalizer::KeywordNormalizers::from_schema)
-            .filter(|n| !n.is_empty())
-            .map(std::sync::Arc::new);
+        let normalizers = match cached_normalizers {
+            Some(n) => (!n.is_empty()).then_some(n),
+            None => schema
+                .map(xerj_common::normalizer::KeywordNormalizers::from_schema)
+                .filter(|n| !n.is_empty())
+                .map(std::sync::Arc::new),
+        };
         let previous_normalizers =
             AGG_NORMALIZERS.with(|cell| std::mem::replace(&mut *cell.borrow_mut(), normalizers));
         Self(previous, previous_normalizers)
@@ -256,7 +262,21 @@ pub fn run_aggs_with_schema(
     all_docs: &[Value],
     schema: &Schema,
 ) -> Value {
-    let _scope = FilterSchemaScope::install(Some(schema));
+    let _scope = FilterSchemaScope::install(Some(schema), None);
+    run_aggs_with_all(aggs_def, docs, all_docs)
+}
+
+/// [`run_aggs_with_schema`] reusing a pre-built, schema-version-cached
+/// [`KeywordNormalizers`] handle so each aggregation does not rebuild the map
+/// from `schema` (#3640).
+pub fn run_aggs_with_schema_and_normalizers(
+    aggs_def: &Value,
+    docs: &[Value],
+    all_docs: &[Value],
+    schema: &Schema,
+    normalizers: std::sync::Arc<xerj_common::normalizer::KeywordNormalizers>,
+) -> Value {
+    let _scope = FilterSchemaScope::install(Some(schema), Some(normalizers));
     run_aggs_with_all(aggs_def, docs, all_docs)
 }
 

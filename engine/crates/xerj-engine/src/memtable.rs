@@ -1242,6 +1242,18 @@ pub(crate) struct FrozenClaim {
     /// Where `retire` charges the freed bytes.  Defaults to the thread's
     /// active ingest ledger; tests override it to assert attribution.
     ledger: Option<&'static crate::ingest_memory::Ledger>,
+    /// Keyword normalizers captured under the same shard write lock as the
+    /// drain (#3640), so a flush cannot drain a newly-templated document with
+    /// stale pre-evolution normalizers.
+    keyword_normalizers: Arc<KeywordNormalizers>,
+}
+
+impl FrozenClaim {
+    /// The keyword normalizers in force at the exact moment this shard was
+    /// frozen for flush (#3640).
+    pub(crate) fn keyword_normalizers(&self) -> Arc<KeywordNormalizers> {
+        Arc::clone(&self.keyword_normalizers)
+    }
 }
 
 impl Default for ShardedFtsMemtable {
@@ -1292,7 +1304,12 @@ impl ShardedFtsMemtable {
     /// cells; the mapping can only gain a normalizer on a field that is new
     /// to it, so no buffered cell of that field predates the swap.
     pub fn set_keyword_normalizers(&self, normalizers: KeywordNormalizers) {
-        *self.keyword_normalizers.write() = Arc::new(normalizers);
+        self.set_keyword_normalizers_arc(Arc::new(normalizers));
+    }
+
+    /// Install a pre-built shared `Arc<KeywordNormalizers>` (#3640).
+    pub fn set_keyword_normalizers_arc(&self, normalizers: Arc<KeywordNormalizers>) {
+        *self.keyword_normalizers.write() = normalizers;
     }
 
     /// The keyword normalizers last installed by
@@ -2907,7 +2924,10 @@ impl ShardedFtsMemtable {
         // the heavy deallocation off the lock applies unchanged, and here
         // there is no deallocation at all yet — the maps stay live for
         // readers until retire.
-        let claimed: Vec<Arc<parking_lot::RwLock<FtsMemtable>>> = {
+        let (claimed, keyword_normalizers): (
+            Vec<Arc<parking_lot::RwLock<FtsMemtable>>>,
+            Arc<KeywordNormalizers>,
+        ) = {
             let mut g = self.shards[shard_idx].write();
             let mut claimed = Vec::new();
             // Recycle failed-flush leftovers first: their docs ride THIS
@@ -2935,7 +2955,11 @@ impl ShardedFtsMemtable {
                 });
                 claimed.push(frozen_gen);
             }
-            claimed
+            // Capture the normalizers under the same shard write lock as the
+            // drain (#3640). Lock order matches `push_doc_values`:
+            // `shards[shard_idx].write()` -> `keyword_normalizers.read()`.
+            let normalizers = Arc::clone(&g.keyword_normalizers.read());
+            (claimed, normalizers)
         };
         // Snapshot phase — read each claimed generation under its own read
         // lock and build the drain tuples.  The generations stay mutable
@@ -2968,6 +2992,7 @@ impl ShardedFtsMemtable {
                 gens: claimed,
                 finished: false,
                 ledger: crate::ingest_memory::active_ledger(),
+                keyword_normalizers,
             },
         )
     }

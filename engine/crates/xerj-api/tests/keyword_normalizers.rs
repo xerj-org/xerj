@@ -516,3 +516,1051 @@ async fn keyword_multi_field_without_normalizer_is_case_sensitive() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn fields_docvalue_fields_and_sort_emit_normalized_values_in_every_phase() {
+    let (app, _dir) = app().await;
+    ok(
+        &app,
+        "PUT",
+        "/out",
+        json!({
+            "settings": {"analysis": {"normalizer": {"fold_lower": {
+                "type": "custom", "filter": ["lowercase", "asciifolding"]
+            }}}},
+            "mappings": {"properties": {
+                "foo": {"type": "keyword", "normalizer": "fold_lower"},
+                "tag": {"type": "keyword", "normalizer": "lowercase"},
+                "tag_alias": {"type": "alias", "path": "tag"},
+                "plain": {"type": "keyword"},
+                "title": {"type": "text", "fields": {"raw": {"type": "keyword", "normalizer": "lowercase"}}},
+                "meta": {"properties": {"owner": {"type": "keyword", "normalizer": "lowercase"}}},
+                "items": {"type": "nested", "properties": {"code": {"type": "keyword", "normalizer": "fold_lower"}}}
+            }}
+        }),
+    )
+    .await;
+    let docs = [
+        (
+            "1",
+            json!({
+                "foo": "BÀR",
+                "tag": "Fruit",
+                "plain": "Fruit",
+                "title": "Fruit",
+                "meta": {"owner": "Bob"},
+                "items": [{"code": "BÀR"}]
+            }),
+        ),
+        (
+            "2",
+            json!({
+                "foo": "bap",
+                "tag": "Banana",
+                "plain": "Banana",
+                "title": "Banana",
+                "meta": {"owner": "alice"},
+                "items": [{"code": "bap"}]
+            }),
+        ),
+        (
+            "3",
+            json!({
+                "foo": "BAS",
+                "tag": ["Zebra", "apple"],
+                "plain": "apple",
+                "title": "apple",
+                "meta": {"owner": "Cara"},
+                "items": [{"code": "BAS"}]
+            }),
+        ),
+    ];
+    let app_ref = &app;
+    in_every_phase(&app, "out", &docs, |phase| async move {
+        // 1. `sort` on normalized keyword (including multi-valued array reduction after normalizing)
+        // and `fields` on top-level, alias, multi-field, object leaf, nested sub-field, and plain.
+        let body = ok(
+            app_ref,
+            "POST",
+            "/out/_search",
+            json!({
+                "sort": [{"tag": "asc"}],
+                "fields": ["foo", "tag", "tag_alias", "plain", "title.raw", "meta.owner", "items.code"]
+            }),
+        )
+        .await;
+        let hits = body["hits"]["hits"].as_array().expect("hits");
+        let hit_ids: Vec<&str> = hits
+            .iter()
+            .map(|h| h["_id"].as_str().unwrap())
+            .collect();
+        assert_eq!(hit_ids, vec!["3", "2", "1"], "{phase} sort order: {body}");
+        let sort_vals: Vec<&Value> = hits.iter().map(|h| &h["sort"][0]).collect();
+        assert_eq!(
+            sort_vals,
+            vec![&json!("apple"), &json!("banana"), &json!("fruit")],
+            "{phase} sort values: {body}"
+        );
+        // Hit 2 (`_id: 1`): normalized `fields`, untouched `_source` and `plain`.
+        assert_eq!(hits[2]["_source"]["foo"], json!("BÀR"), "{phase}");
+        assert_eq!(hits[2]["_source"]["tag"], json!("Fruit"), "{phase}");
+        assert_eq!(hits[2]["fields"]["foo"], json!(["bar"]), "{phase}: {body}");
+        assert_eq!(hits[2]["fields"]["tag"], json!(["fruit"]), "{phase}: {body}");
+        assert_eq!(
+            hits[2]["fields"]["tag_alias"],
+            json!(["fruit"]),
+            "{phase}: {body}"
+        );
+        assert_eq!(
+            hits[2]["fields"]["plain"],
+            json!(["Fruit"]),
+            "{phase} plain must stay original: {body}"
+        );
+        assert_eq!(
+            hits[2]["fields"]["title.raw"],
+            json!(["fruit"]),
+            "{phase}: {body}"
+        );
+        assert_eq!(
+            hits[2]["fields"]["meta.owner"],
+            json!(["bob"]),
+            "{phase}: {body}"
+        );
+        assert_eq!(
+            hits[2]["fields"]["items"][0]["code"],
+            json!(["bar"]),
+            "{phase}: {body}"
+        );
+
+        // 2. `docvalue_fields` + `sort` on custom normalizer (`foo`) and multi-field (`title.raw`).
+        let body = ok(
+            app_ref,
+            "POST",
+            "/out/_search",
+            json!({
+                "sort": [{"foo": "asc"}],
+                "docvalue_fields": ["foo", "tag", "plain", "title.raw", "meta.owner"]
+            }),
+        )
+        .await;
+        let hits = body["hits"]["hits"].as_array().expect("hits");
+        let hit_ids: Vec<&str> = hits
+            .iter()
+            .map(|h| h["_id"].as_str().unwrap())
+            .collect();
+        assert_eq!(hit_ids, vec!["2", "1", "3"], "{phase} foo sort: {body}");
+        let sort_vals: Vec<&Value> = hits.iter().map(|h| &h["sort"][0]).collect();
+        assert_eq!(
+            sort_vals,
+            vec![&json!("bap"), &json!("bar"), &json!("bas")],
+            "{phase} foo sort values: {body}"
+        );
+        assert_eq!(hits[1]["fields"]["foo"], json!(["bar"]), "{phase}: {body}");
+        assert_eq!(hits[1]["fields"]["tag"], json!(["fruit"]), "{phase}: {body}");
+        assert_eq!(
+            hits[1]["fields"]["plain"],
+            json!(["Fruit"]),
+            "{phase} plain dv must stay original: {body}"
+        );
+        assert_eq!(
+            hits[1]["fields"]["title.raw"],
+            json!(["fruit"]),
+            "{phase}: {body}"
+        );
+        assert_eq!(
+            hits[1]["fields"]["meta.owner"],
+            json!(["bob"]),
+            "{phase}: {body}"
+        );
+
+        // 3. `sort` on multi-field (`title.raw`) and object leaf (`meta.owner`).
+        let body = ok(
+            app_ref,
+            "POST",
+            "/out/_search",
+            json!({"sort": [{"title.raw": "asc"}]}),
+        )
+        .await;
+        let sort_vals: Vec<&Value> = body["hits"]["hits"]
+            .as_array()
+            .expect("hits")
+            .iter()
+            .map(|h| &h["sort"][0])
+            .collect();
+        assert_eq!(
+            sort_vals,
+            vec![&json!("apple"), &json!("banana"), &json!("fruit")],
+            "{phase} title.raw sort: {body}"
+        );
+        let body = ok(
+            app_ref,
+            "POST",
+            "/out/_search",
+            json!({"sort": [{"meta.owner": "asc"}]}),
+        )
+        .await;
+        let sort_vals: Vec<&Value> = body["hits"]["hits"]
+            .as_array()
+            .expect("hits")
+            .iter()
+            .map(|h| &h["sort"][0])
+            .collect();
+        assert_eq!(
+            sort_vals,
+            vec![&json!("alice"), &json!("bob"), &json!("cara")],
+            "{phase} meta.owner sort: {body}"
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn query_string_and_simple_query_string_normalize_terms_in_every_phase() {
+    let (app, _dir) = app().await;
+    ok(
+        &app,
+        "PUT",
+        "/qs",
+        json!({
+            "settings": {"analysis": {"normalizer": {"fold_lower": {
+                "type": "custom", "filter": ["lowercase", "asciifolding"]
+            }}}},
+            "mappings": {"properties": {
+                "foo": {"type": "keyword", "normalizer": "fold_lower"},
+                "tag": {"type": "keyword", "normalizer": "lowercase"},
+                "plain": {"type": "keyword"},
+                "title": {"type": "text", "fields": {"raw": {"type": "keyword", "normalizer": "lowercase"}}},
+                "meta": {"properties": {"owner": {"type": "keyword", "normalizer": "lowercase"}}}
+            }}
+        }),
+    )
+    .await;
+    let docs = [
+        (
+            "1",
+            json!({"foo": "BÀR", "tag": "Fruit", "plain": "Fruit", "title": "Fruit", "meta": {"owner": "Alice"}}),
+        ),
+        (
+            "2",
+            json!({"foo": "bar", "tag": "fruit salad", "plain": "fruit", "title": "fruit salad", "meta": {"owner": "Bob"}}),
+        ),
+        (
+            "3",
+            json!({"foo": "baz", "tag": "FRUIT", "plain": "Other", "title": "FRUIT", "meta": {"owner": "ALICE"}}),
+        ),
+    ];
+    let app_ref = &app;
+    in_every_phase(&app, "qs", &docs, |phase| async move {
+        let cases = [
+            // query_string explicit, default_field, fields, phrase, wildcard, boolean
+            (json!({"query_string": {"query": "foo:BAR"}}), s(&["1", "2"])),
+            (
+                json!({"query_string": {"query": "BAR", "default_field": "foo"}}),
+                s(&["1", "2"]),
+            ),
+            (
+                json!({"query_string": {"query": "tag:\"FRUIT SALAD\""}}),
+                s(&["2"]),
+            ),
+            (
+                json!({"query_string": {"query": "\"FRUIT SALAD\"", "default_field": "title.raw"}}),
+                s(&["2"]),
+            ),
+            (
+                json!({"query_string": {"query": "foo:BÀ*"}}),
+                s(&["1", "2", "3"]),
+            ),
+            (
+                json!({"query_string": {"query": "BÀ*"}}),
+                s(&["1", "2", "3"]),
+            ),
+            (
+                json!({"query_string": {"query": "foo:BAR AND meta.owner:ALICE"}}),
+                s(&["1"]),
+            ),
+            // simple_query_string fieldless, ["*"], fields, boosted, phrase, prefix
+            (
+                json!({"simple_query_string": {"query": "BAR"}}),
+                s(&["1", "2"]),
+            ),
+            (
+                json!({"simple_query_string": {"query": "BAR", "fields": ["*"]}}),
+                s(&["1", "2"]),
+            ),
+            (
+                json!({"simple_query_string": {"query": "BAR", "fields": ["foo"]}}),
+                s(&["1", "2"]),
+            ),
+            (
+                json!({"simple_query_string": {"query": "BAR", "fields": ["foo^2"]}}),
+                s(&["1", "2"]),
+            ),
+            (
+                json!({"simple_query_string": {"query": "\"FRUIT SALAD\"", "fields": ["tag"]}}),
+                s(&["2"]),
+            ),
+            (
+                json!({"simple_query_string": {"query": "\"FRUIT SALAD\""}}),
+                s(&["2"]),
+            ),
+            (
+                json!({"simple_query_string": {"query": "FRU*", "fields": ["tag"]}}),
+                s(&["1", "2", "3"]),
+            ),
+            (
+                json!({"simple_query_string": {"query": "BÀ*", "fields": ["foo"]}}),
+                s(&["1", "2", "3"]),
+            ),
+            (
+                json!({"simple_query_string": {"query": "BAR + ALICE", "fields": ["foo", "meta.owner"]}}),
+                s(&["1"]),
+            ),
+            // Negative controls: unnormalized `plain` stays case-sensitive
+            (json!({"query_string": {"query": "plain:FRUIT"}}), s(&[])),
+            (
+                json!({"simple_query_string": {"query": "FRUIT", "fields": ["plain"]}}),
+                s(&[]),
+            ),
+        ];
+        for (query, want) in cases {
+            assert_eq!(ids(app_ref, "qs", &query).await, want, "{phase} {query}");
+        }
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn dynamic_templates_apply_to_object_leaves_nested_paths_and_other_mappings() {
+    let (app, _dir) = app().await;
+    ok(
+        &app,
+        "PUT",
+        "/dyn2",
+        json!({
+            "settings": {"analysis": {"normalizer": {"fold_lower": {
+                "type": "custom", "filter": ["lowercase", "asciifolding"]
+            }}}},
+            "mappings": {
+                "properties": {
+                    "items": {"type": "nested"}
+                },
+                "dynamic_templates": [
+                    {"meta_lower": {
+                        "path_match": "meta.*",
+                        "path_unmatch": "*.raw_id",
+                        "match_mapping_type": "string",
+                        "mapping": {"type": "keyword", "normalizer": "lowercase"}
+                    }},
+                    {"nested_fold": {
+                        "path_match": "items.*",
+                        "match_mapping_type": "string",
+                        "mapping": {"type": "keyword", "normalizer": "fold_lower"}
+                    }},
+                    {"text_with_raw": {
+                        "match": "*_text",
+                        "match_mapping_type": "string",
+                        "mapping": {
+                            "type": "text",
+                            "fields": {"raw": {"type": "keyword", "normalizer": "lowercase"}}
+                        }
+                    }},
+                    {"plain_ids": {
+                        "match": "*_id",
+                        "mapping": {"type": "keyword"}
+                    }},
+                    {"no_dv_longs": {
+                        "match_mapping_type": "long",
+                        "mapping": {"type": "{dynamic_type}", "doc_values": false}
+                    }}
+                ]
+            }
+        }),
+    )
+    .await;
+
+    // First doc establishes `meta` (with `owner` and `raw_id`), `items.code`, `note_text`, `user_id`, `count`.
+    // Second doc adds a brand-new leaf `meta.region` into the already-existing `meta` object!
+    let docs = [
+        (
+            "1",
+            json!({
+                "meta": {"owner": "Alice", "raw_id": "ID-1"},
+                "items": [{"code": "BÀR"}],
+                "note_text": "Fruit Salad",
+                "user_id": "AB",
+                "count": 7
+            }),
+        ),
+        (
+            "2",
+            json!({
+                "meta": {"owner": "ALICE", "region": "North", "raw_id": "id-1"},
+                "items": [{"code": "bar"}],
+                "note_text": "fruit salad",
+                "user_id": "ab",
+                "count": 9
+            }),
+        ),
+    ];
+    let app_ref = &app;
+    in_every_phase(&app, "dyn2", &docs, |phase| async move {
+        assert_eq!(
+            ids(app_ref, "dyn2", &json!({"term": {"meta.owner": "alice"}})).await,
+            s(&["1", "2"]),
+            "{phase} meta.owner"
+        );
+        assert_eq!(
+            ids(app_ref, "dyn2", &json!({"term": {"meta.region": "NORTH"}})).await,
+            s(&["2"]),
+            "{phase} meta.region"
+        );
+        assert_eq!(
+            ids(app_ref, "dyn2", &json!({"term": {"meta.raw_id": "ID-1"}})).await,
+            s(&["1"]),
+            "{phase} meta.raw_id (excluded by path_unmatch)"
+        );
+        assert_eq!(
+            ids(
+                app_ref,
+                "dyn2",
+                &json!({"term": {"note_text.raw": "FRUIT SALAD"}})
+            )
+            .await,
+            s(&["1", "2"]),
+            "{phase} note_text.raw"
+        );
+        assert_eq!(
+            ids(
+                app_ref,
+                "dyn2",
+                &json!({"nested": {"path": "items", "query": {"term": {"items.code": "BAR"}}}})
+            )
+            .await,
+            s(&["1", "2"]),
+            "{phase} items.code"
+        );
+    })
+    .await;
+
+    let mapping = ok(&app, "GET", "/dyn2/_mapping", json!(null)).await;
+    assert_eq!(
+        mapping.pointer("/dyn2/mappings/properties/meta/properties/owner/normalizer"),
+        Some(&json!("lowercase")),
+        "{mapping}"
+    );
+    assert_eq!(
+        mapping.pointer("/dyn2/mappings/properties/meta/properties/region/normalizer"),
+        Some(&json!("lowercase")),
+        "{mapping}"
+    );
+    assert_eq!(
+        mapping.pointer("/dyn2/mappings/properties/meta/properties/raw_id/type"),
+        Some(&json!("keyword")),
+        "{mapping}"
+    );
+    assert!(
+        mapping
+            .pointer("/dyn2/mappings/properties/meta/properties/raw_id/normalizer")
+            .is_none(),
+        "{mapping}"
+    );
+    assert_eq!(
+        mapping.pointer("/dyn2/mappings/properties/items/properties/code/normalizer"),
+        Some(&json!("fold_lower")),
+        "{mapping}"
+    );
+    assert_eq!(
+        mapping.pointer("/dyn2/mappings/properties/note_text/fields/raw/normalizer"),
+        Some(&json!("lowercase")),
+        "{mapping}"
+    );
+    assert_eq!(
+        mapping.pointer("/dyn2/mappings/properties/user_id/type"),
+        Some(&json!("keyword")),
+        "{mapping}"
+    );
+    assert!(
+        mapping
+            .pointer("/dyn2/mappings/properties/user_id/fields")
+            .is_none(),
+        "{mapping}"
+    );
+    assert_eq!(
+        mapping.pointer("/dyn2/mappings/properties/count/doc_values"),
+        Some(&json!(false)),
+        "{mapping}"
+    );
+
+    // Invalid normalizer inside a dynamic template's multi-field must be refused with 400.
+    let (status, out) = req(
+        &app,
+        "PUT",
+        "/dyn_bad_mf",
+        json!({"mappings": {"dynamic_templates": [{"t": {
+            "match_mapping_type": "string",
+            "mapping": {"type": "text", "fields": {"raw": {"type": "keyword", "normalizer": "nope"}}}
+        }}]}})
+        .to_string(),
+    )
+    .await;
+    assert_mapper_refusal(status, &out, "normalizer [nope] not found");
+}
+
+#[tokio::test]
+async fn nested_query_string_match_phrase_prefix_and_unmapped_simple_prefix_in_every_phase() {
+    let (app, _dir) = app().await;
+    ok(
+        &app,
+        "PUT",
+        "/nest_qs",
+        json!({
+            "settings": {
+                "analysis": {
+                    "normalizer": {
+                        "fold_lower": {"type": "custom", "filter": ["lowercase", "asciifolding"]}
+                    }
+                }
+            },
+            "mappings": {
+                "properties": {
+                    "foo": {"type": "keyword", "normalizer": "fold_lower"},
+                    "raw_kw": {"type": "keyword"},
+                    "title": {
+                        "type": "text",
+                        "fields": {
+                            "raw": {"type": "keyword", "normalizer": "fold_lower"}
+                        }
+                    },
+                    "body": {"type": "text"},
+                    "items": {
+                        "type": "nested",
+                        "properties": {
+                            "code": {"type": "keyword", "normalizer": "fold_lower"}
+                        }
+                    }
+                }
+            }
+        }),
+    )
+    .await;
+
+    let docs = [
+        (
+            "1",
+            json!({
+                "foo": "BÀR Baz",
+                "raw_kw": "Fruit",
+                "title": "BÀR",
+                "body": "alpha beta",
+                "dyn_txt": "Fruit Salad",
+                "items": [{"code": "BÀR"}, {"code": "Fruit Salad"}]
+            }),
+        ),
+        (
+            "2",
+            json!({
+                "foo": "qux",
+                "raw_kw": "Other",
+                "title": "Other",
+                "body": "alpha gamma",
+                "dyn_txt": "Other Item",
+                "items": [{"code": "QUX"}]
+            }),
+        ),
+    ];
+
+    let app_ref = &app;
+    in_every_phase(app_ref, "nest_qs", &docs, |phase| async move {
+        // P1 #3: nested query containing query_string & simple_query_string on a
+        // normalized nested keyword leaf.
+        for (label, query) in [
+            (
+                "nested query_string term",
+                json!({"nested": {"path": "items", "query": {"query_string": {"query": "items.code:BAR"}}}}),
+            ),
+            (
+                "nested query_string quoted phrase",
+                json!({"nested": {"path": "items", "query": {"query_string": {"query": "items.code:\"FRUIT SALAD\""}}}}),
+            ),
+            (
+                "nested simple_query_string",
+                json!({"nested": {"path": "items", "query": {"simple_query_string": {"query": "BAR", "fields": ["items.code"]}}}}),
+            ),
+            // P1 #4: match_phrase_prefix on normalized keyword (pre-flush & post-flush parity).
+            (
+                "match_phrase_prefix fold_lower",
+                json!({"match_phrase_prefix": {"foo": "BÀR B"}}),
+            ),
+            // P1 #4: default_operator AND preserved on field-less query_string.
+            (
+                "query_string default_operator AND",
+                json!({"query_string": {"query": "alpha beta", "default_operator": "AND"}}),
+            ),
+            // P1 #4: wildcard pattern matching normalized multi-field `title.raw`.
+            (
+                "query_string title.* multi-field",
+                json!({"query_string": {"query": "bar", "fields": ["title.*"]}}),
+            ),
+            // P1 #11: simple_query_string prefix on analyzed text & dynamic text folds case.
+            (
+                "simple_query_string text prefix",
+                json!({"simple_query_string": {"query": "ALP*", "fields": ["body"]}}),
+            ),
+            (
+                "simple_query_string dynamic text prefix",
+                json!({"simple_query_string": {"query": "FRU*", "fields": ["dyn_txt"]}}),
+            ),
+        ] {
+            let expected = if label == "simple_query_string text prefix" {
+                s(&["1", "2"])
+            } else {
+                s(&["1"])
+            };
+            assert_eq!(
+                ids(app_ref, "nest_qs", &query).await,
+                expected,
+                "{phase} {label}: {query}"
+            );
+        }
+        // Negative control: unnormalized keyword stays case-sensitive for simple_query_string prefix.
+        assert_eq!(
+            ids(
+                app_ref,
+                "nest_qs",
+                &json!({"simple_query_string": {"query": "FRU*", "fields": ["raw_kw"]}})
+            )
+            .await,
+            s(&[]),
+            "{phase} unnormalized keyword prefix stays case-sensitive"
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn collapse_fields_wildcards_and_date_shaped_sort_in_every_phase() {
+    let (app, _dir) = app().await;
+    ok(
+        &app,
+        "PUT",
+        "/col_a",
+        json!({
+            "settings": {
+                "analysis": {
+                    "normalizer": {
+                        "fold_lower": {"type": "custom", "filter": ["lowercase", "asciifolding"]}
+                    }
+                }
+            },
+            "mappings": {
+                "properties": {
+                    "tag": {"type": "keyword", "normalizer": "fold_lower"},
+                    "ts_kw": {"type": "keyword", "normalizer": "lowercase"},
+                    "title": {
+                        "type": "text",
+                        "fields": {
+                            "raw": {"type": "keyword", "normalizer": "fold_lower"}
+                        }
+                    },
+                    "meta": {
+                        "properties": {
+                            "owner": {"type": "keyword", "normalizer": "fold_lower"}
+                        }
+                    }
+                }
+            }
+        }),
+    )
+    .await;
+
+    let docs = [
+        (
+            "1",
+            json!({"tag": "BÀR", "ts_kw": "2024-01-02T00:00:00Z", "title": "Fruit", "meta": {"owner": "BÀR"}}),
+        ),
+        (
+            "2",
+            json!({"tag": "bar", "ts_kw": "2024-01-01T00:00:00Z", "title": "FRUIT", "meta": {"owner": "bar"}}),
+        ),
+        (
+            "3",
+            json!({"tag": "Baz", "ts_kw": "2024-01-03T00:00:00Z", "title": "Apple", "meta": {"owner": "Baz"}}),
+        ),
+    ];
+
+    let app_ref = &app;
+    in_every_phase(app_ref, "col_a", &docs, |phase| async move {
+        // P1 #5: collapse on dotted normalized keyword (`meta.owner`) with inner_hits.
+        let body = ok(
+            app_ref,
+            "POST",
+            "/col_a/_search",
+            json!({
+                "sort": [{"_id": "asc"}],
+                "collapse": {
+                    "field": "meta.owner",
+                    "inner_hits": {"name": "by_owner", "size": 5, "sort": [{"title.raw": "asc"}]}
+                }
+            }),
+        )
+        .await;
+        let hits = body["hits"]["hits"].as_array().unwrap();
+        assert_eq!(hits.len(), 2, "{phase} dotted collapse groups: {body}");
+        assert_eq!(hits[0]["fields"]["meta.owner"], json!(["bar"]), "{phase}");
+        assert_eq!(hits[1]["fields"]["meta.owner"], json!(["baz"]), "{phase}");
+        assert_eq!(
+            hits[0]["inner_hits"]["by_owner"]["hits"]["total"]["value"],
+            json!(2),
+            "{phase} inner_hits group size: {body}"
+        );
+
+        // P1 #5: collapse on normalized multi-field (`title.raw`).
+        let body = ok(
+            app_ref,
+            "POST",
+            "/col_a/_search",
+            json!({
+                "sort": [{"_id": "asc"}],
+                "collapse": {"field": "title.raw"}
+            }),
+        )
+        .await;
+        let hits = body["hits"]["hits"].as_array().unwrap();
+        assert_eq!(hits.len(), 2, "{phase} multi-field collapse groups: {body}");
+        assert_eq!(hits[0]["fields"]["title.raw"], json!(["fruit"]), "{phase}");
+        assert_eq!(hits[1]["fields"]["title.raw"], json!(["apple"]), "{phase}");
+
+        // P1 #6: `fields: ["title.*"]` and `fields: ["*.raw"]` return normalized `title.raw`.
+        for pat in ["title.*", "*.raw"] {
+            let body = ok(
+                app_ref,
+                "POST",
+                "/col_a/_search",
+                json!({"query": {"ids": {"values": ["2"]}}, "fields": [pat]}),
+            )
+            .await;
+            assert_eq!(
+                body["hits"]["hits"][0]["fields"]["title.raw"],
+                json!(["fruit"]),
+                "{phase} fields {pat}: {body}"
+            );
+        }
+
+        // P1 #7: date-shaped strings in a normalized keyword field sort and
+        // paginate via `search_after` as normalized strings before and after flush.
+        let page1 = ok(
+            app_ref,
+            "POST",
+            "/col_a/_search",
+            json!({"size": 1, "sort": [{"ts_kw": "asc"}, {"_id": "asc"}]}),
+        )
+        .await;
+        assert_eq!(page1["hits"]["hits"][0]["_id"], json!("2"), "{phase}");
+        assert_eq!(
+            page1["hits"]["hits"][0]["sort"][0],
+            json!("2024-01-01t00:00:00z"),
+            "{phase} date-like normalized keyword sort must stay string: {page1}"
+        );
+        let cursor = page1["hits"]["hits"][0]["sort"].clone();
+        let page2 = ok(
+            app_ref,
+            "POST",
+            "/col_a/_search",
+            json!({
+                "size": 2,
+                "sort": [{"ts_kw": "asc"}, {"_id": "asc"}],
+                "search_after": cursor
+            }),
+        )
+        .await;
+        let p2_ids: Vec<&str> = page2["hits"]["hits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|h| h["_id"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            p2_ids,
+            vec!["1", "3"],
+            "{phase} search_after page2: {page2}"
+        );
+    })
+    .await;
+
+    // P1 #6: pure dynamic-template index (`fields: ["*"]`) must NOT leak a fake
+    // unnormalized `color.keyword` sibling alongside the normalized keyword `color`.
+    ok(
+        &app,
+        "PUT",
+        "/dyn_star",
+        json!({
+            "mappings": {
+                "dynamic_templates": [{
+                    "all_lower": {
+                        "match_mapping_type": "string",
+                        "mapping": {"type": "keyword", "normalizer": "lowercase"}
+                    }
+                }]
+            }
+        }),
+    )
+    .await;
+    bulk(&app, "dyn_star", &[("1", json!({"color": "Red"}))]).await;
+    ok(&app, "POST", "/dyn_star/_refresh", json!(null)).await;
+    let star_resp = ok(&app, "POST", "/dyn_star/_search", json!({"fields": ["*"]})).await;
+    let fmap = star_resp["hits"]["hits"][0]["fields"].as_object().unwrap();
+    assert_eq!(fmap.get("color"), Some(&json!(["red"])), "{star_resp}");
+    assert!(
+        !fmap.contains_key("color.keyword"),
+        "dynamic-template keyword must not leak synthetic color.keyword: {star_resp}"
+    );
+    ok(&app, "POST", "/dyn_star/_flush", json!(null)).await;
+    let star_flushed = ok(&app, "POST", "/dyn_star/_search", json!({"fields": ["*"]})).await;
+    let fmap_flushed = star_flushed["hits"]["hits"][0]["fields"]
+        .as_object()
+        .unwrap();
+    assert_eq!(
+        fmap_flushed.get("color"),
+        Some(&json!(["red"])),
+        "{star_flushed}"
+    );
+    assert!(
+        !fmap_flushed.contains_key("color.keyword"),
+        "flushed dynamic-template keyword must not leak color.keyword: {star_flushed}"
+    );
+
+    // P1 #5: cross-index collapse deduplicates normalized keys across indices.
+    ok(
+        &app,
+        "PUT",
+        "/col_b",
+        json!({
+            "settings": {
+                "analysis": {
+                    "normalizer": {
+                        "fold_lower": {"type": "custom", "filter": ["lowercase", "asciifolding"]}
+                    }
+                }
+            },
+            "mappings": {
+                "properties": {
+                    "meta": {
+                        "properties": {
+                            "owner": {"type": "keyword", "normalizer": "fold_lower"}
+                        }
+                    }
+                }
+            }
+        }),
+    )
+    .await;
+    bulk(&app, "col_b", &[("10", json!({"meta": {"owner": "BAR"}}))]).await;
+    ok(&app, "POST", "/col_b/_refresh", json!(null)).await;
+    let cross = ok(
+        &app,
+        "POST",
+        "/col_a,col_b/_search",
+        json!({
+            "sort": [{"_id": "asc"}],
+            "collapse": {
+                "field": "meta.owner",
+                "inner_hits": {"name": "all_owners", "size": 5}
+            }
+        }),
+    )
+    .await;
+    let cross_hits = cross["hits"]["hits"].as_array().unwrap();
+    assert_eq!(
+        cross_hits.len(),
+        2,
+        "cross-index collapse must merge BAR/BÀR/bar: {cross}"
+    );
+    assert_eq!(cross_hits[0]["fields"]["meta.owner"], json!(["bar"]));
+    assert_eq!(
+        cross_hits[0]["inner_hits"]["all_owners"]["hits"]["total"]["value"],
+        json!(3),
+        "cross-index inner_hits must absorb sibling index member: {cross}"
+    );
+}
+
+#[tokio::test]
+async fn dynamic_templates_heterogeneous_nested_put_mapping_and_spec_edge_cases() {
+    let (app, _dir) = app().await;
+    // P1 #8: dynamic template specifying `normalizer` without `type: keyword`
+    // (omitted or `{dynamic_type}`) must be refused cleanly at index creation.
+    for (idx_name, mapping) in [
+        ("bad_omit_type", json!({"normalizer": "lowercase"})),
+        (
+            "bad_dyn_type",
+            json!({"type": "{dynamic_type}", "normalizer": "lowercase"}),
+        ),
+    ] {
+        let (status, out) = req(
+            &app,
+            "PUT",
+            &format!("/{idx_name}"),
+            json!({"mappings": {"dynamic_templates": [{"t": {
+                "match_mapping_type": "string",
+                "mapping": mapping
+            }}]}})
+            .to_string(),
+        )
+        .await;
+        assert_mapper_refusal(status, &out, "unknown parameter [normalizer]");
+    }
+
+    // P1 #10: PUT _mapping adds/merges dynamic_templates into es_mapping.json.
+    ok(
+        &app,
+        "PUT",
+        "/dyn_spec",
+        json!({
+            "settings": {
+                "analysis": {
+                    "normalizer": {
+                        "fold_lower": {"type": "custom", "filter": ["lowercase", "asciifolding"]}
+                    }
+                }
+            },
+            "mappings": {
+                "properties": {
+                    "items": {"type": "nested"},
+                    "locked": {"type": "object", "dynamic": false}
+                }
+            }
+        }),
+    )
+    .await;
+    ok(
+        &app,
+        "PUT",
+        "/dyn_spec/_mapping",
+        json!({
+            "dynamic_templates": [
+                {
+                    "nested_codes": {
+                        "match_mapping_type": "string",
+                        "path_match": "items.*",
+                        "mapping": {"type": "keyword", "normalizer": "fold_lower"}
+                    }
+                },
+                {
+                    "key_placeholder": {
+                        "match_mapping_type": "string",
+                        "match": "label_*",
+                        "mapping": {
+                            "type": "text",
+                            "fields": {
+                                "{name}_norm": {"type": "keyword", "normalizer": "lowercase"}
+                            }
+                        }
+                    }
+                },
+                {
+                    "flat_bag": {
+                        "match_mapping_type": "object",
+                        "match": "bag_*",
+                        "mapping": {"type": "flattened"}
+                    }
+                },
+                {
+                    "anchored_regex": {
+                        "match_pattern": "regex",
+                        "match": "exact",
+                        "mapping": {"type": "keyword", "normalizer": "lowercase"}
+                    }
+                },
+                {
+                    "literal_qmark": {
+                        "match": "a?b",
+                        "mapping": {"type": "keyword", "normalizer": "lowercase"}
+                    }
+                }
+            ]
+        }),
+    )
+    .await;
+
+    // P1 #9: heterogeneous nested array where `code` appears only on element 1!
+    let docs = [(
+        "1",
+        json!({
+            "items": [{"id": 1}, {"id": 2, "code": "BÀR"}],
+            "locked": {"hidden": "ShouldNotBeMapped"},
+            "label_a": "Hello",
+            "bag_extra": {"k": "v"},
+            "exact": "MATCH",
+            "not_exact": "KEEP_TEXT",
+            "axb": "NOT_QMARK"
+        }),
+    )];
+
+    let app_ref = &app;
+    in_every_phase(app_ref, "dyn_spec", &docs, |phase| async move {
+        assert_eq!(
+            ids(
+                app_ref,
+                "dyn_spec",
+                &json!({"nested": {"path": "items", "query": {"term": {"items.code": "BAR"}}}})
+            )
+            .await,
+            s(&["1"]),
+            "{phase} heterogeneous nested array element 1 normalized"
+        );
+        assert_eq!(
+            ids(
+                app_ref,
+                "dyn_spec",
+                &json!({"term": {"label_a.label_a_norm": "HELLO"}})
+            )
+            .await,
+            s(&["1"]),
+            "{phase} placeholder in multi-field key"
+        );
+        assert_eq!(
+            ids(app_ref, "dyn_spec", &json!({"term": {"exact": "match"}})).await,
+            s(&["1"]),
+            "{phase} anchored regex matches exact"
+        );
+    })
+    .await;
+
+    let mapping = ok(&app, "GET", "/dyn_spec/_mapping", json!(null)).await;
+    assert_eq!(
+        mapping.pointer("/dyn_spec/mappings/properties/items/properties/code/normalizer"),
+        Some(&json!("fold_lower")),
+        "{mapping}"
+    );
+    assert!(
+        mapping
+            .pointer("/dyn_spec/mappings/properties/locked/properties")
+            .is_none(),
+        "static dynamic:false must prevent dynamic children: {mapping}"
+    );
+    assert_eq!(
+        mapping.pointer("/dyn_spec/mappings/properties/bag_extra/type"),
+        Some(&json!("flattened")),
+        "{mapping}"
+    );
+    assert!(
+        mapping
+            .pointer("/dyn_spec/mappings/properties/bag_extra/properties")
+            .is_none(),
+        "flattened template must not emit sub-properties: {mapping}"
+    );
+    assert_eq!(
+        mapping.pointer("/dyn_spec/mappings/properties/exact/normalizer"),
+        Some(&json!("lowercase")),
+        "{mapping}"
+    );
+    assert_eq!(
+        mapping.pointer("/dyn_spec/mappings/properties/not_exact/type"),
+        Some(&json!("text")),
+        "anchored regex `exact` must not match `not_exact`: {mapping}"
+    );
+    assert_eq!(
+        mapping.pointer("/dyn_spec/mappings/properties/axb/type"),
+        Some(&json!("text")),
+        "simple match `a?b` must treat `?` literally and not match `axb`: {mapping}"
+    );
+}

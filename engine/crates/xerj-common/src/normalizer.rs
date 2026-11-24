@@ -18,7 +18,7 @@
 //! index's analysis settings to apply it, and a schema written before this
 //! field existed has no normalizer (existing indices are unchanged).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -302,15 +302,31 @@ pub fn unsupported_declared_normalizers(analysis: &Value) -> Vec<String> {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct KeywordNormalizers {
     by_path: HashMap<String, KeywordNormalizer>,
+    /// Top-level and `Object`-leaf normalized keyword paths that receive their
+    /// own FTS side-car (excludes multi-fields and `Nested` leaves; #3640).
+    fts_keyword_paths: Vec<String>,
+    /// Normalized keyword paths declared with `"index": false` (#3640).
+    non_indexed_paths: Vec<String>,
+    /// Normalized keyword paths declared with `"doc_values": false` (#3640).
+    no_doc_values_paths: Vec<String>,
+    /// Normalized multi-field paths (e.g. `title.raw`, `meta.title.raw`) whose
+    /// raw value lives on the parent field in `_source` (#3640).
+    multi_field_paths: HashSet<String>,
 }
 
 impl KeywordNormalizers {
     /// Collect the normalizers a schema declares.
     pub fn from_schema(schema: &Schema) -> Self {
+        #[allow(clippy::too_many_arguments)]
         fn walk(
             fields: &[FieldConfig],
             prefix: &str,
+            in_nested: bool,
             out: &mut HashMap<String, KeywordNormalizer>,
+            fts_keyword_paths: &mut Vec<String>,
+            non_indexed_paths: &mut Vec<String>,
+            no_doc_values_paths: &mut Vec<String>,
+            multi_field_paths: &mut HashSet<String>,
         ) {
             for f in fields {
                 let path = if prefix.is_empty() {
@@ -320,15 +336,46 @@ impl KeywordNormalizers {
                 };
                 if let (FieldType::Keyword, Some(n)) = (f.field_type, &f.options.normalizer) {
                     out.insert(path.clone(), n.clone());
+                    if !in_nested {
+                        if f.options.indexed {
+                            fts_keyword_paths.push(path.clone());
+                        } else {
+                            non_indexed_paths.push(path.clone());
+                        }
+                        if !f.options.doc_values {
+                            no_doc_values_paths.push(path.clone());
+                        }
+                    }
                 }
                 match f.field_type {
-                    FieldType::Object | FieldType::Nested => walk(&f.fields, &path, out),
+                    FieldType::Object => walk(
+                        &f.fields,
+                        &path,
+                        in_nested,
+                        out,
+                        fts_keyword_paths,
+                        non_indexed_paths,
+                        no_doc_values_paths,
+                        multi_field_paths,
+                    ),
+                    FieldType::Nested => walk(
+                        &f.fields,
+                        &path,
+                        true,
+                        out,
+                        fts_keyword_paths,
+                        non_indexed_paths,
+                        no_doc_values_paths,
+                        multi_field_paths,
+                    ),
                     _ => {
                         for m in &f.fields {
                             if let (FieldType::Keyword, Some(n)) =
                                 (m.field_type, &m.options.normalizer)
                             {
-                                out.insert(format!("{path}.{}", m.name), n.clone());
+                                let mf_path = format!("{path}.{}", m.name);
+                                out.insert(mf_path.clone(), n.clone());
+                                multi_field_paths.insert(mf_path);
                             }
                         }
                     }
@@ -336,8 +383,27 @@ impl KeywordNormalizers {
             }
         }
         let mut by_path = HashMap::new();
-        walk(&schema.fields, "", &mut by_path);
-        Self { by_path }
+        let mut fts_keyword_paths = Vec::new();
+        let mut non_indexed_paths = Vec::new();
+        let mut no_doc_values_paths = Vec::new();
+        let mut multi_field_paths = HashSet::new();
+        walk(
+            &schema.fields,
+            "",
+            false,
+            &mut by_path,
+            &mut fts_keyword_paths,
+            &mut non_indexed_paths,
+            &mut no_doc_values_paths,
+            &mut multi_field_paths,
+        );
+        Self {
+            by_path,
+            fts_keyword_paths,
+            non_indexed_paths,
+            no_doc_values_paths,
+            multi_field_paths,
+        }
     }
 
     /// True when no field is normalized (the common case: every hook is then
@@ -354,6 +420,38 @@ impl KeywordNormalizers {
     /// The normalized paths.
     pub fn paths(&self) -> impl Iterator<Item = &str> {
         self.by_path.keys().map(String::as_str)
+    }
+
+    /// Indexed top-level and `Object`-leaf normalized keyword paths (excludes
+    /// multi-fields and `Nested` leaves), used by flush to ensure racing
+    /// dynamic-template fields get a keyword FTS config (#3640).
+    pub fn fts_keyword_paths(&self) -> &[String] {
+        &self.fts_keyword_paths
+    }
+
+    /// Top-level and `Object`-leaf normalized keyword paths declared with
+    /// `"index": false`, used by flush to exclude race-evolved unindexed
+    /// fields from segment FTS side-cars (#3640).
+    pub fn non_indexed_paths(&self) -> &[String] {
+        &self.non_indexed_paths
+    }
+
+    /// Top-level and `Object`-leaf normalized keyword paths declared with
+    /// `"doc_values": false`, used by flush to skip doc-value columns for
+    /// race-evolved fields (#3640).
+    pub fn no_doc_values_paths(&self) -> &[String] {
+        &self.no_doc_values_paths
+    }
+
+    /// True when `path` is a normalized multi-field (e.g. `title.raw`) whose
+    /// raw value is stored on its parent field in `_source` (#3640).
+    pub fn is_multi_field(&self, path: &str) -> bool {
+        self.multi_field_paths.contains(path)
+    }
+
+    /// Every normalized multi-field path (e.g. `title.raw`, `meta.title.raw`).
+    pub fn multi_field_paths(&self) -> impl Iterator<Item = &str> {
+        self.multi_field_paths.iter().map(String::as_str)
     }
 
     /// `source` with each normalized TOP-LEVEL field's value normalized, for

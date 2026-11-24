@@ -2046,7 +2046,10 @@ fn tokenize_query_string(q: &str) -> Result<Option<Vec<QsTok>>> {
                     if j >= bytes.len() {
                         return Ok(None);
                     }
-                    let whole = format!("{} {}", buf, &q[i..j]);
+                    // `&q[i..j]` begins at the delimiter that ended `tok` (the
+                    // space or paren inside the quote), so concatenate verbatim
+                    // rather than injecting an extra space (#3640).
+                    let whole = format!("{buf}{}", &q[i..j]);
                     out.push(QsTok::Phrase(field.to_string(), whole));
                     i = j + 1;
                 }
@@ -2846,7 +2849,7 @@ fn parse_simple_query_string(params: &Value) -> Result<QueryNode> {
     Ok(node)
 }
 
-/// Build a Match, MatchPhrase, or MultiMatch node for a term in a simple_query_string.
+/// Build a Match, MatchPhrase, Prefix, or MultiMatch node for a term in a simple_query_string.
 fn make_simple_query_node(
     term: &str,
     is_phrase: bool,
@@ -2855,12 +2858,13 @@ fn make_simple_query_node(
 ) -> QueryNode {
     if is_phrase {
         if fields.len() == 1 {
+            let (field, boost) = qs_split_boost(&fields[0]);
             QueryNode::MatchPhrase {
-                field: fields[0].clone(),
+                field,
                 query: term.to_string(),
                 slop: 0,
                 analyzer: None,
-                boost: None,
+                boost,
                 lenient,
             }
         } else if fields.is_empty() {
@@ -2881,6 +2885,46 @@ fn make_simple_query_node(
                 slop: 0,
                 max_expansions: 50,
                 lenient,
+            }
+        }
+    } else if let Some(prefix) = term
+        .strip_suffix('*')
+        .filter(|p| !p.is_empty() && !p.contains('*'))
+    {
+        // ES `simple_query_string` prefix operator (`FRU*`, #3640).
+        if targets_every_field(fields) {
+            QueryNode::Prefix {
+                field: "*".to_string(),
+                value: prefix.to_string(),
+                boost: None,
+                constant_score: false,
+                case_insensitive: false,
+            }
+        } else if fields.len() == 1 {
+            let (field, boost) = qs_split_boost(&fields[0]);
+            QueryNode::Prefix {
+                field,
+                value: prefix.to_string(),
+                boost,
+                constant_score: false,
+                case_insensitive: false,
+            }
+        } else {
+            QueryNode::DisMax {
+                queries: fields
+                    .iter()
+                    .map(|spec| {
+                        let (field, boost) = qs_split_boost(spec);
+                        QueryNode::Prefix {
+                            field,
+                            value: prefix.to_string(),
+                            boost,
+                            constant_score: false,
+                            case_insensitive: false,
+                        }
+                    })
+                    .collect(),
+                tie_breaker: 0.0,
             }
         }
     } else if targets_every_field(fields) {
@@ -2909,12 +2953,13 @@ fn make_simple_query_node(
             boost: None,
         }
     } else if fields.len() == 1 {
+        let (field, boost) = qs_split_boost(&fields[0]);
         QueryNode::Match {
-            field: fields[0].clone(),
+            field,
             query: term.to_string(),
             operator: BoolOperator::Or,
             analyzer: None,
-            boost: None,
+            boost,
             minimum_should_match: None,
             lenient,
         }
