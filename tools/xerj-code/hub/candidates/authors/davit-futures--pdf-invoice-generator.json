@@ -8,15 +8,15 @@
   {
    "repo": "Pdf_Invoice_generator",
    "url": "https://github.com/DavIT-Futures/Pdf_Invoice_generator",
-   "sha": "7221ceb1a088a4d118f1098a55e42f9ba3dfde82",
-   "licence": "MIT (LICENSE file at pin 7221ceb1a088, GitHub licence API 2026-11-24)",
+   "sha": "bb86490305f4286d78824604912429c8b64f8147",
+   "licence": "MIT (LICENSE file at pin bb86490305f4, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T08:10Z",
     "consent_receipt": "6bfcc1208fe9",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T08:10Z (receipt 6bfcc1208fe9); selected commit 7221ceb1a088: \"Add invoice generator (.NET 8 WPF) with personal data removed\". LICENSE file at pin 7221ceb1a088 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head 7221ceb1a088 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T08:10Z (receipt 6bfcc1208fe9); selected commit bb86490305f4: \"Add invoice generator (.NET 8 WPF) with personal data removed\". LICENSE file at pin bb86490305f4 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head bb86490305f4 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

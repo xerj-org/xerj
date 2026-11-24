@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, claude-code, codex queries this for how danialfarid/termdeck implements it: Local-first workspace for running, organizing, and monitoring Codex, Claude Code, Aider, AGY, OpenCode, and shell sessions (selected work: termdeck, tests)",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how danialfarid/termdeck implements it: Local-first workspace for running, organizing, and monitoring Codex, Claude Code, Aider, AGY, Muse, OpenCode, and shell sessions (selected work: termdeck, tests)",
  "repos": [
   {
    "repo": "termdeck",

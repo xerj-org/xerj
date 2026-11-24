@@ -1,0 +1,23 @@
+{
+ "corpus": "albinalm--straumr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on C# queries this for how albinalm/Straumr implements it: Straumr is a CLI tool for managing and sending HTTP requests. You define requests, save them to a workspace, and run them whenever you need. (selected work: src/Straumr.Core, src/Straumr.Console.Cli, src/Straumr.Console.Tui)",
+ "repos": [
+  {
+   "repo": "Straumr",
+   "url": "https://github.com/albinalm/Straumr",
+   "sha": "5d8539c38aaf06e0e46052c744d8dbe810ae7cc7",
+   "licence": "GPL-3.0 (LICENSE file at pin 5d8539c38aaf, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T07:45Z",
+    "consent_receipt": "810724d090b8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T07:45Z (receipt 810724d090b8); selected commit 5d8539c38aaf: \"Add request-backed variables and response capture (#42)\". LICENSE file at pin 5d8539c38aaf detected as GPL-3.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

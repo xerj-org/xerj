@@ -1,0 +1,23 @@
+{
+ "corpus": "jameshiraldo--wayback-recon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Python queries this for how JamesHiraldo/Wayback-Recon implements it: A terminal workspace for finding historical URLs, collecting subdomains, and tracking how their DNS and web availability change over time. F (selected work: src, tests, scripts)",
+ "repos": [
+  {
+   "repo": "Dork_Searcher",
+   "url": "https://github.com/JamesHiraldo/Dork_Searcher",
+   "sha": "35f0ff90b8b8bf9826c3c88fd84f1535e4446b5b",
+   "licence": "MIT (LICENSE file at pin 35f0ff90b8b8, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T21:40Z",
+    "consent_receipt": "38d89787b7d8",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T21:40Z (receipt 38d89787b7d8); selected commit 35f0ff90b8b8: \"Revision\". LICENSE file at pin 35f0ff90b8b8 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

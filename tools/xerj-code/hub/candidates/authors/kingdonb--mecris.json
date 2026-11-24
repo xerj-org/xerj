@@ -1,0 +1,23 @@
+{
+ "corpus": "kingdonb--mecris",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how kingdonb/mecris implements it: MCP experiment / accountability coaching (selected work: mecris-go-project, the project root, tests)",
+ "repos": [
+  {
+   "repo": "mecris",
+   "url": "https://github.com/kingdonb/mecris",
+   "sha": "fb880d48d666f05b19cdd41c87cdd593111f1568",
+   "licence": "MIT (LICENSE file at pin fb880d48d666, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-12T20:14Z",
+    "consent_receipt": "d6dbf5c1f083",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T20:14Z (receipt d6dbf5c1f083); selected commit fb880d48d666: \"feat(android): reduce Mecris-Go background battery usage (v0.1.4, VC \u2026\". LICENSE file at pin fb880d48d666 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

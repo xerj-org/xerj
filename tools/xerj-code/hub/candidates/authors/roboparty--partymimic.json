@@ -1,0 +1,33 @@
+{
+ "corpus": "roboparty--partymimic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Python queries this for how Roboparty/PartyMimic implements it: Quick, precise, versatile Humanoid Mimic (selected work: tools, assets, manifests)",
+ "repos": [
+  {
+   "repo": "PartyMimic",
+   "url": "https://github.com/Roboparty/PartyMimic",
+   "sha": "f7e68053d07accdf454c77e046ee3c4793d7a99d",
+   "licence": "MIT (LICENSE file at pin f7e68053d07a, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T04:35Z",
+    "consent_receipt": "8cb7643cd07f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T04:35Z (receipt 8cb7643cd07f); selected commit f7e68053d07a: \"Open-source the data recipe, RP1 retargeting, diversity analysis and \u2026\". LICENSE file at pin f7e68053d07a detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Roboparty, who has not added it."
+   },
+   "paths": [
+    "assets/hhtools_robots/g1",
+    "assets/hhtools_robots/rp1",
+    "assets/rp1_28dof_mjlab",
+    "checkpoints",
+    "docs",
+    "manifests",
+    "scripts",
+    "tools"
+   ]
+  }
+ ]
+}

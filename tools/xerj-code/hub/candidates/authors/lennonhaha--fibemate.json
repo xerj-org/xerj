@@ -1,0 +1,23 @@
+{
+ "corpus": "lennonhaha--fibemate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on ml-kem, post-quantum-cryptography, sm2 queries this for how Lennonhaha/fibemate implements it: FIBEMATE \u2014 Post-Quantum Cryptography Engineering Validation Platform. ML-KEM \u00b7 ML-DSA \u00b7 SLH-DSA \u00b7 SM2/3/4 \u00b7 FPGA NTT. From math to code to h (selected work: test, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "fibemate",
+   "url": "https://github.com/Lennonhaha/fibemate",
+   "sha": "4d6fea75c8e91ee7a1b9230b9e5422cd38a102c0",
+   "licence": "GPL-3.0 (LICENSE file at pin 4d6fea75c8e9, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-22T01:40Z",
+    "consent_receipt": "532d18b6910c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-22T01:40Z (receipt 532d18b6910c); selected commit 4d6fea75c8e9: \"test: raise statement coverage above 80% and enforce it in CI (#420)\". LICENSE file at pin 4d6fea75c8e9 detected as GPL-3.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

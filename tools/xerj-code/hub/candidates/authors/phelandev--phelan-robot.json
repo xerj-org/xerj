@@ -8,15 +8,15 @@
   {
    "repo": "DUCK_MINI_TRAINING",
    "url": "https://github.com/PhelanDev/DUCK_MINI_TRAINING",
-   "sha": "33bfb08afa6523a7babde56cd8cb86b9d073a03e",
-   "licence": "MIT (LICENSE file at pin 33bfb08afa65, GitHub licence API 2026-11-15)",
+   "sha": "81bfde4ed3020a7a3524bdbca4a8a6d1c4b968ca",
+   "licence": "MIT (LICENSE file at pin 81bfde4ed302, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T18:57Z",
     "consent_receipt": "0b0e72f2518e",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T18:57Z (receipt 0b0e72f2518e); selected commit 33bfb08afa65: \"feat(pizero2w): add decoupled real-time inference runtime for Pi Zero\u2026\". LICENSE file at pin 33bfb08afa65 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head 33bfb08afa65 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T18:57Z (receipt 0b0e72f2518e); selected commit 81bfde4ed302: \"feat(pizero2w): add decoupled real-time inference runtime for Pi Zero\u2026\". LICENSE file at pin 81bfde4ed302 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head 81bfde4ed302 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

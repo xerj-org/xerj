@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on interference, jev-alternative, openai queries this for how DrapNard/cognitive-fabric implements it: Cognitive Fabric is a local, resource-bounded framework for coordinating language models, deterministic tools, and versioned skills. The run (selected work: src/evolution, tests, src)",
+ "domain": "an agent working on opencode, ai-agents, artificial-intelligence queries this for how DrapNard/cognitive-fabric implements it: A model-agnostic, neuro-symbolic cognitive runtime built in Rust. Two cooperating cognitive systems, interchangeable decision and reasoning  (selected work: src/evolution, tests, src)",
  "repos": [
   {
    "repo": "cognitive-fabric",

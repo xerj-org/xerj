@@ -1,0 +1,23 @@
+{
+ "corpus": "komikndr--animlang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how komikndr/animlang implements it: Agent flow for LLM to create animation. Manim, GSAP, and ThreeJS (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "animlang",
+   "url": "https://github.com/komikndr/animlang",
+   "sha": "1f29c06401e21e608e06360f2e6f74f8f631670c",
+   "licence": "Apache-2.0 (LICENSE file at pin 1f29c06401e2, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T06:06Z",
+    "consent_receipt": "879f3019b278",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T06:06Z (receipt 879f3019b278); selected commit 1f29c06401e2: \"Add security, change readme\". LICENSE file at pin 1f29c06401e2 detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "MESA",
    "url": "https://github.com/Yasou13/MESA",
-   "sha": "837ebde5c168dc061bee34f2999d0940004b6a4f",
-   "licence": "Apache-2.0 (LICENSE file at pin 837ebde5c168, GitHub licence API 2026-11-23)",
+   "sha": "5745164a7945e760f43ae18cb3b4f363b2d7b519",
+   "licence": "Apache-2.0 (LICENSE file at pin 5745164a7945, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-22T18:13Z",
     "consent_receipt": "0dee6ad247da",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T18:13Z (receipt 0dee6ad247da); selected commit 837ebde5c168: \"fix(query): close planner input and citation gaps\". LICENSE file at pin 837ebde5c168 detected as Apache-2.0 by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head 837ebde5c168 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T18:13Z (receipt 0dee6ad247da); selected commit 5745164a7945: \"fix(query): close planner input and citation gaps\". LICENSE file at pin 5745164a7945 detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head 5745164a7945 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

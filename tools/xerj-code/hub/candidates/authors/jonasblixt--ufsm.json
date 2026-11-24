@@ -1,0 +1,23 @@
+{
+ "corpus": "jonasblixt--ufsm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on statechart, statemachine, embedded queries this for how jonasblixt/ufsm implements it: Statechart library and editor (selected work: apps/editor)",
+ "repos": [
+  {
+   "repo": "ufsm",
+   "url": "https://github.com/jonasblixt/ufsm",
+   "sha": "1114ac177dacff057ab7ae60dfda0bea7cc657f2",
+   "licence": "author's permission (LICENSE at pin 1114ac177dac: NOASSERTION; repository: GPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-16T16:17Z",
+    "consent_receipt": "ecfe2b27ca92",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T16:17Z (receipt ecfe2b27ca92); selected commit 1114ac177dac: \"editor: Check for Updates and Restart to Update\". LICENSE at pin 1114ac177dac: NOASSERTION (repository: GPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

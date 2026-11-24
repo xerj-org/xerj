@@ -1,0 +1,26 @@
+{
+ "corpus": "nemofq--pushbullet-go",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how nemofq/pushbullet-go implements it: A lightweight extension for Pushbullet that enables receiving and sending pushes directly from browser (selected work: src, src/_locales)",
+ "repos": [
+  {
+   "repo": "pushbullet-go",
+   "url": "https://github.com/nemofq/pushbullet-go",
+   "sha": "eb4579ad8ee1a36ac95f6540266f753d55156c3c",
+   "licence": "AGPL-3.0 (LICENSE file at pin eb4579ad8ee1, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-17T19:56Z",
+    "consent_receipt": "2fc4019fa75c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T19:56Z (receipt 2fc4019fa75c); selected commit eb4579ad8ee1: \"add custom notification sound upload with preview and remove\". LICENSE file at pin eb4579ad8ee1 detected as AGPL-3.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @nemofq, who has not added it."
+   },
+   "paths": [
+    "src"
+   ]
+  }
+ ]
+}

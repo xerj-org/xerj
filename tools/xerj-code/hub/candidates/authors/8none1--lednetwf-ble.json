@@ -1,0 +1,28 @@
+{
+ "corpus": "8none1--lednetwf-ble",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ble, home-assistant, lednetwf queries this for how 8none1/lednetwf_ble implements it: Home Assistant custom integration for LEDnetWF devices (selected work: custom_components)",
+ "repos": [
+  {
+   "repo": "lednetwf_ble",
+   "url": "https://github.com/8none1/lednetwf_ble",
+   "sha": "8ce86169a5132f2725d52381b260bc4da9e8f90c",
+   "licence": "MIT (LICENSE file at pin 8ce86169a513, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T22:54Z",
+    "consent_receipt": "d565e4005ec5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T22:54Z (receipt d565e4005ec5); selected commit 8ce86169a513: \"Support native fades (transition) on unified 0x3B devices\". LICENSE file at pin 8ce86169a513 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @8none1, who has not added it."
+   },
+   "paths": [
+    "ai_instructions",
+    "custom_components/lednetwf_ble",
+    "protocol_docs"
+   ]
+  }
+ ]
+}

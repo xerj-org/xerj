@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, agentic-workflows, ai-agents queries this for how Aliaksie/engineering-pack implements it: Craft Capabilities: portable engineering workflows and deterministic tooling for AI coding agents across Claude Code, Codex, Gemini, Cursor, (selected work: platform, engine, application)",
+ "domain": "an agent working on agent-skills, agentic-workflows, ai-agents queries this for how Aliaksie/engineering-pack implements it: Craft Capabilities: portable engineering workflows and deterministic tooling for AI coding agents across Claude Code, Codex, Gemini, Antigra (selected work: platform, engine, application)",
  "repos": [
   {
    "repo": "engineering-pack",

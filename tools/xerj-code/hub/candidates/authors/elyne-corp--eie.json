@@ -1,9 +1,9 @@
 {
- "corpus": "deharoalexandre-cyber--eie",
+ "corpus": "elyne-corp--eie",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on apache-2, cuda, gguf queries this for how deharoalexandre-cyber/EIE implements it: Local GGUF inference for one or several models; Android JNI components and experimental Gemma expert-weight streaming with published local m (selected work: backends, server, tests)",
+ "domain": "an agent working on apache-2, cuda, gguf queries this for how ELYNE-CORP/EIE implements it: Local GGUF inference for one or several models; Android JNI components and experimental Gemma expert-weight streaming with published local m (selected work: backends, server, tests)",
  "repos": [
   {
    "repo": "EIE",

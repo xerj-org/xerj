@@ -1,0 +1,29 @@
+{
+ "corpus": "alexturkey--voxcpm2-turkce-ses-tasarimi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cuda, ggml, low-vram queries this for how alexturkey/voxcpm2-turkce-ses-tasarimi implements it: Turkish voice design with VoxCPM2 on a 4 GB GPU: describe a voice, pick a variant, read text in 30 languages. Patched audio.cpp, local UI in (selected work: scripts, tests, the project root)",
+ "repos": [
+  {
+   "repo": "voxcpm2-turkce-ses-tasarimi",
+   "url": "https://github.com/alexturkey/voxcpm2-turkce-ses-tasarimi",
+   "sha": "227805c810b12e7ca46f81520fa0af872e3a41a0",
+   "licence": "Apache-2.0 (LICENSE file at pin 227805c810b1, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:57Z",
+    "consent_receipt": "8e0d6da9f688",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:57Z (receipt 8e0d6da9f688); selected commit 227805c810b1: \"Add experimental Ubuntu CUDA installer and Docker workflow\". LICENSE file at pin 227805c810b1 detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @alexturkey, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "scripts",
+    "ses_tasarim",
+    "tests"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "aixander--realtime-pyaudio-fft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on realtime-audio, fft, pyaudio queries this for how aiXander/Realtime_PyAudio_FFT implements it: Realtime audio analysis (Rust + Python engines): band levels, onsets, BPM and FFT from live audio, sent over OSC and WebSocket to any app (selected work: ui, server, the project root)",
+ "repos": [
+  {
+   "repo": "Realtime_PyAudio_FFT",
+   "url": "https://github.com/aiXander/Realtime_PyAudio_FFT",
+   "sha": "2e38974e74e3ac6622e239d267dc8871cfa1ffcc",
+   "licence": "MIT (LICENSE file at pin 2e38974e74e3, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-23T23:55Z",
+    "consent_receipt": "5161edfe5650",
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T23:55Z (receipt 5161edfe5650); selected commit 2e38974e74e3: \"upgrades\". LICENSE file at pin 2e38974e74e3 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

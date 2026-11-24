@@ -1,0 +1,23 @@
+{
+ "corpus": "craigmjackson--rustrapper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how craigmjackson/rustrapper implements it: Rust-based multi-platform bootloader (selected work: lua, the project root)",
+ "repos": [
+  {
+   "repo": "rustrapper",
+   "url": "https://github.com/craigmjackson/rustrapper",
+   "sha": "6c3bd23600e23bdfb1f99fd58194bb4dba374552",
+   "licence": "MIT (LICENSE file at pin 6c3bd23600e2, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T23:53Z",
+    "consent_receipt": "57cbec82eb82",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T23:53Z (receipt 57cbec82eb82); selected commit 6c3bd23600e2: \"Added xpcall()\". LICENSE file at pin 6c3bd23600e2 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

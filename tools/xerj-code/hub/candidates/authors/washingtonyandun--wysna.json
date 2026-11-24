@@ -8,15 +8,15 @@
   {
    "repo": "W",
    "url": "https://github.com/WashingtonYandun/W",
-   "sha": "ae9d308d57373bbaf5a4a09654cf3c0c27656ac3",
-   "licence": "Apache-2.0 (LICENSE file at pin ae9d308d5737, GitHub licence API 2026-11-24)",
+   "sha": "1823f2dfebd99896d41a92c99024118e2cb1cd26",
+   "licence": "Apache-2.0 (LICENSE file at pin 1823f2dfebd9, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-17T04:22Z",
     "consent_receipt": "bd1863cc82cc",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T04:22Z (receipt bd1863cc82cc); selected commit ae9d308d5737: \"feat(types): implement closed error unions\". LICENSE file at pin ae9d308d5737 detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head ae9d308d5737 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T04:22Z (receipt bd1863cc82cc); selected commit 1823f2dfebd9: \"feat(types): implement closed error unions\". LICENSE file at pin 1823f2dfebd9 detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head 1823f2dfebd9 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]
