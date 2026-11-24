@@ -1,0 +1,23 @@
+{
+ "corpus": "vitofico--usuals",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, kotlin, obtainium queries this for how vitofico/usuals implements it: Your everyday shopping list, offline first. Android app and encrypted self-hosted sharing",
+ "repos": [
+  {
+   "repo": "usuals",
+   "url": "https://github.com/vitofico/usuals",
+   "sha": "55e040e6519639e509dea3f263d5e5eff778fafd",
+   "licence": "Apache-2.0 (LICENSE file at pin 55e040e65196, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-24T10:44Z",
+    "consent_receipt": "24a4af9b60db",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T10:44Z (receipt 24a4af9b60db); pinned to the default-branch head. LICENSE file at pin 55e040e65196 detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

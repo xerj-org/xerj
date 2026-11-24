@@ -8,15 +8,15 @@
   {
    "repo": "noctalia-nixos-updates",
    "url": "https://github.com/dMopp/noctalia-nixos-updates",
-   "sha": "84cffbc6099fc8d0f22ce07fdd298edc0034a6bf",
-   "licence": "MIT (LICENSE file at pin 84cffbc6099f, GitHub licence API 2026-11-24)",
+   "sha": "c8ca70d5d9adfc28a46d9ccbc4394a5fb42ae74c",
+   "licence": "MIT (LICENSE file at pin c8ca70d5d9ad, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T20:24Z",
     "consent_receipt": "1ca3f3cadad7",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T20:24Z (receipt 1ca3f3cadad7); pinned to the default-branch head. LICENSE file at pin 84cffbc6099f detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T20:24Z (receipt 1ca3f3cadad7); pinned to the default-branch head. LICENSE file at pin c8ca70d5d9ad detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
    }
   }
  ]
