@@ -8,15 +8,15 @@
   {
    "repo": "sinapsai",
    "url": "https://github.com/roedyrustam/sinapsai",
-   "sha": "9e5be52d6b518db79a78897c69b60edd5c493ba5",
-   "licence": "MIT (LICENSE file at pin 9e5be52d6b51, GitHub licence API 2026-11-21)",
+   "sha": "8e3f1e5838fba775e11365b79e396e3fba218630",
+   "licence": "MIT (LICENSE file at pin 8e3f1e5838fb, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T00:09Z",
     "consent_receipt": "efcc8d19c055",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:09Z (receipt efcc8d19c055); pinned to the default-branch head. LICENSE file at pin 9e5be52d6b51 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:09Z (receipt efcc8d19c055); pinned to the default-branch head. LICENSE file at pin 8e3f1e5838fb detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
    }
   }
  ]

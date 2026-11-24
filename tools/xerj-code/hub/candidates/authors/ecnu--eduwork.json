@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on dsh-plugin queries this for how ECNU/EduWork implements it: ECNU/EduWork (JavaScript) (selected work: packages/dsh-desktop-pet, dsh-electron, the project root)",
+ "domain": "an agent working on dsh-plugin queries this for how ECNU/EduWork implements it: ECNU/EduWork (JavaScript) (selected work: packages/dsh-oidc, packages/dsh-knowledge-studio, packages/dsh-mail)",
  "repos": [
   {
    "repo": "EduWork",
    "url": "https://github.com/ECNU/EduWork",
-   "sha": "2199e156c7bf3abc937c22dd72ea10b1952cc458",
-   "licence": "author's permission (LICENSE at pin 2199e156c7bf: NOASSERTION; repository: MulanPSL-2.0)",
+   "sha": "0d133e455d5faba557ce8f1db23df1ffc8e990c9",
+   "licence": "author's permission (LICENSE at pin 0d133e455d5f: MIT; repository: MulanPSL-2.0)",
    "review": {
-    "spdx": "NOASSERTION",
+    "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-12T07:29Z",
-    "consent_receipt": "769ac751738f",
-    "note": "Inclusion consented by the commit author by email at 2026-11-12T07:29Z (receipt 769ac751738f); selected commit 2199e156c7bf: \"feat(desktop-pet): \u53ef\u4ea4\u4e92\u7684\u63d2\u4ef6\u901a\u77e5\u6c14\u6ce1 (#267)\". LICENSE at pin 2199e156c7bf: NOASSERTION (repository: MulanPSL-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ECNU, who has not added it."
+    "at": "2026-10-10T03:32Z",
+    "consent_receipt": "8ccfa039b349",
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T03:32Z (receipt 8ccfa039b349); selected commit 0d133e455d5f: \"fix(i18n): route plugin copy through the DSH locale service\". LICENSE at pin 0d133e455d5f: MIT (repository: MulanPSL-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ECNU, who has not added it."
    },
    "paths": [
     "docs",

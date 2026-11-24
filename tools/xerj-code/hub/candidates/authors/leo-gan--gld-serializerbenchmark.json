@@ -8,15 +8,15 @@
   {
    "repo": "GLD.SerializerBenchmark",
    "url": "https://github.com/leo-gan/GLD.SerializerBenchmark",
-   "sha": "0cac7fcb4c80b1a43960f9f87441c090c16cb51d",
-   "licence": "MIT (LICENSE file at pin 0cac7fcb4c80, GitHub licence API 2026-11-23)",
+   "sha": "884c146f7578a5ee83f44ac96db7247c9bb3d7e8",
+   "licence": "MIT (LICENSE file at pin 884c146f7578, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-05T23:52Z",
     "consent_receipt": "5a5386deb175",
-    "note": "Inclusion consented by the commit author by email at 2026-10-05T23:52Z (receipt 5a5386deb175); selected commit 0cac7fcb4c80: \"Publish the Zig suite run after the reused-buffer encoders (#301)\". LICENSE file at pin 0cac7fcb4c80 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-05T23:52Z (receipt 5a5386deb175); selected commit 884c146f7578: \"Add Dark theme/mode to the Dashboard synced with docs site (#303)\". LICENSE file at pin 884c146f7578 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
    }
   }
  ]
