@@ -8,15 +8,15 @@
   {
    "repo": "tukany",
    "url": "https://github.com/lucasmkrx/tukany",
-   "sha": "3d471811f58d68c0a3978b4a3502413d906f8a92",
-   "licence": "author's permission (LICENSE at pin 3d471811f58d: NOASSERTION; repository: MPL-2.0)",
+   "sha": "0e82b1eace7183da64fcb08d46b299f6610bdc8d",
+   "licence": "author's permission (LICENSE at pin 0e82b1eace71: NOASSERTION; repository: MPL-2.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T21:20Z",
     "consent_receipt": "2e3d0d67eb40",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:20Z (receipt 2e3d0d67eb40); pinned to the default-branch head. LICENSE at pin 3d471811f58d: NOASSERTION (repository: MPL-2.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:20Z (receipt 2e3d0d67eb40); pinned to the default-branch head. LICENSE at pin 0e82b1eace71: NOASSERTION (repository: MPL-2.0); used with the author's permission, with attribution."
    }
   }
  ]

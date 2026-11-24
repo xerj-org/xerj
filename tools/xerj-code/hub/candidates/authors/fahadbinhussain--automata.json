@@ -8,15 +8,15 @@
   {
    "repo": "automata",
    "url": "https://github.com/FahadBinHussain/automata",
-   "sha": "f9df29ae0f349f0a60f96f5d1a25a6039752b408",
-   "licence": "MIT (LICENSE file at pin f9df29ae0f34, GitHub licence API 2026-10-29)",
+   "sha": "ecb34b7f81f73fa35d910211d4907e10dc8b0bca",
+   "licence": "MIT (LICENSE file at pin ecb34b7f81f7, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:34Z",
     "consent_receipt": "0d5d13ed247d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt 0d5d13ed247d); pinned to the default-branch head. LICENSE file at pin f9df29ae0f34 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt 0d5d13ed247d); pinned to the default-branch head. LICENSE file at pin ecb34b7f81f7 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
    }
   }
  ]

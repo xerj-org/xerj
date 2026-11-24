@@ -8,15 +8,15 @@
   {
    "repo": "StabiLink-Desktop",
    "url": "https://github.com/sany86russ/StabiLink-Desktop",
-   "sha": "720e8d961af8f587be0ab0247a1dae2e22e517e2",
-   "licence": "author's permission (LICENSE at pin 720e8d961af8: NOASSERTION; repository: NOASSERTION)",
+   "sha": "795f1fc694582e903f99fece289ad696429e61d8",
+   "licence": "author's permission (LICENSE at pin 795f1fc69458: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T09:03Z",
     "consent_receipt": "b30c523c937b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T09:03Z (receipt b30c523c937b); pinned to the default-branch head. LICENSE at pin 720e8d961af8: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T09:03Z (receipt b30c523c937b); pinned to the default-branch head. LICENSE at pin 795f1fc69458: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

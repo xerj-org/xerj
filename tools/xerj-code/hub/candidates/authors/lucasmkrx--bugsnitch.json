@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on debugging, developer-tools, git queries this for how lucasmkrx/bugsnitch implements it: Local Git forensics for VS Code: trace lines, inspect commits, and explore ancestry (selected work: apps/vscode, packages/git, scripts)",
+ "domain": "an agent working on debugging, developer-tools, git queries this for how lucasmkrx/bugsnitch implements it: Take bugs from report to verified fix with a self-hosted dashboard, GitHub issues, and a local macOS runner (selected work: apps/vscode, packages/git, scripts)",
  "repos": [
   {
    "repo": "bugsnitch",

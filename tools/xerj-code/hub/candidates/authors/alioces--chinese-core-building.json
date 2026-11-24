@@ -1,0 +1,23 @@
+{
+ "corpus": "alioces--chinese-core-building",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how Alioces/chinese-core-building implements it: \u8fd9\u662f\u4e00\u4e2a\u81f4\u529b\u4e8e\u8fd8\u539f\u771f\u5b9e\u4e2d\u56fd\u8857\u666f\u4e0e\u751f\u6d3b\u7ec6\u8282\u7684\u88c5\u9970\u7c7b\u6a21\u7ec4\uff0c\u628a\u4f60\u5728\u56fd\u5185\u5927\u8857\u5c0f\u5df7\u3001\u793e\u533a\u516c\u56ed\u3001\u516c\u5171\u8bbe\u65bd\u4e2d\u80fd\u89c1\u5230\u7684\u4e00\u5207\u7269\u4ef6\uff0c\u7edf\u7edf\u642c\u8fdb\u4e86 Minecraft \u7684\u65b9\u5757\u4e16\u754c\u3002 \u8d70\u5728\u6a21\u7ec4\u642d\u5efa\u7684\u8857\u9053\u4e0a\u3002\u6bcf\u4e00\u5904\u7ec6\u8282\u90fd\u53d6\u6750\u81ea\u771f\u5b9e\u751f\u6d3b\uff0c\u8ba9\u4f60\u7684\u5efa\u7b51\u8fd8\u539f\u51fa\u5634\u539f\u6c41\u539f\u5473\uff0c\u5145\u6ee1\u70df\u706b\u6c14\u7684\u4e2d\u56fd\u672c\u571f\u573a\u666f\u3002 \u6a21\u7ec4\u8fd8\u6db5\u76d6\u4e86\u5927\u91cf (selected work: src/client, src/main)",
+ "repos": [
+  {
+   "repo": "chinese-core-building",
+   "url": "https://github.com/Alioces/chinese-core-building",
+   "sha": "96c70427a0ed5e2e0f3b1d7c31c6f58ebedbb47a",
+   "licence": "CC0-1.0 (LICENSE file at pin 96c70427a0ed, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-24T13:52Z",
+    "consent_receipt": "94cf2fe4dbbf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-24T13:52Z (receipt 94cf2fe4dbbf); selected commit 96c70427a0ed: \"\u8fd9\u6b21\u662f\u771f\u4fee\u5bf9\u4e86\". LICENSE file at pin 96c70427a0ed detected as CC0-1.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}
