@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-gateway, anthropic, kaeso queries this for how logicplanes/kaeso implements it: Kaeso \u2014 open-source self-hosted AI gateway in Rust (MIT). One API for OpenAI, Anthropic, Gemini, and local models with hard budgets, fallbac (selected work: scripts, apps/showcase, packages/ui)",
+ "domain": "an agent working on ai-gateway, anthropic, kaeso queries this for how logicplanes/kaeso implements it: Kaeso - open-source self-hosted AI gateway in Rust (MIT). One API for OpenAI, Anthropic, Gemini, and local models with hard budgets, fallbac (selected work: scripts, apps/showcase, packages/ui)",
  "repos": [
   {
    "repo": "kaeso",

@@ -1,0 +1,23 @@
+{
+ "corpus": "kizuchann--kizuchann",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how Kizuchann/Kizuchann implements it: \ud83c\udf38 Personal profile \u2022 Python \u2022 Automation \u2022 Telegram Bots \u2022 Anime & Open Source",
+ "repos": [
+  {
+   "repo": "Kizuchann",
+   "url": "https://github.com/Kizuchann/Kizuchann",
+   "sha": "0efb478bc2bbfca18999df28daffa4094baf06ff",
+   "licence": "author's permission (LICENSE at pin 0efb478bc2bb: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-24T14:31Z",
+    "consent_receipt": "396e83d587d2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T14:31Z (receipt 396e83d587d2); pinned to the default-branch head. LICENSE at pin 0efb478bc2bb: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}
