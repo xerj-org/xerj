@@ -1,0 +1,23 @@
+{
+ "corpus": "raghav2012code--epl-predictor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on football, machine-learning, poisson queries this for how Raghav2012Code/epl-predictor implements it: Evidence-led Premier League match predictions using ML, Poisson models, Elo ratings, and bookmaker signals (selected work: web, tests, src)",
+ "repos": [
+  {
+   "repo": "epl-predictor",
+   "url": "https://github.com/Raghav2012Code/epl-predictor",
+   "sha": "238c35e44cf0338e6d985ebdfdd7f709a55e2b76",
+   "licence": "MIT (LICENSE file at pin 238c35e44cf0, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-24T05:36Z",
+    "consent_receipt": "346174dfa4d6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-24T05:36Z (receipt 346174dfa4d6); selected commit 238c35e44cf0: \"feat(exports): serve top-3 scorelines everywhere (Closes #51)\". LICENSE file at pin 238c35e44cf0 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

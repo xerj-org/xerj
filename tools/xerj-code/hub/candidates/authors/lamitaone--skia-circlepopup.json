@@ -8,15 +8,15 @@
   {
    "repo": "skia-circlepopup",
    "url": "https://github.com/LaMitaOne/skia-circlepopup",
-   "sha": "9b97dad90ca575d5e0f82a6612e6fa1dcc1f83ae",
-   "licence": "MIT (LICENSE file at pin 9b97dad90ca5, GitHub licence API 2026-11-15)",
+   "sha": "52c89ee32a2760d57aa4c912ca53b64eba78ed31",
+   "licence": "MIT (LICENSE file at pin 52c89ee32a27, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T18:06Z",
     "consent_receipt": "a588d26f9a94",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt a588d26f9a94); pinned to the default-branch head. LICENSE file at pin 9b97dad90ca5 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt a588d26f9a94); pinned to the default-branch head. LICENSE file at pin 52c89ee32a27 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
    }
   }
  ]

@@ -8,15 +8,15 @@
   {
    "repo": "routeshelf-java",
    "url": "https://github.com/qingzhuernest/routeshelf-java",
-   "sha": "a41d398485af8712d722e235ae202695319e62a2",
-   "licence": "GPL-3.0 (LICENSE file at pin a41d398485af, GitHub licence API 2026-11-15)",
+   "sha": "c1cb09b6723f67dc653bfa9df902402a5b3d7690",
+   "licence": "GPL-3.0 (LICENSE file at pin c1cb09b6723f, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-10T14:50Z",
     "consent_receipt": "585285b3dbb1",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:50Z (receipt 585285b3dbb1); selected commit a41d398485af: \"Build and verify the native GDirect Lite macOS app\". LICENSE file at pin a41d398485af detected as GPL-3.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head a41d398485af (contains the selected commit): the LICENSE at the selected commit was Apache-2.0."
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:50Z (receipt 585285b3dbb1); selected commit c1cb09b6723f: \"Build and verify the native GDirect Lite macOS app\". LICENSE file at pin c1cb09b6723f detected as GPL-3.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head c1cb09b6723f (contains the selected commit): the LICENSE at the selected commit was Apache-2.0."
    }
   }
  ]

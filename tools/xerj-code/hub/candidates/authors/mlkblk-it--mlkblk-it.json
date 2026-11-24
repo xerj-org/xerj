@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on cpu-only, cybersecurity, homelab queries this for how MlkBlk-IT/MlkBlk-IT implements it: AI builder in Montr\u00e9al: Osiris, IcyLoom, IcyCache, Hermes. CPU-first MCP servers and local LLMs, security and homelab. Documented honestly",
+ "domain": "an agent working on cpu-only, cybersecurity, homelab queries this for how MlkBlk-IT/MlkBlk-IT implements it: AI Infrastructure & Agent-Platform builder - MCP servers, context engineering, caching, AI security. CPU-only, free-tier, benchmarked. Montr",
  "repos": [
   {
    "repo": "MlkBlk-IT",
    "url": "https://github.com/MlkBlk-IT/MlkBlk-IT",
-   "sha": "7cc3f45f34cdffd31416715138961fcb56672e0a",
-   "licence": "author's permission (LICENSE at pin 7cc3f45f34cd: NOASSERTION; repository: NOASSERTION)",
+   "sha": "029742f3242ff7ee993c7a2141b659058c70a104",
+   "licence": "author's permission (LICENSE at pin 029742f3242f: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T04:53Z",
     "consent_receipt": "83a65227ddf5",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:53Z (receipt 83a65227ddf5); pinned to the default-branch head. LICENSE at pin 7cc3f45f34cd: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:53Z (receipt 83a65227ddf5); pinned to the default-branch head. LICENSE at pin 029742f3242f: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

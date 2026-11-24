@@ -1,9 +1,9 @@
 {
- "corpus": "jianzhnie--oh-my-agent",
+ "corpus": "jianzhnie--agent-rsi-infra",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on Shell queries this for how jianzhnie/oh-my-agent implements it: This a template repository (selected work: agent)",
+ "shelf": "OPS",
+ "domain": "an agent working on Shell queries this for how jianzhnie/agent-rsi-infra implements it: Engineering infrastructure for recursive self-improvement of coding agents: shared standards, skills, tool adapters, and validation workflow (selected work: agent)",
  "repos": [
   {
    "repo": "oh-my-agent",

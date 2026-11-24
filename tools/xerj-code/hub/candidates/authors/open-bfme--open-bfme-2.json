@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how Open-BFME/Open-BFME-2 implements it: Byte-exact source recreation of BFME 2's game.dat \u2014 sister project of Open-BFME-1 (selected work: tools, reverse)",
+ "domain": "an agent working on C++ queries this for how Open-BFME/Open-BFME-2 implements it: Moved to Open-BFME/BFME2-Rebuild \u2014 Archived reference repo for the original 100% byte-matching of BFME 2's game.dat (selected work: tools, reverse)",
  "repos": [
   {
    "repo": "Open-BFME-2",

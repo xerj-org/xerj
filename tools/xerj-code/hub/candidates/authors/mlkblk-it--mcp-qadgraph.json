@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on dashboard, local-first, mcp queries this for how MlkBlk-IT/Mcp-QadGraph implements it: Qdrant control plane - 3D similarity dashboard plus a read-only MCP server (9 tools). Local only, no paid API",
+ "domain": "an agent working on dashboard, local-first, mcp queries this for how MlkBlk-IT/Mcp-QadGraph implements it: Qdrant control plane: 3D similarity dashboard + read-only MCP server (9 tools). See the vector memory, don't just query it. Python stdlib se",
  "repos": [
   {
    "repo": "Mcp-QadGraph",
    "url": "https://github.com/MlkBlk-IT/Mcp-QadGraph",
-   "sha": "57e9dd62d144c48693e340ca150056769553f773",
-   "licence": "MIT (LICENSE file at pin 57e9dd62d144, GitHub licence API 2026-11-03)",
+   "sha": "169da42cf4eb67e28701308fa48016f8b380f186",
+   "licence": "MIT (LICENSE file at pin 169da42cf4eb, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T04:52Z",
     "consent_receipt": "2de24d778516",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:52Z (receipt 2de24d778516); pinned to the default-branch head. LICENSE file at pin 57e9dd62d144 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:52Z (receipt 2de24d778516); pinned to the default-branch head. LICENSE file at pin 169da42cf4eb detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
    }
   }
  ]

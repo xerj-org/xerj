@@ -1,0 +1,23 @@
+{
+ "corpus": "saifjafri212213--student-tracking-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Saifjafri212213/Student_tracking_system implements it: Saifjafri212213/Student_tracking_system (JavaScript)",
+ "repos": [
+  {
+   "repo": "Student_tracking_system",
+   "url": "https://github.com/Saifjafri212213/Student_tracking_system",
+   "sha": "ea238be3a858a636764ffb7c3aea095079aa5ab4",
+   "licence": "MIT (LICENSE file at pin ea238be3a858, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-24T04:17Z",
+    "consent_receipt": "75bfd962cdc2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T04:17Z (receipt 75bfd962cdc2); pinned to the default-branch head. LICENSE file at pin ea238be3a858 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

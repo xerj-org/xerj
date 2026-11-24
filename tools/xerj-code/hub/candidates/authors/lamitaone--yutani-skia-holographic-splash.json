@@ -8,15 +8,15 @@
   {
    "repo": "Yutani-Skia-Holographic-Splash",
    "url": "https://github.com/LaMitaOne/Yutani-Skia-Holographic-Splash",
-   "sha": "64e4b482b62b55bb7a7da8c17e05419229038620",
-   "licence": "MIT (LICENSE file at pin 64e4b482b62b, GitHub licence API 2026-11-15)",
+   "sha": "3cebc5c9f1de80752d02490c5a2e860db57cb855",
+   "licence": "MIT (LICENSE file at pin 3cebc5c9f1de, GitHub licence API 2026-11-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T18:06Z",
     "consent_receipt": "50235517295e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 50235517295e); pinned to the default-branch head. LICENSE file at pin 64e4b482b62b detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 50235517295e); pinned to the default-branch head. LICENSE file at pin 3cebc5c9f1de detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
    }
   }
  ]
