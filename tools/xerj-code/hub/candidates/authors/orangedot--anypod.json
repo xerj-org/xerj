@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on audio, audio-analysis, audio-player queries this for how orangedot/anypod implements it: Your podcasts. No algorithms. No ads. No tracking. Sovereign cross-device sync (selected work: functions, public, workers)",
+ "domain": "an agent working on audio, audio-analysis, audio-player queries this for how orangedot/anypod implements it: anypod.org \u2014 AGPLv3 open-source, local-first PWA podcast player with zero tracking and 90-day auto-expiring sync (selected work: functions, public, workers)",
  "repos": [
   {
    "repo": "anypod",

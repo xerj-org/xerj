@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on acp, agents, zcode queries this for how william0wang/zcode-acp implements it: ACP adapter for ZCode \u2014 drive GLM-5.3 and GLM-5.3-Flash from IDEA, VS Code, Zed or any ACP client; pair with zcode-acp-remote for phone/web  (selected work: tests, src/handlers, src)",
+ "domain": "an agent working on acp, agents, zcode queries this for how william0wang/zcode-acp implements it: ACP adapter for ZCode \u2014 drive GLM-5.4 and GLM-5.3-Flash from IDEA, VS Code, Zed or any ACP client; pair with zcode-acp-remote for phone/web  (selected work: tests, src/handlers, src)",
  "repos": [
   {
    "repo": "zcode-acp",
