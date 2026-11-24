@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on Shell queries this for how jianzhnie/agent-rsi-infra implements it: Engineering infrastructure for recursive self-improvement of coding agents: shared standards, skills, tool adapters, and validation workflow (selected work: agent)",
+ "domain": "an agent working on Python queries this for how jianzhnie/agent-rsi-infra implements it: Engineering infrastructure for recursive self-improvement of coding agents: shared standards, skills, tool adapters, and validation workflow (selected work: agent)",
  "repos": [
   {
    "repo": "oh-my-agent",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, desktop-app, meeting-assistant queries this for how naxhq/NexQ implements it: Open-source, local-first AI meeting assistant & real-time interview copilot for Windows and macOS \u2014 live transcription, instant AI answers,  (selected work: src-tauri, src/settings, src/lib)",
+ "domain": "an agent working on ai, desktop-app, meeting-assistant queries this for how naxhq/NexQ implements it: Open-source AI meeting assistant for Windows and macOS (beta). Transcribes both sides of a call live and answers from your own notes, with l (selected work: src-tauri, src/settings, src/lib)",
  "repos": [
   {
    "repo": "NexQ",

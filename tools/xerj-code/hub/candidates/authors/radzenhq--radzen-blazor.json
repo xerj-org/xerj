@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on blazor, asp-net-core, blazor-components queries this for how radzenhq/radzen-blazor implements it: Radzen Blazor is the most sophisticated free UI component library for Blazor, featuring 155+ native components including DataGrid, Scheduler (selected work: Radzen.Blazor.Tests, Radzen.Blazor, RadzenBlazorDemos)",
+ "domain": "an agent working on blazor, asp-net-core, blazor-components queries this for how radzenhq/radzen-blazor implements it: Radzen Blazor is the most sophisticated free UI component library for Blazor: 155+ native components including DataGrid, Scheduler, Gantt an (selected work: Radzen.Blazor.Tests, Radzen.Blazor, RadzenBlazorDemos)",
  "repos": [
   {
    "repo": "radzen-blazor",

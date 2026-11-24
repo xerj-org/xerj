@@ -2,8 +2,8 @@
  "corpus": "codesphere-u--reeltern",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how codesphere-u/reeltern implements it: Local desktop video workflow toolkit connecting eleven open-source media tools. Developer preview",
+ "shelf": "AI",
+ "domain": "an agent working on desktop-app, ffmpeg, mcp queries this for how codesphere-u/reeltern implements it: Local desktop video workflow toolkit connecting eleven open-source media tools. Developer preview",
  "repos": [
   {
    "repo": "reeltern",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how codesphere-u/growthpilot implements it: Autonomous Zero-to-One Marketing, Technical SEO, GEO/AEO (llms.txt), CRO & Launch Engine (CLI + MCP Server + Agent Skill + GitHub Action)",
+ "domain": "an agent working on aeo, agent-skill, cro queries this for how codesphere-u/growthpilot implements it: Autonomous Zero-to-One Marketing, Technical SEO, GEO/AEO (llms.txt), CRO & Launch Engine (CLI + MCP Server + Agent Skill + GitHub Action)",
  "repos": [
   {
    "repo": "growthpilot",

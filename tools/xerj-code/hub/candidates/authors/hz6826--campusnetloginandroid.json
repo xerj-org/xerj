@@ -1,0 +1,23 @@
+{
+ "corpus": "hz6826--campusnetloginandroid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how Hz6826/CampusNetLoginAndroid implements it: An Android client for campus network authentication, built with Kotlin and Miuix",
+ "repos": [
+  {
+   "repo": "CampusNetLoginAndroid",
+   "url": "https://github.com/Hz6826/CampusNetLoginAndroid",
+   "sha": "9e6e8febc0fd49496a1e0489c85110744917b954",
+   "licence": "GPL-3.0 (LICENSE file at pin 9e6e8febc0fd, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-24T09:14Z",
+    "consent_receipt": "39a91c47f840",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T09:14Z (receipt 39a91c47f840); pinned to the default-branch head. LICENSE file at pin 9e6e8febc0fd detected as GPL-3.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}
