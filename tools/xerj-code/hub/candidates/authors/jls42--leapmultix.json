@@ -1,0 +1,23 @@
+{
+ "corpus": "jls42--leapmultix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how jls42/leapmultix implements it: \ud83c\udfae LeapMultix transforme l'apprentissage des tables de multiplication en aventure interactive ! (selected work: scripts, tests-esm)",
+ "repos": [
+  {
+   "repo": "leapmultix",
+   "url": "https://github.com/jls42/leapmultix",
+   "sha": "432c8d4168e938b417b03a912b443216ddfb3c02",
+   "licence": "AGPL-3.0 (LICENSE file at pin 432c8d4168e9, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-23T23:50Z",
+    "consent_receipt": "6d08eb68de93",
+    "note": "Inclusion consented by the commit author by email at 2026-11-23T23:50Z (receipt 6d08eb68de93); selected commit 432c8d4168e9: \"fix(voice): registre des caract\u00e8res strict, essais incertains inscrit\u2026\". LICENSE file at pin 432c8d4168e9 detected as AGPL-3.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "ozkary--data-engineering-mta-turnstile",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on data-lake, docker, analysis queries this for how ozkary/data-engineering-mta-turnstile implements it: Data Engineering - Metropolitan Transportation Authority (MTA) Subway Data Analysis",
+ "repos": [
+  {
+   "repo": "data-engineering-mta-turnstile",
+   "url": "https://github.com/ozkary/data-engineering-mta-turnstile",
+   "sha": "adf372490c2d8c9e5eae0dbd30831d78f811be6b",
+   "licence": "Apache-2.0 (LICENSE file at pin adf372490c2d, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-23T23:37Z",
+    "consent_receipt": "b6b128b6bc58",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-23T23:37Z (receipt b6b128b6bc58); pinned to the default-branch head. LICENSE file at pin adf372490c2d detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}
