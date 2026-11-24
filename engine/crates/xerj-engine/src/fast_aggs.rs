@@ -7244,6 +7244,31 @@ mod range_kw_tests {
         assert!(resolve_pred(&m, &p, &[], &MappedFields::default()).is_none());
     }
 
+    /// #3466: `query_node_to_agg_filter` hands a numeric `term` over as the
+    /// point range `[N, N]`. On a numeric column that is exactly the rows
+    /// holding `N`; a column that is not numeric must bail, not compare
+    /// strings.
+    #[test]
+    fn point_range_serves_numeric_columns_and_bails_on_the_rest() {
+        use xerj_storage::doc_values::NumericColumn;
+        let pred = compile_top_pred(&json!({ "range": { "g": { "gte": 1, "lte": 1 } } }))
+            .expect("a point range compiles");
+        let mut numeric = std::collections::BTreeMap::new();
+        let n =
+            NumericColumn::from_iter((0..8u32).map(|i| Some(f64::from(i % 4).to_bits() as i64)));
+        numeric.insert("g".to_string(), Column::Numeric(n));
+        assert_eq!(count(&pred, &numeric, 8), 2);
+
+        let mut keyword = std::collections::BTreeMap::new();
+        let k = KeywordColumn::from_iter((0..8u32).map(|i| Some((i % 4).to_string())))
+            .expect("build column");
+        keyword.insert("g".to_string(), Column::Keyword(k));
+        assert!(
+            resolve_pred(&keyword, &pred, &[], &MappedFields::default()).is_none(),
+            "a keyword column must bail"
+        );
+    }
+
     /// Regression: the *predicate* resolver must apply the same `.keyword`
     /// fallback as the agg targets do.
     ///
