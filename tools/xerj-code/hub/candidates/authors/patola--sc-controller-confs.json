@@ -1,0 +1,23 @@
+{
+ "corpus": "patola--sc-controller-confs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how Patola/sc-controller-confs implements it: My input configurations for sc-controller ( https://github.com/C0rn3j/sc-controller ) (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "sc-controller-confs",
+   "url": "https://github.com/Patola/sc-controller-confs",
+   "sha": "00283ed329eb37131088838cc91cbedcd8c49e28",
+   "licence": "MIT (LICENSE file at pin 00283ed329eb, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T19:02Z",
+    "consent_receipt": "a7276dee8f40",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T19:02Z (receipt a7276dee8f40); selected commit 00283ed329eb: \"Added new Steam Controler 2 configurations\". LICENSE file at pin 00283ed329eb detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

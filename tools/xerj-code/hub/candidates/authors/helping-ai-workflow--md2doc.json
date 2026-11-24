@@ -1,0 +1,27 @@
+{
+ "corpus": "helping-ai-workflow--md2doc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how helping-ai-workflow/md2doc implements it: helping-ai-workflow/md2doc (JavaScript) (selected work: lib/editor, test)",
+ "repos": [
+  {
+   "repo": "md2doc",
+   "url": "https://github.com/helping-ai-workflow/md2doc",
+   "sha": "e478eb5c3d33c59f18ade8024ebe6f2524e9f367",
+   "licence": "MIT (LICENSE file at pin e478eb5c3d33, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:50Z",
+    "consent_receipt": "2a47f48620e8",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:50Z (receipt 2a47f48620e8); selected commit e478eb5c3d33: \"fix: raw box typing is unsaved work, foreign inline styles are not ed\u2026\". LICENSE file at pin e478eb5c3d33 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @helping-ai-workflow, who has not added it."
+   },
+   "paths": [
+    "lib/editor",
+    "test"
+   ]
+  }
+ ]
+}

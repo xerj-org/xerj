@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Go queries this for how deepdemos/ds-demos-showcase implements it: \u5c55\u793adeepseek\u53ca\u5176\u4ed6\u6a21\u578b\u751f\u6210demo\u7684\u7f51\u7ad9 (selected work: backend, frontend)",
+ "domain": "an agent working on TypeScript queries this for how deepdemos/ds-demos-showcase implements it: \u5c55\u793adeepseek\u53ca\u5176\u4ed6\u6a21\u578b\u751f\u6210demo\u7684\u7f51\u7ad9 (selected work: backend, frontend)",
  "repos": [
   {
    "repo": "ds-demos-showcase",

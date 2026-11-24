@@ -1,0 +1,23 @@
+{
+ "corpus": "mabels--ovn-fabric",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how mabels/ovn-fabric implements it: Declarative OVN/OVS topology generator \u2014 one config, one self-installing shell script per host (selected work: src, deployer, protocol)",
+ "repos": [
+  {
+   "repo": "ovn-fabric",
+   "url": "https://github.com/mabels/ovn-fabric",
+   "sha": "0abcb40efb9448c1769b3ea35f7d649716e2fa92",
+   "licence": "Apache-2.0 (LICENSE file at pin 0abcb40efb94, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-14T05:39Z",
+    "consent_receipt": "2d09c7e5d888",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T05:39Z (receipt 2d09c7e5d888); selected commit 0abcb40efb94: \"ipfix: per-bridge flow export \u2014 host monitoring.ipfix + per-leg `flow\u2026\". LICENSE file at pin 0abcb40efb94 detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "lorenzoproli--axial-turbine-stage-2d-cfd-pyfluent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how lorenzoproli/axial-turbine-stage-2d-cfd-pyfluent implements it: Transient 2D axial turbine CFD with PyFluent: systematic meshes, native restart verification and cycle-resolved numerical sensitivity (selected work: workflow, tests, the project root)",
+ "repos": [
+  {
+   "repo": "axial-turbine-stage-2d-cfd-pyfluent",
+   "url": "https://github.com/lorenzoproli/axial-turbine-stage-2d-cfd-pyfluent",
+   "sha": "79d9a13ee3aeaf7dc676982831e97ac523b53063",
+   "licence": "author's permission (LICENSE at pin 79d9a13ee3ae: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T11:58Z",
+    "consent_receipt": "956cbb5cda24",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T11:58Z (receipt 956cbb5cda24); selected commit 79d9a13ee3ae: \"Make workflow reusable with verified native release assets\". LICENSE at pin 79d9a13ee3ae: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

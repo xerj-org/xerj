@@ -1,0 +1,23 @@
+{
+ "corpus": "xxrelaxxx--recast",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C++ queries this for how xxRelaXxx/ReCast implements it: The application that permits you to use your mobile device as a remotely controlled web-cam or a mic (selected work: apps/desktop, apps/launcher)",
+ "repos": [
+  {
+   "repo": "ReWebCam",
+   "url": "https://github.com/xxRelaXxx/ReWebCam",
+   "sha": "4372bf535fb30d5641c3b8f033084596253a29c1",
+   "licence": "author's permission (LICENSE at pin 4372bf535fb3: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T23:14Z",
+    "consent_receipt": "27c6887276a2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T23:14Z (receipt 27c6887276a2); selected commit 4372bf535fb3: \"Apply rustfmt, fix the clippy lints and use the preinstalled Android \u2026\". LICENSE at pin 4372bf535fb3: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

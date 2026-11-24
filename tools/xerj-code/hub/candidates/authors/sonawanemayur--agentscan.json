@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-security, llm-security, mcp queries this for how SonawaneMayur/agentscan implements it: SonawaneMayur/agentscan (Python) (selected work: research)",
+ "domain": "an agent working on ai-security, llm-security, mcp queries this for how SonawaneMayur/agentscan implements it: SonawaneMayur/agentscan (Jupyter Notebook) (selected work: research)",
  "repos": [
   {
    "repo": "agentscan",

@@ -1,0 +1,35 @@
+{
+ "corpus": "kymorphia--gid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on D queries this for how Kymorphia/gid implements it: GObject Introspection D Package Repository (selected work: packages/glib2, packages/gtk3, packages/pango1)",
+ "repos": [
+  {
+   "repo": "gid",
+   "url": "https://github.com/Kymorphia/gid",
+   "sha": "c67f34a7c85585db5971c27de65e598e69b1a5ca",
+   "licence": "MIT (LICENSE file at pin c67f34a7c855, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T06:08Z",
+    "consent_receipt": "2650c7c7a901",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T06:08Z (receipt 2650c7c7a901); selected commit c67f34a7c855: \"Add C bitfield support using std.bitmanip.bitfields\". LICENSE file at pin c67f34a7c855 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Kymorphia, who has not added it."
+   },
+   "paths": [
+    "defs",
+    "packages/gdk3/gdk/c",
+    "packages/glib2/gid",
+    "packages/glib2/glib",
+    "packages/glib2/gobject/c",
+    "packages/gmime3/gmime/c",
+    "packages/gtk3/gtk/c",
+    "packages/pango1/pango/c",
+    "packages/vte2/vte/c",
+    "packages/vte3/vte/c"
+   ]
+  }
+ ]
+}

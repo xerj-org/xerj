@@ -1,0 +1,30 @@
+{
+ "corpus": "dzianisv--opencode-mobile",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agent, ai-coding-assistant queries this for how dzianisv/opencode-mobile implements it: OpenCode Mobile \u2014 open-source Android client for the OpenCode AI coding agent. Run AI coding sessions from your phone against your self-host (selected work: src/lib, src/stores, plugins)",
+ "repos": [
+  {
+   "repo": "opencode-mobile",
+   "url": "https://github.com/dzianisv/opencode-mobile",
+   "sha": "c980c9e8db81748e8a0cd13bef62be7cf8bb9ebe",
+   "licence": "MIT (LICENSE file at pin c980c9e8db81, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T23:49Z",
+    "consent_receipt": "f9f9eab448d1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T23:49Z (receipt f9f9eab448d1); selected commit c980c9e8db81: \"fix: handle PermissionV2 events and keyboard avoidance on connection \u2026\". LICENSE file at pin c980c9e8db81 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @dzianisv, who has not added it."
+   },
+   "paths": [
+    "android/app/src/main/java/cc/agentlabs/opencode",
+    "app/connection",
+    "plugins",
+    "src/lib",
+    "src/stores"
+   ]
+  }
+ ]
+}

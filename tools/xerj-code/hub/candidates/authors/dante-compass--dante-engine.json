@@ -1,0 +1,42 @@
+{
+ "corpus": "dante-compass--dante-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on dante-cloud, microservices, nacos queries this for how dante-compass/dante-engine implements it: \ud83d\udc09 Dante Cloud \u662f\u652f\u6301\u963b\u585e\u5f0f\u4e0e\u54cd\u5e94\u5f0f\u670d\u52a1\u5e76\u884c\u7684\u5fae\u670d\u52a1\u4e91\u539f\u751f\u57fa\u5ea7\u548c\u9762\u5411AI Agent\u5f00\u53d1\u7684\u667a\u80fd\u57fa\u5ea7\uff0c\u57fa\u4e8e\u9886\u57df\u9a71\u52a8\u6a21\u578b\uff08DDD\uff09\u8bbe\u8ba1\uff0c\u4ee5\u9ad8\u8d28\u91cf\u4ee3\u7801\u4e0e\u4f4e\u5b89\u5168\u6f0f\u6d1e\u4e3a\u6838\u5fc3\uff0c\u9ad8\u5ea6\u6a21\u5757\u5316\u3001\u7ec4\u4ef6\u5316\uff0c\u8986\u76d6IoT\u8bbe\u5907\u8ba4\u8bc1\u3001\u56fd\u5bb6\u7b49\u4fdd\u4e09\u7ea7\u3001\u63a5\u53e3\u56fd\u5bc6\u6570\u5b57\u4fe1\u5c01\u52a0\u5bc6\u7b49\u591a\u5c42\u6b21\u5b89\u5168\u4f53\u7cfb\uff0c\u5e76\u63d0\u4f9b\u591a\u79df\u6237 (selected work: dante-oauth2, dante-logic, dante-framework)",
+ "repos": [
+  {
+   "repo": "dante-engine",
+   "url": "https://github.com/dante-compass/dante-engine",
+   "sha": "3f684a662f91c90cc9bea5d9f606e4dd353411f8",
+   "licence": "Apache-2.0 (LICENSE file at pin 3f684a662f91, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-16T09:07Z",
+    "consent_receipt": "9cea684b4f8c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T09:07Z (receipt 9cea684b4f8c); selected commit 3f684a662f91: \"[\u65b0\u589e] \u53c2\u7167 MCP \u89c4\u8303(2026-07-28)\uff0c\u65b0\u589e OAuth2 Resource \u548c \u8d44\u6e90\u670d\u52a1\u5668 scopes_supporte\u2026\". LICENSE file at pin 3f684a662f91 detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @dante-compass, who has not added it."
+   },
+   "paths": [
+    "dante-framework/dante-messaging/src/main/java/cn/herodotus/dante/messaging/event",
+    "dante-framework/dante-messaging/src/main/java/cn/herodotus/dante/messaging/strategy",
+    "dante-framework/dante-security/src/main/java/cn/herodotus/dante/security/definition",
+    "dante-logic/dante-logic-upms/src/main/java/cn/herodotus/dante/logic/upms/config",
+    "dante-logic/dante-logic-upms/src/main/java/cn/herodotus/dante/logic/upms/entity/oauth2",
+    "dante-logic/dante-logic-upms/src/main/java/cn/herodotus/dante/logic/upms/handler",
+    "dante-logic/dante-logic-upms/src/main/java/cn/herodotus/dante/logic/upms/repository/oauth2",
+    "dante-logic/dante-logic-upms/src/main/java/cn/herodotus/dante/logic/upms/service/oauth2",
+    "dante-oauth2/dante-authorization-autoconfigure/src/main/java/cn/herodotus/dante/oauth2/authorization/autoconfigure",
+    "dante-oauth2/dante-oauth2-authorization/src/main/java/cn/herodotus/dante/oauth2/authorization/attribute",
+    "dante-oauth2/dante-oauth2-authorization/src/main/java/cn/herodotus/dante/oauth2/authorization/config",
+    "dante-oauth2/dante-oauth2-authorization/src/main/java/cn/herodotus/dante/oauth2/authorization/customizer",
+    "dante-oauth2/dante-oauth2-authorization/src/main/java/cn/herodotus/dante/oauth2/authorization/servlet",
+    "dante-oauth2/dante-oauth2-commons/src/main/java/cn/herodotus/dante/oauth2/commons/constant",
+    "dante-rest/dante-rest-upms/src/main/java/cn/herodotus/dante/rest/upms/config",
+    "dante-rest/dante-rest-upms/src/main/java/cn/herodotus/dante/rest/upms/controller/oauth2",
+    "dante-starter/web-spring-boot-starter/src/main/java/cn/herodotus/dante/web/autoconfigure"
+   ]
+  }
+ ]
+}

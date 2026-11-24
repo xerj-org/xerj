@@ -1,0 +1,23 @@
+{
+ "corpus": "fifis--pnd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on finite-differences, numerical-differentiation, parallel-algorithm queries this for how Fifis/pnd implements it: R package for accurate and quick numerical derivatives of arbitrary order (selected work: man, vignettes, R)",
+ "repos": [
+  {
+   "repo": "pnd",
+   "url": "https://github.com/Fifis/pnd",
+   "sha": "7f5dfbec415af789d8ac2b2812bcd13b61dd510c",
+   "licence": "EUPL-1.2 (LICENSE file at pin 7f5dfbec415a, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "EUPL-1.2",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-04T06:14Z",
+    "consent_receipt": "3d87645598ae",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T06:14Z (receipt 3d87645598ae); selected commit 7f5dfbec415a: \"Fixed typos and small mistakes in the entire documentaion\". LICENSE file at pin 7f5dfbec415a detected as EUPL-1.2 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

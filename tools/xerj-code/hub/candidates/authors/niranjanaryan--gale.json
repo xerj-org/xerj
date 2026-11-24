@@ -1,0 +1,28 @@
+{
+ "corpus": "niranjanaryan--gale",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on bandit, elixir, http3 queries this for how niranjanaryan/gale implements it: Phoenix adapter for HTTP/1.1, HTTP/2, and HTTP/3 (QUIC) (selected work: test, lib/gale)",
+ "repos": [
+  {
+   "repo": "gale",
+   "url": "https://github.com/niranjanaryan/gale",
+   "sha": "6006f4279c78b2f9c2ce0bdbfb9cf74c43489803",
+   "licence": "MIT (LICENSE file at pin 6006f4279c78, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-24T23:32Z",
+    "consent_receipt": "1a6b12e4db58",
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T23:32Z (receipt 1a6b12e4db58); selected commit 6006f4279c78: \"Fix dual-listener HTTP/3 configuration and Alt-Svc advertisement\". LICENSE file at pin 6006f4279c78 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @niranjanaryan, who has not added it."
+   },
+   "paths": [
+    "guides",
+    "lib/gale",
+    "test"
+   ]
+  }
+ ]
+}

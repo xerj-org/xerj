@@ -1,0 +1,26 @@
+{
+ "corpus": "pdf-rs--font",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how pdf-rs/font implements it: pdf-rs/font (Rust) (selected work: src/opentype, src)",
+ "repos": [
+  {
+   "repo": "font",
+   "url": "https://github.com/pdf-rs/font",
+   "sha": "bc252404c28392feb53da39ae890ffeddd83f469",
+   "licence": "MIT (LICENSE file at pin bc252404c283, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T00:54Z",
+    "consent_receipt": "229c46bda848",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T00:54Z (receipt 229c46bda848); selected commit bc252404c283: \"re-audit fixes: keep marks in ligatures, per-lookup kerning, zero pai\u2026\". LICENSE file at pin bc252404c283 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @pdf-rs, who has not added it."
+   },
+   "paths": [
+    "src"
+   ]
+  }
+ ]
+}

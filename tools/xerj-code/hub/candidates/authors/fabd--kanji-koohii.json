@@ -1,0 +1,23 @@
+{
+ "corpus": "fabd--kanji-koohii",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on kanji, spaced-repetition, web-application queries this for how fabd/kanji-koohii implements it: A web application to help Japanese language learners remember the kanji (selected work: src/vite)",
+ "repos": [
+  {
+   "repo": "kanji-koohii",
+   "url": "https://github.com/fabd/kanji-koohii",
+   "sha": "d1ac1f1d4bfa6a2e447365c79fb50d18ecb4ffaf",
+   "licence": "AGPL-3.0 (LICENSE file at pin d1ac1f1d4bfa, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-27T20:28Z",
+    "consent_receipt": "9df1de1a6b99",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T20:28Z (receipt 9df1de1a6b99); selected commit d1ac1f1d4bfa: \"Copy to clipboard when click/tap the kanji in the Study pages\". LICENSE file at pin d1ac1f1d4bfa detected as AGPL-3.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

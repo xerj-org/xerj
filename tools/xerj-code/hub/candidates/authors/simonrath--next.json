@@ -1,9 +1,9 @@
 {
- "corpus": "simonrath--questtargets",
+ "corpus": "simonrath--next",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Lua queries this for how simonrath/questtargets implements it: simonrath/questtargets (Lua) (selected work: QuestTargets, tests)",
+ "domain": "an agent working on Lua queries this for how simonrath/next implements it: simonrath/next (Lua) (selected work: QuestTargets, tests)",
  "repos": [
   {
    "repo": "questtargets",

@@ -1,0 +1,23 @@
+{
+ "corpus": "lordkex--makethemd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Lordkex/makethemd implements it: A conversion tool that transforms files into AI-ready Markdown documents for use as source material (selected work: the project root, tests, paddleocr_tools)",
+ "repos": [
+  {
+   "repo": "makethemd",
+   "url": "https://github.com/Lordkex/makethemd",
+   "sha": "071fd0e2323ed381c52458267765cce92e7333b9",
+   "licence": "MIT (LICENSE file at pin 071fd0e2323e, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T06:06Z",
+    "consent_receipt": "bc5921daf881",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T06:06Z (receipt bc5921daf881); selected commit 071fd0e2323e: \"bilingual update_2\". LICENSE file at pin 071fd0e2323e detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

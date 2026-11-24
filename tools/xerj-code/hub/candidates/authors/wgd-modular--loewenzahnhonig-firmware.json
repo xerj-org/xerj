@@ -1,0 +1,32 @@
+{
+ "corpus": "wgd-modular--loewenzahnhonig-firmware",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on daisy, eurorack queries this for how wgd-modular/loewenzahnhonig-firmware implements it: A repository to collect different firmwares for the daisy-based l\u00f6wenzahnhonig module (selected work: src/rings, src/rings-fm, src/rings-string-reverb)",
+ "repos": [
+  {
+   "repo": "loewenzahnhonig-firmware",
+   "url": "https://github.com/wgd-modular/loewenzahnhonig-firmware",
+   "sha": "169efef0c87f3e8ff321f10908691dbd3807f7c3",
+   "licence": "MIT (LICENSE file at pin 169efef0c87f, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:07Z",
+    "consent_receipt": "98566be79a47",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T21:07Z (receipt 98566be79a47); selected commit 169efef0c87f: \"feat: add Rings resonator firmware (#28)\". LICENSE file at pin 169efef0c87f detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @wgd-modular, who has not added it."
+   },
+   "paths": [
+    "src/rings",
+    "src/rings-fm",
+    "src/rings-string",
+    "src/rings-string-reverb",
+    "src/rings-string-synth",
+    "src/rings-sympathetic",
+    "src/rings-sympathetic-quantized"
+   ]
+  }
+ ]
+}

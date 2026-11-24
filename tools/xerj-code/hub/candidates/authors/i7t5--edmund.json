@@ -1,0 +1,23 @@
+{
+ "corpus": "i7t5--edmund",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on coteditor, editor, latex queries this for how I7T5/Edmund implements it: A native, lightweight macOS markdown editor with inline live preview (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "Edmund",
+   "url": "https://github.com/I7T5/Edmund",
+   "sha": "8d6a5fc95c75407345d8f7b28da585c21af7bdeb",
+   "licence": "Apache-2.0 (LICENSE file at pin 8d6a5fc95c75, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T21:50Z",
+    "consent_receipt": "67c012a3febb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T21:50Z (receipt 67c012a3febb); selected commit 8d6a5fc95c75: \"feat(inspector): right-hand inspector with outline and info\". LICENSE file at pin 8d6a5fc95c75 detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

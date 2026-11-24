@@ -1,0 +1,23 @@
+{
+ "corpus": "creeper-of-fire--rolebot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Creeper-of-Fire/RoleBot implements it: Creeper-of-Fire/RoleBot (Python) (selected work: role_system)",
+ "repos": [
+  {
+   "repo": "RoleBot",
+   "url": "https://github.com/Creeper-of-Fire/RoleBot",
+   "sha": "515199cb320870a1140e5ee3b204248e239b284a",
+   "licence": "MIT (LICENSE file at pin 515199cb3208, GitHub licence API 2026-11-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-20T04:38Z",
+    "consent_receipt": "78efcd7d45c7",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T04:38Z (receipt 78efcd7d45c7); selected commit 515199cb3208: \"feat(model-fan-roles): \u68c0\u6d4b\u62a5\u544a\u7edf\u4e00\uff0c\u624b\u52a8\u68c0\u6d4b\u56de\u62a5\u771f\u5b9e\u7ed3\u679c\". LICENSE file at pin 515199cb3208 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+   }
+  }
+ ]
+}
