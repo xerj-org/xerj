@@ -285,6 +285,17 @@ PAGES: dict[str, dict[str, str]] = {
         og_image="og/blog-autoindex-search-performance-improvements.png",
         og_image_alt="Cover: “Faster autoindex” in display type beside the post’s square-matrix art, labelled 28 people + 217 agent reports, 454 indices, 32, and ES 9.05 · Lucene 25.4 MiB/s. The art: 28 filled squares and 217 small empty rings scattered on grid paper, the filled ones joined by hairlines to a wide block of 454 empty cells, beside 32 yellow cells at the same pitch, then a gate of ink posts around two grey-blue columns and one empty yellow cell at its base",
     ),
+    # rc.105 release post, DRAFT for owner review: every number is quoted from
+    # the CHANGELOG [Unreleased] section on main (2026-11-23). Dates are the
+    # draft date; set them to the cut date before publishing.
+    "blog/rc105-long-pages-cjk-exact-top-n.html": dict(
+        label="rc.105", kind="article",
+        title="rc.105: better ranking on long pages and CJK text",
+        description="rc.105 ranks long pages by their real length, searches Chinese text with bigrams, counts a top-10 over 100,000 keys exactly, and makes hybrid search faster.",
+        published="2026-11-23", updated="2026-11-23",
+        og_image="og/blog-rc105-long-pages-cjk-exact-top-n.png",
+        og_image_alt="Cover: “rc.105” in display type beside the post’s square-matrix art, labelled R@1 56.60 to 64.78 and R@1 0.45 to 0.95. The art: two grids of 100 squares for the long-page test, 57 filled in ink beside 65 filled in yellow, and two grids of 20 squares for the Chinese law questions, 9 filled in ink beside 19 filled in yellow",
+    ),
     "blog/rc99-smart-autoindex-harness-tools.html": dict(
         label="rc.99", kind="article",
         title="rc.99: smart, resource-aware autoindex and more harness tools",
@@ -304,8 +315,8 @@ PAGES: dict[str, dict[str, str]] = {
     "blog/index.html": dict(
         label="Blog", kind="collection",
         title="XERJ.ai — Blog: the engineering log",
-        description="XERJ Query-1, a neurosymbolic model that compiles prompts to verifiable search queries. Also 100 contributors, faster autoindex, rc.99 and Corpus Hub v2.",
-        updated="2026-11-05",
+        description="rc.105: better ranking on long pages and CJK text. Also XERJ Query-1, 100 contributors, faster autoindex, rc.99 and Corpus Hub v2.",
+        updated="2026-11-23",
     ),
     "demo/index.html": dict(
         label="Real-data demo", kind="software",

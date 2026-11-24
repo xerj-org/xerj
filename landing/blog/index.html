@@ -15,7 +15,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XERJ.ai — Blog: the engineering log</title>
-<meta name="description" content="XERJ Query-1, a neurosymbolic model that compiles prompts to verifiable search queries. Also 100 contributors, faster autoindex, rc.99 and Corpus Hub v2.">
+<meta name="description" content="rc.105: better ranking on long pages and CJK text. Also XERJ Query-1, 100 contributors, faster autoindex, rc.99 and Corpus Hub v2.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -28,7 +28,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="website">
 <meta property="og:title" content="XERJ.ai — Blog: the engineering log">
-<meta property="og:description" content="XERJ Query-1, a neurosymbolic model that compiles prompts to verifiable search queries. Also 100 contributors, faster autoindex, rc.99 and Corpus Hub v2.">
+<meta property="og:description" content="rc.105: better ranking on long pages and CJK text. Also XERJ Query-1, 100 contributors, faster autoindex, rc.99 and Corpus Hub v2.">
 <meta property="og:url" content="https://xerj.org/blog/">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -37,7 +37,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="XERJ.ai — Blog: the engineering log">
-<meta name="twitter:description" content="XERJ Query-1, a neurosymbolic model that compiles prompts to verifiable search queries. Also 100 contributors, faster autoindex, rc.99 and Corpus Hub v2.">
+<meta name="twitter:description" content="rc.105: better ranking on long pages and CJK text. Also XERJ Query-1, 100 contributors, faster autoindex, rc.99 and Corpus Hub v2.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -73,11 +73,11 @@
   "@context": "https://schema.org",
   "@type": "CollectionPage",
   "name": "XERJ.ai — Blog: the engineering log",
-  "description": "XERJ Query-1, a neurosymbolic model that compiles prompts to verifiable search queries. Also 100 contributors, faster autoindex, rc.99 and Corpus Hub v2.",
+  "description": "rc.105: better ranking on long pages and CJK text. Also XERJ Query-1, 100 contributors, faster autoindex, rc.99 and Corpus Hub v2.",
   "url": "https://xerj.org/blog/",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
-  "dateModified": "2026-11-05",
+  "dateModified": "2026-11-23",
   "isPartOf": {
     "@id": "https://xerj.org/#website"
   },
@@ -149,6 +149,22 @@
   <!-- Reverse-chronological by hand while there is one post; new posts PREPEND.
        Move to a generator only past ~10 posts. -->
   <ol class="blog-list">
+    <li>
+      <a class="bl-card" href="/blog/rc105-long-pages-cjk-exact-top-n">
+        <img class="bl-thumb" src="/blog/covers/rc105-long-pages-cjk-exact-top-n-thumb.webp" width="640" height="336" alt="Cover art: two pairs of square grids. On the left, two grids of 100 squares for the long-page test, 57 filled in ink beside 65 filled in yellow. On the right, two grids of 20 squares for the Chinese law questions, 9 filled in ink beside 19 filled in yellow" loading="lazy" decoding="async">
+        <div class="bl-meta">
+          <p class="bl-date"><time datetime="2026-11-23">2026-11-23</time> · RELEASE · V1.0.0-RC.105</p>
+          <h2 class="bl-title">rc.105: better ranking on long pages and CJK text</h2>
+          <p class="bl-excerpt">Long pages are scored by their real length, so the right page comes
+          first more often: recall at 1 went from 56.60 to 64.78 on a medical reference. Chinese text is
+          searched by bigrams, with Traditional folded to Simplified: 0.45 to 0.95 on 20 law questions.
+          A top-10 over 100,000 keys has exact counts, hybrid search reads only the page you get, and a
+          merge holds less memory.</p>
+          <p class="bl-byline">AUTHOR · XERJ ENGINEERING · PUBLISHED · 2026-11-23</p>
+          <span class="bl-read">READ THE POST &rarr;</span>
+        </div>
+      </a>
+    </li>
     <li>
       <a class="bl-card" href="/blog/xerj-query-ai-model">
         <img class="bl-thumb" src="/blog/covers/xerj-query-ai-model-thumb.webp" width="640" height="336" alt="Cover art: three grids of 160 squares, one per way of answering the same questions; filled squares are right answers, blue squares wrong answers, rings declined; the yellow XERJ Query-1 grid (given each question's own collection) has one blue square, RAG with BM25 top-10 on Opus 5.5 has nine, Opus 5.5 reading the whole store has six" loading="lazy" decoding="async">
