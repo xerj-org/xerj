@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how rroblf01/jirrabit implements it: rroblf01/jirrabit (Python) (selected work: jirrabit, tests, issues)",
+ "domain": "an agent working on Python queries this for how rroblf01/jirrabit implements it: Jira alternative written in Django (selected work: jirrabit, tests, issues)",
  "repos": [
   {
    "repo": "jirrabit",
