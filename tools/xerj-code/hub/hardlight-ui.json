@@ -1,0 +1,27 @@
+{
+ "corpus": "hardlight-ui",
+ "cloned_at": "2026-11-23T18:12:05Z",
+ "repos": [
+  {
+   "repo": "hardlight-ui",
+   "url": "https://github.com/nosliwhtes/hardlight-ui",
+   "licence": "MIT",
+   "sha": "2254efe3ba6df2fa5962cd8ed352b5fad80306d4",
+   "files": 25,
+   "bytes": 188704,
+   "paths": [
+    "hardlight",
+    "references",
+    "skills",
+    "data"
+   ],
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "nosliwhtes",
+    "at": "2026-11-23",
+    "note": "LICENSE opened at pin: MIT, Copyright (c) 2026 Seth Wilson and Hardlight UI contributors. Scoped paths hardlight/, references/, skills/ and data/: docs/ and tests/ prose outranked the reference text in the retrieval gate. Three PNGs are committed and the README calls them original demonstrations."
+   }
+  }
+ ]
+}

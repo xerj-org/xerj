@@ -3842,6 +3842,7 @@
     ]
    }
   },
+  {"cat": "AI", "domain": "An agent producing or auditing a frontend queries this for original design grammars and style packets, navigation and state review, bounded browser evidence that blocks external requests, and the explicit limits of what a tool can and cannot claim about usability.", "lane": "A", "refresh": "pinned", "slug": "hardlight-ui", "sources": [{"licence_hint": "MIT; reviewed LICENSE at pin, see manifest", "url": "https://github.com/nosliwhtes/hardlight-ui"}], "status": "live", "tags": {"region": "GLOBAL", "topics": ["frontend", "design-system", "accessibility", "navigation", "python"]}},
   {
    "cat": "WRITE",
    "domain": "an agent reviewing prose queries this for sourced style checks: redundancy, jargon, hedging, misused phrases, each with a citation",
