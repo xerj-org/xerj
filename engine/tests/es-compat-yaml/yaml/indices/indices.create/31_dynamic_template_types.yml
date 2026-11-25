@@ -2,8 +2,6 @@
 # A matching dynamic template's `mapping` decides how a new field is mapped.
 # XERJ-authored case (ES semantics: docs `dynamic-templates.html`).
 "dynamic template mapping type is applied to new fields":
-  - skip:
-      awaits_fix: "XERJ applies only copy_to from dynamic templates, not the mapping type (fix follows in fix/es-dynamic-template-mapping)"
   - do:
       indices.create:
         index: test_dyn_tmpl

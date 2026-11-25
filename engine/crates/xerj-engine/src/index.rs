@@ -36,7 +36,7 @@ use xerj_vector::distance::DistanceMetric;
 use xerj_vector::hnsw::{HnswIndex, HnswParams};
 use xerj_vector::{Sq8CodeStore, Sq8Params};
 
-use crate::aggs::run_aggs_with_schema;
+use crate::aggs::run_aggs_with_schema_and_normalizers;
 use crate::read_budget::{ReadPermit, ReadTransientBudget};
 use crate::segment_cache_budget::{
     CacheResident, SegmentCacheCategory, SegmentHydrationBudget, CATEGORY_COUNT,
@@ -983,7 +983,12 @@ mod collection_publication_fail_closed_tests {
         assert_eq!(all.len(), 6, "corpus size");
 
         // Fill a size-5 frontier with the five lowest-`_seq_no` docs (d0..d4).
-        let mut topk = super::SortTopK::new(Arc::new(req.sort.clone()), 5, None);
+        let mut topk = super::SortTopK::new(
+            Arc::new(req.sort.clone()),
+            5,
+            None,
+            idx.keyword_normalizers(),
+        );
         for (seq, hit) in all[..5].iter().enumerate() {
             topk.offer(hit.clone(), seq as u64, &idx);
         }
@@ -1030,8 +1035,15 @@ mod collection_publication_fail_closed_tests {
         }))
         .unwrap();
 
-        let vals =
-            super::compute_sort_values(&json!({"body": "x"}), 1.0, "doc-42", &req.sort, &idx);
+        let norm = idx.keyword_normalizers();
+        let vals = super::compute_sort_values(
+            &json!({"body": "x"}),
+            1.0,
+            "doc-42",
+            &req.sort,
+            &idx,
+            &norm,
+        );
         assert_eq!(vals.len(), 1, "one sort field yields one sort value");
         assert!(
             matches!(&vals[0], serde_json::Value::String(s) if s == "doc-42"),
@@ -12932,6 +12944,20 @@ pub struct Index {
     /// scan path. The snapshot is swapped wholesale on every schema write
     /// (`save_schema`) so a reader always sees one consistent set.
     date_field_scales: Arc<parking_lot::RwLock<Arc<std::collections::HashMap<String, DateScale>>>>,
+    /// Schema-version-keyed cache of [`xerj_common::normalizer::KeywordNormalizers`]
+    /// (#3640), so query resolution, sort key extraction, aggregations, `_analyze`,
+    /// and `fields`/`docvalue_fields` rendering reuse the resolved map without
+    /// rebuilding `KeywordNormalizers::from_schema` per request.
+    keyword_normalizers_cache:
+        parking_lot::RwLock<(u64, Arc<xerj_common::normalizer::KeywordNormalizers>)>,
+    /// Fast-path guard for sync per-hit loops (`compute_sort_values`): `false`
+    /// when the index has no normalized keyword fields, skipping even a read
+    /// lock on `keyword_normalizers_cache` (#3640).
+    has_keyword_normalizers: AtomicBool,
+    /// Test-only counter of `KeywordNormalizers::from_schema` rebuilds performed
+    /// through [`Self::cached_keyword_normalizers`] (#3640).
+    #[cfg(test)]
+    keyword_normalizer_builds: AtomicU64,
     /// Per-segment single-flight guard for the `stored_slices_for` miss
     /// arm: without it, every in-flight query racing the same cold
     /// segment (up to the 64-permit cap) ran its own full stored-section
@@ -13503,6 +13529,11 @@ impl Index {
         let (flush_admit_ms, flush_budget_ms) = configured_flush_timeouts_ms(config);
         let passage_chunk_fields_init = passage_chunk_fields_from_schema(&managed.schema);
         let date_field_scales_snapshot = date_field_scales(&managed.schema);
+        let initial_normalizers = Arc::new(
+            xerj_common::normalizer::KeywordNormalizers::from_schema(&managed.schema),
+        );
+        let initial_schema_version = managed.schema.version;
+        let has_keyword_normalizers = !initial_normalizers.is_empty();
         // #392: kept back from the struct literal so the SQ8 handle setup at
         // the end of create can read the mapping without re-locking.
         let managed_schema_for_sq8 = managed.schema.clone();
@@ -13661,6 +13692,13 @@ impl Index {
             date_field_scales: Arc::new(parking_lot::RwLock::new(Arc::new(
                 date_field_scales_snapshot,
             ))),
+            keyword_normalizers_cache: parking_lot::RwLock::new((
+                initial_schema_version,
+                Arc::clone(&initial_normalizers),
+            )),
+            has_keyword_normalizers: AtomicBool::new(has_keyword_normalizers),
+            #[cfg(test)]
+            keyword_normalizer_builds: AtomicU64::new(0),
             stored_slices_build_locks: Arc::new(per_index_map()),
             range_prefilter_cache: Arc::new(per_index_map()),
             id_pos_cache: Arc::new(per_index_map()),
@@ -13729,9 +13767,9 @@ impl Index {
         }
         // #3513: the memtable's doc-values cells of a normalized keyword field
         // hold the normalized value from the first write.
-        index.memtable.set_keyword_normalizers(
-            xerj_common::normalizer::KeywordNormalizers::from_schema(&managed_schema_for_sq8),
-        );
+        index
+            .memtable
+            .set_keyword_normalizers_arc(initial_normalizers);
         Ok(index)
     }
 
@@ -13835,15 +13873,18 @@ impl Index {
         // replays the WAL into its own storage memtable (for future flushes);
         // we do a second pass here to rebuild the BM25 in-memory index so that
         // queries against un-flushed documents work correctly after a restart.
+        let initial_normalizers = Arc::new(
+            xerj_common::normalizer::KeywordNormalizers::from_schema(&schema.schema),
+        );
+        let initial_schema_version = schema.schema.version;
+        let has_keyword_normalizers = !initial_normalizers.is_empty();
         let memtable = {
             let mem = crate::memtable::ShardedFtsMemtable::with_registry_and_shards(
                 Arc::clone(&registry),
                 config.engine.ingest_shards,
             );
             // #3513: replayed documents get normalized doc-values cells too.
-            mem.set_keyword_normalizers(xerj_common::normalizer::KeywordNormalizers::from_schema(
-                &schema.schema,
-            ));
+            mem.set_keyword_normalizers_arc(Arc::clone(&initial_normalizers));
             let wal_dir = store.wal_dir();
             // Must use the sharded-aware discovery: with the 16-shard WAL
             // layout the entries live in wal/s{N}/, and a reader on the
@@ -14166,6 +14207,13 @@ impl Index {
             date_field_scales: Arc::new(parking_lot::RwLock::new(Arc::new(
                 date_field_scales_snapshot,
             ))),
+            keyword_normalizers_cache: parking_lot::RwLock::new((
+                initial_schema_version,
+                Arc::clone(&initial_normalizers),
+            )),
+            has_keyword_normalizers: AtomicBool::new(has_keyword_normalizers),
+            #[cfg(test)]
+            keyword_normalizer_builds: AtomicU64::new(0),
             stored_slices_build_locks: Arc::new(per_index_map()),
             range_prefilter_cache: Arc::new(per_index_map()),
             id_pos_cache: Arc::new(per_index_map()),
@@ -14516,6 +14564,32 @@ impl Index {
         // passage scorer.
         self.observe_passage_chunks(std::iter::once(&source)).await;
 
+        // Auto-evolve schema for new fields BEFORE publishing to the memtable
+        // (#3640, matching `index_documents_raw_batch`), so a newly templated
+        // normalized keyword is already installed in `keyword_normalizers`
+        // before the document enters any shard — closing the race where a
+        // concurrent flush could drain the first document unnormalized.
+        // Fast path: skip the schema read lock every doc when schema is stable.
+        // Store the new shape fingerprint ONLY AFTER `evolve_schema_from_doc`
+        // finishes so concurrent writers arriving with the same new shape do
+        // not observe the updated hash early and race ahead into the memtable
+        // before the schema and normalizers are installed.
+        let (should_evolve, shape_hash, current_count) = {
+            let current_count = self.doc_count.load(Ordering::Relaxed);
+            let last_epoch = self.schema_hash_epoch.load(Ordering::Relaxed);
+            let mut h: u64 = 0xcbf29ce484222325;
+            hash_all_field_names(&source, &mut h);
+            let cached = self.schema_hash_cache.load(Ordering::Acquire);
+            let should = cached != h || current_count.saturating_sub(last_epoch) >= 100;
+            (should, h, current_count)
+        };
+        if should_evolve {
+            self.evolve_schema_from_doc(&source).await;
+            self.schema_hash_cache.store(shape_hash, Ordering::Release);
+            self.schema_hash_epoch
+                .store(current_count, Ordering::Relaxed);
+        }
+
         // Invalidate the response cache only after admission and CAS succeed.
         self.dataset_version.fetch_add(1, Ordering::Release);
 
@@ -14621,39 +14695,6 @@ impl Index {
         // The next document's bracket must not open until a search parked on
         // this one has validated its capture (#1761). No shard lock is held.
         self.collection_publication.handoff_to_readers().await;
-        // Auto-evolve schema for new fields.
-        // Fast path: skip the schema read lock every doc when schema is stable.
-        // We cache a hash of the document field keys and only re-check schema
-        // evolution every 100 docs (or when field keys change). The hash
-        // walks NESTED field names too, not just the top-level ones (see
-        // `hash_all_field_names`) -- a document whose top-level key set is
-        // unchanged but whose nested shape changed (e.g. metadata.kind on
-        // one document, metadata.project on the next) must still produce a
-        // different hash, or this throttle would silently suppress the
-        // evolve call that the newly-nested key needs, for up to 100
-        // documents -- exactly the failure mode the recursive dynamic-
-        // mapping fix (`merge_dynamic_children_into`) exists to close, one
-        // layer further up the call chain.
-        let should_evolve = {
-            let current_count = self.doc_count.load(Ordering::Relaxed);
-            let last_epoch = self.schema_hash_epoch.load(Ordering::Relaxed);
-            let mut h: u64 = 0xcbf29ce484222325;
-            hash_all_field_names(&source, &mut h);
-            let cached = self.schema_hash_cache.load(Ordering::Relaxed);
-            if cached != h {
-                // Field set changed — must evolve and update cache.
-                self.schema_hash_cache.store(h, Ordering::Relaxed);
-                self.schema_hash_epoch
-                    .store(current_count, Ordering::Relaxed);
-                true
-            } else {
-                // Same field set — only re-check every 100 docs.
-                current_count.saturating_sub(last_epoch) >= 100
-            }
-        };
-        if should_evolve {
-            self.evolve_schema_from_doc(&source).await;
-        }
 
         // Auto-detect log format on the first few documents and log it.
         let current_count = self.doc_count.load(Ordering::Relaxed);
@@ -14881,6 +14922,13 @@ impl Index {
             .iter()
             .map(|r| (r.id.clone(), Arc::clone(&r.source)))
             .collect();
+        // #3640: evolve dynamic schema BEFORE publishing to WAL/memtable (matching
+        // `index_documents_raw_batch`), so any dynamic-template normalizers are
+        // installed before the batch enters any shard and before a racing flush
+        // can drain it.
+        self.evolve_schema_from_docs(processed.iter().map(|ingest| ingest.source.as_ref()))
+            .await;
+
         let copy_schema = if has_copy_to {
             Some(self.schema.read().await)
         } else {
@@ -15001,63 +15049,7 @@ impl Index {
             );
         }
 
-        // ── Step 5: schema evolution + vector indexing (post-lock) ────────
-        //
-        // These were previously called PER DOC inside a `for ingest in
-        // &processed` loop = 10 000 async state-machine steps + 10 000
-        // `RwLock::read_acquire` ops per 5 000-doc batch.  For the
-        // common log-ingest case (stable schema, no dense-vector
-        // fields) both functions are no-ops but still paid the lock +
-        // `.await` overhead, costing measurable wall time.
-        //
-        // Hoisted once-per-batch: we take the schema read lock EXACTLY
-        // ONCE, scan all sources for unknown field names in one pass,
-        // and only call the slow-path `evolve_schema_from_doc` when
-        // something new is actually detected.  Similarly for vectors —
-        // we detect presence-of-any-vector-field via a single pass over
-        // the first doc's object keys (sufficient for our schema model
-        // because vector fields are fixed per index, not per doc).
-        {
-            let schema_guard = self.schema.read().await;
-            let is_dynamic = matches!(
-                self.dynamic_mode(&schema_guard),
-                xerj_common::schema::DynamicMapping::Dynamic
-            );
-            // Fast-path: for a stable, non-dynamic schema we can skip
-            // the entire per-doc evolve pass.  Under dynamic mapping we
-            // cheaply collect the sources that might actually change the
-            // schema under the read lock, then only upgrade to a write
-            // lock (inside `evolve_schema_from_doc`, called per source
-            // below) for the ones that do. "Might change the schema" is
-            // two things, not one: a brand-new top-level field (as
-            // before), OR a new nested child under a top-level field the
-            // schema already has (`field_config_needs_merge`) -- without
-            // the second check, a document whose only new content is
-            // nested (e.g. `metadata.project` after `metadata.kind` was
-            // already known) would never reach `evolve_schema_from_doc` at
-            // all here, no matter how many times it fixed this same gap
-            // internally.
-            let mut sources_needing_evolve: Vec<&Value> = Vec::new();
-            if is_dynamic {
-                for ingest in &processed {
-                    if let Some(obj) = ingest.source.as_object() {
-                        let needs_evolve =
-                            obj.iter().any(|(k, v)| match schema_guard.schema.field(k) {
-                                None => true,
-                                Some(existing) => field_config_needs_merge(existing, v),
-                            });
-                        if needs_evolve {
-                            sources_needing_evolve.push(ingest.source.as_ref());
-                        }
-                    }
-                }
-            }
-            drop(schema_guard);
-            for src in sources_needing_evolve {
-                self.evolve_schema_from_doc(src).await;
-            }
-        }
-
+        // ── Step 5: vector indexing (post-lock; schema evolved pre-insert) ─
         // Vector indexing is only meaningful when at least one document
         // in the batch carries a vector. Scan until the first candidate
         // instead of inspecting only processed[0]: mixed batches may
@@ -15332,7 +15324,8 @@ impl Index {
         // before WAL/VersionMap mutation so cancellation cannot strand a
         // half-published document batch.
         let evolve_t = std::time::Instant::now();
-        self.evolve_schema_from_docs(sources_for_prepare).await;
+        self.evolve_schema_from_docs(sources_for_prepare.iter().map(Arc::as_ref))
+            .await;
         if prof {
             p_evolve_us = evolve_t.elapsed().as_micros();
         }
@@ -16134,6 +16127,9 @@ impl Index {
             .then(|| self.begin_hnsw_publication());
         self.observe_passage_chunks(processed.iter().map(|ingest| ingest.source.as_ref()))
             .await;
+        // #3640: evolve schema before inserting into the memtable.
+        self.evolve_schema_from_docs(processed.iter().map(|ingest| ingest.source.as_ref()))
+            .await;
 
         // Step 3: Update version map (lock-free atomic operations) — no WAL.
         // Assign monotonically increasing seq_nos from the engine's counter.
@@ -16178,9 +16174,8 @@ impl Index {
         collection_publication.commit();
         drop(collection_publication);
         self.collection_publication.handoff_to_readers().await;
-        // Step 5: schema evolution + vector indexing (post-lock).
+        // Step 5: vector indexing (post-lock; schema evolved pre-insert).
         for ingest in &processed {
-            self.evolve_schema_from_doc(&ingest.source).await;
             self.index_vectors(&ingest.id, &ingest.source).await;
         }
         // Step 6: flush threshold check.
@@ -25880,9 +25875,11 @@ impl Index {
         let dmq_schema = self.schema().await;
         let resolved_query = {
             let schema = self.schema.read().await;
+            let normalizers = self.cached_keyword_normalizers(&schema.schema);
             let resolved = resolve_keyword_query(
                 &rewrite_query_aliases(query, &schema.schema),
                 &schema.schema,
+                &normalizers,
             );
             let typeless = crate::memtable::lexically_typeless_fields(&schema.schema);
             let lowered = if typeless.is_empty()
@@ -26985,7 +26982,8 @@ impl Index {
         query: &QueryNode,
     ) -> std::result::Result<(), xerj_common::XerjError> {
         let schema = self.schema.read().await;
-        check_buildable_query(query, &schema.schema).map(|_| ())
+        let normalizers = self.cached_keyword_normalizers(&schema.schema);
+        check_buildable_query(query, &schema.schema, &normalizers).map(|_| ())
     }
 
     /// Inner search implementation (without timeout wrapper).
@@ -27114,12 +27112,13 @@ impl Index {
         // declared `"index": false` with no doc values has neither postings nor
         // a column to scan, and ES fails the query rather than answering it
         // from `_source` (#204 — accepted means honoured).
-        let resolved_query = {
+        let (resolved_query, search_normalizers) = {
             let schema = self.schema.read().await;
+            let normalizers = self.cached_keyword_normalizers(&schema.schema);
             // One definition of "buildable" (alias/keyword rewrites + the
             // unsearchable-field and #1284 numeric checks), shared with
             // `_validate/query`; see `check_buildable_query`.
-            let resolved = check_buildable_query(&request.query, &schema.schema)
+            let resolved = check_buildable_query(&request.query, &schema.schema, &normalizers)
                 .map_err(EngineError::Common)?;
             // #437: a sort field this engine cannot resolve (any of 11 ES
             // meta-field names besides the ones handled below, or an
@@ -27182,7 +27181,7 @@ impl Index {
             // `bool` wrapper that ES erases before it builds a `Weight` has to
             // be erased before `is_doc_scan_query` or `query_node_to_fts` can
             // read it. See `unwrap_single_clause_bool`.
-            unwrap_single_clause_bool(lowered)
+            (unwrap_single_clause_bool(lowered), normalizers)
         };
         let query = &resolved_query;
         // #574: resolve each rescore stage's secondary query the same way the
@@ -27198,10 +27197,13 @@ impl Index {
             Vec::new()
         } else {
             let schema = self.schema.read().await;
+            let normalizers = self.cached_keyword_normalizers(&schema.schema);
             request
                 .rescore
                 .iter()
-                .map(|rs| rewrite_rescore_keyword(rs, &schema.schema))
+                .map(|rs| {
+                    rewrite_rescore_keyword_with_normalizers(rs, &schema.schema, &normalizers)
+                })
                 .collect()
         };
 
@@ -27601,6 +27603,14 @@ impl Index {
                     .enumerate()
                     .map(|(i, v)| {
                         let sf = request.sort.get(i);
+                        // #3640: a normalized keyword field emits its
+                        // normalized string sort value verbatim (never parsed
+                        // into a date epoch), so keep string cursors as
+                        // strings instead of coercing date-like keywords to
+                        // epoch numbers.
+                        if let Some(norm) = sf.and_then(|s| search_normalizers.get(&s.field)) {
+                            return norm.normalize_json(v);
+                        }
                         let fmt = sf.and_then(|s| s.format.as_deref());
                         // The cursor is compared against `compute_sort_values`
                         // output, so it must be normalised on the SAME field
@@ -27796,6 +27806,7 @@ impl Index {
                 // the same as page 1 and are correct past the
                 // materialisation cap.
                 after_norm.clone(),
+                Arc::clone(&search_normalizers),
             ))
         } else if fs_topk_active {
             // Score-keyed global top-k for the brute function_score path.
@@ -27806,7 +27817,12 @@ impl Index {
             } else {
                 request.sort.clone()
             };
-            Some(SortTopK::new(Arc::new(keys), materialisation_limit, None))
+            Some(SortTopK::new(
+                Arc::new(keys),
+                materialisation_limit,
+                None,
+                Arc::clone(&search_normalizers),
+            ))
         } else {
             None
         };
@@ -28415,6 +28431,7 @@ impl Index {
                             // of the wrong documents, correctly ranked.  Take
                             // the full walk.
                             || is_meta_sort_field(&sf.field)
+                            || search_normalizers.get(&sf.field).is_some()
                             || sf.mode != SortMode::default()
                             || sf.missing != SortMissing::default()
                         {
@@ -32123,7 +32140,14 @@ impl Index {
             // ordering agree on the exact total order (incl. date-string
             // normalisation).
             for hit in &mut final_hits {
-                hit.sort = compute_sort_values(&hit.source, hit.score, &hit.id, sort_fields, self);
+                hit.sort = compute_sort_values(
+                    &hit.source,
+                    hit.score,
+                    &hit.id,
+                    sort_fields,
+                    self,
+                    &search_normalizers,
+                );
             }
             // Sort by the populated sort keys.  Key ties break by seq_no
             // ASC (insertion order == ES internal doc-id order post-B1),
@@ -32365,6 +32389,7 @@ impl Index {
                     final_hits,
                     &collapse.field,
                     collapse.inner_hits.as_ref(),
+                    &search_normalizers,
                 );
             }
         }
@@ -32853,7 +32878,14 @@ impl Index {
                         } else {
                             &all_docs[..]
                         };
-                        run_aggs_with_schema(aggs_def, fg, bg, &dmq_schema)
+                        let normalizers = self.cached_keyword_normalizers(&dmq_schema);
+                        run_aggs_with_schema_and_normalizers(
+                            aggs_def,
+                            fg,
+                            bg,
+                            &dmq_schema,
+                            normalizers,
+                        )
                     } else {
                         // Safety net: corpus not built — aggregate the hit window.
                         let sources: Vec<Value> = final_hits
@@ -32891,7 +32923,14 @@ impl Index {
                         } else {
                             &all_docs[..]
                         };
-                        run_aggs_with_schema(aggs_def, &sources, bg, &dmq_schema)
+                        let normalizers = self.cached_keyword_normalizers(&dmq_schema);
+                        run_aggs_with_schema_and_normalizers(
+                            aggs_def,
+                            &sources,
+                            bg,
+                            &dmq_schema,
+                            normalizers,
+                        )
                     }
                 };
                 Some(agg_result)
@@ -32930,7 +32969,12 @@ impl Index {
         // Skipped here when rescore was present (we already collapsed before rescore).
         let final_hits = if let Some(collapse) = &request.collapse {
             if request.rescore.is_empty() {
-                apply_collapse_with_inner(final_hits, &collapse.field, collapse.inner_hits.as_ref())
+                apply_collapse_with_inner(
+                    final_hits,
+                    &collapse.field,
+                    collapse.inner_hits.as_ref(),
+                    &search_normalizers,
+                )
             } else {
                 final_hits
             }
@@ -33702,9 +33746,8 @@ impl Index {
         // term, the value it indexes.
         if let (None, Some(f)) = (analyzer, field) {
             let schema = self.schema.read().await;
-            if let Some(n) =
-                xerj_common::normalizer::KeywordNormalizers::from_schema(&schema.schema).get(f)
-            {
+            let normalizers = self.cached_keyword_normalizers(&schema.schema);
+            if let Some(n) = normalizers.get(f) {
                 return Ok((
                     n.name.clone(),
                     vec![xerj_fts::analyzer::Token::new(
@@ -34486,7 +34529,10 @@ impl Index {
     /// first doc that introduces a field decides its inferred type) and
     /// added under a single write lock, which re-checks `has_field` exactly
     /// like the per-doc slow path does.
-    async fn evolve_schema_from_docs(&self, sources: &[Arc<Value>]) {
+    async fn evolve_schema_from_docs<'a, I>(&self, sources: I)
+    where
+        I: IntoIterator<Item = &'a Value>,
+    {
         // Fast path: read-lock scan for TWO kinds of change, not just one --
         // a brand-new top-level field (as before), or a NEW NESTED CHILD
         // under a top-level field the schema already knows about (the fix
@@ -34564,14 +34610,12 @@ impl Index {
         }
 
         let date_detection = self.date_detection_enabled();
-        // #3513: a dynamic template that maps a new string to a normalized
-        // keyword. Resolved before the write lock (it reads the mapping file).
-        let templated = {
-            let candidates: Vec<(&str, &Value)> =
-                new_top_level.iter().map(|(k, v)| (k.as_str(), v)).collect();
-            self.dynamic_template_fields(&candidates, date_detection)
-                .await
-        };
+        // #3640: load any `dynamic_templates` once before the write lock (it
+        // reads `es_mapping.json` and, only when a template names a normalizer,
+        // `analysis_in_force`), then apply them uniformly to new top-level
+        // fields, nested object/nested leaves, multi-fields and non-keyword
+        // mappings.
+        let templates = self.load_dynamic_template_context().await;
         let mut schema = self.schema.write().await;
         if !matches!(
             self.dynamic_mode(&schema),
@@ -34585,6 +34629,7 @@ impl Index {
         // this batch also wants) between the read-lock check above and this
         // write lock.
         let mut schema_changed = false;
+        let mut merged_into_existing = false;
         let mut field_count = schema.schema.field_count() as u32;
         for (key, val) in new_top_level {
             if let Some(existing) = schema.schema.field_mut(&key) {
@@ -34593,20 +34638,30 @@ impl Index {
                 // this same batch also introduces isn't lost.
                 if merge_dynamic_children_into(
                     existing,
+                    &key,
                     &val,
                     date_detection,
                     1,
                     &mut field_count,
                     self.max_fields_per_index,
+                    templates.as_ref(),
                 ) {
+                    if field_config_contains_date(existing) {
+                        self.has_date_fields.store(true, Ordering::Relaxed);
+                    }
                     schema_changed = true;
+                    merged_into_existing = true;
                 }
                 continue;
             }
-            let fc = templated
-                .get(&key)
-                .cloned()
-                .unwrap_or_else(|| dynamic_field_config(&key, &val, date_detection));
+            let fc = dynamic_field_config_at_depth(
+                &key,
+                &key,
+                &val,
+                date_detection,
+                1,
+                templates.as_ref(),
+            );
             // #312: `fc` can carry an entire nested subtree, so count its real
             // recursive size (`total_field_count`, the same measure the guard's
             // `Schema::field_count()` uses) — counting it as one field let a
@@ -34621,7 +34676,7 @@ impl Index {
                 );
                 break;
             }
-            if matches!(fc.field_type, FieldType::Date) {
+            if field_config_contains_date(&fc) {
                 self.has_date_fields.store(true, Ordering::Relaxed);
             }
             field_count += fc_size;
@@ -34632,15 +34687,24 @@ impl Index {
             if let Some(existing) = schema.schema.field_mut(&key) {
                 if merge_dynamic_children_into(
                     existing,
+                    &key,
                     &val,
                     date_detection,
                     1,
                     &mut field_count,
                     self.max_fields_per_index,
+                    templates.as_ref(),
                 ) {
+                    if field_config_contains_date(existing) {
+                        self.has_date_fields.store(true, Ordering::Relaxed);
+                    }
                     schema_changed = true;
+                    merged_into_existing = true;
                 }
             }
+        }
+        if merged_into_existing {
+            schema.schema.bump_version();
         }
         if schema_changed {
             self.persist_evolved_schema(&schema).await;
@@ -34711,18 +34775,8 @@ impl Index {
         // Slow path: at least one new field or new nested child found.
         // Upgrade to write lock and persist the updated schema.
         let date_detection = self.date_detection_enabled();
-        // #3513: see `evolve_schema_from_docs`.
-        let templated = {
-            let candidates: Vec<(&str, &Value)> = {
-                let schema = self.schema.read().await;
-                obj.iter()
-                    .filter(|(k, _)| !schema.schema.has_field(k))
-                    .map(|(k, v)| (k.as_str(), v))
-                    .collect()
-            };
-            self.dynamic_template_fields(&candidates, date_detection)
-                .await
-        };
+        // #3640: see `evolve_schema_from_docs`.
+        let templates = self.load_dynamic_template_context().await;
         let mut schema = self.schema.write().await;
         if !matches!(
             self.dynamic_mode(&schema),
@@ -34731,6 +34785,7 @@ impl Index {
             return;
         }
         let mut schema_changed = false;
+        let mut merged_into_existing = false;
         let mut field_count = schema.schema.field_count() as u32;
         for (key, val) in obj {
             if key.starts_with(PASSAGE_METADATA_PREFIX)
@@ -34741,20 +34796,24 @@ impl Index {
             if let Some(existing) = schema.schema.field_mut(key) {
                 if merge_dynamic_children_into(
                     existing,
+                    key,
                     val,
                     date_detection,
                     1,
                     &mut field_count,
                     self.max_fields_per_index,
+                    templates.as_ref(),
                 ) {
+                    if field_config_contains_date(existing) {
+                        self.has_date_fields.store(true, Ordering::Relaxed);
+                    }
                     schema_changed = true;
+                    merged_into_existing = true;
                 }
                 continue;
             }
-            let fc = templated
-                .get(key)
-                .cloned()
-                .unwrap_or_else(|| dynamic_field_config(key, val, date_detection));
+            let fc =
+                dynamic_field_config_at_depth(key, key, val, date_detection, 1, templates.as_ref());
             // #312: count the new field's real recursive subtree size, not one,
             // so a single nested-object insert cannot overshoot the budget (the
             // single-doc evolve path, the twin of `evolve_schema_from_docs`).
@@ -34767,12 +34826,15 @@ impl Index {
                 );
                 break;
             }
-            if matches!(fc.field_type, FieldType::Date) {
+            if field_config_contains_date(&fc) {
                 self.has_date_fields.store(true, Ordering::Relaxed);
             }
             field_count += fc_size;
             let _ = schema.schema.add_field(fc);
             schema_changed = true;
+        }
+        if merged_into_existing {
+            schema.schema.bump_version();
         }
         if schema_changed {
             self.persist_evolved_schema(&schema).await;
@@ -34794,58 +34856,48 @@ impl Index {
     /// evil against rejecting a document that is already indexed — but it is
     /// an ERROR, not a shrug. `schema_persist_failures` counts it so a health
     /// check can see it without reading logs.
-    /// #3513: the new top-level fields among `candidates` that this index's
-    /// `dynamic_templates` map to a normalized keyword (see
-    /// [`normalized_keyword_from_dynamic_templates`]). Empty, without touching
-    /// the analysis settings, when no template names a normalizer. Reads the
-    /// persisted mapping (the one `PUT _mapping` and create write), only on
-    /// the slow path where a document brought fields the schema lacks.
-    async fn dynamic_template_fields(
-        &self,
-        candidates: &[(&str, &Value)],
-        date_detection: bool,
-    ) -> HashMap<String, FieldConfig> {
-        let mut out = HashMap::new();
-        if candidates.is_empty() {
-            return out;
-        }
-        let Ok(bytes) = std::fs::read(self.data_dir.join("es_mapping.json")) else {
-            return out;
-        };
-        let Ok(parsed) = serde_json::from_slice::<Value>(&bytes) else {
-            return out;
-        };
+    /// #3640: load this index's `dynamic_templates` (and, only when any
+    /// template names a `normalizer`, the live `analysis` settings) from the
+    /// persisted `es_mapping.json`. Runs only on the slow path where a document
+    /// brought fields the schema lacks.
+    async fn load_dynamic_template_context(&self) -> Option<DynamicTemplateContext> {
+        let bytes = std::fs::read(self.data_dir.join("es_mapping.json")).ok()?;
+        let parsed = serde_json::from_slice::<Value>(&bytes).ok()?;
         let mapping = parsed.get("mappings").unwrap_or(&parsed);
-        let Some(templates) = mapping.get("dynamic_templates").and_then(Value::as_array) else {
-            return out;
+        let mut disabled_dynamic_paths = HashSet::new();
+        if let Some(props) = mapping.get("properties").and_then(Value::as_object) {
+            collect_disabled_dynamic_paths(props, "", &mut disabled_dynamic_paths);
+        }
+        let raw_templates = mapping
+            .get("dynamic_templates")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        let compiled_templates = compile_dynamic_templates(raw_templates);
+        if compiled_templates.is_empty() && disabled_dynamic_paths.is_empty() {
+            return None;
+        }
+        let needs_analysis = compiled_templates
+            .iter()
+            .any(|t| value_contains_key(&Value::Object(t.mapping.clone()), "normalizer"));
+        let analysis = if needs_analysis {
+            self.analysis_in_force().await
+        } else {
+            None
         };
-        let names_a_normalizer = templates.iter().any(|t| {
-            t.as_object().is_some_and(|o| {
-                o.values()
-                    .any(|s| s.pointer("/mapping/normalizer").is_some())
-            })
-        });
-        if !names_a_normalizer {
-            return out;
-        }
-        let analysis = self.analysis_in_force().await;
-        for (key, val) in candidates {
-            let detected = dynamic_field_config(key, val, date_detection).field_type;
-            if let Some(fc) = normalized_keyword_from_dynamic_templates(
-                templates,
-                key,
-                val,
-                detected,
-                analysis.as_ref(),
-            ) {
-                out.insert((*key).to_string(), fc);
-            }
-        }
-        out
+        Some(DynamicTemplateContext {
+            templates: compiled_templates,
+            analysis,
+            disabled_dynamic_paths,
+        })
     }
 
     async fn persist_evolved_schema(&self, schema: &ManagedSchema) {
         if let Err(e) = self.save_schema(schema).await {
+            // Even when disk persistence fails, the mutated schema is already
+            // live in memory, so keep in-memory mirrors (normalizers cache,
+            // memtable normalizers, date scales) synchronized with it (#3640).
+            self.sync_in_memory_schema_mirrors(schema);
             self.schema_persist_failures.fetch_add(1, Ordering::Relaxed);
             tracing::error!(
                 index = self.name.as_str(),
@@ -34870,32 +34922,34 @@ impl Index {
         self.schema_persist_failures.load(Ordering::Relaxed)
     }
 
-    async fn save_schema(&self, schema: &ManagedSchema) -> Result<()> {
-        let path = self.data_dir.join("schema.json");
-        let bytes = serde_json::to_vec_pretty(schema)?;
-        write_file_atomic(&path, &bytes).map_err(EngineError::Io)?;
-        // #965 — every schema mutation funnels through here, so this is also
-        // the single place the bucket's meta/schema.json copy is refreshed.
-        publish_index_meta_objects(&self.store, &self.data_dir, self.name.as_str());
+    fn sync_in_memory_schema_mirrors(&self, schema: &ManagedSchema) {
         // Every schema mutation funnels through here (`add_fields` for an
         // explicit mapping update, `persist_evolved_schema` for dynamic
         // evolution), so this is the one place the sync-readable date-scale
         // mirror has to be refreshed (#790). Swapped as a whole `Arc` so a
         // concurrent reader never observes a half-rebuilt set.
         // #3513: same funnel for the memtable's keyword normalizers. A field
-        // that just gained one may already have raw cells in the memtable (the
-        // document that introduced it through a dynamic template is inserted
-        // before the schema evolves); those columns stop answering, so the
-        // normalizing `_source` scan does until the next flush.
+        // that just gained one may already have raw cells in the memtable;
+        // those columns stop answering, so the normalizing `_source` scan does
+        // until the next flush.
         let previous = self.memtable.keyword_normalizers();
-        let next_normalizers =
-            xerj_common::normalizer::KeywordNormalizers::from_schema(&schema.schema);
+        let next_normalizers = Arc::new(xerj_common::normalizer::KeywordNormalizers::from_schema(
+            &schema.schema,
+        ));
         let newly_normalized: Vec<String> = next_normalizers
             .paths()
             .filter(|p| !p.contains('.') && previous.get(p) != next_normalizers.get(p))
             .map(str::to_string)
             .collect();
-        self.memtable.set_keyword_normalizers(next_normalizers);
+        {
+            let mut cache = self.keyword_normalizers_cache.write();
+            if schema.schema.version >= cache.0 {
+                self.has_keyword_normalizers
+                    .store(!next_normalizers.is_empty(), Ordering::Release);
+                *cache = (schema.schema.version, Arc::clone(&next_normalizers));
+            }
+        }
+        self.memtable.set_keyword_normalizers_arc(next_normalizers);
         for field in &newly_normalized {
             self.memtable.mark_doc_values_unusable(field);
         }
@@ -34915,6 +34969,16 @@ impl Index {
             self.sort_shadow_fields.clear();
             self.range_prefilter_cache.clear();
         }
+    }
+
+    async fn save_schema(&self, schema: &ManagedSchema) -> Result<()> {
+        let path = self.data_dir.join("schema.json");
+        let bytes = serde_json::to_vec_pretty(schema)?;
+        write_file_atomic(&path, &bytes).map_err(EngineError::Io)?;
+        // #965 — every schema mutation funnels through here, so this is also
+        // the single place the bucket's meta/schema.json copy is refreshed.
+        publish_index_meta_objects(&self.store, &self.data_dir, self.name.as_str());
+        self.sync_in_memory_schema_mirrors(schema);
         Ok(())
     }
 
@@ -34930,6 +34994,46 @@ impl Index {
             .get(field)
             .copied()
             .unwrap_or(DateScale::PerValue)
+    }
+
+    /// Return the schema-version-cached [`xerj_common::normalizer::KeywordNormalizers`]
+    /// for `schema`, rebuilding only when `schema.version` differs from the
+    /// cached version (#3640).
+    pub fn cached_keyword_normalizers(
+        &self,
+        schema: &Schema,
+    ) -> Arc<xerj_common::normalizer::KeywordNormalizers> {
+        {
+            let guard = self.keyword_normalizers_cache.read();
+            if guard.0 == schema.version {
+                return Arc::clone(&guard.1);
+            }
+        }
+        let built = Arc::new(xerj_common::normalizer::KeywordNormalizers::from_schema(
+            schema,
+        ));
+        let mut guard = self.keyword_normalizers_cache.write();
+        if guard.0 == schema.version {
+            return Arc::clone(&guard.1);
+        }
+        #[cfg(test)]
+        self.keyword_normalizer_builds
+            .fetch_add(1, Ordering::Relaxed);
+        // Only advance the shared cache monotonically: an in-flight query
+        // holding an older schema snapshot must never downgrade the cache or
+        // clear `has_keyword_normalizers` for newer readers.
+        if schema.version > guard.0 {
+            self.has_keyword_normalizers
+                .store(!built.is_empty(), Ordering::Release);
+            *guard = (schema.version, Arc::clone(&built));
+        }
+        built
+    }
+
+    /// The latest cached [`xerj_common::normalizer::KeywordNormalizers`] for
+    /// sync read paths (`fields` / `docvalue_fields`, `sort`, `collapse`; #3640).
+    pub fn keyword_normalizers(&self) -> Arc<xerj_common::normalizer::KeywordNormalizers> {
+        Arc::clone(&self.keyword_normalizers_cache.read().1)
     }
 
     /// The epoch scale ONE SORT wants `sf.field`'s dates on (#889).
@@ -40513,7 +40617,11 @@ impl Index {
         use xerj_query::sort::SortOrder;
 
         let sf = topk.fields.first()?;
-        if sf.is_score() || sf.is_doc_order() || !self.shadow_scale_matches_sort(sf) {
+        if sf.is_score()
+            || sf.is_doc_order()
+            || !self.shadow_scale_matches_sort(sf)
+            || topk.normalizers.get(&sf.field).is_some()
+        {
             return None;
         }
         let shadow = self.sorted_shadow_for(segments_dir, segment_id, &sf.field, seg_doc_count)?;
@@ -40728,7 +40836,11 @@ impl Index {
     ) -> Option<SortCandidates> {
         use xerj_query::sort::SortOrder;
         let sf = topk.fields.first()?;
-        if sf.is_score() || sf.is_doc_order() || !self.shadow_scale_matches_sort(sf) {
+        if sf.is_score()
+            || sf.is_doc_order()
+            || !self.shadow_scale_matches_sort(sf)
+            || topk.normalizers.get(&sf.field).is_some()
+        {
             return None;
         }
         let shadow = self.sorted_shadow_for(segments_dir, segment_id, &sf.field, seg_doc_count)?;
@@ -41050,8 +41162,14 @@ impl Index {
                     if seen_ids.contains(&id) {
                         continue;
                     }
-                    let key =
-                        compute_sort_values(&Value::Null, 1.0, &id, topk.fields.as_slice(), self);
+                    let key = compute_sort_values(
+                        &Value::Null,
+                        1.0,
+                        &id,
+                        topk.fields.as_slice(),
+                        self,
+                        &topk.normalizers,
+                    );
                     if !topk.would_admit(&key) {
                         continue;
                     }
@@ -41116,7 +41234,14 @@ impl Index {
             } else {
                 scorer(source_ref, id_ref)
             };
-            let key = compute_sort_values(source_ref, score, id_ref, topk.fields.as_slice(), self);
+            let key = compute_sort_values(
+                source_ref,
+                score,
+                id_ref,
+                topk.fields.as_slice(),
+                self,
+                &topk.normalizers,
+            );
             if !topk.would_admit(&key) {
                 continue;
             }
@@ -41974,6 +42099,7 @@ impl Index {
                             id,
                             topk.fields.as_slice(),
                             self,
+                            &topk.normalizers,
                         );
                         if !topk.would_admit(&key) {
                             continue;
@@ -42127,8 +42253,14 @@ impl Index {
                 } else {
                     scorer(source_ref, id_ref)
                 };
-                let key =
-                    compute_sort_values(source_ref, score, id_ref, topk.fields.as_slice(), self);
+                let key = compute_sort_values(
+                    source_ref,
+                    score,
+                    id_ref,
+                    topk.fields.as_slice(),
+                    self,
+                    &topk.normalizers,
+                );
                 if !topk.would_admit(&key) {
                     continue;
                 }
@@ -42860,12 +42992,12 @@ async fn do_flush_shard(
     collection_publication: Arc<crate::collection_publication::CollectionPublication>,
     registry: Arc<AnalyzerRegistry>,
     data_dir: PathBuf,
-    field_configs: HashMap<String, xerj_fts::index::FieldIndexConfig>,
-    excluded_fts_fields: std::collections::HashSet<String>,
+    mut field_configs: HashMap<String, xerj_fts::index::FieldIndexConfig>,
+    mut excluded_fts_fields: std::collections::HashSet<String>,
     // Fields the mapping says get no doc-values column. Threaded through for
     // the same reason as `excluded_fts_fields`: this is a free fn with no
     // access to `Index`.
-    dv_skip_for_flush: std::collections::HashSet<String>,
+    mut dv_skip_for_flush: std::collections::HashSet<String>,
     on_drained: impl FnOnce() + Send + 'static,
     // Publish-time cache warm (see `warm_segment_at_publish`): the index's
     // read-path caches, threaded through because this is a free fn without
@@ -42887,9 +43019,6 @@ async fn do_flush_shard(
         on_drained();
         return Ok(());
     }
-    // #3513: a normalized keyword field's terms and doc-values column hold
-    // the normalized value, as the memtable's cells do.
-    let flush_normalizers = memtable.keyword_normalizers();
     // Acquire admission before draining. Once the memtable has been drained
     // there must be no cancellation point until a non-cancellable blocking
     // worker owns both rollback data and the publication barrier.
@@ -43056,6 +43185,7 @@ async fn do_flush_shard(
         )>,
         xerj_storage::index_store::DrainedMemtable,
         crate::memtable::FrozenClaim,
+        Arc<xerj_common::normalizer::KeywordNormalizers>,
     )> = {
         let t_drain = std::time::Instant::now();
         #[cfg(test)]
@@ -43071,6 +43201,29 @@ async fn do_flush_shard(
         };
         #[cfg(not(test))]
         let (raw, claim) = memtable.freeze_shard_accounted(shard_idx, is_raw_bytes_path);
+        // #3640: read the normalizers captured under the exact same shard write
+        // lock as the drain above, so a dynamic template that evolved the schema
+        // before the document landed in this shard is always honoured here —
+        // including `index: false` and `doc_values: false` flags on racing fields.
+        let flush_normalizers = claim.keyword_normalizers();
+        for path in flush_normalizers.non_indexed_paths() {
+            excluded_fts_fields.insert(path.clone());
+            field_configs.remove(path);
+        }
+        for path in flush_normalizers.no_doc_values_paths() {
+            dv_skip_for_flush.insert(path.clone());
+        }
+        for path in flush_normalizers.fts_keyword_paths() {
+            if !excluded_fts_fields.contains(path) {
+                field_configs.entry(path.clone()).or_insert_with(|| {
+                    xerj_fts::index::FieldIndexConfig {
+                        analyzer: "keyword".to_string(),
+                        store_positions: false,
+                        store_term_vectors: false,
+                    }
+                });
+            }
+        }
         prof_drain_us = t_drain.elapsed().as_micros();
         let t_prep = std::time::Instant::now();
         let _ = &t_prep;
@@ -43162,7 +43315,7 @@ async fn do_flush_shard(
                 entries: storage_entries,
             };
             prof_prep_us = t_prep.elapsed().as_micros();
-            Some((drained_fts, storage_drained, claim))
+            Some((drained_fts, storage_drained, claim, flush_normalizers))
         }
     };
 
@@ -43179,7 +43332,7 @@ async fn do_flush_shard(
     // tmpfs.
     on_drained();
 
-    let (drained_fts, storage_drained, claim) = match drained_opt {
+    let (drained_fts, storage_drained, claim, flush_normalizers) = match drained_opt {
         Some(pair) => pair,
         None => {
             // Another concurrent flush may have claimed this shard after the
@@ -43733,14 +43886,34 @@ fn apply_collapse_with_inner(
     hits: Vec<Hit>,
     field: &str,
     inner_hits_spec: Option<&serde_json::Value>,
+    normalizers: &xerj_common::normalizer::KeywordNormalizers,
 ) -> Vec<Hit> {
+    let normalizer = normalizers.get(field);
+    let is_multi = normalizers.is_multi_field(field);
     let mut groups: std::collections::BTreeMap<String, Vec<Hit>> =
         std::collections::BTreeMap::new();
     let mut group_order: Vec<String> = Vec::new();
     for hit in hits {
-        let key = match hit.source.get(field) {
+        let raw = get_field_value(&hit.source, field).or_else(|| {
+            if let Some(base) = field.strip_suffix(".keyword") {
+                return get_field_value(&hit.source, base);
+            }
+            if is_multi {
+                let dot = field.rfind('.')?;
+                return get_field_value(&hit.source, &field[..dot]);
+            }
+            None
+        });
+        let representative = match raw {
+            Some(Value::Array(arr)) => arr.into_iter().find(|e| !e.is_null()),
+            other => other,
+        };
+        let key = match representative {
             Some(v) => match v {
-                Value::String(s) => s.clone(),
+                Value::String(s) => match normalizer {
+                    Some(n) => n.normalize(&s),
+                    None => s,
+                },
                 Value::Number(n) => n.to_string(),
                 Value::Bool(b) => b.to_string(),
                 Value::Null => "\0null".to_string(),
@@ -51660,7 +51833,13 @@ fn knn_result_from_ranked(
         // are evaluated by the query matcher instead of the `_source`
         // approximation (`doc_matches_filter`).
         match schema {
-            Some(s) => crate::aggs::run_aggs_with_schema(aggs_def, &sources, &sources, s),
+            Some(s) => crate::aggs::run_aggs_with_schema_and_normalizers(
+                aggs_def,
+                &sources,
+                &sources,
+                s,
+                index.cached_keyword_normalizers(s),
+            ),
             None => crate::aggs::run_aggs(aggs_def, &sources),
         }
     });
@@ -53260,9 +53439,10 @@ fn has_analyzed_text_term_leaf(q: &QueryNode, schema: &Schema) -> bool {
 fn check_buildable_query(
     query: &QueryNode,
     schema: &Schema,
+    normalizers: &xerj_common::normalizer::KeywordNormalizers,
 ) -> std::result::Result<QueryNode, xerj_common::XerjError> {
     let aliased = rewrite_query_aliases(query, schema);
-    let resolved = resolve_keyword_query(&aliased, schema);
+    let resolved = resolve_keyword_query(&aliased, schema, normalizers);
     if let Some(field) = unsearchable_query_field(&resolved, schema) {
         return Err(xerj_common::XerjError::invalid_query(format!(
             "failed to create query: Cannot search on field [{field}] \
@@ -55163,9 +55343,19 @@ fn expand_field_specs(specs: &[String], schema: &Schema) -> Option<Vec<String>> 
     for spec in specs {
         let (name, boost) = parse_field_boost(spec);
         if name.contains('*') {
+            let wants_all_multi = name.contains('.');
             for (path, f) in pattern_field_paths(schema) {
                 if field_pattern_target(f) && crate::engine::glob_match(name, &path) {
                     add(&path, boost);
+                }
+                for m in &f.fields {
+                    if !wants_all_multi && m.options.normalizer.is_none() {
+                        continue;
+                    }
+                    let mf_path = format!("{path}.{}", m.name);
+                    if field_pattern_target(m) && crate::engine::glob_match(name, &mf_path) {
+                        add(&mf_path, boost);
+                    }
                 }
             }
         } else {
@@ -55612,6 +55802,81 @@ fn expand_field_pattern_clause(q: &QueryNode, schema: &Schema) -> Option<QueryNo
                 });
             join_pattern_clauses(base, typed, MultiMatchType::Phrase)
         }
+        // #3640: expand field-pattern `wildcard` and `prefix` clauses (from
+        // field-less or pattern `query_string` / `simple_query_string`, e.g.
+        // `query_string: { query: "BÀ*" }` or `simple_query_string: { query: "FRU*" }`)
+        // onto concrete searchable fields so downstream keyword normalization
+        // and FTS projection see each concrete target field.
+        QueryNode::Wildcard {
+            field,
+            value,
+            boost,
+            constant_score,
+            case_insensitive,
+        } if field.contains('*') => {
+            let targets = expand_field_specs(std::slice::from_ref(field), schema)?;
+            let mut clauses: Vec<QueryNode> = targets
+                .into_iter()
+                .map(|spec| {
+                    let (name, fboost) = parse_field_boost(&spec);
+                    let combined_boost = if name.len() == spec.len() {
+                        *boost
+                    } else {
+                        Some(fboost * (*boost).unwrap_or(1.0))
+                    };
+                    QueryNode::Wildcard {
+                        field: name.to_string(),
+                        value: value.clone(),
+                        boost: combined_boost,
+                        constant_score: *constant_score,
+                        case_insensitive: *case_insensitive,
+                    }
+                })
+                .collect();
+            match clauses.len() {
+                0 => None,
+                1 => clauses.pop(),
+                _ => Some(QueryNode::DisMax {
+                    queries: clauses,
+                    tie_breaker: 0.0,
+                }),
+            }
+        }
+        QueryNode::Prefix {
+            field,
+            value,
+            boost,
+            constant_score,
+            case_insensitive,
+        } if field.contains('*') => {
+            let targets = expand_field_specs(std::slice::from_ref(field), schema)?;
+            let mut clauses: Vec<QueryNode> = targets
+                .into_iter()
+                .map(|spec| {
+                    let (name, fboost) = parse_field_boost(&spec);
+                    let combined_boost = if name.len() == spec.len() {
+                        *boost
+                    } else {
+                        Some(fboost * (*boost).unwrap_or(1.0))
+                    };
+                    QueryNode::Prefix {
+                        field: name.to_string(),
+                        value: value.clone(),
+                        boost: combined_boost,
+                        constant_score: *constant_score,
+                        case_insensitive: *case_insensitive,
+                    }
+                })
+                .collect();
+            match clauses.len() {
+                0 => None,
+                1 => clauses.pop(),
+                _ => Some(QueryNode::DisMax {
+                    queries: clauses,
+                    tie_breaker: 0.0,
+                }),
+            }
+        }
         // The opaque node (a string the parser could not lower) with
         // `default_field: "*"` means what no `default_field` means, and only
         // the field-less form has an FTS projection.
@@ -55630,30 +55895,82 @@ fn expand_field_pattern_clause(q: &QueryNode, schema: &Schema) -> Option<QueryNo
     }
 }
 
-/// The keyword half of query resolution: keyword `match`/`multi_match`
-/// become whole-value `Term`s ([`rewrite_keyword_full_text_to_term`]), then
-/// every value compared against a normalized keyword field is normalized
-/// ([`normalize_keyword_query_values`], #3513).
-fn resolve_keyword_query(q: &QueryNode, schema: &Schema) -> QueryNode {
+/// True when `field` (top-level, object leaf, nested leaf, or multi-field) is
+/// mapped as `FieldType::Keyword` in `schema`. Zero-allocation via
+/// [`declared_field`].
+fn is_keyword_field(schema: &Schema, field: &str) -> bool {
+    matches!(
+        declared_field(schema, field),
+        Some(FieldConfig {
+            field_type: FieldType::Keyword,
+            ..
+        })
+    )
+}
+
+/// True when a `simple_query_string` prefix term (`FRU*`, lowered to
+/// `Prefix { constant_score: false, case_insensitive: false }`) should be
+/// lowercased to match standard-analyzed postings: `Text` fields and unmapped /
+/// `dynamic: false` fields (excluding `.keyword` synthetic multi-fields).
+fn should_lowercase_simple_prefix(schema: &Schema, field: &str) -> bool {
+    match declared_field(schema, field) {
+        Some(fc) => matches!(fc.field_type, FieldType::Text),
+        None => !field.ends_with(".keyword"),
+    }
+}
+
+/// Strip surrounding `"` quotes ONLY when the entire string is a single quoted
+/// literal with no unescaped interior `"` (so `"\"a\" OR \"b\""` is left
+/// untouched).
+fn strip_single_quoted_literal(s: &str) -> Option<&str> {
+    let inner = s.strip_prefix('"')?.strip_suffix('"')?;
+    if inner.is_empty() {
+        return None;
+    }
+    let mut escaped = false;
+    for ch in inner.chars() {
+        if escaped {
+            escaped = false;
+        } else if ch == '\\' {
+            escaped = true;
+        } else if ch == '"' {
+            return None;
+        }
+    }
+    Some(inner)
+}
+
+/// The keyword half of query resolution: keyword `match`/`match_phrase`/
+/// `multi_match` become whole-value `Term`s
+/// ([`rewrite_keyword_full_text_to_term`]), then every value compared against
+/// a normalized keyword field is normalized
+/// ([`normalize_keyword_query_values`], #3513, #3640) using the caller's
+/// schema-version-cached [`xerj_common::normalizer::KeywordNormalizers`].
+fn resolve_keyword_query(
+    q: &QueryNode,
+    schema: &Schema,
+    normalizers: &xerj_common::normalizer::KeywordNormalizers,
+) -> QueryNode {
     let mut resolved = rewrite_keyword_full_text_to_term(q, schema);
-    let normalizers = xerj_common::normalizer::KeywordNormalizers::from_schema(schema);
     if !normalizers.is_empty() {
-        normalize_keyword_query_values(&mut resolved, &normalizers);
+        normalize_keyword_query_values(&mut resolved, schema, normalizers);
     }
     resolved
 }
 
-/// #3513: ES normalizes the value of a `term`, `terms`, `prefix`, `wildcard`,
-/// `fuzzy` and `range` (and of `match`, which is a `term` here by now) on a
-/// keyword field with a normalizer, so `term tag: "FRUIT"` finds the
-/// normalized term `fruit`. Every structure such a query can be answered from
-/// holds normalized values (FTS terms, doc-values columns, memtable cells), and
-/// the `_source` matcher normalizes the document side
+/// #3513/#3640: ES normalizes the value of a `term`, `terms`, `prefix`,
+/// `wildcard`, `fuzzy`, `range`, `match_phrase_prefix`, `query_string` and
+/// `simple_query_string` (and of `match`/`match_phrase`, which are `term`s
+/// here by now) on a keyword field with a normalizer, so `term tag: "FRUIT"`
+/// finds the normalized term `fruit`. Every structure such a query can be
+/// answered from holds normalized values (FTS terms, doc-values columns,
+/// memtable cells), and the `_source` matcher normalizes the document side
 /// ([`doc_matches_query_typed`]), so normalizing the query once here makes all
 /// of them agree. `regexp` is left as written, as ES leaves it. A field with
 /// no normalizer is untouched.
 fn normalize_keyword_query_values(
     q: &mut QueryNode,
+    schema: &Schema,
     normalizers: &xerj_common::normalizer::KeywordNormalizers,
 ) {
     fn norm_value(n: &xerj_common::normalizer::KeywordNormalizer, v: &mut Value) {
@@ -55677,6 +55994,151 @@ fn normalize_keyword_query_values(
         | QueryNode::Fuzzy { field, value, .. } => {
             if let Some(n) = normalizers.get(field) {
                 *value = n.normalize(value);
+            }
+        }
+        QueryNode::MatchPhrasePrefix { field, query, .. } => {
+            // #3640: on a normalized keyword field, `match_phrase_prefix`
+            // compares the whole normalized value as one prefix term, so
+            // lowering to `Prefix` keeps memtable scan and flushed segments
+            // in exact parity (both match normalized whole-value prefixes).
+            if let Some(n) = normalizers.get(field) {
+                *q = QueryNode::Prefix {
+                    field: field.clone(),
+                    value: n.normalize(query),
+                    boost: None,
+                    constant_score: false,
+                    case_insensitive: false,
+                };
+            }
+        }
+        QueryNode::QueryString {
+            query,
+            default_field,
+            default_operator,
+            boost,
+        } => match default_field.as_deref() {
+            Some(f) if f != "*" && !f.is_empty() => {
+                let (fname, fboost) = parse_field_boost(f);
+                if let Some(n) = normalizers.get(fname) {
+                    let inner = strip_single_quoted_literal(query).unwrap_or(query.as_str());
+                    let combined_boost = if fname.len() == f.len() {
+                        *boost
+                    } else {
+                        Some(fboost * (*boost).unwrap_or(1.0))
+                    };
+                    *q = QueryNode::Term {
+                        field: fname.to_string(),
+                        value: Value::String(n.normalize(inner)),
+                        boost: combined_boost,
+                    };
+                }
+            }
+            _ => {
+                // #3640: field-less `QueryString` (including `simple_query_string`
+                // with no `fields` or `fields: ["*"]`) on an index with
+                // normalized keyword fields. Expand onto every searchable
+                // concrete field so normalized keywords receive normalized
+                // `Term`s while text fields stay analyzed on the FTS route.
+                let (is_phrase, inner) = strip_single_quoted_literal(query)
+                    .map_or((false, query.as_str()), |s| (true, s));
+                let op = default_operator.unwrap_or(xerj_query::ast::BoolOperator::Or);
+                let star = ["*".to_string()];
+                let mut clauses: Vec<QueryNode> = Vec::new();
+                if let Some(expanded) = expand_field_specs(&star, schema) {
+                    for spec in expanded {
+                        let (fname, _) = parse_field_boost(&spec);
+                        if let Some(n) = normalizers.get(fname) {
+                            clauses.push(QueryNode::Term {
+                                field: fname.to_string(),
+                                value: Value::String(n.normalize(inner)),
+                                boost: *boost,
+                            });
+                        } else if is_keyword_field(schema, fname) {
+                            clauses.push(QueryNode::Term {
+                                field: fname.to_string(),
+                                value: Value::String(inner.to_string()),
+                                boost: *boost,
+                            });
+                        } else if is_phrase {
+                            clauses.push(QueryNode::MatchPhrase {
+                                field: fname.to_string(),
+                                query: inner.to_string(),
+                                slop: 0,
+                                analyzer: None,
+                                boost: *boost,
+                                lenient: true,
+                            });
+                        } else {
+                            clauses.push(QueryNode::Match {
+                                field: fname.to_string(),
+                                query: inner.to_string(),
+                                operator: op,
+                                analyzer: None,
+                                boost: *boost,
+                                minimum_should_match: None,
+                                lenient: true,
+                            });
+                        }
+                    }
+                }
+                clauses.extend(lenient_typed_pattern_leaves(&star, inner, *boost, schema));
+                if clauses.len() == 1 {
+                    if let Some(single) = clauses.pop() {
+                        *q = single;
+                    }
+                } else if !clauses.is_empty() {
+                    *q = QueryNode::DisMax {
+                        queries: clauses,
+                        tie_breaker: 0.0,
+                    };
+                }
+            }
+        },
+        QueryNode::SimpleQueryString { query, fields } => {
+            let specs: Vec<String> = if fields.is_empty() {
+                vec!["*".to_string()]
+            } else {
+                fields.clone()
+            };
+            if let Some(expanded) = expand_field_specs(&specs, schema) {
+                let mut clauses: Vec<QueryNode> = Vec::with_capacity(expanded.len());
+                for spec in expanded {
+                    let (fname, fboost) = parse_field_boost(&spec);
+                    let boost = (fname.len() != spec.len()).then_some(fboost);
+                    if let Some(n) = normalizers.get(fname) {
+                        clauses.push(QueryNode::Term {
+                            field: fname.to_string(),
+                            value: Value::String(n.normalize(query)),
+                            boost,
+                        });
+                    } else if is_keyword_field(schema, fname) {
+                        clauses.push(QueryNode::Term {
+                            field: fname.to_string(),
+                            value: Value::String(query.clone()),
+                            boost,
+                        });
+                    } else {
+                        clauses.push(QueryNode::Match {
+                            field: fname.to_string(),
+                            query: query.clone(),
+                            operator: xerj_query::ast::BoolOperator::Or,
+                            analyzer: None,
+                            boost,
+                            minimum_should_match: None,
+                            lenient: true,
+                        });
+                    }
+                }
+                if clauses.len() == 1 {
+                    if let Some(single) = clauses.pop() {
+                        *q = single;
+                    }
+                } else if !clauses.is_empty() {
+                    *q = QueryNode::DisMax {
+                        queries: clauses,
+                        tie_breaker: 0.0,
+                    };
+                }
             }
         }
         QueryNode::Range {
@@ -55706,59 +56168,64 @@ fn normalize_keyword_query_values(
                 .chain(must_not.iter_mut())
                 .chain(filter.iter_mut())
             {
-                normalize_keyword_query_values(c, normalizers);
+                normalize_keyword_query_values(c, schema, normalizers);
             }
         }
         QueryNode::Constant { query, .. }
         | QueryNode::Boosted { query, .. }
         | QueryNode::Nested { query, .. }
-        | QueryNode::Named { query, .. } => normalize_keyword_query_values(query, normalizers),
-        QueryNode::Pinned { organic, .. } => normalize_keyword_query_values(organic, normalizers),
+        | QueryNode::Named { query, .. } => {
+            normalize_keyword_query_values(query, schema, normalizers)
+        }
+        QueryNode::Pinned { organic, .. } => {
+            normalize_keyword_query_values(organic, schema, normalizers)
+        }
         QueryNode::FunctionScore {
             query, functions, ..
         } => {
-            normalize_keyword_query_values(query, normalizers);
+            normalize_keyword_query_values(query, schema, normalizers);
             for f in functions.iter_mut() {
                 if let Some(filter) = f.filter.as_mut() {
-                    normalize_keyword_query_values(filter, normalizers);
+                    normalize_keyword_query_values(filter, schema, normalizers);
                 }
             }
         }
         QueryNode::Boosting {
             positive, negative, ..
         } => {
-            normalize_keyword_query_values(positive, normalizers);
-            normalize_keyword_query_values(negative, normalizers);
+            normalize_keyword_query_values(positive, schema, normalizers);
+            normalize_keyword_query_values(negative, schema, normalizers);
         }
         QueryNode::DisMax { queries, .. } => {
             for c in queries.iter_mut() {
-                normalize_keyword_query_values(c, normalizers);
+                normalize_keyword_query_values(c, schema, normalizers);
             }
         }
         QueryNode::Hybrid { queries, .. } => {
             for wq in queries.iter_mut() {
-                normalize_keyword_query_values(&mut wq.query, normalizers);
+                normalize_keyword_query_values(&mut wq.query, schema, normalizers);
             }
         }
         QueryNode::Knn { filter, .. } | QueryNode::SemanticSearch { filter, .. } => {
             if let Some(f) = filter.as_mut() {
-                normalize_keyword_query_values(f, normalizers);
+                normalize_keyword_query_values(f, schema, normalizers);
             }
         }
         _ => {}
     }
 }
 
-/// #354: `match`/`multi_match` on a `keyword` field must take the query text
-/// WHOLE (keyword analyzer), not whitespace-tokenise + OR it. The flushed
-/// segment path already does this (per-field analyzer), but the memtable's
-/// schema-less `doc_matches_query`/`score_query_against_doc` tokenise, so the
-/// answer flipped at `_flush`. Rewrite keyword-targeted `Match`/`MultiMatch`
-/// clauses to whole-value `Term`s once here — where the schema is in scope — so
-/// BOTH paths agree. Analyzed-`text` fields are left untouched; a mixed
-/// `multi_match` splits into `Term`s for the keyword fields plus a `multi_match`
-/// over the remaining text fields. Same traversal coverage as
-/// `rewrite_query_aliases`, and applied after it so field names are canonical.
+/// #354: `match`/`match_phrase`/`multi_match` on a `keyword` field must take
+/// the query text WHOLE (keyword analyzer), not whitespace-tokenise + OR it.
+/// The flushed segment path already does this (per-field analyzer), but the
+/// memtable's schema-less `doc_matches_query`/`score_query_against_doc`
+/// tokenise, so the answer flipped at `_flush`. Rewrite keyword-targeted
+/// `Match`/`MatchPhrase`/`MultiMatch` clauses to whole-value `Term`s once here
+/// — where the schema is in scope — so BOTH paths agree. Analyzed-`text` fields
+/// are left untouched; a mixed `multi_match` splits into `Term`s for the
+/// keyword fields plus a `multi_match` over the remaining text fields. Same
+/// traversal coverage as `rewrite_query_aliases`, and applied after it so field
+/// names are canonical.
 fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNode {
     // #3413: resolve `*` / `title*` field patterns against the mapping first,
     // so the keyword split below and every path after it see concrete names.
@@ -55766,42 +56233,39 @@ fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNod
     if let Some(expanded) = expand_field_pattern_clause(q, schema) {
         return rewrite_keyword_full_text_to_term(&expanded, schema);
     }
-    fn is_keyword(schema: &Schema, field: &str) -> bool {
-        // #3464: an object leaf (`meta.tag`) by its dotted path, too. Its
-        // side-car holds whole values, so the memtable must also compare it
-        // whole, or a hit would change at `_flush`.
-        // A keyword multi-field (`title.raw` under a `text` title, or the
-        // dynamic `.keyword`) is not analysed either: ES runs `match` on it as
-        // a whole-value term. Without this arm the memtable answered 0 for an
-        // exact value and segments tokenised it, so `match title.raw: "World"`
-        // hit "Hello World" after `_flush`.
-        schema
-            .fields
-            .iter()
-            .any(|f| f.name == field && matches!(f.field_type, FieldType::Keyword))
-            || (field.contains('.')
-                && pattern_field_paths(schema).iter().any(|(path, f)| {
-                    (path == field && matches!(f.field_type, FieldType::Keyword))
-                        || field
-                            .strip_prefix(path.as_str())
-                            .and_then(|rest| rest.strip_prefix('.'))
-                            .is_some_and(|sub| {
-                                f.fields.iter().any(|m| {
-                                    m.name == sub && matches!(m.field_type, FieldType::Keyword)
-                                })
-                            })
-                }))
-    }
     match q {
         QueryNode::Match {
             field,
             query,
             boost,
             ..
-        } if is_keyword(schema, field) => QueryNode::Term {
+        }
+        | QueryNode::MatchPhrase {
+            field,
+            query,
+            boost,
+            ..
+        } if is_keyword_field(schema, field) => QueryNode::Term {
             field: field.clone(),
             value: Value::String(query.clone()),
             boost: *boost,
+        },
+        // #3640: `simple_query_string` prefix (`FRU*`) lowers to a non-constant
+        // `Prefix` so keyword fields keep their exact/normalizer case while
+        // analyzed `text` and unmapped/`dynamic: false` fields fold to the
+        // standard analyzer's lowercase terms.
+        QueryNode::Prefix {
+            field,
+            value,
+            boost,
+            constant_score: false,
+            case_insensitive: false,
+        } if should_lowercase_simple_prefix(schema, field) => QueryNode::Prefix {
+            field: field.clone(),
+            value: value.to_lowercase(),
+            boost: *boost,
+            constant_score: false,
+            case_insensitive: false,
         },
         QueryNode::MultiMatch {
             fields,
@@ -55811,7 +56275,7 @@ fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNod
             ..
         } if fields
             .iter()
-            .any(|f| is_keyword(schema, parse_field_boost(f).0)) =>
+            .any(|f| is_keyword_field(schema, parse_field_boost(f).0)) =>
         {
             // A multi_match field spec may carry a `^boost` suffix ("tags^2");
             // strip it before consulting the mapping (otherwise a boosted
@@ -55820,7 +56284,7 @@ fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNod
             let (kw, text): (Vec<String>, Vec<String>) = fields
                 .iter()
                 .cloned()
-                .partition(|f| is_keyword(schema, parse_field_boost(f).0));
+                .partition(|f| is_keyword_field(schema, parse_field_boost(f).0));
             let mut should: Vec<QueryNode> = kw
                 .into_iter()
                 .map(|f| {
@@ -56040,12 +56504,23 @@ fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNod
 /// (token-OR) instead of requiring the whole value "a b" — a wrong-scoring
 /// divergence from the main query and from ES keyword semantics. A script-only
 /// rescore carries no `QueryNode` and is returned unchanged.
+#[cfg(test)]
 fn rewrite_rescore_keyword(stage: &RescoreQuery, schema: &Schema) -> RescoreQuery {
+    let normalizers = xerj_common::normalizer::KeywordNormalizers::from_schema(schema);
+    rewrite_rescore_keyword_with_normalizers(stage, schema, &normalizers)
+}
+
+fn rewrite_rescore_keyword_with_normalizers(
+    stage: &RescoreQuery,
+    schema: &Schema,
+    normalizers: &xerj_common::normalizer::KeywordNormalizers,
+) -> RescoreQuery {
     let mut out = stage.clone();
     if let Some(inner) = out.query.as_mut() {
-        inner.rescore_query = rewrite_keyword_full_text_to_term(
+        inner.rescore_query = resolve_keyword_query(
             &rewrite_query_aliases(&inner.rescore_query, schema),
             schema,
+            normalizers,
         );
     }
     out
@@ -57193,112 +57668,560 @@ const DYNAMIC_MAPPING_DEPTH_LIMIT: usize = 20;
 /// attempting to reconcile a heterogeneous shape across array entries --
 /// no behavior change for arrays beyond what recursing into their inferred
 /// Object element already implies.
-/// #3513: the field a `dynamic_templates` list maps a NEW top-level string
-/// field to, when the first template that matches it maps it to a `keyword`
-/// with a `normalizer`. `None` otherwise, and the field keeps the dynamic
-/// mapping it always had.
-///
-/// This build applies dynamic templates for exactly this case. A template
-/// that maps a field any other way is still not applied (as before), so the
-/// first-match rule is kept by stopping at the first template that matches,
-/// whatever it maps to. Matching follows the ES template conditions for a
-/// root field: `match_mapping_type` (`string`, `date`, `*`, or a list),
-/// `match`/`unmatch` and `path_match`/`path_unmatch` (globs, or regexes with
-/// `match_pattern: regex`). Templates that use `runtime` are skipped.
-fn normalized_keyword_from_dynamic_templates(
-    templates: &[Value],
-    key: &str,
-    val: &Value,
-    detected: FieldType,
-    analysis: Option<&Value>,
-) -> Option<FieldConfig> {
-    let is_string = match val {
-        Value::String(_) => true,
-        Value::Array(arr) => arr
-            .iter()
-            .find(|v| !v.is_null())
-            .is_some_and(Value::is_string),
-        _ => false,
-    };
-    if !is_string {
-        return None;
+/// Compiled pattern matcher for one `dynamic_templates` condition (`simple`
+/// `*`-only glob or anchored `regex`; #3640).
+enum CompiledTemplateMatcher {
+    Simple(Vec<String>),
+    Regex(Vec<Regex>),
+}
+
+impl CompiledTemplateMatcher {
+    fn matches(&self, target: &str) -> bool {
+        match self {
+            Self::Simple(pats) => pats.iter().any(|p| es_simple_match(target, p)),
+            Self::Regex(res) => res.iter().any(|r| r.is_match(target)),
+        }
     }
-    let mapping_type = match detected {
-        FieldType::Date => "date",
-        FieldType::Text | FieldType::Keyword => "string",
-        _ => return None,
-    };
-    fn list(v: Option<&Value>) -> Option<Vec<&str>> {
+}
+
+/// Linear-time ES `simple` match (`*` matches any sequence of characters; all
+/// other characters including `?` are literal, matching ES `Regex.simpleMatch`
+/// with zero exponential backtracking).
+fn es_simple_match(text: &str, pattern: &str) -> bool {
+    let (t, p) = (text.as_bytes(), pattern.as_bytes());
+    let (mut ti, mut pi) = (0usize, 0usize);
+    let mut star_pi: Option<usize> = None;
+    let mut star_ti = 0usize;
+    while ti < t.len() {
+        if pi < p.len() && p[pi] == b'*' {
+            star_pi = Some(pi);
+            pi += 1;
+            star_ti = ti;
+        } else if pi < p.len() && p[pi] == t[ti] {
+            ti += 1;
+            pi += 1;
+        } else if let Some(sp) = star_pi {
+            pi = sp + 1;
+            star_ti += 1;
+            ti = star_ti;
+        } else {
+            return false;
+        }
+    }
+    while pi < p.len() && p[pi] == b'*' {
+        pi += 1;
+    }
+    pi == p.len()
+}
+
+struct CompiledDynamicTemplate {
+    match_mapping_type: Option<Vec<String>>,
+    unmatch_mapping_type: Option<Vec<String>>,
+    match_name: Option<CompiledTemplateMatcher>,
+    unmatch_name: Option<CompiledTemplateMatcher>,
+    path_match: Option<CompiledTemplateMatcher>,
+    path_unmatch: Option<CompiledTemplateMatcher>,
+    mapping: serde_json::Map<String, Value>,
+}
+
+/// Loaded `dynamic_templates`, optional `analysis` block, and statically
+/// disabled dynamic-child paths for one schema evolution pass (#3640).
+struct DynamicTemplateContext {
+    templates: Vec<CompiledDynamicTemplate>,
+    analysis: Option<Value>,
+    disabled_dynamic_paths: HashSet<String>,
+}
+
+fn es_type_supports_dynamic_children(es_type: &str) -> bool {
+    matches!(es_type, "object" | "nested")
+}
+
+fn mapping_disables_dynamic_children(map: &serde_json::Map<String, Value>) -> bool {
+    if map.get("enabled").and_then(Value::as_bool) == Some(false) {
+        return true;
+    }
+    if matches!(map.get("dynamic"), Some(Value::Bool(false)))
+        || matches!(
+            map.get("dynamic"),
+            Some(Value::String(s)) if s == "false" || s == "strict"
+        )
+    {
+        return true;
+    }
+    if let Some(es_type) = map.get("type").and_then(Value::as_str) {
+        if !es_type_supports_dynamic_children(es_type) {
+            return true;
+        }
+    }
+    false
+}
+
+fn collect_disabled_dynamic_paths(
+    props: &serde_json::Map<String, Value>,
+    prefix: &str,
+    out: &mut HashSet<String>,
+) {
+    for (name, val) in props {
+        let Some(obj) = val.as_object() else {
+            continue;
+        };
+        let path = if prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{prefix}.{name}")
+        };
+        if mapping_disables_dynamic_children(obj) {
+            out.insert(path.clone());
+        }
+        if let Some(sub_props) = obj.get("properties").and_then(Value::as_object) {
+            collect_disabled_dynamic_paths(sub_props, &path, out);
+        }
+    }
+}
+
+fn compile_dynamic_templates(raw: &[Value]) -> Vec<CompiledDynamicTemplate> {
+    fn owned_str_list(v: Option<&Value>) -> Option<Vec<String>> {
         match v {
             None => None,
-            Some(Value::String(s)) => Some(vec![s.as_str()]),
-            Some(Value::Array(a)) => Some(a.iter().filter_map(Value::as_str).collect()),
+            Some(Value::String(s)) => Some(vec![s.clone()]),
+            Some(Value::Array(a)) => Some(
+                a.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect(),
+            ),
             Some(_) => Some(Vec::new()),
         }
     }
-    for entry in templates {
+    fn compile_matcher(v: Option<&Value>, is_regex: bool) -> Option<CompiledTemplateMatcher> {
+        let list = owned_str_list(v)?;
+        if is_regex {
+            let compiled = list
+                .into_iter()
+                .filter_map(|p| Regex::new(&format!("^(?:{p})$")).ok())
+                .collect();
+            Some(CompiledTemplateMatcher::Regex(compiled))
+        } else {
+            Some(CompiledTemplateMatcher::Simple(list))
+        }
+    }
+
+    let mut out = Vec::new();
+    for entry in raw {
         let Some((_, spec)) = entry.as_object().and_then(|o| o.iter().next()) else {
             continue;
         };
-        let Some(mapping) = spec.get("mapping") else {
+        if spec.get("runtime").is_some() {
+            continue;
+        }
+        let Some(mapping) = spec.get("mapping").and_then(Value::as_object) else {
             continue;
         };
-        let regex = spec.get("match_pattern").and_then(Value::as_str) == Some("regex");
-        let matches_any = |patterns: &[&str]| {
-            patterns.iter().any(|p| {
-                if regex {
-                    Regex::new(p).is_ok_and(|r| r.is_match(key))
-                } else {
-                    wildcard_match(key, p)
+        let has_condition = spec.get("match").is_some()
+            || spec.get("unmatch").is_some()
+            || spec.get("path_match").is_some()
+            || spec.get("path_unmatch").is_some()
+            || spec.get("match_mapping_type").is_some()
+            || spec.get("unmatch_mapping_type").is_some();
+        if !has_condition {
+            continue;
+        }
+        let is_regex = spec.get("match_pattern").and_then(Value::as_str) == Some("regex");
+        out.push(CompiledDynamicTemplate {
+            match_mapping_type: owned_str_list(spec.get("match_mapping_type")),
+            unmatch_mapping_type: owned_str_list(spec.get("unmatch_mapping_type")),
+            match_name: compile_matcher(spec.get("match"), is_regex),
+            unmatch_name: compile_matcher(spec.get("unmatch"), is_regex),
+            path_match: compile_matcher(spec.get("path_match"), is_regex),
+            path_unmatch: compile_matcher(spec.get("path_unmatch"), is_regex),
+            mapping: mapping.clone(),
+        });
+    }
+    out
+}
+
+fn value_contains_key(v: &Value, key: &str) -> bool {
+    match v {
+        Value::Object(obj) => {
+            obj.contains_key(key) || obj.values().any(|child| value_contains_key(child, key))
+        }
+        Value::Array(arr) => arr.iter().any(|child| value_contains_key(child, key)),
+        _ => false,
+    }
+}
+
+fn first_non_null_value(val: &Value) -> Option<&Value> {
+    match val {
+        Value::Null => None,
+        Value::Array(arr) => arr.iter().find_map(first_non_null_value),
+        other => Some(other),
+    }
+}
+
+fn field_config_contains_date(fc: &FieldConfig) -> bool {
+    matches!(fc.field_type, FieldType::Date) || fc.fields.iter().any(field_config_contains_date)
+}
+
+fn field_allows_dynamic_children(
+    field: &FieldConfig,
+    full_path: &str,
+    templates: Option<&DynamicTemplateContext>,
+) -> bool {
+    if templates.is_some_and(|ctx| ctx.disabled_dynamic_paths.contains(full_path)) {
+        return false;
+    }
+    let Some(map) = field.options.es_mapping.as_ref().and_then(Value::as_object) else {
+        return true;
+    };
+    !mapping_disables_dynamic_children(map)
+}
+
+fn substitute_placeholder_str(s: &str, leaf_name: &str, dynamic_type: &str) -> String {
+    if s.contains("{name}") || s.contains("{dynamic_type}") {
+        s.replace("{name}", leaf_name)
+            .replace("{dynamic_type}", dynamic_type)
+    } else {
+        s.to_string()
+    }
+}
+
+fn substitute_dynamic_template_placeholders(
+    v: &Value,
+    leaf_name: &str,
+    dynamic_type: &str,
+) -> Value {
+    match v {
+        Value::String(s) => Value::String(substitute_placeholder_str(s, leaf_name, dynamic_type)),
+        Value::Array(arr) => Value::Array(
+            arr.iter()
+                .map(|e| substitute_dynamic_template_placeholders(e, leaf_name, dynamic_type))
+                .collect(),
+        ),
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(k, val)| {
+                    (
+                        substitute_placeholder_str(k, leaf_name, dynamic_type),
+                        substitute_dynamic_template_placeholders(val, leaf_name, dynamic_type),
+                    )
+                })
+                .collect(),
+        ),
+        other => other.clone(),
+    }
+}
+
+fn es_type_name_to_native_field_type(es_type: &str) -> FieldType {
+    match es_type {
+        "text" | "semantic_text" => FieldType::Text,
+        "keyword" | "constant_keyword" | "wildcard" => FieldType::Keyword,
+        "long" | "integer" | "short" | "byte" | "unsigned_long" => FieldType::Long,
+        "double" | "float" | "half_float" | "scaled_float" => FieldType::Double,
+        "boolean" => FieldType::Boolean,
+        "date" | "date_nanos" => FieldType::Date,
+        "ip" => FieldType::Ip,
+        "dense_vector" => FieldType::Vector,
+        "geo_point" => FieldType::GeoPoint,
+        "binary" => FieldType::Binary,
+        "nested" => FieldType::Nested,
+        _ => FieldType::Object,
+    }
+}
+
+fn field_config_from_es_template_mapping(
+    field_name: &str,
+    mapping: &serde_json::Map<String, Value>,
+    default_es_type: &str,
+    analysis: Option<&Value>,
+) -> FieldConfig {
+    let es_type = mapping
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or(default_es_type);
+    let native_type = es_type_name_to_native_field_type(es_type);
+    let mut fc = FieldConfig::new(field_name.to_string(), native_type);
+
+    if native_type == FieldType::Date {
+        fc.options.date_precision = Some(if es_type == "date_nanos" {
+            xerj_common::types::DatePrecision::Nanos
+        } else {
+            xerj_common::types::DatePrecision::Millis
+        });
+        fc.options.date_format = mapping
+            .get("format")
+            .and_then(Value::as_str)
+            .filter(|f| !f.trim().is_empty())
+            .map(str::to_string);
+    }
+
+    let doc_values_default = !matches!(
+        es_type,
+        "text"
+            | "annotated_text"
+            | "match_only_text"
+            | "search_as_you_type"
+            | "semantic_text"
+            | "binary"
+            | "object"
+            | "nested"
+    );
+    fc.options.doc_values = mapping
+        .get("doc_values")
+        .and_then(Value::as_bool)
+        .unwrap_or(doc_values_default);
+    fc.options.indexed = mapping
+        .get("index")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    if let Some(n) = mapping.get("ignore_above").and_then(Value::as_u64) {
+        fc.options.ignore_above = u32::try_from(n).ok();
+    }
+    if let Some(a) = mapping.get("analyzer").and_then(Value::as_str) {
+        fc.options.analyzer = Some(a.to_string());
+    }
+    // Note: dynamic-template `copy_to` is already applied at ingest by
+    // `bulk::apply_dynamic_template_copy_to*` (which also records the
+    // `__xy_copy_to_pristine__` snapshot for synthetic source). Setting
+    // `fc.options.null_value = "__copy_to__:..."` here would run
+    // `apply_copy_to` a second time and overwrite the pristine snapshot.
+    if es_type == "keyword" {
+        if let Some(norm_name) = mapping.get("normalizer").and_then(Value::as_str) {
+            if let Ok(resolved) =
+                xerj_common::normalizer::KeywordNormalizer::resolve(norm_name, analysis)
+            {
+                fc.options.normalizer = Some(resolved);
+            }
+        }
+    }
+    if es_type == "dense_vector" {
+        if let Some(dims) = mapping.get("dims").and_then(Value::as_u64) {
+            fc.options.dimensions = Some(dims as usize);
+        }
+        fc.options.similarity = Some(
+            mapping
+                .get("similarity")
+                .and_then(Value::as_str)
+                .unwrap_or("cosine")
+                .to_string(),
+        );
+    }
+    if es_type_supports_dynamic_children(es_type) {
+        if let Some(sub_props) = mapping.get("properties").and_then(Value::as_object) {
+            for (sub_name, sub_def) in sub_props {
+                if let Some(sub_map) = sub_def.as_object() {
+                    fc.fields.push(field_config_from_es_template_mapping(
+                        sub_name, sub_map, "object", analysis,
+                    ));
                 }
-            })
-        };
-        if let Some(types) = list(spec.get("match_mapping_type")) {
-            if !types.iter().any(|t| *t == "*" || *t == mapping_type) {
+            }
+        }
+    }
+    if let Some(multi_fields) = mapping.get("fields").and_then(Value::as_object) {
+        for (sub_name, sub_def) in multi_fields {
+            if let Some(sub_map) = sub_def.as_object() {
+                fc.fields.push(field_config_from_es_template_mapping(
+                    sub_name, sub_map, "keyword", analysis,
+                ));
+            }
+        }
+    }
+
+    // Store the resolved template mapping (minus `properties`/`fields`, which
+    // `schema_to_es_properties` renders from live `fc.fields`) so `GET _mapping`
+    // keeps exact ES types (`integer`, `meta`, `doc_values: false`, etc.).
+    let mut stored_mapping = mapping.clone();
+    stored_mapping.remove("properties");
+    stored_mapping.remove("fields");
+    if es_type != "keyword" {
+        stored_mapping.remove("normalizer");
+    }
+    if !stored_mapping.contains_key("type") {
+        stored_mapping.insert("type".to_string(), Value::String(es_type.to_string()));
+    }
+    fc.options.es_mapping = Some(Value::Object(stored_mapping));
+    fc
+}
+
+/// #3640: evaluate `dynamic_templates` for a newly-discovered field at any
+/// nesting depth (top-level, `object` leaf, `nested` leaf, or explicit object
+/// template). Follows ES dynamic template rules:
+/// - `runtime` templates and parameter-only templates (no match condition at
+///   all — invoked only by per-doc `dynamic_templates` parameters) are skipped;
+/// - `match_mapping_type` / `unmatch_mapping_type` test the detected JSON type
+///   (`string`, `date`, `long`, `double`, `boolean`, `object`), and an `object`
+///   value only matches templates that explicitly include `"object"` in
+///   `match_mapping_type` (never `"*"` or omitted);
+/// - `match`/`unmatch` test the leaf field name, while `path_match`/
+///   `path_unmatch` test the full dotted path (anchored `regex` or `*`-only
+///   `simple` match);
+/// - first matching template wins, with `{name}` and `{dynamic_type}` expanded
+///   in both keys and values.
+fn dynamic_template_field_config(
+    ctx: &DynamicTemplateContext,
+    key: &str,
+    full_path: &str,
+    val: &Value,
+    date_detection: bool,
+    depth: usize,
+) -> Option<FieldConfig> {
+    let first = first_non_null_value(val)?;
+    let (mapping_type, dynamic_type) = match first {
+        Value::String(s) => {
+            if date_detection && looks_like_date_string(s) {
+                ("date", "date")
+            } else {
+                ("string", "text")
+            }
+        }
+        Value::Number(n) => {
+            if n.is_f64() {
+                ("double", "double")
+            } else {
+                ("long", "long")
+            }
+        }
+        Value::Bool(_) => ("boolean", "boolean"),
+        Value::Object(_) => ("object", "object"),
+        Value::Null | Value::Array(_) => return None,
+    };
+    let leaf_name = key.rsplit('.').next().unwrap_or(key);
+
+    for tmpl in &ctx.templates {
+        if mapping_type == "object" {
+            let Some(types) = tmpl.match_mapping_type.as_deref() else {
+                continue;
+            };
+            if !types.iter().any(|t| t == "object") {
+                continue;
+            }
+        } else if let Some(types) = tmpl.match_mapping_type.as_deref() {
+            if !types.iter().any(|t| t == "*" || t == mapping_type) {
                 continue;
             }
         }
-        let mut excluded = false;
-        for (positive, negative) in [("match", "unmatch"), ("path_match", "path_unmatch")] {
-            if let Some(p) = list(spec.get(positive)) {
-                if !matches_any(&p) {
-                    excluded = true;
-                }
-            }
-            if let Some(p) = list(spec.get(negative)) {
-                if matches_any(&p) {
-                    excluded = true;
-                }
+        if let Some(types) = tmpl.unmatch_mapping_type.as_deref() {
+            if types.iter().any(|t| t == "*" || t == mapping_type) {
+                continue;
             }
         }
-        if excluded {
-            continue;
+
+        if let Some(m) = &tmpl.match_name {
+            if !m.matches(leaf_name) {
+                continue;
+            }
         }
+        if let Some(m) = &tmpl.unmatch_name {
+            if m.matches(leaf_name) {
+                continue;
+            }
+        }
+        if let Some(m) = &tmpl.path_match {
+            if !m.matches(full_path) {
+                continue;
+            }
+        }
+        if let Some(m) = &tmpl.path_unmatch {
+            if m.matches(full_path) {
+                continue;
+            }
+        }
+
         // First matching template wins.
-        if mapping.get("type").and_then(Value::as_str) != Some("keyword") {
-            return None;
-        }
-        let name = mapping.get("normalizer").and_then(Value::as_str)?;
-        let normalizer =
-            xerj_common::normalizer::KeywordNormalizer::resolve(name, analysis).ok()?;
-        let mut fc = FieldConfig::new(key, FieldType::Keyword);
-        fc.options.normalizer = Some(normalizer);
-        if let Some(n) = mapping.get("ignore_above").and_then(Value::as_u64) {
-            fc.options.ignore_above = u32::try_from(n).ok();
-        }
-        if let Some(dv) = mapping.get("doc_values").and_then(Value::as_bool) {
-            fc.options.doc_values = dv;
-        }
-        if let Some(indexed) = mapping.get("index").and_then(Value::as_bool) {
-            fc.options.indexed = indexed;
+        let resolved_val = substitute_dynamic_template_placeholders(
+            &Value::Object(tmpl.mapping.clone()),
+            leaf_name,
+            dynamic_type,
+        );
+        let resolved_map = resolved_val.as_object()?;
+        let es_type = resolved_map
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or(dynamic_type);
+        let mut fc = field_config_from_es_template_mapping(
+            key,
+            resolved_map,
+            dynamic_type,
+            ctx.analysis.as_ref(),
+        );
+        if es_type_supports_dynamic_children(es_type)
+            && depth < DYNAMIC_MAPPING_DEPTH_LIMIT
+            && field_allows_dynamic_children(&fc, full_path, Some(ctx))
+        {
+            populate_dynamic_object_children(
+                &mut fc,
+                full_path,
+                val,
+                date_detection,
+                depth,
+                Some(ctx),
+            );
         }
         return Some(fc);
     }
     None
 }
 
+/// Iterate every JSON object represented by `val` — either `val` itself when
+/// it is an object, or every object element inside an array (supporting
+/// heterogeneous arrays of objects where keys appear only on later elements;
+/// #3640).
+fn for_each_object_in_value<'a>(
+    val: &'a Value,
+    mut f: impl FnMut(&'a serde_json::Map<String, Value>),
+) {
+    match val {
+        Value::Object(obj) => f(obj),
+        Value::Array(arr) => {
+            for elem in arr {
+                if let Value::Object(obj) = elem {
+                    f(obj);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn populate_dynamic_object_children(
+    fc: &mut FieldConfig,
+    full_path: &str,
+    val: &Value,
+    date_detection: bool,
+    depth: usize,
+    templates: Option<&DynamicTemplateContext>,
+) {
+    let mut dummy_count = 0u32;
+    for_each_object_in_value(val, |obj| {
+        for (sub_key, sub_val) in obj {
+            let child_path = format!("{full_path}.{sub_key}");
+            if let Some(existing) = fc.fields.iter_mut().find(|f| f.name == *sub_key) {
+                merge_dynamic_children_into(
+                    existing,
+                    &child_path,
+                    sub_val,
+                    date_detection,
+                    depth + 1,
+                    &mut dummy_count,
+                    u32::MAX,
+                    templates,
+                );
+            } else {
+                fc.fields.push(dynamic_field_config_at_depth(
+                    sub_key,
+                    &child_path,
+                    sub_val,
+                    date_detection,
+                    depth + 1,
+                    templates,
+                ));
+            }
+        }
+    });
+}
+
+#[cfg(test)]
 fn dynamic_field_config(key: &str, val: &Value, date_detection: bool) -> FieldConfig {
-    dynamic_field_config_at_depth(key, val, date_detection, 1)
+    dynamic_field_config_at_depth(key, key, val, date_detection, 1, None)
 }
 
 /// Is `key` the per-document MULTI-VECTOR companion of a `dense_vector` that
@@ -57386,10 +58309,19 @@ fn declares_dense_vector(schema: &Schema, path: &str) -> bool {
 
 fn dynamic_field_config_at_depth(
     key: &str,
+    full_path: &str,
     val: &Value,
     date_detection: bool,
     depth: usize,
+    templates: Option<&DynamicTemplateContext>,
 ) -> FieldConfig {
+    if let Some(ctx) = templates {
+        if let Some(fc) =
+            dynamic_template_field_config(ctx, key, full_path, val, date_detection, depth)
+        {
+            return fc;
+        }
+    }
     let ft = infer_field_type(val, date_detection);
     let mut fc = FieldConfig::new(key.to_string(), ft);
     match fc.field_type {
@@ -57411,32 +58343,22 @@ fn dynamic_field_config_at_depth(
             kw.options.ignore_above = Some(DYNAMIC_KEYWORD_IGNORE_ABOVE);
             fc.fields.push(kw);
         }
-        FieldType::Object if depth < DYNAMIC_MAPPING_DEPTH_LIMIT => {
-            if let Some(obj) = object_keys_of(val) {
-                for (sub_key, sub_val) in obj {
-                    fc.fields.push(dynamic_field_config_at_depth(
-                        sub_key,
-                        sub_val,
-                        date_detection,
-                        depth + 1,
-                    ));
-                }
-            }
+        FieldType::Object
+            if depth < DYNAMIC_MAPPING_DEPTH_LIMIT
+                && field_allows_dynamic_children(&fc, full_path, templates) =>
+        {
+            populate_dynamic_object_children(
+                &mut fc,
+                full_path,
+                val,
+                date_detection,
+                depth,
+                templates,
+            );
         }
         _ => {}
     }
     fc
-}
-
-/// Unwrap `val` to whichever object actually carries a set of keys to walk
-/// -- either `val` itself, or (mirroring `infer_field_type`'s own
-/// first-non-null-element handling for arrays) the first non-null element
-/// of an array whose inferred type is `Object`. Shared by the fresh-field
-/// discovery path above and the existing-field merge path below so both
-/// treat array-of-objects the same way.
-fn object_keys_of(val: &Value) -> Option<&serde_json::Map<String, Value>> {
-    val.as_object()
-        .or_else(|| val.as_array()?.iter().find(|v| !v.is_null())?.as_object())
 }
 
 /// FNV-1a fingerprint of `val`'s full field-name-and-value-*shape*, folded
@@ -57521,18 +58443,26 @@ fn hash_all_field_names(val: &Value, h: &mut u64) {
 /// case, once a field's shape has stabilized, is "no" for every field in
 /// most documents.
 fn field_config_needs_merge(existing: &FieldConfig, val: &Value) -> bool {
-    if !matches!(existing.field_type, FieldType::Object | FieldType::Nested) {
+    if !matches!(existing.field_type, FieldType::Object | FieldType::Nested)
+        || !field_allows_dynamic_children(existing, &existing.name, None)
+    {
         return false;
     }
-    let Some(obj) = object_keys_of(val) else {
-        return false;
-    };
-    obj.iter().any(
-        |(key, sub_val)| match existing.fields.iter().find(|f| f.name == *key) {
-            Some(child) => field_config_needs_merge(child, sub_val),
-            None => true,
-        },
-    )
+    let mut needs = false;
+    for_each_object_in_value(val, |obj| {
+        if needs {
+            return;
+        }
+        if obj.iter().any(
+            |(key, sub_val)| match existing.fields.iter().find(|f| f.name == *key) {
+                Some(child) => field_config_needs_merge(child, sub_val),
+                None => true,
+            },
+        ) {
+            needs = true;
+        }
+    });
+    needs
 }
 
 /// Merge newly-seen dynamic children from `val` into `field`'s existing
@@ -57554,77 +58484,94 @@ fn field_config_needs_merge(existing: &FieldConfig, val: &Value) -> bool {
 /// `field_count` is threaded through and incremented in place so multiple
 /// calls sharing one document (or one bulk batch) share a single running
 /// budget rather than each independently getting the full limit.
+#[allow(clippy::too_many_arguments)]
 fn merge_dynamic_children_into(
     field: &mut FieldConfig,
+    parent_path: &str,
     val: &Value,
     date_detection: bool,
     depth: usize,
     field_count: &mut u32,
     limit: u32,
+    templates: Option<&DynamicTemplateContext>,
 ) -> bool {
-    if !matches!(field.field_type, FieldType::Object | FieldType::Nested) {
+    if !matches!(field.field_type, FieldType::Object | FieldType::Nested)
+        || !field_allows_dynamic_children(field, parent_path, templates)
+    {
         return false;
     }
     if depth >= DYNAMIC_MAPPING_DEPTH_LIMIT {
         return false;
     }
-    let Some(obj) = object_keys_of(val) else {
-        return false;
-    };
     let mut changed = false;
-    for (key, sub_val) in obj {
-        // The nested form of `is_undeclared_multi_vector_companion`. It needs
-        // no dotted path and no `Schema`, because a companion and its
-        // `dense_vector` are SIBLINGS in the very object being merged: for a
-        // `passages` mapping carrying a `vec` child of type `dense_vector`, the
-        // companion is the `vec_chunks` child right beside it. Checking
-        // `field.fields` locally keeps this function's signature (and its four
-        // call sites) untouched.
-        if key
-            .strip_suffix(crate::memtable::MULTI_VECTOR_COMPANION_SUFFIX)
-            .filter(|base| !base.is_empty())
-            .is_some_and(|base| {
-                field
-                    .fields
-                    .iter()
-                    .any(|f| f.name == base && matches!(f.field_type, FieldType::Vector))
-            })
-            && crate::memtable::looks_like_multi_vector(sub_val)
-        {
-            continue;
+    let mut budget_hit = false;
+    for_each_object_in_value(val, |obj| {
+        if budget_hit {
+            return;
         }
-        match field.fields.iter_mut().find(|f| f.name == *key) {
-            Some(existing) => {
-                if merge_dynamic_children_into(
-                    existing,
-                    sub_val,
-                    date_detection,
-                    depth + 1,
-                    field_count,
-                    limit,
-                ) {
+        for (key, sub_val) in obj {
+            // The nested form of `is_undeclared_multi_vector_companion`. It needs
+            // no dotted path and no `Schema`, because a companion and its
+            // `dense_vector` are SIBLINGS in the very object being merged: for a
+            // `passages` mapping carrying a `vec` child of type `dense_vector`, the
+            // companion is the `vec_chunks` child right beside it.
+            if key
+                .strip_suffix(crate::memtable::MULTI_VECTOR_COMPANION_SUFFIX)
+                .filter(|base| !base.is_empty())
+                .is_some_and(|base| {
+                    field
+                        .fields
+                        .iter()
+                        .any(|f| f.name == base && matches!(f.field_type, FieldType::Vector))
+                })
+                && crate::memtable::looks_like_multi_vector(sub_val)
+            {
+                continue;
+            }
+            let child_path = format!("{parent_path}.{key}");
+            match field.fields.iter_mut().find(|f| f.name == *key) {
+                Some(existing) => {
+                    if merge_dynamic_children_into(
+                        existing,
+                        &child_path,
+                        sub_val,
+                        date_detection,
+                        depth + 1,
+                        field_count,
+                        limit,
+                        templates,
+                    ) {
+                        changed = true;
+                    }
+                }
+                None => {
+                    let new_fc = dynamic_field_config_at_depth(
+                        key,
+                        &child_path,
+                        sub_val,
+                        date_detection,
+                        depth + 1,
+                        templates,
+                    );
+                    // #312: count the new child's real recursive size, not one, so a
+                    // nested subtree merged in one pass cannot overshoot the budget.
+                    let new_size = new_fc.total_field_count() as u32;
+                    if *field_count + new_size > limit {
+                        tracing::warn!(
+                            field = %key,
+                            limit,
+                            "rejecting new nested field: field limit reached"
+                        );
+                        budget_hit = true;
+                        break;
+                    }
+                    field.fields.push(new_fc);
+                    *field_count += new_size;
                     changed = true;
                 }
             }
-            None => {
-                let new_fc = dynamic_field_config_at_depth(key, sub_val, date_detection, depth + 1);
-                // #312: count the new child's real recursive size, not one, so a
-                // nested subtree merged in one pass cannot overshoot the budget.
-                let new_size = new_fc.total_field_count() as u32;
-                if *field_count + new_size > limit {
-                    tracing::warn!(
-                        field = %key,
-                        limit,
-                        "rejecting new nested field: field limit reached"
-                    );
-                    break;
-                }
-                field.fields.push(new_fc);
-                *field_count += new_size;
-                changed = true;
-            }
         }
-    }
+    });
     changed
 }
 
@@ -60915,8 +61862,15 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                     if is_unmapped_leaf_subfield(schema, field_name) {
                         return false;
                     }
-                    get_field_value(source, field_name)
-                        .is_some_and(|v| any_token_hit(&v, &terms, query.as_str(), &mut buf))
+                    let norm = declared_field(schema, field_name)
+                        .and_then(|fc| fc.options.normalizer.as_ref());
+                    get_field_value(source, field_name).is_some_and(|v| {
+                        let v = match norm {
+                            Some(n) => n.normalize_json(&v),
+                            None => v,
+                        };
+                        any_token_hit(&v, &terms, query.as_str(), &mut buf)
+                    })
                 }
                 _ => match source {
                     Value::Object(obj) => obj
@@ -63045,18 +63999,23 @@ struct SortTopK {
     /// already discarded everything past the top-(from+size)) and cheap
     /// (page N costs the same as page 1).
     after: Option<Vec<Value>>,
+    /// Schema-version-cached normalizers captured once per search so per-hit
+    /// sort key computation never locks `keyword_normalizers_cache` (#3640).
+    normalizers: Arc<xerj_common::normalizer::KeywordNormalizers>,
 }
 impl SortTopK {
     fn new(
         fields: Arc<Vec<xerj_query::sort::SortField>>,
         cap: usize,
         after: Option<Vec<Value>>,
+        normalizers: Arc<xerj_common::normalizer::KeywordNormalizers>,
     ) -> Self {
         Self {
             heap: std::collections::BinaryHeap::new(),
             fields,
             cap: cap.max(1),
             after,
+            normalizers,
         }
     }
     /// Cheap pre-admission check on a computed sort key.  Returns `false`
@@ -63093,7 +64052,14 @@ impl SortTopK {
     /// tie-break (see `SortHeapEntry::seq`).  `idx` resolves the ES
     /// meta-fields that live outside `_source` (see `meta_sort_value`).
     fn offer(&mut self, mut hit: Hit, seq: u64, idx: &Index) {
-        hit.sort = compute_sort_values(&hit.source, hit.score, &hit.id, &self.fields, idx);
+        hit.sort = compute_sort_values(
+            &hit.source,
+            hit.score,
+            &hit.id,
+            &self.fields,
+            idx,
+            &self.normalizers,
+        );
         self.offer_keyed(hit, seq);
     }
     /// Offer a hit whose `sort` key is already computed.  Applies the
@@ -64501,6 +65467,9 @@ fn memtable_primary_key_rejects(topk: &SortTopK, source: &Value, id: &str, idx: 
             None => false,
         };
     }
+    if !topk.normalizers.is_empty() && topk.normalizers.get(&sf.field).is_some() {
+        return false;
+    }
     // Root-level literal key only — mirrors `get_field_value`'s fast path.
     // A dotted/nested primary field misses here and is admitted (correct,
     // just not accelerated).
@@ -64576,6 +65545,7 @@ fn compute_sort_values(
     id: &str,
     sort_fields: &[xerj_query::sort::SortField],
     idx: &Index,
+    normalizers: &xerj_common::normalizer::KeywordNormalizers,
 ) -> Vec<Value> {
     let mut sort_vals: Vec<Value> = Vec::with_capacity(sort_fields.len());
     for sf in sort_fields {
@@ -64628,12 +65598,46 @@ fn compute_sort_values(
             // old `_id`-lexicographic tie-break happened to mask on the
             // synthetic-source YAML suite (ids 1..4 in lex order matched
             // the value order by luck; the seq_no tie-break exposed it).
-            let raw = get_field_value(source, &sf.field)
-                .or_else(|| {
-                    let base = sf.field.strip_suffix(".keyword")?;
-                    get_field_value(source, base)
-                })
-                .unwrap_or(Value::Null);
+            // #3640: normalize a normalized keyword field BEFORE multi-value
+            // reduction (`min`/`max`), so e.g. `["Zebra", "apple"]` with
+            // `lowercase` reduces to `"apple"` rather than ASCII-min `"Zebra"`,
+            // and the emitted `sort` value matches ES's normalized doc value.
+            // Also resolve declared normalized multi-fields (e.g. `title.raw`,
+            // not only `.keyword`) from their parent field in `_source`.
+            let (raw, was_normalized) = if normalizers.is_empty() {
+                let raw = get_field_value(source, &sf.field)
+                    .or_else(|| {
+                        let base = sf.field.strip_suffix(".keyword")?;
+                        get_field_value(source, base)
+                    })
+                    .unwrap_or(Value::Null);
+                (raw, false)
+            } else {
+                let is_norm_multi = normalizers.is_multi_field(&sf.field);
+                let raw = get_field_value(source, &sf.field)
+                    .or_else(|| {
+                        if let Some(base) = sf.field.strip_suffix(".keyword") {
+                            return get_field_value(source, base);
+                        }
+                        if is_norm_multi {
+                            let dot = sf.field.rfind('.')?;
+                            return get_field_value(source, &sf.field[..dot]);
+                        }
+                        None
+                    })
+                    .unwrap_or(Value::Null);
+                match normalizers.get(&sf.field) {
+                    Some(norm) => {
+                        let normalized = if raw.is_null() {
+                            raw
+                        } else {
+                            norm.normalize_json(&raw)
+                        };
+                        (normalized, true)
+                    }
+                    None => (raw, false),
+                }
+            };
             // A multi-valued field is reduced to its single representative
             // value FIRST (ES: `min` for asc / `max` for desc unless an
             // explicit `mode` overrides), so the comparator never sees a raw
@@ -64641,14 +65645,18 @@ fn compute_sort_values(
             // `compare_values`' stringify-and-compare fallback, ranking
             // multi-valued docs by the JSON text of the array (`[9]` > `[10]`).
             let raw = xerj_query::sort::reduce_sort_value(&raw, sf.order, sf.mode);
-            match raw {
-                Value::String(ref s) if looks_like_date(s) => {
-                    date_string_to_epoch(s, idx.date_scale_for_sort(sf)).unwrap_or(raw)
+            if was_normalized {
+                raw
+            } else {
+                match raw {
+                    Value::String(ref s) if looks_like_date(s) => {
+                        date_string_to_epoch(s, idx.date_scale_for_sort(sf)).unwrap_or(raw)
+                    }
+                    Value::String(ref s) if looks_like_slash_date(s) => {
+                        slash_date_to_epoch(s, idx.date_scale_for_sort(sf)).unwrap_or(raw)
+                    }
+                    other => other,
                 }
-                Value::String(ref s) if looks_like_slash_date(s) => {
-                    slash_date_to_epoch(s, idx.date_scale_for_sort(sf)).unwrap_or(raw)
-                }
-                other => other,
             }
         };
         sort_vals.push(v);
@@ -69735,10 +70743,9 @@ mod date_detection_tests {
             "recursion must stop at exactly the depth cap, got {levels} levels"
         );
 
-        // Array of objects: infer_field_type already only looks at the
-        // first non-null element to decide the *type* (Object); the
-        // dynamic-mapping walk mirrors that by recursing into the same
-        // element rather than reconciling every array entry's shape.
+        // Array of objects (#3640): discover keys across every object element
+        // so heterogeneous object/nested arrays map fields that appear only on
+        // later elements, matching ES.
         let fc = dynamic_field_config(
             "tags",
             &serde_json::json!([{"kind": "x"}, {"kind": "y", "extra": true}]),
@@ -69747,10 +70754,14 @@ mod date_detection_tests {
         assert!(matches!(fc.field_type, FieldType::Object));
         assert_eq!(
             fc.fields.len(),
-            1,
-            "only the first element's keys are discovered"
+            2,
+            "keys from every object element in the array are discovered"
         );
-        assert_eq!(fc.fields[0].name, "kind");
+        assert!(fc.fields.iter().any(|f| f.name == "kind"));
+        assert!(fc
+            .fields
+            .iter()
+            .any(|f| f.name == "extra" && matches!(f.field_type, FieldType::Boolean)));
     }
 
     /// The core fix for a real gap found in review: a top-level field
@@ -69766,11 +70777,13 @@ mod date_detection_tests {
         let mut field_count = 10u32;
         let changed = merge_dynamic_children_into(
             &mut field,
+            "metadata",
             &serde_json::json!({"project": "xerj"}),
             true,
             1,
             &mut field_count,
             100,
+            None,
         );
         assert!(changed);
         assert_eq!(field.fields.len(), 2, "{field:?}");
@@ -69786,11 +70799,13 @@ mod date_detection_tests {
         let mut field_count2 = 12u32;
         let changed_again = merge_dynamic_children_into(
             &mut field,
+            "metadata",
             &serde_json::json!({"project": "xerj"}),
             true,
             1,
             &mut field_count2,
             100,
+            None,
         );
         assert!(!changed_again);
         assert_eq!(field.fields.len(), 2);
@@ -69804,11 +70819,13 @@ mod date_detection_tests {
         // Budget already exhausted -- must add nothing even though "b" is new.
         let changed = merge_dynamic_children_into(
             &mut field,
+            "metadata",
             &serde_json::json!({"b": 2}),
             true,
             1,
             &mut field_count,
             5,
+            None,
         );
         assert!(!changed);
         assert_eq!(field.fields.len(), 1, "{field:?}");
@@ -70099,11 +71116,13 @@ mod multi_vector_companion_mapping_tests {
         let mut count = 1u32;
         let changed = merge_dynamic_children_into(
             &mut parent,
+            "passages",
             &serde_json::json!({"vec_chunks": [[1.0, 2.0], [3.0, 4.0]], "title": "q3"}),
             true,
             1,
             &mut count,
             100,
+            None,
         );
         assert!(changed, "the ordinary sibling still lands");
         assert!(
@@ -70124,11 +71143,13 @@ mod multi_vector_companion_mapping_tests {
         let mut own_count = 1u32;
         merge_dynamic_children_into(
             &mut own,
+            "passages",
             &serde_json::json!({"vec_chunks": 7}),
             true,
             1,
             &mut own_count,
             100,
+            None,
         );
         assert_eq!(
             own.fields
@@ -70147,11 +71168,13 @@ mod multi_vector_companion_mapping_tests {
         let mut nv_count = 1u32;
         merge_dynamic_children_into(
             &mut no_vector,
+            "passages",
             &serde_json::json!({"vec_chunks": [[1.0, 2.0]]}),
             true,
             1,
             &mut nv_count,
             100,
+            None,
         );
         assert!(
             no_vector.fields.iter().any(|f| f.name == "vec_chunks"),
@@ -76324,6 +77347,376 @@ mod exact_scan_hydration_tests {
             drained.load(std::sync::atomic::Ordering::SeqCst),
             "on_drained must fire on the empty-shard fast path"
         );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn flush_drain_captures_normalizers_under_drain_lock_3640() {
+        use serde_json::json;
+        // #3640 item 4: if a flush starts before a dynamic template adds a
+        // normalized keyword field (e.g. parked at `finalize_gate`) and then
+        // drains the document that introduced that field, building the
+        // normalizers under the drain lock ensures the flushed segment's FTS
+        // terms and doc-values column are written normalized.
+        let dir = tempfile::tempdir().unwrap();
+        let eng = engine(&dir);
+        let idx = eng.get_or_create_index("flush-norm-race-3640").unwrap();
+        idx.abort_background_tasks();
+        eng.put_index_mapping(
+            "flush-norm-race-3640",
+            json!({
+                "dynamic_templates": [{
+                    "strings_lower": {
+                        "match_mapping_type": "string",
+                        "mapping": {"type": "keyword", "normalizer": "lowercase"}
+                    }
+                }]
+            }),
+        )
+        .unwrap();
+
+        // Pick two doc IDs that hash to the same shard so the seed doc makes
+        // the shard non-empty and the racing doc lands in the same drain.
+        let seed_id = "seed-0".to_string();
+        let target_shard = idx.memtable.shard_for_dynamic(&seed_id);
+        let race_id = (1..10_000)
+            .map(|i| format!("race-{i}"))
+            .find(|id| idx.memtable.shard_for_dynamic(id) == target_shard)
+            .expect("doc id on target shard");
+
+        idx.index_document(Some(seed_id), json!({ "n": 1 }))
+            .await
+            .unwrap();
+        assert_eq!(idx.memtable.shard_load(target_shard).0, 1);
+
+        // Snapshot pre-evolution flush configs and park `do_flush_shard` on the
+        // finalize gate BEFORE the templated normalized field exists.
+        let (field_configs, excluded_fts_fields, dv_skip) = {
+            let schema = idx.schema.read().await;
+            (
+                build_fts_field_configs(&schema.schema, idx.segment_text_analyzer()),
+                crate::memtable::fts_excluded_fields(&schema.schema),
+                doc_values_skip_set(&schema.schema),
+            )
+        };
+        let permits_n = crate::pools::sizing().flush_finalize as u32;
+        let held = idx.finalize_gate.acquire_many(permits_n).await.unwrap();
+
+        let idx_for_flush = Arc::clone(&idx);
+        let flush_task = tokio::spawn(async move {
+            do_flush_shard(
+                target_shard,
+                Arc::clone(&idx_for_flush.store),
+                Arc::clone(&idx_for_flush.memtable),
+                Arc::clone(&idx_for_flush.collection_publication),
+                Arc::clone(&idx_for_flush.registry),
+                idx_for_flush.data_dir.clone(),
+                field_configs,
+                excluded_fts_fields,
+                dv_skip,
+                || {},
+                idx_for_flush.publish_warm_caches(),
+                idx_for_flush.name.as_str().to_string(),
+                std::time::Duration::from_secs(30),
+                Arc::clone(&idx_for_flush.finalize_gate),
+                None,
+            )
+            .await
+        });
+
+        // Wait until `do_flush_shard` has passed the empty check and is queued
+        // on `finalize_gate`.
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+
+        // Index the document that triggers the dynamic template (`color` ->
+        // keyword + lowercase normalizer) onto the exact same shard.
+        idx.index_document(Some(race_id.clone()), json!({ "color": "Red Fruit" }))
+            .await
+            .unwrap();
+
+        // Unblock the flush so it drains `race_id` into a flushed segment.
+        drop(held);
+        flush_task
+            .await
+            .expect("flush task join")
+            .expect("flush shard succeeds");
+        assert_eq!(
+            idx.memtable.shard_load(target_shard).0,
+            0,
+            "racing document must have been drained into the flushed segment"
+        );
+
+        // Query the flushed segment for the normalized whole-value keyword term
+        // AND inspect the flushed doc-values column via a terms aggregation.
+        let req = xerj_query::parse_request(&json!({
+            "query": { "term": { "color": "red fruit" } },
+            "aggs": { "colors": { "terms": { "field": "color" } } }
+        }))
+        .unwrap();
+        let resp = idx.search(&req).await.unwrap();
+        assert_eq!(
+            resp.hits.len(),
+            1,
+            "flushed segment must match normalized whole-value term; got hits={:?}",
+            resp.hits.iter().map(|h| &h.id).collect::<Vec<_>>()
+        );
+        assert_eq!(resp.hits[0].id, race_id);
+        let buckets = resp
+            .aggs
+            .as_ref()
+            .and_then(|a| a.pointer("/colors/buckets"))
+            .and_then(Value::as_array)
+            .expect("colors buckets");
+        assert_eq!(buckets.len(), 1, "buckets: {buckets:?}");
+        assert_eq!(
+            buckets[0]["key"],
+            json!("red fruit"),
+            "flushed doc-values column must hold the normalized key: {buckets:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn keyword_normalizers_cached_by_schema_version_3640() {
+        use serde_json::json;
+        use std::sync::atomic::Ordering;
+        use xerj_common::normalizer::KeywordNormalizer;
+        use xerj_common::types::{FieldConfig, FieldType};
+
+        // #3640 item 5: `KeywordNormalizers` is cached keyed by `schema.version`
+        // so repeated queries on an unchanged schema reuse the same `Arc`
+        // without rebuilding, while both top-level schema updates and nested
+        // dynamic-template merges advance the schema version and invalidate it.
+        let dir = tempfile::tempdir().unwrap();
+        let eng = engine(&dir);
+        let idx = eng.get_or_create_index("norm-cache-3640").unwrap();
+        idx.abort_background_tasks();
+        eng.put_index_mapping(
+            "norm-cache-3640",
+            json!({
+                "dynamic_templates": [{
+                    "meta_lower": {
+                        "match_mapping_type": "string",
+                        "path_match": "meta.*",
+                        "mapping": {"type": "keyword", "normalizer": "lowercase"}
+                    }
+                }]
+            }),
+        )
+        .unwrap();
+
+        let mut tag_fc = FieldConfig::new("tag", FieldType::Keyword);
+        tag_fc.options.normalizer = Some(KeywordNormalizer::builtin_lowercase());
+        idx.add_fields(vec![tag_fc]).await.unwrap();
+        idx.index_document(
+            Some("1".to_string()),
+            json!({ "tag": "Apple", "meta": { "kind": 1 } }),
+        )
+        .await
+        .unwrap();
+
+        let schema_v1 = idx.schema().await;
+        let first = idx.cached_keyword_normalizers(&schema_v1);
+        let builds_after_first = idx.keyword_normalizer_builds.load(Ordering::SeqCst);
+
+        // Repeated lookups and full searches at the same schema version must
+        // reuse the exact same `Arc` and perform zero rebuilds.
+        for _ in 0..5 {
+            let again = idx.cached_keyword_normalizers(&schema_v1);
+            assert!(Arc::ptr_eq(&first, &again));
+            let req = xerj_query::parse_request(&json!({
+                "query": { "term": { "tag": "APPLE" } }
+            }))
+            .unwrap();
+            let resp = idx.search(&req).await.unwrap();
+            assert_eq!(resp.hits.len(), 1);
+        }
+        assert_eq!(
+            idx.keyword_normalizer_builds.load(Ordering::SeqCst),
+            builds_after_first,
+            "queries on an unchanged schema must not rebuild KeywordNormalizers"
+        );
+
+        // Introducing a nested leaf under already-known `meta` via dynamic
+        // template (`merge_dynamic_children_into`) must bump `schema.version`
+        // and refresh the cached normalizers so `meta.owner` is included.
+        idx.index_document(
+            Some("2".to_string()),
+            json!({ "tag": "Pear", "meta": { "kind": 2, "owner": "Alice" } }),
+        )
+        .await
+        .unwrap();
+        let schema_v2 = idx.schema().await;
+        assert!(
+            schema_v2.version > schema_v1.version,
+            "merging a nested dynamic child must bump schema.version ({} -> {})",
+            schema_v1.version,
+            schema_v2.version
+        );
+        let after_merge = idx.cached_keyword_normalizers(&schema_v2);
+        assert!(!Arc::ptr_eq(&first, &after_merge));
+        assert!(
+            after_merge.get("meta.owner").is_some(),
+            "refreshed cache must include newly merged nested normalizer"
+        );
+        let builds_after_merge = idx.keyword_normalizer_builds.load(Ordering::SeqCst);
+        for _ in 0..3 {
+            let req = xerj_query::parse_request(&json!({
+                "query": { "term": { "meta.owner": "ALICE" } }
+            }))
+            .unwrap();
+            let resp = idx.search(&req).await.unwrap();
+            assert_eq!(resp.hits.len(), 1);
+            assert_eq!(resp.hits[0].id, "2");
+        }
+        assert_eq!(
+            idx.keyword_normalizer_builds.load(Ordering::SeqCst),
+            builds_after_merge,
+            "queries after nested merge must reuse the refreshed cache"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn concurrent_index_document_toctou_with_flush_3640() {
+        use serde_json::json;
+        // #3640 P0 #1: concurrent `index_document` calls introducing the same
+        // new dynamic-template field shape must not skip schema evolution via
+        // an early `schema_hash_cache` update and land unnormalized in the
+        // memtable/flushed segment.
+        let dir = tempfile::tempdir().unwrap();
+        let eng = engine(&dir);
+        let idx = eng.get_or_create_index("toctou-norm-3640").unwrap();
+        idx.abort_background_tasks();
+        eng.put_index_mapping(
+            "toctou-norm-3640",
+            json!({
+                "dynamic_templates": [{
+                    "strings_lower": {
+                        "match_mapping_type": "string",
+                        "mapping": {"type": "keyword", "normalizer": "lowercase"}
+                    }
+                }]
+            }),
+        )
+        .unwrap();
+
+        let barrier = Arc::new(tokio::sync::Barrier::new(8));
+        let mut handles = Vec::new();
+        for i in 0..8usize {
+            let idx_c = Arc::clone(&idx);
+            let b = Arc::clone(&barrier);
+            handles.push(tokio::spawn(async move {
+                b.wait().await;
+                idx_c
+                    .index_document(Some(format!("doc-{i}")), json!({ "color": "Red Fruit" }))
+                    .await
+                    .unwrap();
+            }));
+        }
+        for h in handles {
+            h.await.unwrap();
+        }
+        idx.flush().await.unwrap();
+
+        let req = xerj_query::parse_request(&json!({
+            "query": { "term": { "color": "red fruit" } },
+            "aggs": { "colors": { "terms": { "field": "color" } } }
+        }))
+        .unwrap();
+        let resp = idx.search(&req).await.unwrap();
+        assert_eq!(
+            resp.hits.len(),
+            8,
+            "every concurrent doc must be normalized"
+        );
+        let buckets = resp
+            .aggs
+            .as_ref()
+            .and_then(|a| a.pointer("/colors/buckets"))
+            .and_then(Value::as_array)
+            .expect("colors buckets");
+        assert_eq!(buckets.len(), 1, "buckets: {buckets:?}");
+        assert_eq!(buckets[0]["key"], json!("red fruit"));
+        assert_eq!(buckets[0]["doc_count"], json!(8));
+    }
+
+    #[tokio::test]
+    async fn cached_keyword_normalizers_is_monotonic_3640() {
+        use std::sync::atomic::Ordering;
+        use xerj_common::normalizer::KeywordNormalizer;
+        use xerj_common::types::{FieldConfig, FieldType};
+
+        // #3640 P1 #2: calling `cached_keyword_normalizers` with a stale older
+        // schema snapshot must NOT overwrite the shared cache or clear
+        // `has_keyword_normalizers` for newer readers.
+        let dir = tempfile::tempdir().unwrap();
+        let eng = engine(&dir);
+        let idx = eng.get_or_create_index("norm-mono-3640").unwrap();
+        idx.abort_background_tasks();
+
+        let stale_v0 = idx.schema().await;
+        assert!(idx.keyword_normalizers().is_empty());
+
+        let mut tag_fc = FieldConfig::new("tag", FieldType::Keyword);
+        tag_fc.options.normalizer = Some(KeywordNormalizer::builtin_lowercase());
+        idx.add_fields(vec![tag_fc]).await.unwrap();
+        let live_v1 = idx.schema().await;
+        assert!(live_v1.version > stale_v0.version);
+        let live_arc = idx.cached_keyword_normalizers(&live_v1);
+        assert!(live_arc.get("tag").is_some());
+        assert!(idx.has_keyword_normalizers.load(Ordering::Acquire));
+
+        // Passing the stale v0 snapshot returns an empty map for that caller,
+        // but MUST NOT downgrade the shared cache or flip `has_keyword_normalizers`.
+        let stale_arc = idx.cached_keyword_normalizers(&stale_v0);
+        assert!(stale_arc.is_empty());
+        assert!(
+            idx.has_keyword_normalizers.load(Ordering::Acquire),
+            "stale schema lookup must not flip has_keyword_normalizers to false"
+        );
+        assert!(
+            idx.keyword_normalizers().get("tag").is_some(),
+            "stale schema lookup must not overwrite shared cache"
+        );
+        let builds_before = idx.keyword_normalizer_builds.load(Ordering::SeqCst);
+        let live_again = idx.cached_keyword_normalizers(&live_v1);
+        assert!(Arc::ptr_eq(&live_arc, &live_again));
+        assert_eq!(
+            idx.keyword_normalizer_builds.load(Ordering::SeqCst),
+            builds_before
+        );
+    }
+
+    #[test]
+    fn es_simple_match_is_star_only_and_linear_3640() {
+        assert!(es_simple_match("meta.owner", "meta.*"));
+        assert!(es_simple_match("a?b", "a?b"));
+        assert!(
+            !es_simple_match("axb", "a?b"),
+            "ES simple match treats `?` literally, not as a wildcard"
+        );
+        // Pathological multi-star pattern that would blow up exponential recursion.
+        let long_a = "a".repeat(64);
+        assert!(!es_simple_match(&long_a, "*a*a*a*a*a*a*a*a*a*a*b"));
+        assert!(es_simple_match(&format!("{long_a}b"), "*a*a*a*a*a*b"));
+    }
+
+    #[test]
+    fn query_string_quote_strip_and_simple_prefix_helpers_3640() {
+        assert_eq!(
+            strip_single_quoted_literal("\"hello world\""),
+            Some("hello world")
+        );
+        assert_eq!(strip_single_quoted_literal("\"a\\\"b\""), Some("a\\\"b"));
+        assert_eq!(
+            strip_single_quoted_literal("\"a\" OR \"b\""),
+            None,
+            "multi-clause quoted string must not strip outer quotes"
+        );
+        let empty = Schema::default();
+        assert!(should_lowercase_simple_prefix(&empty, "unmapped_txt"));
+        assert!(!should_lowercase_simple_prefix(
+            &empty,
+            "unmapped_txt.keyword"
+        ));
     }
 }
 

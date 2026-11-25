@@ -3350,6 +3350,36 @@ pub async fn put_mapping(
             if let Some(dd) = body.get("date_detection") {
                 obj.insert("date_detection".into(), dd.clone());
             }
+            if let Some(new_templates) = body.get("dynamic_templates").and_then(Value::as_array) {
+                let mut merged_templates = obj
+                    .get("dynamic_templates")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                for entry in new_templates {
+                    let entry_name = entry
+                        .as_object()
+                        .and_then(|o| o.keys().next())
+                        .map(String::as_str);
+                    if let Some(name) = entry_name {
+                        if let Some(slot) = merged_templates.iter_mut().find(|existing_entry| {
+                            existing_entry
+                                .as_object()
+                                .and_then(|o| o.keys().next())
+                                .map(String::as_str)
+                                == Some(name)
+                        }) {
+                            *slot = entry.clone();
+                            continue;
+                        }
+                    }
+                    merged_templates.push(entry.clone());
+                }
+                obj.insert(
+                    "dynamic_templates".to_string(),
+                    Value::Array(merged_templates),
+                );
+            }
         } else {
             existing = body.clone();
         }
@@ -15559,6 +15589,7 @@ fn render_collapse_inner_hits(
     idx_name: &str,
     rest_total_hits_as_int: bool,
     strip_companions: Option<&std::collections::HashSet<String>>,
+    normalizers: Option<&xerj_common::normalizer::KeywordNormalizers>,
 ) -> Value {
     let spec_list: Vec<Value> = match spec {
         Value::Array(a) => a,
@@ -15597,11 +15628,48 @@ fn render_collapse_inner_hits(
                         // deterministic across runs and matches
                         // ES's `_doc` secondary sort for
                         // monotonically-assigned ids.
+                        let sort_norm = normalizers.and_then(|n| n.get(&f));
+                        let sort_is_multi = normalizers.is_some_and(|n| n.is_multi_field(&f));
+                        let resolve_sort_val = |entry: &Value| -> Option<Value> {
+                            let src = entry.get("_source")?;
+                            let raw = get_source_value_by_path(src, &f).or_else(|| {
+                                if let Some(base) = f.strip_suffix(".keyword") {
+                                    return get_source_value_by_path(src, base);
+                                }
+                                if sort_is_multi {
+                                    let dot = f.rfind('.')?;
+                                    return get_source_value_by_path(src, &f[..dot]);
+                                }
+                                None
+                            })?;
+                            let raw = match sort_norm {
+                                Some(norm) => norm.normalize_json(&raw),
+                                None => raw,
+                            };
+                            let order = if desc {
+                                xerj_query::sort::SortOrder::Desc
+                            } else {
+                                xerj_query::sort::SortOrder::Asc
+                            };
+                            Some(xerj_query::sort::reduce_sort_value(
+                                &raw,
+                                order,
+                                xerj_query::sort::SortMode::Default,
+                            ))
+                        };
                         members.sort_by(|a, b| {
-                            let av = a.get("_source").and_then(|s| s.get(&f));
-                            let bv = b.get("_source").and_then(|s| s.get(&f));
-                            let av_n = av.and_then(Value::as_f64);
-                            let bv_n = bv.and_then(Value::as_f64);
+                            let av = resolve_sort_val(a);
+                            let bv = resolve_sort_val(b);
+                            let av_n = if sort_norm.is_some() {
+                                None
+                            } else {
+                                av.as_ref().and_then(Value::as_f64)
+                            };
+                            let bv_n = if sort_norm.is_some() {
+                                None
+                            } else {
+                                bv.as_ref().and_then(Value::as_f64)
+                            };
                             let primary = match (av_n, bv_n) {
                                 (Some(x), Some(y)) => {
                                     x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal)
@@ -15612,8 +15680,8 @@ fn render_collapse_inner_hits(
                                         Some(other) if !other.is_null() => Some(other.to_string()),
                                         _ => None,
                                     };
-                                    let av_s = to_str(av);
-                                    let bv_s = to_str(bv);
+                                    let av_s = to_str(av.as_ref());
+                                    let bv_s = to_str(bv.as_ref());
                                     match (av_s, bv_s) {
                                         (Some(x), Some(y)) => x.cmp(&y),
                                         (Some(_), None) => std::cmp::Ordering::Less,
@@ -15653,13 +15721,32 @@ fn render_collapse_inner_hits(
             .and_then(|c| c.get("field"))
             .and_then(Value::as_str)
         {
+            let inner_norm = normalizers.and_then(|n| n.get(inner_field));
+            let inner_is_multi = normalizers.is_some_and(|n| n.is_multi_field(inner_field));
             let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
             members.retain(|m| {
-                let key = m
-                    .get("_source")
-                    .and_then(|s| s.get(inner_field))
+                let raw = m.get("_source").and_then(|s| {
+                    get_source_value_by_path(s, inner_field).or_else(|| {
+                        if let Some(base) = inner_field.strip_suffix(".keyword") {
+                            return get_source_value_by_path(s, base);
+                        }
+                        if inner_is_multi {
+                            let dot = inner_field.rfind('.')?;
+                            return get_source_value_by_path(s, &inner_field[..dot]);
+                        }
+                        None
+                    })
+                });
+                let representative = match raw {
+                    Some(Value::Array(arr)) => arr.into_iter().find(|e| !e.is_null()),
+                    other => other,
+                };
+                let key = representative
                     .map(|v| match v {
-                        Value::String(s) => s.clone(),
+                        Value::String(s) => match inner_norm {
+                            Some(norm) => norm.normalize(&s),
+                            None => s,
+                        },
                         Value::Number(n) => n.to_string(),
                         Value::Bool(b) => b.to_string(),
                         Value::Null => "\0null".to_string(),
@@ -15724,7 +15811,21 @@ fn render_collapse_inner_hits(
                             continue;
                         }
                         if let Some(src) = m.get("_source") {
-                            if let Some(v) = src.get(fname).cloned() {
+                            let raw_v = get_source_value_by_path(src, fname).or_else(|| {
+                                if let Some(base) = fname.strip_suffix(".keyword") {
+                                    return get_source_value_by_path(src, base);
+                                }
+                                if normalizers.is_some_and(|n| n.is_multi_field(fname)) {
+                                    let dot = fname.rfind('.')?;
+                                    return get_source_value_by_path(src, &fname[..dot]);
+                                }
+                                None
+                            });
+                            if let Some(v) = raw_v {
+                                let v = match normalizers.and_then(|n| n.get(fname)) {
+                                    Some(norm) => norm.normalize_json(&v),
+                                    None => v,
+                                };
                                 let wrapped = match v {
                                     Value::Array(a) => Value::Array(a),
                                     Value::Null => continue,
@@ -15745,8 +15846,14 @@ fn render_collapse_inner_hits(
                     .and_then(Value::as_str)
                 {
                     if !fmap.contains_key(inner_field) {
-                        if let Some(v) = m.get("_source").and_then(|s| s.get(inner_field)).cloned()
+                        if let Some(v) = m
+                            .get("_source")
+                            .and_then(|s| get_source_value_by_path(s, inner_field))
                         {
+                            let v = match normalizers.and_then(|n| n.get(inner_field)) {
+                                Some(norm) => norm.normalize_json(&v),
+                                None => v,
+                            };
                             let wrapped = match v {
                                 Value::Array(a) => Value::Array(a),
                                 Value::Null => Value::Array(vec![]),
@@ -19516,6 +19623,22 @@ async fn search_impl(
         }
     }
 
+    // #3640: fetch each participating index's cached `KeywordNormalizers` once
+    // before cross-index collapse merge and hit rendering so both use the same
+    // normalized keys/values while `_source` stays raw.
+    let mut normalizers_by_index: HashMap<
+        String,
+        std::sync::Arc<xerj_common::normalizer::KeywordNormalizers>,
+    > = HashMap::new();
+    for (idx_name, _) in &merged_hits {
+        if normalizers_by_index.contains_key(idx_name) {
+            continue;
+        }
+        if let Ok(idx) = state.engine.get_index(idx_name) {
+            normalizers_by_index.insert(idx_name.clone(), idx.keyword_normalizers());
+        }
+    }
+
     // Re-sort merged hits from multiple indices.
     if index_names.len() > 1 {
         if search_req.sort.is_empty() {
@@ -19543,27 +19666,51 @@ async fn search_impl(
             let field = &cf.field;
             let mut first_by_key: BTreeMap<String, usize> = BTreeMap::new();
             let mut seen_keys: Vec<String> = Vec::new();
-            let key_of = |src: &Value| -> String {
-                // Try the declared field first; if not present (the
-                // caller queried a per-index alias target), fall back
-                // to a top-level alias-name scan via literal.
-                let v = src.get(field).or_else(|| {
-                    // Try each other known alias for this collapse
-                    // field by searching the src for numeric-ish
-                    // values. Simpler: iterate source keys that
-                    // aren't meta and aren't the declared field.
-                    src.as_object().and_then(|o| {
-                        o.iter().find_map(|(k, v)| {
-                            if k == field || k.starts_with('_') {
-                                None
-                            } else {
-                                Some(v)
-                            }
-                        })
+            let key_of = |idx_name: &str, src: &Value| -> String {
+                let idx_norms = normalizers_by_index
+                    .get(idx_name)
+                    .map(std::sync::Arc::as_ref);
+                let alias_tgt = alias_map.get(field).map(String::as_str);
+                let lookup_name = alias_tgt.unwrap_or(field);
+                let norm = idx_norms
+                    .and_then(|n| n.get(field).or_else(|| alias_tgt.and_then(|t| n.get(t))));
+                let is_multi = idx_norms
+                    .is_some_and(|n| n.is_multi_field(field) || n.is_multi_field(lookup_name));
+                // Try the declared path / alias target / multi-field parent
+                // first; if absent (the caller queried a per-index alias target
+                // stored under another name), fall back to top-level scan.
+                let v = get_source_value_by_path(src, field)
+                    .or_else(|| alias_tgt.and_then(|t| get_source_value_by_path(src, t)))
+                    .or_else(|| {
+                        if let Some(base) = lookup_name.strip_suffix(".keyword") {
+                            return get_source_value_by_path(src, base);
+                        }
+                        if is_multi {
+                            let dot = lookup_name.rfind('.')?;
+                            return get_source_value_by_path(src, &lookup_name[..dot]);
+                        }
+                        None
                     })
-                });
-                match v {
-                    Some(Value::String(s)) => s.clone(),
+                    .or_else(|| {
+                        src.as_object().and_then(|o| {
+                            o.iter().find_map(|(k, v)| {
+                                if k == field || k.starts_with('_') {
+                                    None
+                                } else {
+                                    Some(v.clone())
+                                }
+                            })
+                        })
+                    });
+                let representative = match v {
+                    Some(Value::Array(arr)) => arr.into_iter().find(|e| !e.is_null()),
+                    other => other,
+                };
+                match representative {
+                    Some(Value::String(s)) => match norm {
+                        Some(n) => n.normalize(&s),
+                        None => s,
+                    },
                     Some(Value::Number(n)) => n.to_string(),
                     Some(Value::Bool(b)) => b.to_string(),
                     _ => String::new(),
@@ -19578,8 +19725,8 @@ async fn search_impl(
             // off by N when an alias resolves the collapse field to
             // a different stored field on a sibling index.
             let mut extra_members_by_key: BTreeMap<String, Vec<Value>> = BTreeMap::new();
-            for (i, (_, h)) in merged_hits.iter().enumerate() {
-                let k = key_of(&h.source);
+            for (i, (idx_name, h)) in merged_hits.iter().enumerate() {
+                let k = key_of(idx_name, &h.source);
                 if k.is_empty() {
                     continue;
                 }
@@ -19612,7 +19759,7 @@ async fn search_impl(
                     std::collections::HashSet::new();
                 for &idx in first_by_key.values() {
                     let (idx_name, h) = &merged_hits[idx];
-                    let kk = key_of(&h.source);
+                    let kk = key_of(idx_name, &h.source);
                     if inserted.insert(kk.clone()) {
                         let mut leader = h.clone();
                         // Absorb dropped indices' group members.
@@ -20079,9 +20226,27 @@ async fn search_impl(
     let emit_seq_no = body.seq_no_primary_term.unwrap_or(false);
     let emit_version = body.version.unwrap_or(false);
 
+    // #3640: when `fields` is requested, also snapshot each participating
+    // index's live schema once so dynamically-templated `nested` fields and
+    // dynamic-template keyword mappings (without synthetic `.keyword` children)
+    // are honoured accurately by `fields` expansion.
+    let mut schemas_by_index: HashMap<String, Schema> = HashMap::new();
+    if !requested_fields.is_empty() {
+        for (idx_name, _) in &merged_hits {
+            if schemas_by_index.contains_key(idx_name) {
+                continue;
+            }
+            if let Ok(idx) = state.engine.get_index(idx_name) {
+                schemas_by_index.insert(idx_name.clone(), idx.schema().await);
+            }
+        }
+    }
+
     let hits: Vec<EsHit> = merged_hits
         .into_iter()
         .map(|(idx_name, h)| {
+            let hit_normalizers = normalizers_by_index.get(&idx_name).map(std::sync::Arc::as_ref);
+            let hit_schema = schemas_by_index.get(&idx_name);
             // Extract `_ignored` from _source (populated by apply_ignore_malformed
             // at index time). Promote it to a top-level hit meta-field and
             // remove it from the returned _source so _source stays clean.
@@ -20414,14 +20579,35 @@ async fn search_impl(
                     let mut cur = root_props;
                     let segs: Vec<&str> = field.split('.').collect();
                     let last = segs.len() - 1;
+                    let mut found_in_mapping = false;
                     for (i, seg) in segs.iter().enumerate() {
-                        let Some(next) = cur.get(*seg).cloned() else { return false };
+                        let Some(next) = cur.get(*seg).cloned() else { break };
                         if i == last {
-                            return next.get("type").and_then(Value::as_str) == Some("nested");
+                            found_in_mapping = next.get("type").and_then(Value::as_str) == Some("nested");
+                            break;
                         }
                         if let Some(p) = next.get("properties").cloned() {
                             cur = p;
-                        } else { return false; }
+                        } else {
+                            break;
+                        }
+                    }
+                    if found_in_mapping {
+                        return true;
+                    }
+                    // #3640: also consult live schema for dynamically-templated
+                    // `nested` fields not present in static `index_mappings`.
+                    if let Some(schema) = hit_schema {
+                        let mut cur_fields: &[FieldConfig] = &schema.fields;
+                        for (i, seg) in segs.iter().enumerate() {
+                            let Some(next) = cur_fields.iter().find(|f| f.name == *seg) else {
+                                return false;
+                            };
+                            if i == last {
+                                return matches!(next.field_type, FieldType::Nested);
+                            }
+                            cur_fields = &next.fields;
+                        }
                     }
                     false
                 };
@@ -20432,24 +20618,38 @@ async fn search_impl(
                 // no nested ancestor exists. Walks the mapping properties
                 // tree segment by segment.
                 let nested_ancestor = |field: &str| -> Option<(String, String)> {
-                    let root_props = mapping_for_fields.as_ref()
-                        .and_then(|m| m.get("mappings").and_then(|mm| mm.get("properties")).or_else(|| m.get("properties")))
-                        .cloned()?;
                     let segs: Vec<&str> = field.split('.').collect();
                     if segs.len() < 2 { return None; }
-                    let mut cur = root_props;
                     let mut nested_at: Option<usize> = None;
-                    for (i, seg) in segs.iter().enumerate() {
-                        let next = cur.get(*seg).cloned()?;
-                        if next.get("type").and_then(Value::as_str) == Some("nested") {
-                            nested_at = Some(i);
-                            // Record the longest nested prefix found.
+                    if let Some(root_props) = mapping_for_fields.as_ref()
+                        .and_then(|m| m.get("mappings").and_then(|mm| mm.get("properties")).or_else(|| m.get("properties")))
+                        .cloned()
+                    {
+                        let mut cur = root_props;
+                        for (i, seg) in segs.iter().enumerate() {
+                            let Some(next) = cur.get(*seg).cloned() else { break };
+                            if next.get("type").and_then(Value::as_str) == Some("nested") {
+                                nested_at = Some(i);
+                            }
+                            if let Some(p) = next.get("properties").cloned() {
+                                cur = p;
+                            } else if i + 1 < segs.len() {
+                                break;
+                            }
                         }
-                        if let Some(p) = next.get("properties").cloned() {
-                            cur = p;
-                        } else if i + 1 < segs.len() {
-                            // Cannot descend further — abort.
-                            break;
+                    }
+                    if nested_at.is_none() {
+                        if let Some(schema) = hit_schema {
+                            let mut cur_fields: &[FieldConfig] = &schema.fields;
+                            for (i, seg) in segs.iter().enumerate() {
+                                let Some(next) = cur_fields.iter().find(|f| f.name == *seg) else {
+                                    break;
+                                };
+                                if matches!(next.field_type, FieldType::Nested) {
+                                    nested_at = Some(i);
+                                }
+                                cur_fields = &next.fields;
+                            }
                         }
                     }
                     let idx = nested_at?;
@@ -20647,8 +20847,73 @@ async fn search_impl(
                                 let Some(sub_fields) = spec.get("fields").and_then(Value::as_object) else { continue };
                                 for (sub_name, _sub_spec) in sub_fields {
                                     let full = format!("{}.{}", n, sub_name);
-                                    if !names.contains(&full) && !to_add.contains(&full) {
+                                    if wildcard_match(field_name, &full)
+                                        && !names.contains(&full)
+                                        && !to_add.contains(&full)
+                                    {
                                         to_add.push(full);
+                                    }
+                                }
+                            }
+                            // Also match declared multi-fields directly when a
+                            // dotted wildcard pattern (e.g. `title.*` or
+                            // `*.raw`) did not match the parent `title` itself.
+                            if field_name.contains('.') {
+                                fn collect_matching_declared_multi(
+                                    props: &serde_json::Map<String, Value>,
+                                    prefix: &str,
+                                    pattern: &str,
+                                    source: &Value,
+                                    names: &[String],
+                                    to_add: &mut Vec<String>,
+                                ) {
+                                    for (k, spec) in props {
+                                        let path = if prefix.is_empty() {
+                                            k.clone()
+                                        } else {
+                                            format!("{prefix}.{k}")
+                                        };
+                                        if let Some(sf) = spec.get("fields").and_then(Value::as_object) {
+                                            if get_source_value_by_path(source, &path).is_some() {
+                                                for sub_name in sf.keys() {
+                                                    let full = format!("{path}.{sub_name}");
+                                                    if wildcard_match(pattern, &full)
+                                                        && !names.contains(&full)
+                                                        && !to_add.contains(&full)
+                                                    {
+                                                        to_add.push(full);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if let Some(sub_props) =
+                                            spec.get("properties").and_then(Value::as_object)
+                                        {
+                                            collect_matching_declared_multi(
+                                                sub_props, &path, pattern, source, names, to_add,
+                                            );
+                                        }
+                                    }
+                                }
+                                if let Some(pobj) = root_props_v.as_object() {
+                                    collect_matching_declared_multi(
+                                        pobj, "", field_name, &h.source, &names, &mut to_add,
+                                    );
+                                }
+                            }
+                            names.extend(to_add);
+                        }
+                        if let Some(norms) = hit_normalizers {
+                            let mut to_add: Vec<String> = Vec::new();
+                            for mf in norms.multi_field_paths() {
+                                if let Some(dot) = mf.rfind('.') {
+                                    let base = &mf[..dot];
+                                    if get_source_value_by_path(&h.source, base).is_some()
+                                        && wildcard_match(field_name, mf)
+                                        && !names.iter().any(|n| n == mf)
+                                        && !to_add.iter().any(|n| n == mf)
+                                    {
+                                        to_add.push(mf.to_string());
                                     }
                                 }
                             }
@@ -20687,9 +20952,40 @@ async fn search_impl(
                             .map(|o| !o.is_empty())
                             .unwrap_or(false);
                         if !has_any_props {
+                            let schema_has_keyword_child = |path: &str| -> Option<bool> {
+                                let schema = hit_schema?;
+                                fn find_field<'a>(
+                                    fields: &'a [FieldConfig],
+                                    path: &str,
+                                ) -> Option<&'a FieldConfig> {
+                                    if let Some(fc) = fields.iter().find(|f| f.name == path) {
+                                        return Some(fc);
+                                    }
+                                    let (head, tail) = path.split_once('.')?;
+                                    let parent = fields.iter().find(|f| f.name == head)?;
+                                    find_field(&parent.fields, tail)
+                                }
+                                let fc = find_field(&schema.fields, path)?;
+                                Some(
+                                    fc.fields.iter().any(|m| {
+                                        m.name == "keyword"
+                                            && matches!(m.field_type, FieldType::Keyword)
+                                    }),
+                                )
+                            };
                             let mut to_add: Vec<String> = Vec::new();
                             for n in &names {
                                 if n.ends_with(".keyword") { continue; }
+                                if hit_normalizers.is_some_and(|nm| nm.get(n).is_some()) {
+                                    continue;
+                                }
+                                // If the live schema already mapped `n` (e.g.
+                                // via a dynamic template into a keyword or
+                                // text without `.keyword`), follow the live
+                                // schema rather than leaking a fake `.keyword`.
+                                if schema_has_keyword_child(n) == Some(false) {
+                                    continue;
+                                }
                                 let kw_name = format!("{}.keyword", n);
                                 if names.contains(&kw_name) || to_add.contains(&kw_name) { continue; }
                                 let raw = get_source_value_by_path(&h.source, n);
@@ -20986,23 +21282,56 @@ async fn search_impl(
                                 get_source_value_by_path(&h.source, name)
                             }
                         };
-                        // `.keyword` synthetic multi-field: when the
-                        // requested name ends in `.keyword` and there's
-                        // no actual value at that path, fall back to
-                        // the parent scalar string's value (mirrors ES
-                        // dynamic mapping auto-created keyword
-                        // sub-fields).
-                        let raw = if raw.is_none() && name.ends_with(".keyword") {
-                            let base = &name[..name.len() - ".keyword".len()];
-                            let base_val = get_source_value_by_path(&h.source, base);
-                            match base_val {
-                                Some(Value::String(s)) => Some(Value::String(s)),
-                                Some(Value::Array(arr))
-                                    if arr.iter().all(|v| matches!(v, Value::String(_))) =>
-                                {
+                        // Multi-field resolution: when the requested name is
+                        // `<base>.keyword`, a normalized multi-field (e.g.
+                        // `title.raw`, including dynamic-template multi-fields),
+                        // or a declared non-`token_count` multi-field under
+                        // `fields`, fall back to the parent value in `_source`.
+                        let raw = if raw.is_none() && name.contains('.') {
+                            let multi_base = if let Some(base) = name.strip_suffix(".keyword") {
+                                Some(base)
+                            } else if hit_normalizers.is_some_and(|n| n.is_multi_field(name)) {
+                                name.rfind('.').map(|dot| &name[..dot])
+                            } else {
+                                name.rfind('.').and_then(|dot| {
+                                    let base = &name[..dot];
+                                    let sub = &name[dot + 1..];
+                                    let sub_type = mapping_for_fields.as_ref().and_then(|m| {
+                                        let root = m
+                                            .get("mappings")
+                                            .and_then(|mm| mm.get("properties"))
+                                            .or_else(|| m.get("properties"))?;
+                                        let segs: Vec<&str> = base.split('.').collect();
+                                        let mut cur = root;
+                                        for (i, seg) in segs.iter().enumerate() {
+                                            let next = cur.get(*seg)?;
+                                            if i == segs.len() - 1 {
+                                                return next
+                                                    .get("fields")?
+                                                    .get(sub)?
+                                                    .get("type")
+                                                    .and_then(Value::as_str);
+                                            }
+                                            cur = next.get("properties")?;
+                                        }
+                                        None
+                                    })?;
+                                    (sub_type != "token_count").then_some(base)
+                                })
+                            };
+                            if let Some(base) = multi_base {
+                                let base_val = get_source_value_by_path(&h.source, base);
+                                match base_val {
+                                    Some(Value::String(s)) => Some(Value::String(s)),
                                     Some(Value::Array(arr))
+                                        if arr.iter().all(|v| matches!(v, Value::String(_))) =>
+                                    {
+                                        Some(Value::Array(arr))
+                                    }
+                                    _ => None,
                                 }
-                                _ => None,
+                            } else {
+                                None
                             }
                         } else {
                             raw
@@ -21073,6 +21402,18 @@ async fn search_impl(
                         // is the number array — including `"_source": false`,
                         // where the engine keeps the packed source on purpose.
                         let raw = raw.map(expand_packed_embedding_value);
+                        // #3640: ES `fields` returns the normalized doc value
+                        // for a normalized keyword field (and applies
+                        // `ignore_above` to the normalized term), while
+                        // `_source` keeps the original unnormalized string.
+                        let field_normalizer = hit_normalizers.and_then(|n| {
+                            n.get(name)
+                                .or_else(|| alias_tgt.and_then(|t| n.get(t)))
+                        });
+                        let raw = match (raw, field_normalizer) {
+                            (Some(v), Some(norm)) => Some(norm.normalize_json(&v)),
+                            (raw, _) => raw,
+                        };
                         let arr_raw: Vec<Value> = match raw {
                             Some(Value::Array(a)) => a,
                             Some(Value::Null) | None => continue,
@@ -21288,6 +21629,8 @@ async fn search_impl(
                             fn wrap_nested_element(
                                 src: &Value,
                                 props: &Value,
+                                prefix: &str,
+                                normalizers: Option<&xerj_common::normalizer::KeywordNormalizers>,
                             ) -> Value {
                                 let Some(obj) = src.as_object() else {
                                     return Value::Array(vec![src.clone()]);
@@ -21298,14 +21641,34 @@ async fn search_impl(
                                     let ftype = spec.and_then(|s| s.get("type")).and_then(Value::as_str).unwrap_or("");
                                     let sub_props = spec.and_then(|s| s.get("properties")).cloned().unwrap_or(Value::Null);
                                     let sub_fields = spec.and_then(|s| s.get("fields")).and_then(Value::as_object);
+                                    let child_prefix = if prefix.is_empty() {
+                                        k.clone()
+                                    } else {
+                                        format!("{prefix}.{k}")
+                                    };
 
                                     if ftype == "nested" {
                                         // Inner nested → emit as array
                                         // of recursively wrapped
                                         // objects.
                                         let arr: Vec<Value> = match v {
-                                            Value::Array(a) => a.iter().map(|el| wrap_nested_element(el, &sub_props)).collect(),
-                                            other => vec![wrap_nested_element(other, &sub_props)],
+                                            Value::Array(a) => a
+                                                .iter()
+                                                .map(|el| {
+                                                    wrap_nested_element(
+                                                        el,
+                                                        &sub_props,
+                                                        &child_prefix,
+                                                        normalizers,
+                                                    )
+                                                })
+                                                .collect(),
+                                            other => vec![wrap_nested_element(
+                                                other,
+                                                &sub_props,
+                                                &child_prefix,
+                                                normalizers,
+                                            )],
                                         };
                                         out.insert(k.clone(), Value::Array(arr));
                                         continue;
@@ -21318,15 +21681,28 @@ async fn search_impl(
                                         // (text/keyword), surface
                                         // `<k>.keyword` siblings if
                                         // declared via `fields: {…}`.
-                                        let value_arr = match v {
+                                        let raw_arr = match v {
                                             Value::Array(a) => Value::Array(a.clone()),
                                             other => Value::Array(vec![other.clone()]),
                                         };
-                                        out.insert(k.clone(), value_arr.clone());
+                                        let leaf_val = match normalizers
+                                            .and_then(|n| n.get(&child_prefix))
+                                        {
+                                            Some(norm) => norm.normalize_json(&raw_arr),
+                                            None => raw_arr.clone(),
+                                        };
+                                        out.insert(k.clone(), leaf_val);
                                         if let Some(sf) = sub_fields {
                                             for (sub_name, _sub_spec) in sf {
                                                 let key = format!("{}.{}", k, sub_name);
-                                                out.insert(key, value_arr.clone());
+                                                let mf_path = format!("{child_prefix}.{sub_name}");
+                                                let mf_val = match normalizers
+                                                    .and_then(|n| n.get(&mf_path))
+                                                {
+                                                    Some(norm) => norm.normalize_json(&raw_arr),
+                                                    None => raw_arr.clone(),
+                                                };
+                                                out.insert(key, mf_val);
                                             }
                                         }
                                         continue;
@@ -21338,7 +21714,12 @@ async fn search_impl(
                                         // wrap_nested_element to
                                         // continue distinguishing inner
                                         // children.
-                                        let inner = wrap_nested_element(v, &sub_props);
+                                        let inner = wrap_nested_element(
+                                            v,
+                                            &sub_props,
+                                            &child_prefix,
+                                            normalizers,
+                                        );
                                         out.insert(k.clone(), inner);
                                         continue;
                                     }
@@ -21392,6 +21773,14 @@ async fn search_impl(
                                     let extra: Vec<(String, Value)> = sink.iter()
                                         .filter_map(|(kk, vv)| {
                                             if kk.ends_with(".keyword") { return None; }
+                                            let full_kk = if prefix.is_empty() {
+                                                kk.clone()
+                                            } else {
+                                                format!("{prefix}.{kk}")
+                                            };
+                                            if normalizers.is_some_and(|n| n.get(&full_kk).is_some()) {
+                                                return None;
+                                            }
                                             let arr = vv.as_array()?;
                                             if arr.is_empty() || !arr.iter().all(|x| matches!(x, Value::String(_))) {
                                                 return None;
@@ -21402,9 +21791,27 @@ async fn search_impl(
                                         })
                                         .collect();
                                     for (kk, vv) in sink {
+                                        let full_kk = if prefix.is_empty() {
+                                            kk.clone()
+                                        } else {
+                                            format!("{prefix}.{kk}")
+                                        };
+                                        let vv = match normalizers.and_then(|n| n.get(&full_kk)) {
+                                            Some(norm) => norm.normalize_json(&vv),
+                                            None => vv,
+                                        };
                                         out.insert(kk, vv);
                                     }
                                     for (kk, vv) in extra {
+                                        let full_kk = if prefix.is_empty() {
+                                            kk.clone()
+                                        } else {
+                                            format!("{prefix}.{kk}")
+                                        };
+                                        let vv = match normalizers.and_then(|n| n.get(&full_kk)) {
+                                            Some(norm) => norm.normalize_json(&vv),
+                                            None => vv,
+                                        };
                                         out.insert(kk, vv);
                                     }
                                 }
@@ -21412,7 +21819,8 @@ async fn search_impl(
                             }
                             let wrapped: Vec<Value> = arr.into_iter()
                                 .map(|el| {
-                                    let mut wrapped = wrap_nested_element(&el, &nested_props);
+                                    let mut wrapped =
+                                        wrap_nested_element(&el, &nested_props, name, hit_normalizers);
                                     if let (Some(filter), Value::Object(obj)) = (key_filter.as_ref(), &mut wrapped) {
                                         let keys: Vec<String> = obj.keys().cloned().collect();
                                         for k in keys {
@@ -21447,9 +21855,14 @@ async fn search_impl(
                             // doc).
                             let np_parts: Vec<&str> = nested_path.split('.').collect();
                             let walked = get_field_value_via_walk(&h.source, &np_parts);
-                            let literal = h.source.as_object()
-                                .and_then(|o| o.get(&nested_path))
-                                .cloned();
+                            let literal = if nested_path.contains('.') {
+                                h.source
+                                    .as_object()
+                                    .and_then(|o| o.get(&nested_path))
+                                    .cloned()
+                            } else {
+                                None
+                            };
                             let nested_raw = match (walked, literal) {
                                 (Some(Value::Array(a)), Some(Value::Array(b))) => {
                                     let mut m = a; m.extend(b); Value::Array(m)
@@ -21478,9 +21891,24 @@ async fn search_impl(
                             while parent_arr.len() < elements.len() {
                                 parent_arr.push(Value::Object(serde_json::Map::new()));
                             }
+                            let sub_norm = hit_normalizers.and_then(|n| n.get(name));
+                            let sub_is_multi = hit_normalizers.is_some_and(|n| n.is_multi_field(name));
                             for (i, elem) in elements.iter().enumerate() {
-                                let sub_val = elem.get(&sub_path).cloned();
+                                let sub_val = get_source_value_by_path(elem, &sub_path).or_else(|| {
+                                    if let Some(base) = sub_path.strip_suffix(".keyword") {
+                                        return get_source_value_by_path(elem, base);
+                                    }
+                                    if sub_is_multi {
+                                        let dot = sub_path.rfind('.')?;
+                                        return get_source_value_by_path(elem, &sub_path[..dot]);
+                                    }
+                                    None
+                                });
                                 if let Some(v) = sub_val {
+                                    let v = match sub_norm {
+                                        Some(norm) => norm.normalize_json(&v),
+                                        None => v,
+                                    };
                                     let as_array = match v {
                                         Value::Array(a) => Value::Array(a),
                                         other => Value::Array(vec![other]),
@@ -21504,7 +21932,12 @@ async fn search_impl(
 
                 // docvalue_fields.
                 if !docvalue_fields.is_empty() {
-                    if let Some(dv) = build_docvalue_fields(&h.source, &docvalue_fields) {
+                    if let Some(dv) = build_docvalue_fields(
+                        &h.source,
+                        &docvalue_fields,
+                        hit_normalizers,
+                        &alias_map,
+                    ) {
                         fmap.extend(dv);
                     }
                 }
@@ -21589,9 +22022,28 @@ async fn search_impl(
                         let target_via_alias = alias_map.get(&cf.field);
                         let raw = get_source_value_by_path(&h.source, &cf.field)
                             .or_else(|| target_via_alias.and_then(|t| get_source_value_by_path(&h.source, t)))
-                            .or_else(|| get_source_value_by_path(&h.source, &response_key));
+                            .or_else(|| get_source_value_by_path(&h.source, &response_key))
+                            .or_else(|| {
+                                if let Some(base) = cf.field.strip_suffix(".keyword") {
+                                    return get_source_value_by_path(&h.source, base);
+                                }
+                                if hit_normalizers.is_some_and(|n| n.is_multi_field(&cf.field)) {
+                                    let dot = cf.field.rfind('.')?;
+                                    return get_source_value_by_path(&h.source, &cf.field[..dot]);
+                                }
+                                None
+                            });
                         if let Some(raw) = raw {
                             let raw = expand_packed_embedding_value(raw);
+                            let collapse_norm = hit_normalizers.and_then(|n| {
+                                n.get(&cf.field)
+                                    .or_else(|| target_via_alias.and_then(|t| n.get(t)))
+                                    .or_else(|| n.get(&response_key))
+                            });
+                            let raw = match collapse_norm {
+                                Some(norm) => norm.normalize_json(&raw),
+                                None => raw,
+                            };
                             let arr = match raw {
                                 Value::Array(a) => a,
                                 Value::Null => vec![],
@@ -21764,7 +22216,13 @@ async fn search_impl(
 
             // Build inner_hits if configured.
             let mut hit_inner_hits = if !inner_hits_config.is_null() {
-                let ih = build_inner_hits(&h.source, &h.id, &idx_name, &inner_hits_config);
+                let ih = build_inner_hits(
+                    &h.source,
+                    &h.id,
+                    &idx_name,
+                    &inner_hits_config,
+                    hit_normalizers,
+                );
                 if ih.is_null() || (ih.is_object() && ih.as_object().map(|o| o.is_empty()).unwrap_or(true)) {
                     None
                 } else {
@@ -21795,6 +22253,7 @@ async fn search_impl(
                     } else {
                         None
                     },
+                    hit_normalizers,
                 ));
             }
 
@@ -25065,6 +25524,32 @@ fn es_properties_to_fields(
             fc.options.null_value = Some(Value::String(format!("__copy_to__:{}", copy_target)));
         }
 
+        // #3640: carry dynamic-child disablement guards (`enabled: false`,
+        // `dynamic: false`/`"strict"`, or opaque non-object types like
+        // `flattened`/`flat_object`/`geo_shape` that collapse onto
+        // `FieldType::Object`) onto `FieldOptions::es_mapping` so dynamic
+        // schema evolution fast-rejects sub-key merging on the read-lock path.
+        if matches!(native_type, FieldType::Object | FieldType::Nested) {
+            let disabled = field_def.get("enabled").and_then(Value::as_bool) == Some(false)
+                || matches!(field_def.get("dynamic"), Some(Value::Bool(false)))
+                || matches!(
+                    field_def.get("dynamic"),
+                    Some(Value::String(s)) if s == "false" || s == "strict"
+                )
+                || (native_type == FieldType::Object && es_type != "object");
+            if disabled {
+                let mut guard_map = serde_json::Map::new();
+                guard_map.insert("type".to_string(), Value::String(es_type.to_string()));
+                if let Some(enabled) = field_def.get("enabled") {
+                    guard_map.insert("enabled".to_string(), enabled.clone());
+                }
+                if let Some(dynamic) = field_def.get("dynamic") {
+                    guard_map.insert("dynamic".to_string(), dynamic.clone());
+                }
+                fc.options.es_mapping = Some(Value::Object(guard_map));
+            }
+        }
+
         // `semantic_text` — auto-embed on ingest. Attach an EmbeddingConfig so
         // the engine vectorises this field's text into a companion vector field
         // (`<field>_vector`) at index time, making it kNN-searchable via the
@@ -25202,9 +25687,45 @@ fn resolve_field_normalizer(
     }
 }
 
-/// A `normalizer` inside a `dynamic_templates` mapping must resolve too
-/// (#3513), checked at create and put-mapping against the same `analysis`
-/// block as `properties`, so a template cannot carry a name nothing applies.
+fn validate_template_mapping_normalizers(
+    template_name: &str,
+    field_label: &str,
+    mapping: &Value,
+    analysis: Option<&Value>,
+) -> Result<(), String> {
+    if let Some(normalizer) = mapping.get("normalizer").filter(|v| !v.is_null()) {
+        // In ES, omitting `type` or setting `{dynamic_type}` on a string maps
+        // to `text`, which rejects `normalizer`; only explicit `type: keyword`
+        // accepts a normalizer (#3640).
+        let es_type = match mapping.get("type").and_then(Value::as_str) {
+            None | Some("{dynamic_type}") => "text",
+            Some(t) => t,
+        };
+        resolve_field_normalizer(field_label, es_type, normalizer, analysis).map_err(|reason| {
+            reason.replacen(
+                "Failed to parse mapping: ",
+                &format!("Failed to parse mapping: dynamic template [{template_name}]: "),
+                1,
+            )
+        })?;
+    }
+    if let Some(sub_fields) = mapping.get("fields").and_then(Value::as_object) {
+        for (sub_name, sub_mapping) in sub_fields {
+            validate_template_mapping_normalizers(template_name, sub_name, sub_mapping, analysis)?;
+        }
+    }
+    if let Some(sub_props) = mapping.get("properties").and_then(Value::as_object) {
+        for (sub_name, sub_mapping) in sub_props {
+            validate_template_mapping_normalizers(template_name, sub_name, sub_mapping, analysis)?;
+        }
+    }
+    Ok(())
+}
+
+/// A `normalizer` inside a `dynamic_templates` mapping (including `fields`
+/// multi-fields and nested `properties`) must resolve too (#3513, #3640),
+/// checked at create and put-mapping against the same `analysis` block as
+/// `properties`, so a template cannot carry a name nothing applies.
 fn validate_dynamic_template_normalizers(
     mappings: &Value,
     analysis: Option<&Value>,
@@ -25220,25 +25741,7 @@ fn validate_dynamic_template_normalizers(
             let Some(mapping) = spec.get("mapping") else {
                 continue;
             };
-            let Some(normalizer) = mapping.get("normalizer").filter(|v| !v.is_null()) else {
-                continue;
-            };
-            // ES leaves `type` unset (or `{dynamic_type}`) to mean "the
-            // detected type"; only a string can become a keyword, so those
-            // are checked as keyword.
-            let es_type = match mapping.get("type").and_then(Value::as_str) {
-                None | Some("{dynamic_type}") => "keyword",
-                Some(t) => t,
-            };
-            resolve_field_normalizer(template_name, es_type, normalizer, analysis).map_err(
-                |reason| {
-                    reason.replacen(
-                        "Failed to parse mapping: ",
-                        &format!("Failed to parse mapping: dynamic template [{template_name}]: "),
-                        1,
-                    )
-                },
-            )?;
+            validate_template_mapping_normalizers(template_name, template_name, mapping, analysis)?;
         }
     }
     Ok(())
@@ -26487,10 +26990,20 @@ pub fn schema_to_es_properties(schema: &Schema) -> serde_json::Map<String, Value
             (FieldType::Date, Some(xerj_common::types::DatePrecision::Nanos)) => "date_nanos",
             (ft, _) => native_type_to_es(ft),
         };
-        let mut field_obj = serde_json::Map::new();
-        field_obj.insert("type".to_string(), Value::String(es_type.to_string()));
+        // #3640: when a dynamic template created this field, start from its
+        // resolved ES mapping so declared ES types (`integer`, `meta`,
+        // `doc_values: false`, etc.) survive round-trips in `GET _mapping`.
+        let mut field_obj = match field.options.es_mapping.as_ref().and_then(Value::as_object) {
+            Some(saved) => saved.clone(),
+            None => serde_json::Map::new(),
+        };
+        if !field_obj.contains_key("type") {
+            field_obj.insert("type".to_string(), Value::String(es_type.to_string()));
+        }
         if let Some(n) = field.options.ignore_above {
-            field_obj.insert("ignore_above".to_string(), Value::Number(n.into()));
+            field_obj
+                .entry("ignore_above".to_string())
+                .or_insert_with(|| Value::Number(n.into()));
         }
         // #3513: a keyword a dynamic template gave a normalizer.
         if let Some(n) = &field.options.normalizer {
@@ -31486,19 +31999,27 @@ async fn scroll_page_response(
                             obj.remove("__xy_collapse_group__");
                             obj.remove("__xy_collapse_spec__");
                             match (group, spec) {
-                                (Some(g), Some(s)) => Some(render_collapse_inner_hits(
-                                    g,
-                                    s,
-                                    &h.index,
-                                    rest_total_hits_as_int,
-                                    // The scroll continuation has no companion set
-                                    // in scope (it would need threading through
-                                    // ScrollContext); the unconditional passage
-                                    // sentinel strip still applies. Scroll+collapse
-                                    // companion stripping is a scoped remaining
-                                    // sub-case of #646.
-                                    None,
-                                )),
+                                (Some(g), Some(s)) => {
+                                    let scroll_norm = state
+                                        .engine
+                                        .get_index(&h.index)
+                                        .ok()
+                                        .map(|i| i.keyword_normalizers());
+                                    Some(render_collapse_inner_hits(
+                                        g,
+                                        s,
+                                        &h.index,
+                                        rest_total_hits_as_int,
+                                        // The scroll continuation has no companion set
+                                        // in scope (it would need threading through
+                                        // ScrollContext); the unconditional passage
+                                        // sentinel strip still applies. Scroll+collapse
+                                        // companion stripping is a scoped remaining
+                                        // sub-case of #646.
+                                        None,
+                                        scroll_norm.as_deref(),
+                                    ))
+                                }
                                 _ => None,
                             }
                         });
@@ -52222,6 +52743,8 @@ fn parse_iso_to_ms(s: &str) -> Option<i64> {
 pub(crate) fn build_docvalue_fields(
     source: &Value,
     docvalue_fields: &[Value],
+    normalizers: Option<&xerj_common::normalizer::KeywordNormalizers>,
+    alias_map: &HashMap<String, String>,
 ) -> Option<HashMap<String, Value>> {
     if docvalue_fields.is_empty() {
         return None;
@@ -52240,19 +52763,36 @@ pub(crate) fn build_docvalue_fields(
         if field_name.is_empty() {
             continue;
         }
-        let raw = get_source_value_by_path(source, field_name);
+        let alias_tgt = alias_map.get(field_name).map(String::as_str);
+        let lookup_name = alias_tgt.unwrap_or(field_name);
+        let raw = get_source_value_by_path(source, field_name)
+            .or_else(|| alias_tgt.and_then(|t| get_source_value_by_path(source, t)));
         // `.keyword` is ES's conventional multi-field sub-type on
-        // dynamic/keyword fields. When the declared field doesn't
-        // carry an explicit `.keyword` leaf but the base field holds
-        // a string (or array of strings), treat the request as
-        // asking for the base value (keyword multi-field semantics).
+        // dynamic/keyword fields, and normalized multi-fields (e.g.
+        // `title.raw`) likewise store their raw value on the parent field.
         let raw = raw.or_else(|| {
-            let base = field_name.strip_suffix(".keyword")?;
-            get_source_value_by_path(source, base)
+            if let Some(base) = lookup_name.strip_suffix(".keyword") {
+                return get_source_value_by_path(source, base);
+            }
+            if normalizers.is_some_and(|n| n.is_multi_field(lookup_name)) {
+                let dot = lookup_name.rfind('.')?;
+                return get_source_value_by_path(source, &lookup_name[..dot]);
+            }
+            None
         });
         // Same packed-embedding expansion as `fields` (#1940). Doc values
         // skip the string, so this path is the one that still sees it.
         let raw = raw.map(expand_packed_embedding_value);
+        // #3640: ES `docvalue_fields` returns the normalized doc value for a
+        // normalized keyword field while `_source` keeps the original string.
+        let field_norm = normalizers.and_then(|n| {
+            n.get(field_name)
+                .or_else(|| alias_tgt.and_then(|t| n.get(t)))
+        });
+        let raw = match (raw, field_norm) {
+            (Some(v), Some(norm)) => Some(norm.normalize_json(&v)),
+            (raw, _) => raw,
+        };
         let arr: Vec<Value> = match raw {
             Some(Value::Array(a)) => a,
             Some(Value::Null) | None => vec![],
@@ -53393,6 +53933,7 @@ pub(crate) fn build_inner_hits(
     doc_id: &str,
     index: &str,
     inner_hits_config: &Value,
+    normalizers: Option<&xerj_common::normalizer::KeywordNormalizers>,
 ) -> Value {
     if inner_hits_config.is_null() {
         return Value::Null;
@@ -53479,8 +54020,21 @@ pub(crate) fn build_inner_hits(
                     for expr in &field_exprs {
                         if let Some(stripped) = expr.strip_prefix(&format!("{}.", path)) {
                             // Pull stripped field from this nested element.
-                            let val = elem.get(stripped).cloned();
+                            let val = get_source_value_by_path(&elem, stripped).or_else(|| {
+                                if let Some(base) = stripped.strip_suffix(".keyword") {
+                                    return get_source_value_by_path(&elem, base);
+                                }
+                                if normalizers.is_some_and(|n| n.is_multi_field(expr)) {
+                                    let dot = stripped.rfind('.')?;
+                                    return get_source_value_by_path(&elem, &stripped[..dot]);
+                                }
+                                None
+                            });
                             if let Some(v) = val {
+                                let v = match normalizers.and_then(|n| n.get(expr)) {
+                                    Some(norm) => norm.normalize_json(&v),
+                                    None => v,
+                                };
                                 let as_array = match v {
                                     Value::Array(a) => Value::Array(a),
                                     other => Value::Array(vec![other]),
@@ -53496,8 +54050,28 @@ pub(crate) fn build_inner_hits(
                             }
                         } else {
                             // Non-nested field — resolve against the
-                            // element directly.
-                            if let Some(v) = elem.get(expr).cloned() {
+                            // element directly (supporting dotted paths and
+                            // keyword/normalized multi-field fallbacks).
+                            let full_path = format!("{path}.{expr}");
+                            let val = get_source_value_by_path(&elem, expr).or_else(|| {
+                                if let Some(base) = expr.strip_suffix(".keyword") {
+                                    return get_source_value_by_path(&elem, base);
+                                }
+                                if normalizers.is_some_and(|n| {
+                                    n.is_multi_field(expr) || n.is_multi_field(&full_path)
+                                }) {
+                                    let dot = expr.rfind('.')?;
+                                    return get_source_value_by_path(&elem, &expr[..dot]);
+                                }
+                                None
+                            });
+                            if let Some(v) = val {
+                                let v = match normalizers
+                                    .and_then(|n| n.get(expr).or_else(|| n.get(&full_path)))
+                                {
+                                    Some(norm) => norm.normalize_json(&v),
+                                    None => v,
+                                };
                                 let as_array = match v {
                                     Value::Array(a) => Value::Array(a),
                                     other => Value::Array(vec![other]),

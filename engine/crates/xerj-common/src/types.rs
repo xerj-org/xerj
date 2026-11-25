@@ -351,6 +351,12 @@ pub struct FieldOptions {
     /// plain keyword.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub normalizer: Option<crate::normalizer::KeywordNormalizer>,
+    /// Resolved ES mapping JSON emitted by a `dynamic_templates` rule (#3640)
+    /// so `GET /_mapping` preserves template-declared ES types (e.g. `integer`),
+    /// `meta`, `doc_values: false` and multi-fields across restarts. `None` for
+    /// all non-template fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub es_mapping: Option<serde_json::Value>,
     /// Declared resolution of a `Date` field (#790, #889).
     ///
     /// `Some(Millis)` for an ES `date`, `Some(Nanos)` for an ES `date_nanos`;
@@ -402,6 +408,7 @@ impl Default for FieldOptions {
             null_value: None,
             ignore_above: None,
             normalizer: None,
+            es_mapping: None,
             date_precision: None,
             date_format: None,
             multi_value: true,
@@ -582,6 +589,14 @@ impl Schema {
         self.version += 1;
         self.updated_at = Utc::now();
         Ok(())
+    }
+
+    /// Increment the schema version after an in-place mutation (such as
+    /// merging dynamically-discovered nested children into an existing
+    /// `Object` or `Nested` field) so version-keyed caches invalidate (#3640).
+    pub fn bump_version(&mut self) {
+        self.version += 1;
+        self.updated_at = Utc::now();
     }
 
     /// Total number of fields, counting every nested child at every depth
