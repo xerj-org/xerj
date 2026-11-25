@@ -8,15 +8,15 @@
   {
    "repo": "memorytrust",
    "url": "https://github.com/gravion-ux/memorytrust",
-   "sha": "7f212e18162de359c8e1a85251255892b7912775",
-   "licence": "MIT (LICENSE file at pin 7f212e18162d, GitHub licence API 2026-11-22)",
+   "sha": "c90c3febc671a3ba4eab514b355dcd44ce5a8cda",
+   "licence": "MIT (LICENSE file at pin c90c3febc671, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "3e04a3df9610",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 3e04a3df9610); pinned to the default-branch head. LICENSE file at pin 7f212e18162d detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 3e04a3df9610); pinned to the default-branch head. LICENSE file at pin c90c3febc671 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

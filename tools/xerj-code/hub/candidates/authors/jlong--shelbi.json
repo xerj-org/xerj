@@ -2,8 +2,8 @@
  "corpus": "jlong--shelbi",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on Rust queries this for how jlong/shelbi implements it: Open source agent orchestrator TUI built on tmux (selected work: crates/shelbi-tui, crates/shelbi-app, scripts)",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how jlong/shelbi implements it: Open source agent orchestrator (selected work: crates/shelbi-tui, crates/shelbi-app, scripts)",
  "repos": [
   {
    "repo": "shelbi",
