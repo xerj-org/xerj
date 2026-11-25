@@ -1,0 +1,21 @@
+{
+ "corpus": "hermes-minimizer",
+ "cloned_at": "2026-11-23T18:11:44Z",
+ "repos": [
+  {
+   "repo": "hermes-minimizer",
+   "url": "https://github.com/nosliwhtes/hermes-minimizer",
+   "licence": "MIT",
+   "sha": "b5e58fc55df926400d4b9f8c9df43c4ee1963505",
+   "files": 26,
+   "bytes": 642157,
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "nosliwhtes",
+    "at": "2026-11-23",
+    "note": "LICENSE opened at pin: verbatim MIT, Copyright (c) 2026 Seth Wilson. THIRD_PARTY_NOTICES.md covers Ponytail (MIT, (c) 2026 DietrichGebert) and reproduces its MIT text; no Ponytail code is vendored."
+   }
+  }
+ ]
+}
