@@ -7383,6 +7383,23 @@ fn run_filters(
 /// (must/filter/must_not/should). Unknown clause types are NOT a match
 /// (#959); clauses the query parser rejects are surfaced as an error at
 /// run_filter/run_filters entry instead.
+/// #3533: true when `field` is an unmapped leaf sub-field under the schema
+/// the current agg filter runs against (see `FILTER_SCHEMA`). A term-level
+/// filter leaf on such a field names a field that does not exist, so it
+/// matches nothing in ES (`extract_field_values` would otherwise strip the
+/// suffix and read the parent value. A declared multi-field is not unmapped
+/// and keeps matching. With no schema in scope this is false; with a live
+/// schema it fires for dynamically mapped parents too, which is why
+/// `fast_aggs_multifield_suffix`'s brute leg moved to 0 for filter leaves
+/// on `<field>.raw` (see the #3533 note there).
+fn filter_field_is_unmapped_leaf_subfield(field: &str) -> bool {
+    FILTER_SCHEMA.with(|cell| {
+        cell.borrow()
+            .as_ref()
+            .is_some_and(|s| crate::index::is_unmapped_leaf_subfield(s, field))
+    })
+}
+
 pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
     let obj = match filter.as_object() {
         Some(o) => o,
@@ -7395,6 +7412,10 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "term" => {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, expected) in field_map {
+                        // #3533: an unmapped leaf sub-field matches nothing.
+                        if filter_field_is_unmapped_leaf_subfield(field) {
+                            return false;
+                        }
                         let actual_values = extract_field_values(doc, field);
                         let expected_str = match expected {
                             Value::Object(o) => o.get("value").map(value_to_string),
@@ -7411,6 +7432,10 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "terms" => {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, expected_vals) in field_map {
+                        // #3533: an unmapped leaf sub-field matches nothing.
+                        if filter_field_is_unmapped_leaf_subfield(field) {
+                            return false;
+                        }
                         if let Some(arr) = expected_vals.as_array() {
                             let expected_strs: Vec<String> =
                                 arr.iter().map(value_to_string).collect();
@@ -7529,6 +7554,10 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "regexp" => {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, expected) in field_map {
+                        // #3533: an unmapped leaf sub-field matches nothing.
+                        if filter_field_is_unmapped_leaf_subfield(field) {
+                            return false;
+                        }
                         let actual_values = extract_field_values(doc, field);
                         let (pattern, case_insensitive) = match expected {
                             Value::Object(o) => (
@@ -7570,6 +7599,10 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "exists" => {
                 // exists: {"field": "price"} — match docs that have the field.
                 if let Some(field) = query_body.get("field").and_then(Value::as_str) {
+                    // #3533: an unmapped leaf sub-field has no value of its own.
+                    if filter_field_is_unmapped_leaf_subfield(field) {
+                        return false;
+                    }
                     // #1260: a field whose value is directly an OBJECT counts
                     // as present.  `extract_field_values` flattens objects to
                     // `[]` while the query path's `value_present`
@@ -7588,6 +7621,10 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "range" => {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, bounds) in field_map {
+                        // #3533: an unmapped leaf sub-field matches nothing.
+                        if filter_field_is_unmapped_leaf_subfield(field) {
+                            return false;
+                        }
                         let values = extract_field_values(doc, field);
                         if values.is_empty() {
                             return false;

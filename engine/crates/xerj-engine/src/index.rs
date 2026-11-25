@@ -53019,6 +53019,15 @@ fn query_has_unmapped_leaf_subfield(q: &QueryNode, schema: &Schema) -> bool {
         | QueryNode::Wildcard { field, .. }
         | QueryNode::Fuzzy { field, .. }
         | QueryNode::Intervals { field, .. } => is_unmapped_leaf_subfield(schema, field),
+        // #3533: term-level leaves on an unmapped sub-field are lowered too,
+        // so a bare `term` / `exists` query must also trip this pre-check or
+        // the lowering below never runs for it.
+        QueryNode::Term { field, .. }
+        | QueryNode::Terms { field, .. }
+        | QueryNode::Range { field, .. }
+        | QueryNode::Regexp { field, .. }
+        | QueryNode::SpanTerm { field, .. }
+        | QueryNode::Exists { field } => is_unmapped_leaf_subfield(schema, field),
         QueryNode::MultiMatch { fields, .. } | QueryNode::SimpleQueryString { fields, .. } => {
             fields
                 .iter()
@@ -53839,7 +53848,10 @@ fn lower_lexically_typeless_clauses(
 /// whatever the mapping says, so those clauses are lowered to `match_none`
 /// before any path decision, with the same folds as the typeless pass below.
 fn lower_unmapped_clauses(q: &QueryNode, hidden: &dyn Fn(&str) -> bool) -> QueryNode {
-    lower_clauses_naming(q, hidden, hidden, true)
+    // No unmapped-leaf term lowering here: `hidden` already covers the
+    // `dynamic: false` cases, and a dotted sub-field of a declared leaf is
+    // caught by the `lower_unsatisfiable_clauses` pass instead.
+    lower_clauses_naming(q, hidden, hidden, &|_| false, true)
 }
 
 /// Whether `field` is one a root `dynamic: false` keeps out of the index: a
@@ -53960,7 +53972,10 @@ fn hidden_by_dynamic_false(
 /// naming an undeclared sub-field of a declared leaf field (`title.raw`, #3515)
 /// to `MatchNone`, then fold the resulting `MatchNone` nodes through `Bool`,
 /// `Constant`, and `Boosted` so they never fall back to a stored-doc scan that
-/// strips unknown suffixes or walks unindexed vectors.
+/// strips unknown suffixes or walks unindexed vectors. #3533 extends the same
+/// lowering to the term-level leaves (`term`, `terms`, `range`, `regexp`,
+/// `span_term`) and `exists` on those sub-fields: the field does not exist,
+/// so ES matches nothing there either.
 fn lower_unsatisfiable_clauses(
     q: &QueryNode,
     typeless: &std::collections::HashSet<String>,
@@ -53970,6 +53985,7 @@ fn lower_unsatisfiable_clauses(
         q,
         &|field: &str| typeless.contains(field),
         &|field: &str| typeless.contains(field) || is_unmapped_leaf_subfield(schema, field),
+        &|field: &str| is_unmapped_leaf_subfield(schema, field),
         false,
     )
 }
@@ -53977,13 +53993,16 @@ fn lower_unsatisfiable_clauses(
 /// The shared lowering walk. `unsatisfiable` flags a field no leaf can match
 /// (typeless #328, unmapped under `dynamic: false` #3514); `fulltext_dead`
 /// additionally flags fields only FULL-TEXT leaves and `fields` lists cannot
-/// match (an unmapped sub-field of a declared leaf, #3515) — term-level
-/// leaves on those keep today's behaviour (#3533). `exists_too` also lowers
-/// `exists`.
+/// match (an unmapped sub-field of a declared leaf, #3515); `unmapped_leaf`
+/// flags exactly that unmapped-sub-field case for the TERM-LEVEL leaves and
+/// `exists` (#3533), kept separate from `fulltext_dead` because a typeless
+/// (vector) field is dead for full-text but alive for `exists`, which ES
+/// answers from `_source` / doc values. `exists_too` also lowers `exists`.
 fn lower_clauses_naming(
     q: &QueryNode,
     unsatisfiable: &dyn Fn(&str) -> bool,
     fulltext_dead: &dyn Fn(&str) -> bool,
+    unmapped_leaf: &dyn Fn(&str) -> bool,
     exists_too: bool,
 ) -> QueryNode {
     // One entry of a `fields: [...]` list. `"emb^3"` carries a boost.
@@ -54035,15 +54054,22 @@ fn lower_clauses_naming(
                 .collect(),
         )
     };
-    let recurse = |c: &QueryNode| lower_clauses_naming(c, unsatisfiable, fulltext_dead, exists_too);
+    let recurse = |c: &QueryNode| {
+        lower_clauses_naming(c, unsatisfiable, fulltext_dead, unmapped_leaf, exists_too)
+    };
     match q {
         // ── Leaves that name exactly one field ────────────────────────────
+        // #3533: term-level leaves on an unmapped leaf sub-field lower to
+        // MatchNone like the full-text ones, since the field does not exist, so
+        // ES matches nothing. A typeless (vector) field is already covered
+        // by `unsatisfiable`; a declared multi-field is not unmapped, so it
+        // keeps matching.
         QueryNode::Term { field, .. }
         | QueryNode::Terms { field, .. }
         | QueryNode::Range { field, .. }
         | QueryNode::Regexp { field, .. }
         | QueryNode::SpanTerm { field, .. } => {
-            if unsatisfiable(field) {
+            if unsatisfiable(field) || unmapped_leaf(field) {
                 QueryNode::MatchNone
             } else {
                 q.clone()
@@ -54064,8 +54090,11 @@ fn lower_clauses_naming(
         }
         // `exists` reads `_source` / doc values, which is right for a typeless
         // field (it has a value) and wrong for one `dynamic: false` left
-        // unmapped (ES: no hits), hence the flag.
+        // unmapped (ES: no hits), hence the flag. #3533: it is equally wrong
+        // for an unmapped leaf sub-field (`title.raw` has no value of its
+        // own), so that case lowers regardless of the flag.
         QueryNode::Exists { field } if exists_too && unsatisfiable(field) => QueryNode::MatchNone,
+        QueryNode::Exists { field } if unmapped_leaf(field) => QueryNode::MatchNone,
 
         // ── Multi-field forms: prune the list, empty list → MatchNone ─────
         // The empty case is the specific hole. `query_node_to_fts` returns
@@ -54986,7 +55015,7 @@ mod lexically_typeless_lowering_tests {
     }
 
     #[test]
-    fn unmapped_leaf_subfield_lowering_folds_fulltext_and_leaves_term_untouched() {
+    fn unmapped_leaf_subfield_lowering_folds_fulltext_and_term_level() {
         let mut schema = Schema::empty();
         let mut title = FieldConfig::new("title", FieldType::Text);
         title
@@ -55055,13 +55084,74 @@ mod lexically_typeless_lowering_tests {
             other => panic!("expected bool with MatchNone preserved, got {other:?}"),
         }
 
-        // Mapped multi-field and Term queries remain untouched.
+        // Mapped multi-field match queries remain untouched.
         assert_eq!(
             lower_unsatisfiable_clauses(&m("title.keyword"), &empty_typeless, &schema),
             m("title.keyword")
         );
+        // #3533: term-level leaves on the unmapped sub-field lower to
+        // MatchNone; the same leaves on the mapped multi-field stay.
         let t = term("title.raw", "Fruit");
-        assert_eq!(lower_unsatisfiable_clauses(&t, &empty_typeless, &schema), t);
+        assert!(lower_unsatisfiable_clauses(&t, &empty_typeless, &schema).is_match_none());
+        let tk = term("title.keyword", "Fruit");
+        assert_eq!(
+            lower_unsatisfiable_clauses(&tk, &empty_typeless, &schema),
+            tk
+        );
+        assert!(lower_unsatisfiable_clauses(
+            &QueryNode::Terms {
+                field: "title.raw".into(),
+                values: vec![Value::String("Fruit".into())],
+                boost: None,
+            },
+            &empty_typeless,
+            &schema,
+        )
+        .is_match_none());
+        assert!(lower_unsatisfiable_clauses(
+            &QueryNode::Range {
+                field: "title.raw".into(),
+                gte: Some(Value::String("a".into())),
+                gt: None,
+                lte: None,
+                lt: None,
+                boost: None,
+                lenient: false,
+            },
+            &empty_typeless,
+            &schema,
+        )
+        .is_match_none());
+        assert!(lower_unsatisfiable_clauses(
+            &QueryNode::Regexp {
+                field: "title.raw".into(),
+                pattern: "fru.*".into(),
+                case_insensitive: false,
+            },
+            &empty_typeless,
+            &schema,
+        )
+        .is_match_none());
+        assert!(lower_unsatisfiable_clauses(
+            &QueryNode::Exists {
+                field: "title.raw".into()
+            },
+            &empty_typeless,
+            &schema,
+        )
+        .is_match_none());
+        assert_eq!(
+            lower_unsatisfiable_clauses(
+                &QueryNode::Exists {
+                    field: "title".into()
+                },
+                &empty_typeless,
+                &schema,
+            ),
+            QueryNode::Exists {
+                field: "title".into()
+            }
+        );
 
         // `DisMax` drops dead children, unwraps a single survivor, and folds all-dead to MatchNone.
         assert_eq!(
@@ -59801,7 +59891,22 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
         QueryNode::MatchAll => true,
         QueryNode::MatchNone => false,
 
+        // #3533: a term-level leaf on an unmapped sub-field of a declared
+        // leaf (`title.raw` under a `text` field with only `.keyword`) names
+        // a field that does not exist, so it matches nothing, and the stored-doc
+        // scan must not strip the suffix and compare the parent value. The
+        // same guard sits on every term-level arm below, and on `exists`.
+        // A declared multi-field (`title.keyword`, explicit `title.raw`) is
+        // not unmapped and keeps matching. Note the schema here is the LIVE
+        // one: dynamic mapping registers inferred fields, so a schema-less
+        // index whose docs carry the parent field still counts as declared
+        // (this is why `fast_aggs_multifield_suffix`'s brute leg moved to 0
+        // for `term` on `<field>.raw` and its expectations were updated
+        // with the #3533 note there).
         QueryNode::Term { field, value, .. } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             let doc_val = get_field_value(source, field);
             // Support CIDR notation for IP fields: {"term": {"ip": "192.168.1.0/24"}}
             if let Some(Value::String(query_str)) = value.as_str().map(|_| value) {
@@ -59831,6 +59936,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
         }
 
         QueryNode::Terms { field, values, .. } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             let doc_val = get_field_value(source, field);
             // #3259 remainder: same token-only rule as the `term` arm
             // above, so a raw phrase matches nothing on analysed text.
@@ -59859,23 +59967,33 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             lte,
             lt,
             ..
-        } => match get_field_value(source, field) {
-            Some(dv) => {
-                range_value_matches(&dv, gte.as_ref(), gt.as_ref(), lte.as_ref(), lt.as_ref())
+        } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
             }
-            None => false,
-        },
+            match get_field_value(source, field) {
+                Some(dv) => {
+                    range_value_matches(&dv, gte.as_ref(), gt.as_ref(), lte.as_ref(), lt.as_ref())
+                }
+                None => false,
+            }
+        }
 
-        QueryNode::Exists { field } => match field.as_str() {
-            "_id" | "_index" | "_seq_no" | "_version" | "_primary_term" => true,
-            "_routing" => source.get("_routing").is_some(),
-            // ES `exists` matches a field iff it has at least one NON-NULL value.
-            // Plain key-presence wrongly matched an explicit `null`, an empty
-            // array `[]`, and an array of only nulls `[null]`. This aligns the
-            // schemaless source scan with the declared-field paths (a keyword /
-            // numeric dv column has no entry for a null doc).
-            _ => get_field_value(source, field).is_some_and(|v| value_present(&v)),
-        },
+        QueryNode::Exists { field } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
+            match field.as_str() {
+                "_id" | "_index" | "_seq_no" | "_version" | "_primary_term" => true,
+                "_routing" => source.get("_routing").is_some(),
+                // ES `exists` matches a field iff it has at least one NON-NULL value.
+                // Plain key-presence wrongly matched an explicit `null`, an empty
+                // array `[]`, and an array of only nulls `[null]`. This aligns the
+                // schemaless source scan with the declared-field paths (a keyword /
+                // numeric dv column has no entry for a null doc).
+                _ => get_field_value(source, field).is_some_and(|v| value_present(&v)),
+            }
+        }
 
         QueryNode::Prefix {
             field,
@@ -60811,6 +60929,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             pattern,
             case_insensitive,
         } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             get_field_value(source, field)
                 .and_then(|v| match v {
                     Value::String(s) => {
@@ -61125,12 +61246,17 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
         // ── Span queries ──────────────────────────────────────────────────────
 
         // SpanTerm: same as exact field match (Term query semantics).
-        QueryNode::SpanTerm { field, value } => get_field_value(source, field)
-            .map(|v| match v {
-                Value::String(s) => s.to_lowercase() == value.to_lowercase(),
-                _ => false,
-            })
-            .unwrap_or(false),
+        QueryNode::SpanTerm { field, value } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
+            get_field_value(source, field)
+                .map(|v| match v {
+                    Value::String(s) => s.to_lowercase() == value.to_lowercase(),
+                    _ => false,
+                })
+                .unwrap_or(false)
+        }
 
         // SpanNear: tokenize the field, check that each span_term clause appears
         // within `slop` positions.  Optionally enforces `in_order`.

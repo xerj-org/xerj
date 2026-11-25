@@ -1,0 +1,182 @@
+# #3533: a term-level query on a dotted sub-field that is not mapped
+# (`title.raw`, where `title` is a dynamic `text` field whose only
+# multi-field is `.keyword`) matches nothing, before and after `_flush`.
+# The field does not exist, so ES 8.x returns 0 hits. Pre-fix the
+# term-level arms resolved `title.raw` through `get_field_value`, which
+# strips the unknown suffix and compares the raw parent string
+# (`term title.raw "Fruit"` -> [1], `exists title.raw` -> [1, 2, 3]).
+# `um_mem` is never flushed (memtable), `um_seg` is flushed (segment);
+# both get the same documents, the same queries and the same answers.
+# Mapped `title` / `title.keyword` are the controls.
+setup:
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "um_mem", "_id": "1"}}'
+          - '{"title": "Fruit"}'
+          - '{"index": {"_index": "um_mem", "_id": "2"}}'
+          - '{"title": "fruit salad"}'
+          - '{"index": {"_index": "um_mem", "_id": "3"}}'
+          - '{"title": "FRUiT"}'
+          - '{"index": {"_index": "um_seg", "_id": "1"}}'
+          - '{"title": "Fruit"}'
+          - '{"index": {"_index": "um_seg", "_id": "2"}}'
+          - '{"title": "fruit salad"}'
+          - '{"index": {"_index": "um_seg", "_id": "3"}}'
+          - '{"title": "FRUiT"}'
+  - do:
+      indices.flush:
+        index: um_seg
+
+---
+"term and terms on an unmapped sub-field: memtable":
+  - do:
+      search:
+        index: um_mem
+        body: { query: { term: { title.raw: Fruit } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_mem
+        body: { query: { terms: { title.raw: [ fruit, Fruit ] } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      count:
+        index: um_mem
+        body: { query: { term: { title.raw: Fruit } } }
+  - match: { count: 0 }
+
+---
+"term and terms on an unmapped sub-field: segment":
+  - do:
+      search:
+        index: um_seg
+        body: { query: { term: { title.raw: Fruit } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_seg
+        body: { query: { terms: { title.raw: [ fruit, Fruit ] } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      count:
+        index: um_seg
+        body: { query: { term: { title.raw: Fruit } } }
+  - match: { count: 0 }
+
+---
+"range and regexp on an unmapped sub-field: memtable":
+  - do:
+      search:
+        index: um_mem
+        body: { query: { range: { title.raw: { gte: a } } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_mem
+        body: { query: { regexp: { title.raw: "fru.*" } } }
+  - match: { hits.total.value: 0 }
+
+---
+"range and regexp on an unmapped sub-field: segment":
+  - do:
+      search:
+        index: um_seg
+        body: { query: { range: { title.raw: { gte: a } } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_seg
+        body: { query: { regexp: { title.raw: "fru.*" } } }
+  - match: { hits.total.value: 0 }
+
+---
+"exists on an unmapped sub-field: memtable":
+  - do:
+      search:
+        index: um_mem
+        body: { query: { exists: { field: title.raw } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_mem
+        body: { query: { bool: { must_not: [ { term: { title.raw: Fruit } } ] } } }
+  - match: { hits.total.value: 3 }
+
+---
+"exists on an unmapped sub-field: segment":
+  - do:
+      search:
+        index: um_seg
+        body: { query: { exists: { field: title.raw } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_seg
+        body: { query: { bool: { must_not: [ { term: { title.raw: Fruit } } ] } } }
+  - match: { hits.total.value: 3 }
+
+---
+"constant_score and bool filter on an unmapped sub-field: memtable":
+  - do:
+      search:
+        index: um_mem
+        body: { query: { constant_score: { filter: { term: { title.raw: Fruit } } } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_mem
+        body: { query: { bool: { must: [ { match: { title: fruit } } ], filter: [ { term: { title.raw: Fruit } } ] } } }
+  - match: { hits.total.value: 0 }
+
+---
+"constant_score and bool filter on an unmapped sub-field: segment":
+  - do:
+      search:
+        index: um_seg
+        body: { query: { constant_score: { filter: { term: { title.raw: Fruit } } } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_seg
+        body: { query: { bool: { must: [ { match: { title: fruit } } ], filter: [ { term: { title.raw: Fruit } } ] } } }
+  - match: { hits.total.value: 0 }
+
+---
+"mapped parent and keyword multi-field are unchanged: memtable":
+  - do:
+      search:
+        index: um_mem
+        body: { query: { term: { title.keyword: Fruit } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+  - do:
+      search:
+        index: um_mem
+        body: { query: { exists: { field: title } } }
+  - match: { hits.total.value: 3 }
+  - do:
+      search:
+        index: um_mem
+        body: { query: { exists: { field: title.keyword } } }
+  - match: { hits.total.value: 3 }
+
+---
+"mapped parent and keyword multi-field are unchanged: segment":
+  - do:
+      search:
+        index: um_seg
+        body: { query: { term: { title.keyword: Fruit } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+  - do:
+      search:
+        index: um_seg
+        body: { query: { exists: { field: title } } }
+  - match: { hits.total.value: 3 }
+  - do:
+      search:
+        index: um_seg
+        body: { query: { exists: { field: title.keyword } } }
+  - match: { hits.total.value: 3 }
