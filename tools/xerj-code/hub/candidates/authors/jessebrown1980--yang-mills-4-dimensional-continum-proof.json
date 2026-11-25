@@ -8,15 +8,15 @@
   {
    "repo": "yang-mills-4-dimensional-continum-proof",
    "url": "https://github.com/JesseBrown1980/yang-mills-4-dimensional-continum-proof",
-   "sha": "37c2b961237a1f56e02ed651856c02ebf6cd7426",
-   "licence": "author's permission (LICENSE at pin 37c2b961237a: NONE; repository: none)",
+   "sha": "6bb6873d1b058686e63e9c88c923a95bbf91e82f",
+   "licence": "author's permission (LICENSE at pin 6bb6873d1b05: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-05T14:53Z",
     "consent_receipt": "2bf76be75bb8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 2bf76be75bb8); pinned to the default-branch head. LICENSE at pin 37c2b961237a: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 2bf76be75bb8); pinned to the default-branch head. LICENSE at pin 6bb6873d1b05: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
