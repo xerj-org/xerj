@@ -277,11 +277,18 @@ Namespaces listed are the ones the caller may read (one it cannot read is simply
 not listed, so the list reveals nothing a 403 would not), each `ready`
 (projection in memory) or `cold` (rebuilt on first access).
 
-`model.state` is `not_configured` (no model directory), `not_loaded`, or `loaded`.
+`model.state` is `not_configured` (no model directory), `not_loaded`, `loaded`,
+or `unavailable` (the model directory is missing or failed a load check;
+`model.error` names the file, the response is still HTTP 200, and `_ask`
+answers `503 MODEL_UNAVAILABLE` until the node restarts with a working
+`--facts-model-dir`).
 With `--facts-model-dir` the node starts loading the model in the background at
 boot (`XERJ_FACTS_PRELOAD`, on by default), so the first status calls say
 `not_loaded`: measured 3.5 s from boot to `loaded` on a laptop-class x86_64.
-Poll until `loaded` before timing anything. `XERJ_FACTS_PRELOAD=0` skips the
+Poll while the state is `not_loaded`, and stop on anything else: `unavailable`
+never becomes `loaded`. The loop in
+[MODEL_QUICKSTART.md](./MODEL_QUICKSTART.md) does this. Wait for `loaded`
+before timing anything. `XERJ_FACTS_PRELOAD=0` skips the
 preload: the state stays `not_loaded` until the first `_ask`, which then pays
 the load (3.4 s measured) and answers; later asks run at the usual latency.
 `model.counting.state` is `ready` when the bundle carries a healthy counting
