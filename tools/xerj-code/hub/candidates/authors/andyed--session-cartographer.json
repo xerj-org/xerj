@@ -8,15 +8,15 @@
   {
    "repo": "session-cartographer",
    "url": "https://github.com/andyed/session-cartographer",
-   "sha": "a86a872cd8b7c29dfaed1482815fb80be8717b28",
-   "licence": "MIT (LICENSE file at pin a86a872cd8b7, GitHub licence API 2026-11-24)",
+   "sha": "5460835f08de7dbb0b12274f7eabc77b40447d70",
+   "licence": "MIT (LICENSE file at pin 5460835f08de, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T22:00Z",
     "consent_receipt": "92fb6ca83754",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:00Z (receipt 92fb6ca83754); selected commit a86a872cd8b7: \"fix(hooks): launch Windows hooks safely and prepare 0.8.4\". LICENSE file at pin a86a872cd8b7 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head a86a872cd8b7 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:00Z (receipt 92fb6ca83754); selected commit 5460835f08de: \"fix(hooks): launch Windows hooks safely and prepare 0.8.4\". LICENSE file at pin 5460835f08de detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 5460835f08de (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

@@ -8,15 +8,15 @@
   {
    "repo": "oura-mcp-app",
    "url": "https://github.com/Egoushka/oura-mcp-app",
-   "sha": "2826415b6e2ac26a9116a316222fcd3bed3bab7f",
-   "licence": "Apache-2.0 (LICENSE file at pin 2826415b6e2a, GitHub licence API 2026-11-25)",
+   "sha": "2b6540d669b11b984a20a91d39a8ceb26e0d7616",
+   "licence": "Apache-2.0 (LICENSE file at pin 2b6540d669b1, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "1cada3200381",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 1cada3200381); pinned to the default-branch head. LICENSE file at pin 2826415b6e2a detected as Apache-2.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 1cada3200381); pinned to the default-branch head. LICENSE file at pin 2b6540d669b1 detected as Apache-2.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

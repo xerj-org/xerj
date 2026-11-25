@@ -8,15 +8,15 @@
   {
    "repo": "tamil-keyboard",
    "url": "https://github.com/prasanth-nature/tamil-keyboard",
-   "sha": "a49af1f13c5d4b45484e5686a8a580d808d1d9bf",
-   "licence": "MIT (LICENSE file at pin a49af1f13c5d, GitHub licence API 2026-11-25)",
+   "sha": "e454f7f324fdf1bf8476f29df6166a7b5e1cdbcd",
+   "licence": "MIT (LICENSE file at pin e454f7f324fd, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-14T08:00Z",
     "consent_receipt": "1f03a0c16cf2",
-    "note": "Inclusion consented by the commit author by email at 2026-11-14T08:00Z (receipt 1f03a0c16cf2); selected commit a49af1f13c5d: \"Add files via upload\". LICENSE file at pin a49af1f13c5d detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head a49af1f13c5d (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T08:00Z (receipt 1f03a0c16cf2); selected commit e454f7f324fd: \"Add files via upload\". LICENSE file at pin e454f7f324fd detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head e454f7f324fd (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

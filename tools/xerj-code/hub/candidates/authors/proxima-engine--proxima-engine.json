@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on database-security, postgresql, rust queries this for how Proxima-Engine/proxima-engine implements it: One missing tenant check can expose another customer's data. Proxima Engine is an open-source Rust proxy for PostgreSQL tenant isolation, ac (selected work: scripts, tests_cli)",
+ "domain": "an agent working on database-security, postgresql, rust queries this for how Proxima-Engine/proxima-engine implements it: Multi-database tenant isolation and security platform. Agata Proxima connects applications to PostgreSQL, MySQL, MariaDB, CockroachDB, Mongo (selected work: scripts, tests_cli)",
  "repos": [
   {
    "repo": "proxima-engine",

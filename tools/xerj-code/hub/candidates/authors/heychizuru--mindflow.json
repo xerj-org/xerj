@@ -8,15 +8,15 @@
   {
    "repo": "mindflow",
    "url": "https://github.com/HeyChizuru/mindflow",
-   "sha": "2386ae3d0e629e9d18e3a5010cfd3f788fa82482",
-   "licence": "MIT (LICENSE file at pin 2386ae3d0e62, GitHub licence API 2026-11-22)",
+   "sha": "e947c24f92a98c6ca7aada8ac0897d7be47d7b31",
+   "licence": "MIT (LICENSE file at pin e947c24f92a9, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-03T03:39Z",
     "consent_receipt": "6bc9e2e994a9",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T03:39Z (receipt 6bc9e2e994a9); selected commit 2386ae3d0e62: \"feat(\u5386\u53f2\u8bfe\u5802):\u5b8c\u6210\u9996\u9875\u5386\u53f2\u5165\u53e3\u4e0e\u8bfe\u5802\u7ba1\u7406\u9a8c\u6536\". LICENSE file at pin 2386ae3d0e62 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution. Pinned to head 2386ae3d0e62 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T03:39Z (receipt 6bc9e2e994a9); selected commit e947c24f92a9: \"feat(\u5386\u53f2\u8bfe\u5802):\u5b8c\u6210\u9996\u9875\u5386\u53f2\u5165\u53e3\u4e0e\u8bfe\u5802\u7ba1\u7406\u9a8c\u6536\". LICENSE file at pin e947c24f92a9 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head e947c24f92a9 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
