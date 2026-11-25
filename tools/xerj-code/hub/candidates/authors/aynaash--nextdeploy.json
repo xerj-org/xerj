@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on automation, ci-cd, cli queries this for how aynaash/NextDeploy implements it: NextDeploy An open-source CLI tool to automate deployment of Next.js apps on any VPS (selected work: shared, daemon)",
+ "domain": "an agent working on ci-cd, cli, devops queries this for how aynaash/NextDeploy implements it: Open-source self-hosted Next.js deployment engine. Deploy Next.js to Linux VPS, AWS Lambda, or Cloudflare Workers with zero downtime and no  (selected work: shared, daemon)",
  "repos": [
   {
    "repo": "NextDeploy",

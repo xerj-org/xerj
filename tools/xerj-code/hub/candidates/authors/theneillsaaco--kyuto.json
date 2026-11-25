@@ -8,15 +8,15 @@
   {
    "repo": "kyuto",
    "url": "https://github.com/Theneillsaaco/kyuto",
-   "sha": "e88d4cb37414da8c53eec7c299749dd4c77e517f",
-   "licence": "MIT (LICENSE file at pin e88d4cb37414, GitHub licence API 2026-11-25)",
+   "sha": "51bb54073d7d69c9f793fa9faf2fa3312a856015",
+   "licence": "MIT (LICENSE file at pin 51bb54073d7d, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:37Z",
     "consent_receipt": "67d818842ae6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:37Z (receipt 67d818842ae6); pinned to the default-branch head. LICENSE file at pin e88d4cb37414 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:37Z (receipt 67d818842ae6); pinned to the default-branch head. LICENSE file at pin 51bb54073d7d detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

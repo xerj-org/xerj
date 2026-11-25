@@ -8,15 +8,15 @@
   {
    "repo": "Win-Get-Manager",
    "url": "https://github.com/joselyky/Win-Get-Manager",
-   "sha": "d348ccc47b02ff0f3906a34e8cb5632ef0053493",
-   "licence": "GPL-3.0 (LICENSE file at pin d348ccc47b02, GitHub licence API 2026-11-25)",
+   "sha": "4ec96333c665e9d01f2dfce639f7e0ac75abc19e",
+   "licence": "GPL-3.0 (LICENSE file at pin 4ec96333c665, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-21T20:50Z",
     "consent_receipt": "48efd8e293dc",
-    "note": "Inclusion consented by the commit author by email at 2026-10-21T20:50Z (receipt 48efd8e293dc); selected commit d348ccc47b02: \"v1.0.1 - Mejoras en desinstalador limpio, proteccion de Epic Games/St\u2026\". LICENSE file at pin d348ccc47b02 detected as GPL-3.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head d348ccc47b02 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T20:50Z (receipt 48efd8e293dc); selected commit 4ec96333c665: \"v1.0.1 - Mejoras en desinstalador limpio, proteccion de Epic Games/St\u2026\". LICENSE file at pin 4ec96333c665 detected as GPL-3.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 4ec96333c665 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
