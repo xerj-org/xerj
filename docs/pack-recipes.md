@@ -5,10 +5,12 @@
 (`RecipeRunner`) shared by the Writing, Bio, and Cyber packs.
 
 **Status.** The format, the runner and the four built-in recipes are here and
-tested. Nothing in `xerj-mcp` registers recipes in `tools/list` or dispatches
-`tools/call` to `RecipeRunner::execute` yet, and the runner takes the corpus hits
-from its caller (`hits: &[RecipeCorpusHit]`): a recipe's `[corpora]` block
-selects and checks data, it does not fetch it. Both depend on #2760 (#3297).
+tested, and `xerj mcp --recipe-dir <DIR>` serves the recipes in a directory as
+MCP tools ([Serving recipes as MCP tools](#serving-recipes-as-mcp-tools)). The
+runner still takes the corpus hits from its caller (`hits: &[RecipeCorpusHit]`):
+a recipe's `[corpora]` block selects and checks data, it does not fetch it.
+`xerj mcp` supplies the hits from files; fetching them from hub packs is the
+runtime path of #2760 (#3297) and is not here.
 
 ## Built-in recipes
 
@@ -100,6 +102,53 @@ runs filtering, grading and ranking, checks the evidence floor, assembles and
 fits the output, validates it against `[output_schema]`, executes every
 `[[checks]]` gate, and seals the `RecipeExecutionReport` with an RFC 8785 (JCS)
 `report_sha256` digest.
+
+## Serving recipes as MCP tools
+
+`xerj mcp --recipe-dir <DIR>` (or `XERJ_RECIPE_DIR=<DIR>`; the flag wins) turns
+the recipes in `DIR` into MCP tools. A recipe file is the whole tool definition:
+dropping one in is a new tool, with no Rust change.
+
+```text
+DIR/
+  advisories_by_cwe.toml        one recipe, one tool: xerj_advisories_by_cwe
+  corpora/
+    demo-advisories.jsonl       the hits for [corpora] required = ["demo-advisories"]
+```
+
+- **Off by default.** Without the flag, `tools/list` is the built-in tool list
+  and the published schema is unchanged.
+- **Registered at startup.** Each `*.toml` in `DIR` (not recursive, in file-name
+  order) is parsed and validated, and its tool follows the built-in tools in
+  `tools/list`, named by `mcp_tool_name` or `xerj_<name>` (`.` becomes `_`). An
+  invalid recipe stops the server and names the file.
+- **Refused when registered, not when called.** A recipe with `sample = true`
+  (a sample documents a tool that is not served), one with `requires_scope = true`
+  (an MCP argument is not an operator-declared work order, so every call would be
+  refused), a tool name that does not start with `xerj_`, one that is already a
+  built-in tool or a `xerj_hub_*` name, or one another recipe already uses.
+- **`tools/call` runs `RecipeRunner::execute`.** The arguments are validated
+  against `[[inputs]]`, the recipe runs over its hits, and the result is one text
+  block holding the RFC 8785 (JCS) bytes of the sealed `RecipeExecutionReport`
+  (`report_sha256` included), `isError: false`. A refusal (bad arguments, an
+  excluded licence, a missing corpus, too little evidence, a failed check) is an
+  `isError: true` block that names the reason.
+- **The hits are files.** For each corpus in `[corpora]`, the runner is given the
+  hits in `DIR/corpora/<corpus>.jsonl`, one `RecipeCorpusHit` JSON object per
+  line (`corpus`, `licence_class`, `record_id`, `title`, `excerpt`, `score`,
+  `published_date`, `pin_sha`, `fetched_at`, and `fields` for what filters and
+  grading read). The file is read at each call, so an edit needs no restart. A
+  line whose `corpus` is not the file's name is an error, a corpus with no file
+  gives no hits (so a required one is refused as missing), and a file over
+  16 MiB is refused.
+- **No node, read-only.** A recipe tool reads only the operator's recipe and
+  corpus files and never calls the node, so `xerj mcp --http` serves it with the
+  other read-only tools, without `--allow-writes`.
+
+From Rust, `RecipeRegistry::register` adds a `PackRecipe` (for example the ones
+`builtin_recipes()` returns), `tool_specs_with_recipes(include_hub, &registry)`
+is the list a server with that registry answers `tools/list` with, and
+`dispatch_recipe_tool_call(recipe, args, hits)` runs one call over hits you hold.
 
 ## What a recipe cannot express yet
 

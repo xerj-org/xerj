@@ -94,6 +94,16 @@
 //! Diagnostics go to **stderr**; stdout is reserved exclusively for the
 //! JSON-RPC stream.
 //!
+//! ## Pack recipes as tools (#2762)
+//!
+//! `--recipe-dir <DIR>` (or `XERJ_RECIPE_DIR`) serves every `*.toml` recipe in
+//! `DIR` as one more tool: [`RecipeRegistry`] projects each
+//! `xerj-recipe/v1` recipe into `tools/list` and runs its `tools/call` through
+//! `xerj_common::pack_recipe::RecipeRunner`, over the hits pinned in
+//! `DIR/corpora/<corpus>.jsonl`. A new recipe file is a new tool with no Rust
+//! change. These tools never call the node, and without the flag the tool list
+//! is exactly [`tool_specs`]. See `docs/pack-recipes.md`.
+//!
 //! ## Token budgets (#1058, default since #2491)
 //!
 //! The six search tools accept `max_tokens` for successful search payloads.
@@ -112,6 +122,7 @@ mod def;
 mod http;
 mod hub;
 mod map;
+mod recipes;
 mod references;
 mod status;
 mod token_budget;
@@ -119,7 +130,12 @@ mod vectors;
 
 pub use batch_cli::run_batch_cli;
 pub use http::{HttpOptions, READ_ONLY_TOOLS as HTTP_READ_ONLY_TOOLS};
+pub use recipes::{
+    dispatch_recipe_tool_call, CorpusDir, RecipeHitSource, RecipeRegistry, CORPORA_SUBDIR,
+    RECIPE_DIR_ENV,
+};
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::{json, Value};
@@ -205,6 +221,13 @@ OPTIONS:
                     With --http, admit browser requests from ORIGIN
                     (scheme://host[:port]); repeatable. Requests with no
                     Origin and loopback origins are always admitted.
+    --recipe-dir <DIR>
+                    Also serve the pack recipes in DIR as tools: each *.toml
+                    (xerj-recipe/v1) is one tool in tools/list, run by the
+                    recipe runner over the hits pinned in
+                    DIR/corpora/<corpus>.jsonl, with no call to the node. An
+                    invalid recipe stops the server. Default: none, so only
+                    the tools above are served. Env: XERJ_RECIPE_DIR
     -h, --help      Show this help
     -V, --version   Print version and exit
     --disable-feedback
@@ -220,6 +243,7 @@ ENVIRONMENT:
     XERJ_AUTH       Same as --auth
     XERJ_NO_AUTOSTART=1  Same as --no-autostart
     XERJ_MCP_TOKEN  Bearer token for --http (--token-file wins)
+    XERJ_RECIPE_DIR Same as --recipe-dir (--recipe-dir wins)
 
 MCP CLIENT CONFIG (Claude Desktop, IDE agents, any mcpServers-shaped config):
 
@@ -389,6 +413,7 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
     let mut token_file: Option<String> = None;
     let mut allow_writes = false;
     let mut allowed_origins: Vec<String> = Vec::new();
+    let mut recipe_dir: Option<String> = None;
 
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -442,6 +467,13 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
                     .ok_or_else(|| anyhow::anyhow!("--allow-origin requires an origin"))?
                     .clone(),
             ),
+            "--recipe-dir" => {
+                recipe_dir = Some(
+                    it.next()
+                        .ok_or_else(|| anyhow::anyhow!("--recipe-dir requires a directory"))?
+                        .clone(),
+                );
+            }
             other => {
                 // Fail loudly: a typo'd flag that is silently ignored leaves the
                 // agent talking to the wrong node with no way to notice.
@@ -515,6 +547,9 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
         .unwrap_or_else(xerj_common::localnode::default_url)
         .trim_end_matches('/')
         .to_string();
+    // Before a node is started or a socket is bound: an invalid recipe stops
+    // the server rather than leaving a tool the operator expects missing.
+    let recipes = Arc::new(load_recipes(recipe_dir)?);
     let autostart = !no_autostart
         && !xerj_common::localnode::autostart_disabled()
         && xerj_common::localauth::url_is_loopback(&base_url);
@@ -546,7 +581,9 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
                     .filter(|n| opts.allow_writes || http::READ_ONLY_TOOLS.contains(n))
                     .count()
             })
-            .unwrap_or(0);
+            .unwrap_or(0)
+            // Recipe tools read operator files and change nothing: always served.
+            + recipes.len();
         eprintln!(
             "xerj-mcp v{} — MCP Streamable HTTP server at http://{local}/mcp, proxying to {}",
             env!("CARGO_PKG_VERSION"),
@@ -568,7 +605,7 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
                 )
             }
         );
-        return http::serve(ctx, listener, opts).await;
+        return http::serve(ctx, recipes, listener, opts).await;
     }
 
     eprintln!(
@@ -591,7 +628,35 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
     announce_key_file(auth_key_file.as_ref());
 
     // stdout is the JSON-RPC channel; stderr is for logs only.
-    serve(ctx, BufReader::new(tokio::io::stdin()), tokio::io::stdout()).await
+    serve(
+        ctx,
+        recipes,
+        BufReader::new(tokio::io::stdin()),
+        tokio::io::stdout(),
+    )
+    .await
+}
+
+/// The recipes `--recipe-dir` (else `XERJ_RECIPE_DIR`) names, announced on
+/// stderr; the empty registry when neither is set.
+fn load_recipes(flag: Option<String>) -> anyhow::Result<RecipeRegistry> {
+    let Some(dir) = flag
+        .or_else(|| std::env::var(RECIPE_DIR_ENV).ok())
+        .filter(|dir| !dir.is_empty())
+    else {
+        return Ok(RecipeRegistry::new());
+    };
+    let registry = RecipeRegistry::load_dir(std::path::Path::new(&dir))?;
+    if registry.is_empty() {
+        eprintln!("xerj-mcp: warning: no *.toml recipe in {dir}; no recipe tool is served");
+    } else {
+        eprintln!(
+            "xerj-mcp: serving {} recipe tool(s) from {dir}: {}",
+            registry.len(),
+            registry.tool_names().join(", ")
+        );
+    }
+    Ok(registry)
 }
 
 /// Say on stderr which `admin.key` the loopback fallback used, never silent.
@@ -626,7 +691,29 @@ pub async fn serve_http_for_test(
         base_url,
         auth,
     };
-    http::serve(ctx, listener, opts).await
+    http::serve(ctx, Arc::new(RecipeRegistry::new()), listener, opts).await
+}
+
+/// [`serve_http_for_test`] with `recipes` served as tools, for the end-to-end
+/// recipe tests in `tests/`. Not a supported API.
+#[doc(hidden)]
+pub async fn serve_http_with_recipes_for_test(
+    listener: tokio::net::TcpListener,
+    base_url: &str,
+    auth: Option<String>,
+    recipes: RecipeRegistry,
+    opts: http::HttpOptions,
+) -> anyhow::Result<()> {
+    let base_url = base_url.trim_end_matches('/').to_string();
+    let client = node_http_builder(&base_url)
+        .timeout(REQUEST_TIMEOUT)
+        .build()?;
+    let ctx = Ctx {
+        client,
+        base_url,
+        auth,
+    };
+    http::serve(ctx, Arc::new(recipes), listener, opts).await
 }
 
 /// The JSON-RPC loop over newline-delimited messages, apart from the process'
@@ -641,12 +728,17 @@ pub async fn serve_http_for_test(
 /// is written for it. Every reply goes through one writer task, so lines never
 /// interleave. At end of input the loop waits for the calls still running and
 /// writes their replies before returning, as the serial loop did.
-async fn serve<R, W>(ctx: Ctx, reader: R, stdout: W) -> anyhow::Result<()>
+async fn serve<R, W>(
+    ctx: Ctx,
+    recipes: Arc<RecipeRegistry>,
+    reader: R,
+    stdout: W,
+) -> anyhow::Result<()>
 where
     R: tokio::io::AsyncBufRead + Unpin,
     W: tokio::io::AsyncWrite + Unpin + Send + 'static,
 {
-    let ctx = std::sync::Arc::new(ctx);
+    let ctx = Arc::new(ctx);
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Value>();
     let writer = tokio::spawn(async move {
         let mut stdout = stdout;
@@ -688,7 +780,7 @@ where
             Value::Array(batch) => {
                 let mut out = Vec::new();
                 for m in batch {
-                    if let Some(r) = handle_message(&ctx, m).await {
+                    if let Some(r) = handle_message(&ctx, &recipes, m).await {
                         out.push(r);
                     }
                 }
@@ -702,12 +794,12 @@ where
             }
             msg if is_tool_call(&msg) => {
                 let key = msg.get("id").filter(|id| !id.is_null()).map(id_key);
-                let (ctx, tx) = (ctx.clone(), tx.clone());
+                let (ctx, recipes, tx) = (ctx.clone(), recipes.clone(), tx.clone());
                 match key {
                     Some(key) => {
                         let registry = in_flight.clone();
                         in_flight.start(&mut calls, key, move |token| async move {
-                            let reply = handle_message(&ctx, msg).await;
+                            let reply = handle_message(&ctx, &recipes, msg).await;
                             // A cancellation that got here first means: say nothing.
                             if registry.finish(token) {
                                 if let Some(reply) = reply {
@@ -723,7 +815,7 @@ where
                     // each other's reply.
                     None => {
                         calls.spawn(async move {
-                            if let Some(reply) = handle_message(&ctx, msg).await {
+                            if let Some(reply) = handle_message(&ctx, &recipes, msg).await {
                                 let _ = tx.send(reply);
                             }
                         });
@@ -731,7 +823,10 @@ where
                 }
                 Vec::new()
             }
-            other => handle_message(&ctx, other).await.into_iter().collect(),
+            other => handle_message(&ctx, &recipes, other)
+                .await
+                .into_iter()
+                .collect(),
         };
 
         if responses.into_iter().any(|resp| tx.send(resp).is_err()) {
@@ -837,7 +932,7 @@ where
 /// A notification is never answered, whatever its method (JSON-RPC 2.0 §4.1;
 /// #2898); a `tools/call` notification still runs. An `id` of `null` is a
 /// request and is answered with `id: null`.
-async fn handle_message(ctx: &Ctx, msg: Value) -> Option<Value> {
+async fn handle_message(ctx: &Ctx, recipes: &RecipeRegistry, msg: Value) -> Option<Value> {
     let id = msg.get("id").cloned();
     let is_notification = id.is_none();
     let method = msg.get("method").and_then(Value::as_str)?.to_string();
@@ -850,9 +945,12 @@ async fn handle_message(ctx: &Ctx, msg: Value) -> Option<Value> {
 
         "ping" => rpc_result(id, json!({})),
 
-        "tools/list" => rpc_result(id, json!({ "tools": tool_specs() })),
+        "tools/list" => rpc_result(
+            id,
+            json!({ "tools": tool_specs_with_recipes(hub_tools_served(), recipes) }),
+        ),
 
-        "tools/call" => rpc_result(id, call_tool(ctx, &msg).await),
+        "tools/call" => rpc_result(id, call_tool_or_recipe(ctx, recipes, &msg).await),
 
         _ => rpc_error(
             id.unwrap_or(Value::Null),
@@ -863,6 +961,21 @@ async fn handle_message(ctx: &Ctx, msg: Value) -> Option<Value> {
     (!is_notification).then_some(reply)
 }
 
+/// A recipe tool runs the recipe runner over its own corpus hits and never
+/// touches the node, so it is answered before the node-proxy dispatch (and
+/// before the loopback auto-start that dispatch may attempt). Every other name
+/// goes to [`call_tool`]; a registered recipe cannot shadow one of those, as the
+/// registry refuses built-in names.
+async fn call_tool_or_recipe(ctx: &Ctx, recipes: &RecipeRegistry, msg: &Value) -> Value {
+    let name = msg.pointer("/params/name").and_then(Value::as_str);
+    if let Some(name) = name.filter(|name| recipes.contains(name)) {
+        if let Some(result) = recipes.call(name, &recipes::call_arguments(msg)).await {
+            return result;
+        }
+    }
+    call_tool(ctx, msg).await
+}
+
 /// Handle one JSON-RPC message exactly as the stdio loop does, against the node
 /// at `base_url` — for the end-to-end tests in `tests/`, which cannot reach the
 /// private dispatch. Not part of the supported API.
@@ -870,6 +983,18 @@ async fn handle_message(ctx: &Ctx, msg: Value) -> Option<Value> {
 pub async fn handle_message_for_test(
     base_url: &str,
     auth: Option<String>,
+    msg: Value,
+) -> Option<Value> {
+    handle_message_with_recipes_for_test(base_url, auth, &RecipeRegistry::new(), msg).await
+}
+
+/// [`handle_message_for_test`] with `recipes` served as tools, for the
+/// end-to-end recipe tests in `tests/`. Not part of the supported API.
+#[doc(hidden)]
+pub async fn handle_message_with_recipes_for_test(
+    base_url: &str,
+    auth: Option<String>,
+    recipes: &RecipeRegistry,
     msg: Value,
 ) -> Option<Value> {
     let base_url = base_url.trim_end_matches('/').to_string();
@@ -882,7 +1007,7 @@ pub async fn handle_message_for_test(
         base_url,
         auth,
     };
-    handle_message(&ctx, msg).await
+    handle_message(&ctx, recipes, msg).await
 }
 
 /// Build the `initialize` result, echoing the client's requested protocol
@@ -1933,6 +2058,19 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
         if let Value::Array(tools) = &mut specs {
             tools.extend(hub::specs());
         }
+    }
+    specs
+}
+
+/// [`tool_specs_with`] followed by one descriptor per registered recipe, each
+/// projected from its TOML (`PackRecipe::to_mcp_tool_spec`). With no recipe
+/// registered this is exactly [`tool_specs_with`], so the published schema and
+/// the tool counts the docs state are the list a server without
+/// `--recipe-dir` serves.
+pub fn tool_specs_with_recipes(include_hub: bool, recipes: &RecipeRegistry) -> Value {
+    let mut specs = tool_specs_with(include_hub);
+    if let Some(list) = specs.as_array_mut() {
+        list.extend(recipes.tool_specs());
     }
     specs
 }
@@ -4760,7 +4898,12 @@ mod tests {
             base_url,
             auth: None,
         };
-        tokio::spawn(serve(ctx, BufReader::new(server_in), server_out));
+        tokio::spawn(serve(
+            ctx,
+            Arc::new(RecipeRegistry::new()),
+            BufReader::new(server_in),
+            server_out,
+        ));
         (client_in, BufReader::new(client_out).lines())
     }
 

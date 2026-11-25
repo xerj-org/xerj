@@ -21,6 +21,9 @@ path = "src/main.rs"
 [dependencies]
 # Async runtime (needs `io-std` for stdin/stdout, `rt-multi-thread`, `macros`).
 tokio = { workspace = true }
+# `RecipeRunner::execute` takes the call's wall-clock time; the recipe tools
+# pass `Utc::now()`. Already in the tree through xerj-common.
+chrono = { workspace = true }
 # HTTP client used to proxy every tool call to the running XERJ engine.
 # Inherits the workspace's default-features=false + rustls-tls config, so it
 # builds in the same offline/cross-compile matrix as the rest of the tree.

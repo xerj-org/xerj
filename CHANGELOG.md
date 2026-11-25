@@ -23,8 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `min_evidence_hits` refusal instead of padding, `cluster_by` chapter grouping,
   and study-type grading with a `GradeRule` receipt (including `expert_opinion`,
   and `Level5` for any study that is not human clinical) with a
-  clinical / non-clinical split. Nothing in `xerj-mcp` registers or dispatches
-  recipes yet.
+  clinical / non-clinical split. `xerj mcp --recipe-dir <DIR>` (or
+  `XERJ_RECIPE_DIR`) serves the `*.toml` recipes in a directory as MCP tools: each
+  is listed in `tools/list` after the built-in tools, and its `tools/call` runs
+  `RecipeRunner::execute` over the hits pinned in `<DIR>/corpora/<corpus>.jsonl`
+  and returns the RFC 8785 (JCS) sealed report, so a recipe file is a working tool
+  with no Rust change. Off by default: without the flag the tool list and the
+  published schema are unchanged. Fetching hits from hub packs still needs #2760.
 
 ## [1.0.0-rc.105] - 2026-11-23
 

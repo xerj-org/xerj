@@ -6,7 +6,10 @@
 //! executed by [`RecipeRunner`] in pure Rust:
 //! - Automatic MCP tool projection ([`PackRecipe::to_mcp_tool_spec`]) turns any
 //!   validated TOML recipe into a `tools/list` descriptor (`name`,
-//!   `description`, `inputSchema`) with no Rust changes.
+//!   `description`, `inputSchema`) with no Rust changes. `xerj-mcp`'s
+//!   `RecipeRegistry` (`xerj mcp --recipe-dir <DIR>`) registers the recipes in a
+//!   directory in `tools/list` and sends each `tools/call` to
+//!   [`RecipeRunner::execute`], returning the JCS-sealed report.
 //! - Invalid recipes fail at build/test time with a precise [`RecipeError`].
 //! - Execution performs corpus selection, redistribution licence checks,
 //!   input-bound filtering, study-type grading with a `GradeRule` receipt,
@@ -2652,7 +2655,7 @@ pub fn builtin_recipes() -> Result<Vec<PackRecipe>> {
 
 /// Sample recipes for packs whose tools are not served yet
 /// (`cyber.target_surface`, until #2767 lands). Their MCP descriptions say so,
-/// and nothing should register them in `tools/list`.
+/// and `xerj-mcp`'s `RecipeRegistry` refuses to register them.
 pub fn sample_recipes() -> Result<Vec<PackRecipe>> {
     Ok(vec![PackRecipe::from_toml_str(
         SAMPLE_CYBER_SURFACE_RECIPE_TOML,
