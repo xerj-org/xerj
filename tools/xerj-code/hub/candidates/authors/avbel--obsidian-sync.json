@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "CRYPTO",
- "domain": "an agent working on TypeScript queries this for how avbel/obsidian-sync implements it: Self-hosted, end-to-end encrypted Obsidian vault sync: plugin plus server (selected work: packages/plugin)",
+ "domain": "an agent working on e2ee, end-to-end-encryption, obsidian queries this for how avbel/obsidian-sync implements it: Self-hosted, end-to-end encrypted Obsidian vault sync: plugin plus server (selected work: packages/plugin)",
  "repos": [
   {
    "repo": "obsidian-sync",

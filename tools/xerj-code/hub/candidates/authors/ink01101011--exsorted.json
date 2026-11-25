@@ -1,0 +1,23 @@
+{
+ "corpus": "ink01101011--exsorted",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on buble-sort, heapsort, quicksort queries this for how Ink01101011/exsorted implements it: A TypeScript sorting algorithms library",
+ "repos": [
+  {
+   "repo": "exsorted",
+   "url": "https://github.com/Ink01101011/exsorted",
+   "sha": "77d080002af4a77daaa8c66664c13a59a84a22e5",
+   "licence": "MIT (LICENSE file at pin 77d080002af4, GitHub licence API 2026-11-25)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T10:57Z",
+    "consent_receipt": "90e0b5c63295",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T10:57Z (receipt 90e0b5c63295); pinned to the default-branch head. LICENSE file at pin 77d080002af4 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+   }
+  }
+ ]
+}

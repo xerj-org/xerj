@@ -8,15 +8,15 @@
   {
    "repo": "mifarepy",
    "url": "https://github.com/SparkDrago05/mifarepy",
-   "sha": "d76436961dc847ace5e87b8b7d63b6503aac14a5",
-   "licence": "author's permission (LICENSE at pin d76436961dc8: NOASSERTION; repository: LGPL-3.0)",
+   "sha": "33acbda84852a934217d4325e5f7085852056131",
+   "licence": "author's permission (LICENSE at pin 33acbda84852: NOASSERTION; repository: LGPL-3.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-31T06:31Z",
     "consent_receipt": "90bcbc6783a5",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T06:31Z (receipt 90bcbc6783a5); pinned to the default-branch head. LICENSE at pin d76436961dc8: NOASSERTION (repository: LGPL-3.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T06:31Z (receipt 90bcbc6783a5); pinned to the default-branch head. LICENSE at pin 33acbda84852: NOASSERTION (repository: LGPL-3.0); used with the author's permission, with attribution."
    }
   }
  ]

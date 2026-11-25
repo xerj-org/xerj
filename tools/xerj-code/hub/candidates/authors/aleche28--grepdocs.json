@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WRITE",
- "domain": "an agent working on Go queries this for how aleche28/grepdocs implements it: GrepDocs is a centralized tool to search, browse, and edit documentation across multiple git repositories, with rendered Markdown, full-text (selected work: src/api)",
+ "domain": "an agent working on TypeScript queries this for how aleche28/grepdocs implements it: GrepDocs is a centralized tool to search, browse, and edit documentation across multiple git repositories, with rendered Markdown, full-text (selected work: src/api)",
  "repos": [
   {
    "repo": "grepdocs",

@@ -8,15 +8,15 @@
   {
    "repo": "kosika-agents",
    "url": "https://github.com/blackhole8080-darkmatter/kosika-agents",
-   "sha": "58d7fa0199b573a3d662d5a21bd131fb05a9c048",
-   "licence": "MIT (LICENSE file at pin 58d7fa0199b5, GitHub licence API 2026-11-24)",
+   "sha": "f53a1e221cc0ec2584b227d8b7541e1aeeca43dd",
+   "licence": "MIT (LICENSE file at pin f53a1e221cc0, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-23T02:57Z",
     "consent_receipt": "ac32275bccd1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-23T02:57Z (receipt ac32275bccd1); pinned to the default-branch head. LICENSE file at pin 58d7fa0199b5 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-23T02:57Z (receipt ac32275bccd1); pinned to the default-branch head. LICENSE file at pin f53a1e221cc0 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

@@ -8,15 +8,15 @@
   {
    "repo": "homebrew-portage",
    "url": "https://github.com/tomtom87/homebrew-portage",
-   "sha": "ba0ec6891d5b11d56ad1a1e30eb4c0dc4931905c",
-   "licence": "author's permission (LICENSE at pin ba0ec6891d5b: NONE; repository: none)",
+   "sha": "201070fe747bd18cda014df61f09e8196b8a8986",
+   "licence": "author's permission (LICENSE at pin 201070fe747b: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:28Z",
     "consent_receipt": "787acfe91c41",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:28Z (receipt 787acfe91c41); pinned to the default-branch head. LICENSE at pin ba0ec6891d5b: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:28Z (receipt 787acfe91c41); pinned to the default-branch head. LICENSE at pin 201070fe747b: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

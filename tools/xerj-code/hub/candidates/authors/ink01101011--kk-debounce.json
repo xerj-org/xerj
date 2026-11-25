@@ -1,0 +1,23 @@
+{
+ "corpus": "ink01101011--kk-debounce",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on debounce, javascript, npm-package queries this for how Ink01101011/kk-debounce implements it: A lightweight, zero-dependency JavaScript utility for debouncing functions to improve performance and handle rapid events",
+ "repos": [
+  {
+   "repo": "kk-debounce",
+   "url": "https://github.com/Ink01101011/kk-debounce",
+   "sha": "c26032d21ec89fdf044f173989d101d8a4db18f4",
+   "licence": "MIT (LICENSE file at pin c26032d21ec8, GitHub licence API 2026-11-25)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T10:57Z",
+    "consent_receipt": "1cdbd0d0e35f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T10:57Z (receipt 1cdbd0d0e35f); pinned to the default-branch head. LICENSE file at pin c26032d21ec8 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+   }
+  }
+ ]
+}
