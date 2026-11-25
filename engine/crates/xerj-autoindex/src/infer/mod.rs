@@ -8,8 +8,10 @@ pub mod entities;
 
 use dates::DateEnc;
 use entities::Entity;
+use regex::Regex;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
 
 pub const DISTINCT_CAP: usize = 8192;
 pub const RAW_CAP: usize = 8192;
@@ -21,6 +23,11 @@ pub const MAX_FIELDS_PER_DATASET: usize = 512;
 /// lets a document dataset elect them ALL as `semantic_text` without ever
 /// embedding one record twice.
 pub const DOC_BODY_FIELDS: &[&str] = &["body", "text"];
+
+static CJK_LETTER: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"[[\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}]&&\p{Letter}]")
+        .expect("valid CJK letter regex")
+});
 
 /// 256-slot byte histogram with a `Default` impl (`[u32; 256]` has none).
 #[derive(Debug, Clone)]
@@ -58,6 +65,13 @@ pub struct FieldAcc {
     pub examples: Vec<String>,
     pub len_samples: Vec<u32>,
     pub token_samples: Vec<u32>,
+    has_cjk_text: bool,
+    /// Letters (`char::is_alphabetic`) over the sampled strings, capped at
+    /// 2^20 per field, and how many of them are Han/kana/Hangul and kana.
+    /// #3377: the share elects the CJK bigram analyzer.
+    pub letters: u64,
+    pub cjk_letters: u64,
+    pub kana_letters: u64,
     /// Word-shaped tokens (`[A-Za-z]{3,}`) vs total tokens, over the sample.
     /// This ratio is what separates natural language from opaque identifiers,
     /// and it does so far more reliably than any embedding-derived signal:
@@ -194,6 +208,12 @@ impl FieldAcc {
                 }
                 let len = t.chars().count() as u32;
                 let toks = t.split_whitespace().count() as u32;
+                if !self.has_cjk_text && !t.is_ascii() {
+                    self.has_cjk_text = CJK_LETTER.find_iter(t).take(2).count() == 2;
+                }
+                if self.letters < 1 << 20 {
+                    self.note_letters(t);
+                }
                 self.len_sum += len as u64;
                 if self.len_samples.len() < 512 {
                     self.len_samples.push(len);
@@ -248,14 +268,35 @@ impl FieldAcc {
         }
     }
 
+    fn note_letters(&mut self, t: &str) {
+        for c in t.chars().filter(|c| c.is_alphabetic()) {
+            self.letters += 1;
+            match c as u32 {
+                0x3040..=0x30FF => {
+                    self.kana_letters += 1;
+                    self.cjk_letters += 1;
+                }
+                0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF | 0xAC00..=0xD7AF => {
+                    self.cjk_letters += 1;
+                }
+                0x20000..=0x3FFFF => self.cjk_letters += 1,
+                _ => {}
+            }
+        }
+    }
+
     pub fn merge(&mut self, other: &FieldAcc) {
         let self_had_ints = self.long_ok > 0;
+        self.letters += other.letters;
+        self.cjk_letters += other.cjk_letters;
+        self.kana_letters += other.kana_letters;
         self.bool_ok += other.bool_ok;
         self.long_ok += other.long_ok;
         self.double_ok += other.double_ok;
         self.json_bool += other.json_bool;
         self.json_num += other.json_num;
         self.str_n += other.str_n;
+        self.has_cjk_text |= other.has_cjk_text;
         for (k, v) in &other.date_hits {
             *self.date_hits.entry(*k).or_default() += v;
         }
@@ -559,7 +600,11 @@ pub fn infer_fields_with_policy(
         };
         let is_keyword =
             (p95_len <= 128 && p95_tok <= 3) || (!acc.distinct_overflow && card_ratio < 0.1);
-        let is_text = p95_tok > 8 || p95_len > 256;
+        // Short CJK document prose can have no whitespace at all. Only apply
+        // this signal to extractor-owned content when inferring document fields.
+        let is_text = p95_tok > 8
+            || p95_len > 256
+            || (semantic_all && DOC_BODY_FIELDS.contains(&name.as_str()) && acc.has_cjk_text);
         spec.es_type = if is_keyword && !is_text {
             "keyword".into()
         } else if is_text {
@@ -821,6 +866,9 @@ pub fn elected_default_analyzer(
     specs: &[FieldSpec],
     fields: &HashMap<String, FieldAcc>,
 ) -> Option<&'static str> {
+    if let Some(cjk) = elected_cjk_analyzer(specs, fields) {
+        return Some(cjk);
+    }
     specs
         .iter()
         .any(|s| {
@@ -831,6 +879,59 @@ pub fn elected_default_analyzer(
                     .unwrap_or(false)
         })
         .then_some(STEMMING_TEXT_ANALYZER)
+}
+
+/// Analyzer for Chinese-dominant text (#3377): CJK bigrams with Traditional
+/// Han folded to Simplified (`xerj_cjk`, registered in xerj-fts).
+pub const CJK_TEXT_ANALYZER: &str = "xerj_cjk";
+
+/// Analyzer for CJK-dominant text that carries kana: the plain `cjk` bigrams.
+/// Folding is skipped for Japanese, where a Traditional form and its
+/// Simplified form can be two different words (機 machine, 机 desk).
+pub const CJK_KANA_TEXT_ANALYZER: &str = "cjk";
+
+/// Share of letters that must be Han/kana/Hangul, over every text field of
+/// the sample, before the dataset gets a CJK bigram analyzer. One Han
+/// character carries about one English word (~5 letters), so 0.2 is the
+/// point where CJK words are the majority.
+pub const CJK_DOMINANT_LETTER_SHARE: f64 = 0.2;
+
+/// At least this many sampled letters, so one stray CJK title does not elect.
+pub const CJK_MIN_LETTERS: u64 = 64;
+
+/// #3377: `Some` when the sampled text fields are CJK-dominant.
+///
+/// The standard tokenizer emits one token per Han character, so a Chinese
+/// question matches a section by its single characters. On the 29-file PRC
+/// statute corpus of the issue's field report (20 law questions), the plain
+/// `xerj search` body ranked the passage holding the answer first for 0.45 of
+/// questions under `standard` and 0.95 under `xerj_cjk` once the run-phrase
+/// clauses are left out for bigram indices (see `xerj_common::code_query::
+/// drop_cjk_run_phrases`).
+pub fn elected_cjk_analyzer(
+    specs: &[FieldSpec],
+    fields: &HashMap<String, FieldAcc>,
+) -> Option<&'static str> {
+    let (mut letters, mut cjk, mut kana) = (0u64, 0u64, 0u64);
+    for s in specs
+        .iter()
+        .filter(|s| matches!(s.es_type.as_str(), "text" | "semantic_text"))
+    {
+        if let Some(acc) = fields.get(&s.name) {
+            letters += acc.letters;
+            cjk += acc.cjk_letters;
+            kana += acc.kana_letters;
+        }
+    }
+    if letters < CJK_MIN_LETTERS || (cjk as f64) < CJK_DOMINANT_LETTER_SHARE * letters as f64 {
+        return None;
+    }
+    // Kana in at least 1 of 20 CJK letters: Japanese.
+    if kana * 20 >= cjk {
+        Some(CJK_KANA_TEXT_ANALYZER)
+    } else {
+        Some(CJK_TEXT_ANALYZER)
+    }
 }
 
 /// The analyzer `--code-analyzer code` declares (#1198): the engine's built-in
@@ -958,6 +1059,44 @@ mod tests {
 
             assert_eq!(elect_date_enc(&HashMap::new()), None);
         }
+    }
+
+    fn elect_for(values: &[&str]) -> Option<&'static str> {
+        let mut acc = FieldAcc::default();
+        // Distinct values, so the profiler types `body` as text.
+        for (i, v) in values.iter().enumerate() {
+            acc.add(&Value::String(format!("{v} {i}")));
+        }
+        let mut fields = HashMap::new();
+        fields.insert("body".to_string(), acc);
+        // The document-dataset policy, as autoindex profiles prose.
+        let specs = infer_fields_with_policy(&fields, values.len() as u64, true, true);
+        assert!(
+            specs
+                .iter()
+                .any(|s| s.name == "body" && s.es_type == "text"),
+            "{specs:?}"
+        );
+        elected_default_analyzer(&specs, &fields)
+    }
+
+    /// #3377: Chinese-dominant prose elects `xerj_cjk`, Japanese `cjk`,
+    /// English keeps the stemmer, and a few Han characters in English prose
+    /// do not elect.
+    #[test]
+    fn cjk_dominant_text_elects_a_bigram_analyzer() {
+        let zh = "第四十七条 有限责任公司的注册资本为在公司登记机关登记的全体股东认缴的出资额。全体股东认缴的出资额由股东按照公司章程的规定自公司成立之日起五年内缴足。";
+        let ja = "東京都に住んでいます。この文書はシステムの設計と使い方について説明しています。検索の結果を確認してください。";
+        let en = "The retention ceiling applies to every segment written after the rotation, and the operator can raise it in the node configuration file.";
+        let en_with_han = "The 公司 field holds the company name; the retention ceiling applies to every segment written after the rotation in the node.";
+        assert_eq!(elect_for(&[zh, zh, zh]), Some(CJK_TEXT_ANALYZER));
+        assert_eq!(elect_for(&[ja, ja, ja]), Some(CJK_KANA_TEXT_ANALYZER));
+        assert_eq!(elect_for(&[en, en, en]), Some(STEMMING_TEXT_ANALYZER));
+        assert_eq!(
+            elect_for(&[en_with_han, en, en]),
+            Some(STEMMING_TEXT_ANALYZER)
+        );
+        assert_eq!(elect_for(&[zh, en, zh]), Some(CJK_TEXT_ANALYZER));
     }
 
     /// The end-to-end symptom: one unchanged sample, split 50/50 between two
@@ -1210,6 +1349,68 @@ mod tests {
         assert_eq!(by_name("body").es_type, "semantic_text", "{docs:#?}");
         assert_eq!(by_name("text").es_type, "semantic_text", "{docs:#?}");
         assert_eq!(by_name("defs").es_type, "text", "{docs:#?}");
+    }
+
+    #[test]
+    fn short_cjk_document_bodies_are_text_but_data_values_remain_keywords() {
+        for prose in [
+            "这两篇文章结构雷同，结论也雷同。",
+            "これは文章の検索を確認する短い例です。",
+            "검색 결과입니다.",
+            "東京",
+            "ひらがな",
+            "カタカナ",
+            "ｶﾀｶﾅ",
+            "𠮷野",
+        ] {
+            let mut sample = FieldAcc::default();
+            sample.add(&Value::String(prose.into()));
+            let fields = HashMap::from([
+                ("body".into(), sample.clone()),
+                ("text".into(), sample.clone()),
+                ("category".into(), sample),
+            ]);
+            for no_semantic in [false, true] {
+                let specs = infer_fields_with_policy(&fields, 1, no_semantic, true);
+                for spec in specs {
+                    let expected = if DOC_BODY_FIELDS.contains(&spec.name.as_str()) {
+                        "text"
+                    } else {
+                        "keyword"
+                    };
+                    assert_eq!(spec.es_type, expected, "{}: {prose}", spec.name);
+                }
+            }
+            for no_semantic in [false, true] {
+                for spec in infer_fields(&fields, 1, no_semantic) {
+                    assert_eq!(spec.es_type, "keyword", "{}: {prose}", spec.name);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cjk_document_mapping_survives_merged_samples() {
+        let mut left = FieldAcc::default();
+        left.add(&Value::String("Status".into()));
+        let mut right = FieldAcc::default();
+        right.add(&Value::String("検索".into()));
+        left.merge(&right);
+
+        let fields = HashMap::from([("body".into(), left)]);
+        let specs = infer_fields_with_policy(&fields, 2, true, true);
+        assert_eq!(specs[0].es_type, "text");
+    }
+
+    #[test]
+    fn short_document_bodies_without_enough_cjk_letters_keep_their_mapping() {
+        for value in ["Status", "naïve", "「。」", "漢。", "한。"] {
+            let mut sample = FieldAcc::default();
+            sample.add(&Value::String(value.into()));
+            let fields = HashMap::from([("body".into(), sample)]);
+            let specs = infer_fields_with_policy(&fields, 1, true, true);
+            assert_eq!(specs[0].es_type, "keyword", "{value}");
+        }
     }
 
     /// Pins the reason the entity tie is latent rather than live: the ≥90%

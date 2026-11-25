@@ -131,7 +131,15 @@ const VENDORED_DIRS: &[&str] = &[
 ];
 
 /// Whole-file names that are machine-written by construction.
-const GENERATED_FILES: &[&str] = &[
+///
+/// Every entry is a dependency lockfile (`go.sum` is Go's checksum lock).
+/// Banding alone only queues them last: a 410 KB `package-lock.json` was still
+/// parsed in full and held `phase=index` until a 180 s deadline (#2439). So
+/// the same list also seeds the `--stub` matcher by default
+/// ([`crate::stub_matcher`]): one name card each, carrying `ax_path`, the
+/// file size and the content id, with the bytes never parsed.
+/// `--no-default-stubs` indexes them in full again.
+pub(crate) const GENERATED_FILES: &[&str] = &[
     "Cargo.lock",
     "Gemfile.lock",
     "composer.lock",

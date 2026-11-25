@@ -304,6 +304,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
+      - name: Gate's own fixture tests (offline)
+        run: bash .github/scripts/test_release_notes_gate.sh
+
       - name: Notes vs tree (#474)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -842,6 +845,9 @@ jobs:
 
       - name: Installer script lint (landing/get, landing/get.ps1)
         run: bash .github/scripts/installer-lint.sh
+
+      - name: Installer refused-download behaviour (landing/get)
+        run: bash .github/scripts/installer-download-failure-test.sh
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:

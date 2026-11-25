@@ -1,9 +1,16 @@
 //! Process-wide retained-payload budget for immutable segment hydration caches.
 //!
-//! This is deliberately not an RSS limit: allocator fragmentation, DashMap
+//! The charges are not an RSS measurement: allocator fragmentation, DashMap
 //! capacity, mmaps, query-owned materialization, and decode scratch live
 //! outside this accounting. A charge follows the cached value through every
 //! in-flight reader and is refunded only when its last `Arc` is dropped.
+//!
+//! New charges are checked against the configured limit or the memory
+//! governor's room target, whichever is smaller (#2427). The governor moves
+//! the target with the memory the rest of the process holds (see
+//! `ResourceGovernor::resize_hydration_cache`), so the cache gives way to
+//! HNSW graphs, version maps, memtables and query transients instead of
+//! adding a fixed fifth of the cap on top of them.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -61,6 +68,8 @@ impl SegmentCacheCategory {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, serde::Serialize)]
 pub struct SegmentHydrationBudgetSnapshot {
     pub limit: u64,
+    /// The governor's room target (#2427); `u64::MAX` when none is set.
+    pub target: u64,
     pub current: u64,
     pub peak: u64,
     pub refused: u64,
@@ -71,6 +80,10 @@ pub struct SegmentHydrationBudgetSnapshot {
 
 pub struct SegmentHydrationBudget {
     limit: u64,
+    /// Room the memory governor leaves the cache (#2427). New charges are
+    /// refused above `min(limit, target)`; values already cached stay until
+    /// their last reader drops them.
+    target: AtomicU64,
     used: AtomicU64,
     peak: AtomicU64,
     refused: AtomicU64,
@@ -83,6 +96,7 @@ impl SegmentHydrationBudget {
     pub fn new(limit: u64) -> Arc<Self> {
         Arc::new(Self {
             limit,
+            target: AtomicU64::new(u64::MAX),
             used: AtomicU64::new(0),
             peak: AtomicU64::new(0),
             refused: AtomicU64::new(0),
@@ -96,6 +110,22 @@ impl SegmentHydrationBudget {
         self.limit
     }
 
+    /// Bytes currently charged.
+    pub fn used(&self) -> u64 {
+        self.used.load(Ordering::Acquire)
+    }
+
+    /// Set the governor's room target (#2427). `u64::MAX` removes it.
+    pub fn set_target(&self, bytes: u64) {
+        self.target.store(bytes, Ordering::Relaxed);
+    }
+
+    /// The bound new charges are checked against: the configured limit, or
+    /// the governor's room target when that is smaller.
+    pub fn ceiling(&self) -> u64 {
+        self.limit.min(self.target.load(Ordering::Relaxed))
+    }
+
     /// Whether a `bytes` charge would fit right now. Advisory (another thread
     /// may charge first): used to skip building a value the cache would only
     /// refuse, and to decide whether a build is transient.
@@ -103,7 +133,7 @@ impl SegmentHydrationBudget {
         self.used
             .load(Ordering::Acquire)
             .checked_add(bytes)
-            .is_some_and(|next| next <= self.limit)
+            .is_some_and(|next| next <= self.ceiling())
     }
 
     pub fn try_charge(
@@ -111,13 +141,14 @@ impl SegmentHydrationBudget {
         category: SegmentCacheCategory,
         bytes: u64,
     ) -> Option<BudgetCharge> {
+        let ceiling = self.ceiling();
         let mut current = self.used.load(Ordering::Acquire);
         loop {
             let Some(next) = current.checked_add(bytes) else {
                 self.refused.fetch_add(1, Ordering::Relaxed);
                 return None;
             };
-            if next > self.limit {
+            if next > ceiling {
                 self.refused.fetch_add(1, Ordering::Relaxed);
                 return None;
             }
@@ -148,6 +179,7 @@ impl SegmentHydrationBudget {
     pub fn snapshot(&self) -> SegmentHydrationBudgetSnapshot {
         SegmentHydrationBudgetSnapshot {
             limit: self.limit,
+            target: self.target.load(Ordering::Relaxed),
             current: self.used.load(Ordering::Acquire),
             peak: self.peak.load(Ordering::Acquire),
             refused: self.refused.load(Ordering::Acquire),

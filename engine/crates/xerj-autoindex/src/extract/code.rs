@@ -64,10 +64,79 @@ struct LangDef {
     probe: Option<fn(&str) -> bool>,
 }
 
-/// Is this extension a language we AST-parse? Cheap check used by the sniffer.
+/// Is this extension a language we extract definitions from? Cheap check
+/// used by the sniffer. Covers the tree-sitter rows and the line-scanned
+/// languages in [`LINE_LANGS`].
 pub fn is_code_ext(ext: &str) -> bool {
     let e = ext.to_ascii_lowercase();
-    registry().iter().any(|d| d.exts.contains(&e.as_str()))
+    registry().iter().any(|d| d.exts.contains(&e.as_str())) || line_lang(&e).is_some()
+}
+
+/// A language with no registered tree-sitter grammar whose definitions are
+/// found by a line scan ([`super::code_regex`]). #3270: assembly labels were
+/// not definitions at all, so `xerj def <label>` fell back to the same word
+/// inside string constants of helper scripts. #3271: GDScript was not code.
+struct LineLang {
+    name: &'static str,
+    exts: &'static [&'static str],
+    scan: fn(&str) -> Vec<super::code_regex::LineSym>,
+}
+
+/// `.inc` is not claimed: PHP, Pascal and C projects use it too, and a
+/// single-claimant extension is never content-probed. `.S` is matched as
+/// `s` (extensions are lowercased before lookup).
+const LINE_LANGS: &[LineLang] = &[
+    LineLang {
+        name: "asm",
+        exts: &["s", "asm"],
+        scan: super::code_regex::asm_symbols,
+    },
+    LineLang {
+        name: "gdscript",
+        exts: &["gd"],
+        scan: super::code_regex::gdscript_symbols,
+    },
+];
+
+fn line_lang(ext: &str) -> Option<&'static LineLang> {
+    LINE_LANGS.iter().find(|l| l.exts.contains(&ext))
+}
+
+fn line_symbols(lang: &LineLang, text: &str) -> Vec<Symbol> {
+    (lang.scan)(text)
+        .into_iter()
+        .map(|s| Symbol {
+            name: s.name,
+            kind: s.kind.to_string(),
+            line: s.line,
+            end_line: s.end_line,
+            code: s.code,
+        })
+        .collect()
+}
+
+/// The language name a file with extension `ext` is extracted as, after the
+/// same content probe [`extract`] applies to a shared extension. `None` when
+/// no row claims it.
+pub fn language_for(ext: &str, text: &str) -> Option<&'static str> {
+    let ext = ext.to_ascii_lowercase();
+    if let Some(line) = line_lang(&ext) {
+        return Some(line.name);
+    }
+    let claimants: Vec<&LangDef> = registry()
+        .iter()
+        .filter(|d| d.exts.contains(&ext.as_str()))
+        .collect();
+    match claimants.as_slice() {
+        [] => None,
+        [only] => Some(only.name),
+        many => Some(
+            many.iter()
+                .find(|d| d.probe.map(|p| p(text)).unwrap_or(true))
+                .unwrap_or(&many[0])
+                .name,
+        ),
+    }
 }
 
 /// #2732: Vue and Svelte single-file components. No grammar claims the whole
@@ -134,6 +203,13 @@ pub fn canonical_language(input: &str) -> Option<&'static str> {
         .find(|d| d.name == wanted)
         .or_else(|| reg.iter().find(|d| d.exts.contains(&wanted.as_str())))
         .map(|d| d.name)
+        .or_else(|| {
+            LINE_LANGS
+                .iter()
+                .find(|l| l.name == wanted)
+                .or_else(|| line_lang(&wanted))
+                .map(|l| l.name)
+        })
 }
 
 /// The `--lang` value to filter on: the canonical language name when the
@@ -279,7 +355,16 @@ fn registry() -> &'static [LangDef] {
                 SCALA_Q,
             ),
             def("dart", &["dart"], tree_sitter_dart::LANGUAGE.into(), DART_Q),
-            def("lua", &["lua"], tree_sitter_lua::LANGUAGE.into(), LUA_Q),
+            // `.luau` is Roblox's typed Lua dialect; tree-sitter-lua parses the
+            // declaration forms it shares with Lua and recovers from type
+            // annotations. Without this row the sniffer called .luau files
+            // non-code while `xerj corpus index` counted them as code (#2940).
+            def(
+                "lua",
+                &["lua", "luau"],
+                tree_sitter_lua::LANGUAGE.into(),
+                LUA_Q,
+            ),
             // `.pl` is also Prolog. Perl owns it: overwhelmingly dominant in
             // real repos, and no Prolog grammar is registered to probe for.
             def(
@@ -441,6 +526,17 @@ pub fn extract(path: &Path, sn: &crate::sniff::Sniffed, sink: Sink) -> Result<Ex
             .and_then(|d| parse_symbols(d, &script))
             .unwrap_or_default();
         emit_code_doc(named, &ext, &text, &symbols, &mut stats, sink);
+        return Ok(stats);
+    }
+    if let Some(line) = line_lang(&ext) {
+        let Some(bytes) = super::read_whole(path, false, CODE_CAP)? else {
+            stats.junk += 1;
+            stats.refusal = Some(code_cap_refusal(path));
+            return Ok(stats);
+        };
+        let (text, _) = crate::sniff::decode_text(&bytes);
+        let symbols = line_symbols(line, &text);
+        emit_code_doc(named, line.name, &text, &symbols, &mut stats, sink);
         return Ok(stats);
     }
     let claimants: Vec<&LangDef> = registry()
@@ -1295,11 +1391,14 @@ pub fn extract_value(lang: &str, decl: &str) -> Option<String> {
 /// contents. Unknown languages yield no records. The declaration text is capped
 /// at 400 chars; constants and macros carry their value ([`extract_value`]).
 pub fn definitions(file_rel: &str, lang: &str, text: &str) -> Vec<xerj_common::hub::DefRecord> {
-    let Some(def) = registry().iter().find(|d| d.name == lang) else {
+    let symbols = if let Some(line) = LINE_LANGS.iter().find(|l| l.name == lang) {
+        line_symbols(line, text)
+    } else if let Some(def) = registry().iter().find(|d| d.name == lang) {
+        parse_symbols(def, text).unwrap_or_default()
+    } else {
         return Vec::new();
     };
-    parse_symbols(def, text)
-        .unwrap_or_default()
+    symbols
         .into_iter()
         .map(|s| {
             let decl: String = if s.code.chars().count() > 400 {
@@ -1500,7 +1599,83 @@ fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
             }
         }
     }
+    if def.name == "c" {
+        let before = out.len();
+        c_implicit_int_functions(tree.root_node(), text, &mut out);
+        if out.len() > before {
+            out.sort_by_key(|s| s.line);
+        }
+    }
     Some(out)
+}
+
+/// #3270: a pre-ANSI C definition with no return type (implicit `int`),
+/// `main(argc, argv) int argc; char **argv; { ... }` or `main() { ... }`.
+/// tree-sitter-c has no rule for it: the head parses as a top-level call
+/// (an `expression_statement` with a missing `;`, or an `ERROR`), then the
+/// K&R parameter declarations, then a bare `compound_statement`. A call is
+/// not a valid top-level statement, so that shape is a definition: the
+/// callee is the function name, and its arguments must all be plain names
+/// (K&R parameter names), which keeps an expression out.
+fn c_implicit_int_functions(root: Node<'_>, text: &str, out: &mut Vec<Symbol>) {
+    let mut cursor = root.walk();
+    let children: Vec<Node<'_>> = root.children(&mut cursor).collect();
+    for (i, head) in children.iter().enumerate() {
+        if !matches!(head.kind(), "expression_statement" | "ERROR") {
+            continue;
+        }
+        let mut inner = head.walk();
+        let Some(call) = head
+            .named_children(&mut inner)
+            .find(|n| n.kind() == "call_expression")
+        else {
+            continue;
+        };
+        let Some(name_node) = call.child_by_field_name("function") else {
+            continue;
+        };
+        if name_node.kind() != "identifier" {
+            continue;
+        }
+        let params_are_names = call.child_by_field_name("arguments").is_some_and(|args| {
+            let mut c = args.walk();
+            let all = args
+                .named_children(&mut c)
+                .all(|a| a.kind() == "identifier");
+            all
+        });
+        if !params_are_names {
+            continue;
+        }
+        let mut j = i + 1;
+        while children.get(j).is_some_and(|n| n.kind() == "declaration") {
+            j += 1;
+        }
+        let Some(body) = children.get(j).filter(|n| n.kind() == "compound_statement") else {
+            continue;
+        };
+        let name = text.get(name_node.byte_range()).unwrap_or("").trim();
+        if name.is_empty() || name.len() > 200 {
+            continue;
+        }
+        let line = name_node.start_position().row + 1;
+        if out.iter().any(|s| s.line == line && s.name == name) {
+            continue;
+        }
+        let from = snap_to_indent(text, head.start_byte());
+        let code = text
+            .get(from..body.start_byte())
+            .map(dedent)
+            .unwrap_or_default();
+        let code = cap_chars(code.trim_end().to_string(), DECL_CAP);
+        out.push(Symbol {
+            name: name.to_string(),
+            kind: "function".to_string(),
+            line,
+            end_line: body.end_position().row + 1,
+            code,
+        });
+    }
 }
 
 fn emit_code_doc(
@@ -2698,6 +2873,77 @@ mod tests {
         parse_symbols(def, src).unwrap()
     }
 
+    /// #3270: K&R C. A typed K&R definition already parsed; one with no
+    /// return type (implicit `int`, a pre-ANSI `main`) produced no symbol.
+    #[test]
+    fn k_and_r_c_functions_are_definitions() {
+        let found = |src: &str| -> Vec<(String, String, usize)> {
+            syms("c", src)
+                .into_iter()
+                .map(|s| (s.name, s.kind, s.line))
+                .collect()
+        };
+        let f = |name: &str, line| vec![(name.to_string(), "function".to_string(), line)];
+        assert_eq!(found("int f(a) int a; { return a; }\n"), f("f", 1));
+        assert_eq!(
+            found("int f(a)\nint a[];\n{\n  return a[0];\n}\n"),
+            f("f", 1)
+        );
+        assert_eq!(
+            found("static char *g(p, n) char *p; int n; { return p; }\n"),
+            f("g", 1)
+        );
+        let kr_main =
+            "#include <stdio.h>\n\nmain(argc, argv)\nint argc;\nchar **argv;\n{\n  return 0;\n}\n";
+        assert_eq!(found(kr_main), f("main", 3));
+        let s = syms("c", kr_main);
+        assert_eq!(s[0].code, "main(argc, argv)\nint argc;\nchar **argv;");
+        assert_eq!(s[0].end_line, 8);
+        assert_eq!(found("main()\n{\n  return 0;\n}\n"), f("main", 1));
+        assert_eq!(found("int main(void)\n{\n  return 0;\n}\n"), f("main", 1));
+        // A call with a non-name argument is not a definition head.
+        assert!(found("foo(1 + 2)\n{\n}\n").is_empty());
+    }
+
+    #[test]
+    fn asm_and_gdscript_are_code_with_definitions() {
+        assert!(is_code_ext("s") && is_code_ext("S") && is_code_ext("asm") && is_code_ext("gd"));
+        assert!(!is_code_ext("inc"));
+        assert_eq!(canonical_language("gd"), Some("gdscript"));
+        assert_eq!(canonical_language("asm"), Some("asm"));
+        assert_eq!(language_for("S", ""), Some("asm"));
+        assert_eq!(language_for("m", "@interface X\n@end\n"), Some("objc"));
+        let defs = definitions("rt/lib.s", "asm", "\t.globl foo\nfoo:\n\tret\n");
+        assert_eq!(defs.len(), 1);
+        assert_eq!((defs[0].symbol.as_str(), defs[0].line), ("foo", 2));
+        let dir = tempfile::tempdir().unwrap();
+        for (file, src, want) in [
+            ("lib.s", "\t.globl foo\nfoo:\n\tret\n", "foo"),
+            (
+                "player.gd",
+                "class_name Player\n\nfunc jump():\n\tpass\n",
+                "jump",
+            ),
+        ] {
+            let path = dir.path().join(file);
+            std::fs::write(&path, src).unwrap();
+            let sn = crate::sniff::sniff_with_name(&path, Path::new(file)).unwrap();
+            assert_eq!(sn.family, crate::sniff::Family::Code, "{file}");
+            let mut records: Vec<RawRecord> = Vec::new();
+            extract(&path, &sn, &mut |r| {
+                records.push(r);
+                true
+            })
+            .unwrap();
+            assert!(
+                records
+                    .iter()
+                    .any(|r| r.fields.get("name").and_then(Value::as_str) == Some(want)),
+                "{file}: {records:?}"
+            );
+        }
+    }
+
     /// #2579's inline-export examples already match the existing const rule.
     /// Exercise sniffing and emitted records too: an AST capture alone does
     /// not prove that `def` has a per-symbol document to retrieve.
@@ -3542,6 +3788,7 @@ export { type specTypeOnly as Alias, valueStore };
             ("sc", "scala"),
             ("dart", "dart"),
             ("lua", "lua"),
+            ("luau", "lua"),
             ("pl", "perl"),
             ("pm", "perl"),
             ("r", "r"),
@@ -4593,6 +4840,26 @@ export { type specTypeOnly as Alias, valueStore };
         assert!(has(&s, "helper", "function"), "got {s:?}");
         assert!(has(&s, "standalone", "function"), "got {s:?}");
         assert!(has(&s, "handler", "function"), "got {s:?}");
+    }
+
+    /// #2940: Roblox plugins are `.luau` — typed Lua. The file must be code to
+    /// the sniffer, and the declaration spellings a plugin uses must resolve
+    /// even where the grammar meets Luau-only type syntax.
+    #[test]
+    fn luau() {
+        assert!(is_code_ext("luau"), ".luau must be code");
+        let s = syms(
+            "lua",
+            "local function greet(name: string): string\n\
+             \x20 return `hello {name}`\n\
+             end\n\
+             function M.add(a: number, b: number): number return a + b end\n\
+             function M:reset() end\n\
+             return M\n",
+        );
+        assert!(has(&s, "greet", "function"), "got {s:?}");
+        assert!(has(&s, "add", "function"), "got {s:?}");
+        assert!(has(&s, "reset", "method"), "got {s:?}");
     }
 
     #[test]

@@ -23,7 +23,12 @@ pub(crate) fn spec() -> Value {
             "If this prefix was autoindexed from a folder on this machine and a file there is ",
             "newer than the last run, or an indexed file has been removed, the response adds ",
             "`_xerj.hints` code `index_stale` with the last index time and a reindex command, ",
-            "the same check as xerj_search: a definition from that index can be stale or missing."
+            "the same check as xerj_search. On such a stale prefix, hits whose file changed are ",
+            "re-read: a moved declaration gets its current line with `reanchored: true` and ",
+            "`indexed_line`, a removed one is dropped, and when no hit is an exact-name ",
+            "definition the changed code files are parsed read-only and matches come back with ",
+            "`unindexed: true`. A hit that names the symbol only inside a string or list is ",
+            "ranked last with `reference: true`."
         ),
         "inputSchema": {
             "type": "object",
@@ -90,6 +95,7 @@ pub(crate) async fn run(ctx: &Ctx, args: &Value) -> Value {
         None,
         None,
         None,
+        true,
     )
     .await;
     if result["isError"] == true {
@@ -107,12 +113,43 @@ pub(crate) async fn run(ctx: &Ctx, args: &Value) -> Value {
         );
     }
     finalize_definition_response(&mut response, symbol, k);
+    let hint = crate::search_staleness(ctx, "xerj_def", args).await;
+    if let Some(hint) = hint.clone() {
+        let (symbol, kind, lang) = (
+            symbol.to_string(),
+            kind.map(str::to_string),
+            lang.map(str::to_string),
+        );
+        // File reads and a bounded walk: off the async runtime.
+        let corrected = tokio::task::spawn_blocking(move || {
+            let fixed = xerj_autoindex::freshness::correct_definition_response(
+                &mut response,
+                &hint,
+                &symbol,
+                kind.as_deref(),
+                lang.as_deref(),
+                k,
+            );
+            if !fixed.is_empty() {
+                xerj_autoindex::freshness::attach(&mut response, &fixed);
+            }
+            response
+        })
+        .await;
+        match corrected {
+            Ok(value) => response = value,
+            Err(_) => return tool_text("definition freshness check failed", true),
+        }
+    }
     let text = response.to_string();
-    tool_text(
-        match budget {
-            Some(max_tokens) => token_budget::budget_json_response(&text, max_tokens),
-            None => text,
-        },
-        false,
+    crate::apply_staleness(
+        tool_text(
+            match budget {
+                Some(max_tokens) => token_budget::budget_json_response(&text, max_tokens),
+                None => text,
+            },
+            false,
+        ),
+        hint,
     )
 }

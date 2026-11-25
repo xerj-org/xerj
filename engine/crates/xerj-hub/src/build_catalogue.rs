@@ -45,7 +45,7 @@ use xerj_common::hub::{
 };
 
 use crate::catalogue::{build_catalogue, canonical_json, CorpusBuildInput};
-use crate::pack::PackFileEntry;
+use crate::pack::{check_pack_limits, PackFileEntry};
 
 /// Where published packs live unless `--release-base` says otherwise. The plan's
 /// `pack_url` is `<this>/pack-<slug>-<pin8>/<slug>-<pin8>.hubpack.tar.zst`.
@@ -102,6 +102,10 @@ pub struct Built {
     pub without_pack: Vec<String>,
     /// Archives in `--packs` that matched no live corpus's current pin.
     pub unmatched: Vec<String>,
+    /// `<slug>: <why>` for packs past the shared member/size caps
+    /// ([`crate::pack::MAX_MEMBERS`], [`crate::pack::MAX_UNPACKED_BYTES`]). Not
+    /// listed: every client would refuse to extract them (#3283).
+    pub over_cap: Vec<String>,
 }
 
 /// `xerj hub build-catalogue …`.
@@ -207,6 +211,9 @@ fn run_inner(
     for slug in &built.unmatched {
         eprintln!("xerj hub build-catalogue: note: {slug} matches no live corpus's current pin; not listed");
     }
+    for why in &built.over_cap {
+        eprintln!("xerj hub build-catalogue: warning: {why}; not listed");
+    }
     let out = PathBuf::from(out);
     fs::write(&out, &built.bytes).with_context(|| format!("write {}", out.display()))?;
     let mut sig = out.clone().into_os_string();
@@ -260,6 +267,7 @@ pub fn build(opts: &Options, seed_hex: &str, pubkey_hex: &str) -> Result<Built> 
     let grades = read_graded_suites(&opts.registry.join("backlog"))?;
     let mut inputs: Vec<CorpusBuildInput> = Vec::new();
     let mut without_pack: Vec<String> = Vec::new();
+    let mut over_cap: Vec<String> = Vec::new();
     let mut used: HashSet<String> = HashSet::new();
     for row in rows {
         let field = |k: &str| row.get(k).and_then(Value::as_str).unwrap_or("");
@@ -312,6 +320,10 @@ pub fn build(opts: &Options, seed_hex: &str, pubkey_hex: &str) -> Result<Built> 
                 "{file}: pack.json pin {} is not the manifest's pin {pin_sha}",
                 pack.manifest.pin_sha
             );
+        }
+        if let Some(why) = &pack.over_cap {
+            over_cap.push(format!("{slug}: {why}"));
+            continue;
         }
 
         // Terms (plan §4): every definition symbol, every path component without
@@ -374,7 +386,14 @@ pub fn build(opts: &Options, seed_hex: &str, pubkey_hex: &str) -> Result<Built> 
             ask_for: backlog_domain.to_string(),
         });
     }
-    let records = record_entries(opts, rows, pubkey_hex, &mut used, &mut without_pack)?;
+    let records = record_entries(
+        opts,
+        rows,
+        pubkey_hex,
+        &mut used,
+        &mut without_pack,
+        &mut over_cap,
+    )?;
     if inputs.is_empty() && records.is_empty() {
         bail!(
             "no live corpus has a pack for its current pin in {}",
@@ -410,6 +429,7 @@ pub fn build(opts: &Options, seed_hex: &str, pubkey_hex: &str) -> Result<Built> 
         sig_hex,
         without_pack,
         unmatched,
+        over_cap,
     })
 }
 
@@ -498,6 +518,7 @@ fn record_entries(
     pubkey_hex: &str,
     used: &mut HashSet<String>,
     without_pack: &mut Vec<String>,
+    over_cap: &mut Vec<String>,
 ) -> Result<Vec<CatalogueEntry>> {
     let mut names: Vec<String> = Vec::new();
     for entry in
@@ -553,6 +574,10 @@ fn record_entries(
         };
         if pack.manifest.licence_class == LicenceClass::Excluded {
             // Plan §12.1: an excluded licence gets no listing.
+            continue;
+        }
+        if let Some(why) = &pack.over_cap {
+            over_cap.push(format!("{slug}: {why}"));
             continue;
         }
         let pin8 = &pack.manifest.pin_sha[..8];
@@ -667,6 +692,8 @@ struct PackFacts {
     manifest: PackManifest,
     defs: Vec<DefRecord>,
     files: Vec<PackFileEntry>,
+    /// Why no client would extract this pack (past a shared cap), if so.
+    over_cap: Option<String>,
 }
 
 /// Verify `archive` (sha256 is computed, the `.sig` beside it must verify under
@@ -685,8 +712,14 @@ fn read_pack(archive: &Path, pubkey_hex: &str) -> Result<PackFacts> {
     let mut defs_jsonl: Option<Vec<u8>> = None;
     let mut files_jsonl: Option<Vec<u8>> = None;
     let mut tar = tar::Archive::new(zstd::Decoder::new(raw.as_slice()).context("zstd")?);
+    // Streamed, so a pack past the size cap is measured without holding it:
+    // the tar ends after the last member's padded data plus two zero blocks.
+    let mut members = 0usize;
+    let mut tar_end = 0u64;
     for entry in tar.entries().context("read tar")? {
         let mut entry = entry.context("read tar entry")?;
+        members += 1;
+        tar_end = tar_end.max(entry.raw_file_position() + entry.size().div_ceil(512) * 512);
         let path = entry.path()?.to_string_lossy().into_owned();
         let slot = match path.as_str() {
             "pack.json" => &mut pack_json,
@@ -706,7 +739,11 @@ fn read_pack(archive: &Path, pubkey_hex: &str) -> Result<PackFacts> {
             manifest.format_version
         );
     }
+    let over_cap = check_pack_limits(members, tar_end + 1024)
+        .err()
+        .map(|e| format!("{e:#}"));
     Ok(PackFacts {
+        over_cap,
         bytes: raw.len() as u64,
         sha256,
         manifest,
@@ -891,8 +928,37 @@ mod tests {
         }
         assert_eq!(built.without_pack, vec!["zstd".to_string()]);
         assert!(built.unmatched.is_empty());
+        assert!(built.over_cap.is_empty());
         verify_bytes(&built.bytes, &built.sig_hex, &public).unwrap();
         assert_eq!(built.bytes, canonical_json(&built.catalogue).unwrap());
+    }
+
+    /// #3283: the catalogue measures a pack against the client's caps by
+    /// streaming it. The measurement must be the exact tar length the client
+    /// sees, or the catalogue could list a pack just past the size cap.
+    #[test]
+    fn streamed_pack_measure_matches_the_tar_the_client_bounds() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (seed, public) = generate_keypair().unwrap();
+        let opts = fixture(tmp.path(), &seed);
+        let archive = opts.packs.join("lz4-0774d055.hubpack.tar.zst");
+        let raw = fs::read(&archive).unwrap();
+        let tar_len = crate::pack::decompress_bounded(&raw, u64::MAX)
+            .unwrap()
+            .len();
+        let facts = read_pack(&archive, &public).unwrap();
+        assert!(facts.over_cap.is_none());
+
+        let mut tar = tar::Archive::new(zstd::Decoder::new(raw.as_slice()).unwrap());
+        let mut members = 0usize;
+        let mut tar_end = 0u64;
+        for e in tar.entries().unwrap() {
+            let e = e.unwrap();
+            members += 1;
+            tar_end = tar_end.max(e.raw_file_position() + e.size().div_ceil(512) * 512);
+        }
+        assert_eq!(members, 5, "four fixed members plus one snapshot file");
+        assert_eq!(tar_end + 1024, tar_len as u64);
     }
 
     /// The shapes the real registry's graded files have (corpus-hub branch,

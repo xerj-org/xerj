@@ -50,6 +50,17 @@
 //! false`, empty datasets), not an error; every count is either the
 //! catalog's own recorded number or the engine's live one, labelled by
 //! which; nothing on this surface is sample or illustrative data.
+//!
+//! ## Which data directory (#2409)
+//!
+//! A bare `xerj` launch can start on a brand-new data directory while the
+//! user's indices live in the one an earlier `--data-dir`/`--config` named.
+//! The empty state alone reads as "my data is gone", so the payload names
+//! the directory this node serves (`data_dir`, owner/admin only: it is a
+//! server filesystem path) and carries `data_dir_hint`, the same wording
+//! `xerj autoindex map` prints on an empty or missing catalog
+//! (`xerj_autoindex::flood::map_data_dir_hint`). The node does not look for
+//! other data directories, so the hint names the choice, it does not guess.
 
 use axum::{extract::State, response::Response};
 use serde_json::{json, Map, Value};
@@ -524,6 +535,37 @@ fn capabilities(
     caps
 }
 
+/// The directory this node serves, as the startup log's
+/// `server data directory data_dir=…` line names it: canonical when it
+/// exists, else made absolute against the working directory, else the
+/// configured string unchanged.
+fn served_data_dir(configured: &str) -> String {
+    let path = std::path::Path::new(configured);
+    std::fs::canonicalize(path)
+        .or_else(|_| std::path::absolute(path))
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| configured.to_string())
+}
+
+/// The empty-state hint, worded as `xerj autoindex map`'s
+/// (`xerj_autoindex::flood::map_data_dir_hint`; this crate does not depend
+/// on `xerj-autoindex`, see the module docs, so keep the two in sync).
+/// `None` = the caller may not see the path; the hint then points at the
+/// startup log instead of naming it.
+fn data_dir_hint(data_dir: Option<&str>) -> String {
+    match data_dir {
+        Some(dir) => format!(
+            "This node serves data directory {dir}. If you indexed while the node ran with \
+             another --data-dir or --config, restart it with that one: a node reads only its \
+             own data directory and does not look for others."
+        ),
+        None => "If you indexed while the node ran with another --data-dir or --config, this \
+                 node may be serving a different data directory; its startup log names the \
+                 one in use (`server data directory data_dir=...`)."
+            .to_string(),
+    }
+}
+
 /// `GET /_xerj-console/api/v1/knowledge` — see the module docs.
 pub async fn knowledge(
     State(state): State<ConsoleState>,
@@ -643,8 +685,12 @@ pub async fn knowledge(
     }
 
     // 7. Brains (operator tier) + the capability strip.
-    let brains = brains_listing(&state.engine, graph::may_read_brains(&sess.user)).await?;
+    let operator = graph::may_read_brains(&sess.user);
+    let brains = brains_listing(&state.engine, operator).await?;
     let caps = capabilities(catalog, &brains, semantic.as_ref());
+
+    // 8. Which data directory this is (#2409) — see the module docs.
+    let data_dir = operator.then(|| served_data_dir(&state.engine.config().server.data_dir));
 
     let mut payload = Map::new();
     payload.insert("catalog".into(), json!(catalog));
@@ -654,5 +700,10 @@ pub async fn knowledge(
     payload.insert("relations".into(), Value::Array(relations));
     payload.insert("brains".into(), Value::Array(brains));
     payload.insert("capabilities".into(), Value::Array(caps));
+    payload.insert(
+        "data_dir_hint".into(),
+        json!(data_dir_hint(data_dir.as_deref())),
+    );
+    payload.insert("data_dir".into(), json!(data_dir));
     Ok(ok(Value::Object(payload), None))
 }

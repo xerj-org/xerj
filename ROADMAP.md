@@ -2,7 +2,7 @@
 
 This roadmap tracks capabilities that are **planned but not yet fully implemented**, so the project's public claims stay honest about what ships today versus what is coming. Status is verified against the actual code and by real API requests to the release binary, not aspirational.
 
-Last reviewed: 2026-11-06 (against `v1.0.0-rc.102` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298 — closed as abandoned 2026-09-29; the machine check, not the issue, enforces the cadence now). This pass is the rc.102 release-cut roll: the open-defects shortlist was re-verified against the live tracker at cut time (2026-11-06), still **two open**, #1122 and #1170, and none closed inside the window; what rc.102 changes is in the CHANGELOG. The rc.100 roll's record stands as written:
+Last reviewed: 2026-11-23 (against `v1.0.0-rc.105` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298 — closed as abandoned 2026-09-29; the machine check, not the issue, enforces the cadence now). This pass is the rc.105 release-cut roll: the open-defects shortlist was re-verified against the live tracker at cut time (2026-11-23), still **two open**, #1122 and #1170, and none closed inside the window; the 1.0 feature shortlist below was re-checked the same day (#1788 and #1792 closed in the window, #1789 and #1791 have first parts in rc.105); what rc.105 changes is in the CHANGELOG. The rc.104 roll's record (rc.104 is rc.103 plus the macOS and Windows builds; no PR merged in between): the shortlist was re-checked live again on 2026-11-18, #1122 and #1170 still open. The rc.103 roll's record: the open-defects shortlist was re-verified against the live tracker at cut time (2026-11-18), still **two open**, #1122 and #1170, and none closed inside the window; what rc.103 changes is in the CHANGELOG. The rc.102 roll's record: the same two were open at its cut (2026-11-06). The rc.100 roll's record stands as written:
 the open-defects shortlist was re-verified against the live tracker at
 cut time — **two open**: #1122 and #1170, and none closed inside the window.
 rc.100 is a performance release. #1122 moves forward: autoindex plans a
@@ -584,17 +584,17 @@ The 1.0 bar: **every public claim verified against the release binary, and every
 
 ### 1.0 feature shortlist (filed 2026-10-18)
 
-These are ten feature requests the team ranked for 1.0, each filed as an issue on the v1.0.0 milestone, listed in rank order; they are planned work, not shipped, and each ships under the same measured-or-not-claimed rule as the gates above.
+These are ten feature requests the team ranked for 1.0, each filed as an issue on the v1.0.0 milestone, listed in rank order; they are planned work unless the item's own status line says what shipped, and each ships under the same measured-or-not-claimed rule as the gates above.
 
 1. MCP server for the corpus hub: [#1785](https://github.com/xerj-org/xerj/issues/1785)
 2. Calibrated confidence plus abstain and escalate flags on MCP answers (builds on #1063; re-measures #1108): [#1786](https://github.com/xerj-org/xerj/issues/1786)
 3. Built-in agent A/B benchmark against grep (AgentQuery-Bench): [#1787](https://github.com/xerj-org/xerj/issues/1787)
-4. Field-aware BM25 plus exact ID matching in `xerj code` (prototype +0.065 nDCG@10 on 18 corpora, not yet measured on a release binary): [#1788](https://github.com/xerj-org/xerj/issues/1788)
-5. Version-pinned answers with file:line citations and a trace-to-evidence report: [#1789](https://github.com/xerj-org/xerj/issues/1789)
+4. Field-aware BM25 plus exact ID matching in `xerj code` (prototype +0.065 nDCG@10 on 18 corpora, not yet measured on a release binary): [#1788](https://github.com/xerj-org/xerj/issues/1788). Closed 2026-11-22: identifier and exact-ID lanes ship in rc.105 (PR #3367; held-out identifier questions 0.2556 to 0.4856); the name lane was dropped.
+5. Version-pinned answers with file:line citations and a trace-to-evidence report: [#1789](https://github.com/xerj-org/xerj/issues/1789). Open; first part in rc.105: `xerj trace <session.jsonl>` (PR #3442).
 6. Schema-valid JSON output behind an OpenAI-compatible endpoint: [#1790](https://github.com/xerj-org/xerj/issues/1790)
-7. Symbol and call-graph queries over MCP: [#1791](https://github.com/xerj-org/xerj/issues/1791)
-8. Temporal as-of queries with validity windows (relates to #1100): [#1792](https://github.com/xerj-org/xerj/issues/1792)
-9. Index past agent sessions as searchable memory: [#1793](https://github.com/xerj-org/xerj/issues/1793)
+7. Symbol and call-graph queries over MCP: [#1791](https://github.com/xerj-org/xerj/issues/1791). Open; first part in rc.105: `xerj_references`, lexical, not a call graph (PR #3337).
+8. Temporal as-of queries with validity windows (relates to #1100): [#1792](https://github.com/xerj-org/xerj/issues/1792). Closed 2026-11-21: memory `valid_from` / `valid_to` and `_recall` `as_of` ship in rc.105 (PR #3334).
+9. Index past agent sessions as searchable memory: [#1793](https://github.com/xerj-org/xerj/issues/1793). Closed 2026-10-29 as completed on the tracker; not re-verified in this roll.
 10. Signed release binaries (SignPath or Sigstore): [#1794](https://github.com/xerj-org/xerj/issues/1794)
 
 ## The zero-token direction

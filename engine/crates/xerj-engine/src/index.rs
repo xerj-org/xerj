@@ -46,7 +46,13 @@ use crate::segment_cache_estimates as cache_estimates;
 pub(crate) type Resident<T> = Arc<CacheResident<T>>;
 pub(crate) type DocValueMap = std::collections::BTreeMap<String, xerj_storage::doc_values::Column>;
 
-fn index_segment_hydration_budget(_config: &Config) -> Arc<SegmentHydrationBudget> {
+fn index_segment_hydration_budget(config: &Config) -> Arc<SegmentHydrationBudget> {
+    #[cfg(test)]
+    if let Some(budget) = isolated_test_hydration_budget(config) {
+        return budget;
+    }
+    #[cfg(not(test))]
+    let _ = config;
     if let Some(governor) = crate::governor::global() {
         return governor.segment_hydration_budget();
     }
@@ -63,6 +69,43 @@ fn index_segment_hydration_budget(_config: &Config) -> Arc<SegmentHydrationBudge
     panic!("Index construction requires the process ResourceGovernor to be initialised");
 }
 
+/// Test-only hydration budgets, keyed by an engine's `server.data_dir`.
+///
+/// The hydration budget is process-wide (the governor's), and the governor
+/// re-targets it from the process RSS. In the lib test binary that one
+/// budget is shared by every test running at the same time, so a test that
+/// asserts on its own index's charges, or moves the target, races the others
+/// and changes their admissions. A test that needs a budget of its own
+/// registers its data dir before opening the engine.
+#[cfg(test)]
+static ISOLATED_TEST_HYDRATION_BUDGETS: std::sync::LazyLock<
+    std::sync::Mutex<HashMap<String, Arc<SegmentHydrationBudget>>>,
+> = std::sync::LazyLock::new(Default::default);
+
+/// Give every index of the engine opened on `data_dir` one unlimited
+/// hydration budget of its own, outside the governor. Returns that budget.
+#[cfg(test)]
+pub(crate) fn isolate_test_hydration_budget(data_dir: &Path) -> Arc<SegmentHydrationBudget> {
+    let key = data_dir.to_string_lossy().into_owned();
+    let mut budgets = ISOLATED_TEST_HYDRATION_BUDGETS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    Arc::clone(
+        budgets
+            .entry(key)
+            .or_insert_with(|| SegmentHydrationBudget::new(u64::MAX)),
+    )
+}
+
+#[cfg(test)]
+fn isolated_test_hydration_budget(config: &Config) -> Option<Arc<SegmentHydrationBudget>> {
+    ISOLATED_TEST_HYDRATION_BUDGETS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&config.server.data_dir)
+        .map(Arc::clone)
+}
+
 /// Reserve `bytes` of transient read memory unless the hydration cache has
 /// room to keep the value (#2427/#1122). A value the cache admits is
 /// accounted there; only one it will refuse is a per-query allocation.
@@ -77,6 +120,93 @@ fn transient_read_permit(
         Some(read_budget.acquire(bytes))
     }
 }
+
+/// #2427: [`transient_read_permit`] for a value sized by its segment rather
+/// than by the request, where a refusal can be reported: when the cache
+/// cannot keep it, the parent breaker (`governor`) first refuses with a 429 a
+/// value that would carry the process past its hard memory limit, then the
+/// read budget reserves it.
+fn admit_transient_read(
+    hydration: &SegmentHydrationBudget,
+    read_budget: &Arc<ReadTransientBudget>,
+    governor: Option<&crate::governor::ResourceGovernor>,
+    bytes: u64,
+    label: &str,
+) -> std::result::Result<Option<ReadPermit>, xerj_common::XerjError> {
+    if hydration.has_headroom(bytes) {
+        return Ok(None);
+    }
+    if let Some(governor) = governor {
+        governor.check_read_transient(bytes, label)?;
+    }
+    Ok(Some(read_budget.acquire(bytes)))
+}
+
+/// The budgets one read-side transient is admitted against (#2427). Search
+/// paths use the process-wide ones; tests pin their own.
+#[derive(Clone)]
+struct ReadAdmission {
+    hydration: Arc<SegmentHydrationBudget>,
+    read_budget: Arc<ReadTransientBudget>,
+    governor: Option<Arc<crate::governor::ResourceGovernor>>,
+}
+
+impl ReadAdmission {
+    fn admit(
+        &self,
+        bytes: u64,
+        label: &str,
+    ) -> std::result::Result<Option<ReadPermit>, xerj_common::XerjError> {
+        admit_transient_read(
+            &self.hydration,
+            &self.read_budget,
+            self.governor.as_deref(),
+            bytes,
+            label,
+        )
+    }
+
+    /// [`Self::admit`] for a caller on an async runtime worker: the same
+    /// parent-breaker 429, but the reservation is accounted without waiting
+    /// for room. `acquire` parks the thread on a condvar for up to its
+    /// max wait, and parking a tokio worker stalls every task scheduled on
+    /// it, so the exact kNN scan only records what it is about to build.
+    fn admit_on_runtime(
+        &self,
+        bytes: u64,
+        label: &str,
+    ) -> std::result::Result<Option<ReadPermit>, xerj_common::XerjError> {
+        if self.hydration.has_headroom(bytes) {
+            return Ok(None);
+        }
+        if let Some(governor) = self.governor.as_deref() {
+            governor.check_read_transient(bytes, label)?;
+        }
+        Ok(Some(self.read_budget.reserve_built(bytes)))
+    }
+}
+
+/// Peak of a whole-segment stored-values load over its decompressed size:
+/// the decompressed bytes and the parsed `Value` tree (a number-heavy row
+/// parses to ~3.5x its JSON text) are alive together during the parse.
+const STORED_VALUES_PEAK_FACTOR: u64 = 4;
+
+/// Pre-build size of a per-segment vector column (#2427): `docs` pooled
+/// vectors of `dims` `f32`s plus each document's entry, slot and identity.
+/// Passage-chunked documents hold more; the reservation is trued up to the
+/// built column's measured size.
+fn vector_column_estimate(docs: usize, dims: usize) -> u64 {
+    const PER_DOC_OVERHEAD: u64 = 112;
+    (docs as u64).saturating_mul(
+        (dims as u64)
+            .saturating_mul(std::mem::size_of::<f32>() as u64)
+            .saturating_add(PER_DOC_OVERHEAD),
+    )
+}
+
+/// A cold stored-values load as its single-flight followers see it: the
+/// parsed section, or the 429 that refused the decode (#2427).
+type StoredValuesLoad = std::result::Result<Resident<Vec<Value>>, Arc<str>>;
 
 /// How long a rayon worker polls a segment's stored-decode flight lock
 /// before decoding on its own (#2427).
@@ -130,20 +260,40 @@ fn stored_slices_bound(raw: &[u8], expect_docs: u64) -> u64 {
 /// #2427: whether a publish-time stored-slices warm whose retained size is
 /// at most `bound` may decode at all: the hydration cache must have room to
 /// keep it, and when the parent RSS watermark is armed (`rss_room` is the
-/// distance to it) keeping it must not carry the node over the watermark.
+/// distance to it) the decode must not carry the node over the watermark.
+///
+/// #2917: the RSS side charges the decode's transient, not only what it
+/// keeps. `decode_stored` holds every column's decompressed text and the
+/// reassembled rows at once, about twice the retained rows
+/// ([`PUBLISH_STORED_WARM_TRANSIENT_NUMERATOR`]). A warm checked on the
+/// retained size alone could still peak a node that far past the watermark
+/// right after a forcemerge.
 fn publish_stored_warm_fits(
     budget: &SegmentHydrationBudget,
     bound: u64,
     rss_room: Option<u64>,
 ) -> bool {
-    budget.has_headroom(bound) && rss_room.is_none_or(|room| bound < room)
+    budget.has_headroom(bound)
+        && rss_room
+            .is_none_or(|room| bound.saturating_mul(PUBLISH_STORED_WARM_TRANSIENT_NUMERATOR) < room)
 }
+
+/// Peak bytes of a publish-time stored decode per retained byte (#2917): the
+/// decompressed column texts plus the reassembled rows.
+const PUBLISH_STORED_WARM_TRANSIENT_NUMERATOR: u64 = 2;
 
 #[cfg(test)]
 thread_local! {
     /// Publish-time stored-section decodes on this thread (#2427 tests).
     static PUBLISH_STORED_WARM_DECODES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    /// Row-selective GET decodes on this thread, one per segment (#3498 tests).
+    static GET_ROW_DECODES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
+
+/// Turns the #3498 GET row route off (an ignored before/after bench only).
+#[cfg(test)]
+static GET_ROW_DECODE_OFF: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 /// Wait for a publication test barrier, on the runtime and bounded.
 ///
@@ -169,6 +319,13 @@ thread_local! {
 /// almost always wakes and decrements between the two submits; on a 2-core CI
 /// runner it often does not.  That is the entire 2-core dependence of this
 /// family of flakes.
+///
+/// That growth rule was tokio 1.52.0's sharded blocking queue
+/// (tokio-rs/tokio#7757), reverted upstream in 1.52.1; the lockfile is on
+/// 1.53.2 since #3353, where the spawner counts the idle thread down itself.
+/// The production flush path hit the same starvation (object_storage_e2e).
+/// The on-runtime wait below stays: it costs nothing and does not depend on
+/// a pool detail.
 ///
 /// Waiting here keeps the waiter on the runtime and leaves the blocking pool
 /// free for the work that produces the signal.  The bound preserves the #158
@@ -1677,6 +1834,198 @@ mod collection_publication_fail_closed_tests {
         assert!(idx.get_document("late").await.unwrap().is_none());
     }
 
+    /// #3324: a bulk batch appends to the WAL before it opens the collection
+    /// publication bracket. WAL maintenance and the batched fsync hold a WAL
+    /// shard lock across disk waits (25 s measured under ext4 journal
+    /// pressure); a batch queued on that lock used to be inside the bracket
+    /// already, so every search on the index waited the same 25 s and came
+    /// back `timed_out` with no hits.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn search_is_not_held_behind_a_bulk_waiting_on_the_wal_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("wal-lock-readers", text_schema())
+            .unwrap();
+        let idx = engine.get_index("wal-lock-readers").unwrap();
+        idx.index_batch_turbo_raw(vec![(
+            "seed".into(),
+            Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+        )])
+        .await
+        .unwrap();
+        idx.refresh().await.unwrap();
+
+        let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
+        let entered_tx = parking_lot::Mutex::new(Some(entered_tx));
+        idx.set_publication_test_hook(Some(Arc::new(move |_, point| {
+            if point == PublicationTestPoint::RawBeforeCollectionBegin {
+                if let Some(tx) = entered_tx.lock().take() {
+                    let _ = tx.send(());
+                }
+            }
+        })));
+        // Stands in for a maintenance pass or fsync that holds the lock.
+        let wal_locks = idx.store.hold_wal_shards_for_test();
+        let writer_idx = Arc::clone(&idx);
+        let writer = tokio::spawn(async move {
+            writer_idx
+                .index_batch_turbo_raw(vec![(
+                    "late".into(),
+                    Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+                )])
+                .await
+        });
+        tokio::task::spawn_blocking(move || {
+            entered_rx
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .expect("bulk never reached the WAL append")
+        })
+        .await
+        .unwrap();
+        // Let the batch reach the lock and park on it.
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert!(
+            !writer.is_finished(),
+            "the bulk must be parked on the WAL lock"
+        );
+
+        let mut request = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "alpha"}}, "size": 10
+        }))
+        .unwrap();
+        request.timeout_ms = Some(2_000);
+        let result = tokio::time::timeout(std::time::Duration::from_secs(5), idx.search(&request))
+            .await
+            .expect("search hung")
+            .unwrap();
+        assert!(
+            !result.timed_out,
+            "search waited out its deadline behind a bulk parked on the WAL lock"
+        );
+        assert_eq!(result.hits.len(), 1);
+        assert_eq!(result.hits[0].id, "seed");
+
+        drop(wal_locks);
+        tokio::time::timeout(std::time::Duration::from_secs(10), writer)
+            .await
+            .expect("bulk did not finish after the WAL lock was released")
+            .unwrap()
+            .unwrap();
+        idx.set_publication_test_hook(None);
+        assert!(!idx.collection_publication.state().2);
+        assert!(idx.get_document("late").await.unwrap().is_some());
+    }
+
+    /// #3324: the flush publication bracket closes as soon as the segment is
+    /// published. Its guard used to live to the end of the finalizer, across
+    /// `after_flush_publish` (snapshot fsync, WAL rotate and prune), so
+    /// every search on the index waited out that disk work. Here the WAL
+    /// maintenance is parked on held WAL locks after the publish.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn search_is_not_held_behind_post_flush_wal_maintenance() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("post-flush-readers", text_schema())
+            .unwrap();
+        let idx = engine.get_index("post-flush-readers").unwrap();
+        idx.index_batch_turbo_raw(vec![(
+            "doc".into(),
+            Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+        )])
+        .await
+        .unwrap();
+        assert!(idx.store.snapshot().segments.is_empty());
+
+        // The first flush of a store always runs WAL maintenance (its 1 s
+        // gate starts open); with the WAL locks held it parks there.
+        let wal_locks = idx.store.hold_wal_shards_for_test();
+        let flush_idx = Arc::clone(&idx);
+        let flush = tokio::spawn(async move { flush_idx.flush().await });
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while idx.store.snapshot().segments.is_empty() {
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("flush never published its segment");
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        assert!(
+            !flush.is_finished(),
+            "the flush must be parked in post-publish WAL maintenance"
+        );
+
+        let mut request = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "alpha"}}, "size": 10
+        }))
+        .unwrap();
+        request.timeout_ms = Some(2_000);
+        let result = tokio::time::timeout(std::time::Duration::from_secs(5), idx.search(&request))
+            .await
+            .expect("search hung")
+            .unwrap();
+        assert!(
+            !result.timed_out,
+            "search waited out its deadline behind post-flush WAL maintenance"
+        );
+        assert_eq!(result.hits.len(), 1);
+
+        drop(wal_locks);
+        tokio::time::timeout(std::time::Duration::from_secs(10), flush)
+            .await
+            .expect("flush did not finish after the WAL locks were released")
+            .unwrap()
+            .unwrap();
+        assert!(!idx.collection_publication.state().2);
+    }
+
+    /// #3324: a WAL write failure happens before the publication bracket
+    /// opens, so it fails the batch without poisoning the index (inside the
+    /// bracket, the early return dropped an uncommitted guard).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn raw_wal_write_failure_does_not_poison_the_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("wal-write-fails", text_schema())
+            .unwrap();
+        let idx = engine.get_index("wal-write-fails").unwrap();
+        // No write has materialized a WAL file yet (#873), so with the WAL
+        // directory gone the first append cannot create its generation.
+        let wal_dir = idx.store.wal_dir();
+        let moved = wal_dir.with_extension("away");
+        std::fs::rename(&wal_dir, &moved).unwrap();
+        let error = idx
+            .index_batch_turbo_raw(vec![(
+                "lost".into(),
+                Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+            )])
+            .await;
+        std::fs::rename(&moved, &wal_dir).unwrap();
+        error.unwrap_err();
+        assert!(
+            !idx.collection_publication.state().2,
+            "a WAL write error must not poison the index"
+        );
+        assert!(idx.store.version_map.get("lost").is_none());
+        idx.index_batch_turbo_raw(vec![(
+            "kept".into(),
+            Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+        )])
+        .await
+        .unwrap();
+        idx.refresh().await.unwrap();
+        assert!(idx.get_document("kept").await.unwrap().is_some());
+        assert!(idx.get_document("lost").await.unwrap().is_none());
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn raw_cancellation_before_publication_does_not_poison_or_write() {
         let dir = tempfile::tempdir().unwrap();
@@ -2017,6 +2366,13 @@ mod flush_publication_recovery_tests {
 
     static FLUSH_FAULT_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
+    /// Hang guard for a wait on an event, not a latency budget. Each wait it
+    /// bounds ends when the event happens, so only an event that never comes
+    /// reaches the guard. A 1 s or 5 s bound on "the search finishes" or "the
+    /// finalizer publishes" fails a correct engine whenever a starved
+    /// runtime does not schedule the task in time (load 200+).
+    const EVENT_HANG_GUARD: std::time::Duration = std::time::Duration::from_secs(60);
+
     fn data_dir_format_version(index: &Index) -> u64 {
         let marker: serde_json::Value =
             serde_json::from_slice(&std::fs::read(index.data_dir.join("xerj_meta.json")).unwrap())
@@ -2198,7 +2554,7 @@ mod flush_publication_recovery_tests {
         let read_idx = Arc::clone(&idx);
         let read_request = request.clone();
         let read = tokio::spawn(async move { read_idx.search(&read_request).await });
-        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        tokio::time::timeout(EVENT_HANG_GUARD, async {
             while idx.collection_publication.reader_admission_attempts() == attempts_before {
                 tokio::task::yield_now().await;
             }
@@ -2208,14 +2564,22 @@ mod flush_publication_recovery_tests {
         // #1015: the detached finalizer is parked in the BUILD phase, which
         // holds no publication bracket — the search must run to completion
         // against the frozen generation instead of waiting out the flush.
-        let early = tokio::time::timeout(std::time::Duration::from_secs(1), read)
+        // Nothing else can open a bracket while the build is parked, so the
+        // search cannot be refused admission: the bracket count says it,
+        // without reading a clock, and the join below is the event.
+        assert_eq!(
+            idx.collection_publication.state().1,
+            0,
+            "the parked flush build must hold no publication bracket"
+        );
+        let early = tokio::time::timeout(EVENT_HANG_GUARD, read)
             .await
             .expect("search stayed blocked across the detached flush build")
             .unwrap()
             .unwrap();
         assert_eq!(early.hits[0].id, "winner");
         release_tx.send(()).unwrap();
-        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        tokio::time::timeout(EVENT_HANG_GUARD, async {
             while idx.store.snapshot().segments.is_empty()
                 || idx.dataset_version.load(Ordering::Acquire) == version_before_flush
             {
@@ -2545,8 +2909,12 @@ mod flush_publication_recovery_tests {
         let roomy = SegmentHydrationBudget::new(u64::MAX);
         let full = SegmentHydrationBudget::new(0);
         assert!(publish_stored_warm_fits(&roomy, 100, None), "watermark off");
-        assert!(publish_stored_warm_fits(&roomy, 100, Some(101)));
+        // #2917: the decode's transient (2x the retained rows) must fit.
+        assert!(publish_stored_warm_fits(&roomy, 100, Some(201)));
+        assert!(!publish_stored_warm_fits(&roomy, 100, Some(200)));
+        assert!(!publish_stored_warm_fits(&roomy, 100, Some(101)));
         assert!(!publish_stored_warm_fits(&roomy, 100, Some(100)));
+        assert!(!publish_stored_warm_fits(&roomy, u64::MAX, Some(u64::MAX)));
         assert!(!publish_stored_warm_fits(&roomy, 100, Some(0)));
         assert!(!publish_stored_warm_fits(&full, 100, None), "no cache room");
     }
@@ -2696,6 +3064,229 @@ mod flush_publication_recovery_tests {
         drop(cached);
     }
 
+    async fn vector_index_2427(engine: &crate::Engine, name: &str, docs: u64) -> Arc<Index> {
+        engine.create_index(name, Schema::empty()).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        idx.abort_background_tasks();
+        for i in 0..docs {
+            let x = (i as f32 + 1.0) / docs as f32;
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "embedding": [x, 1.0 - x, 0.5, 0.25]}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        idx.release_memory();
+        idx.stored_value_cache.clear();
+        idx.vector_column_cache.clear();
+        idx
+    }
+
+    /// Wait until every cold stored-values load task has finished.
+    ///
+    /// The reader is woken by the load task's `send`, and the task drops its
+    /// senders after that, on its own worker. Until then the watch channel
+    /// still holds the value it sent, and with it an uncached load's read
+    /// reservation, so asserting `current == 0` straight after the reader
+    /// returned raced that task. Under load (24 parallel copies, load 48-73)
+    /// `knn_scan_transients_reserve_read_memory_and_429_at_the_limit_2427`
+    /// failed 18 of 600 runs with `left: 449280`. Waiting for an empty
+    /// single-flight map was not enough (1 of 600 each): `DashMap::remove`
+    /// frees the slot before the returned sender is dropped. The task count
+    /// drops only after every sender is gone, so after this the reservation
+    /// lives exactly as long as the test's readers.
+    async fn await_stored_value_load_task_2427(idx: &Index) {
+        tokio::time::timeout(std::time::Duration::from_secs(20), async {
+            while idx.test_stored_value_load_tasks.load(Ordering::Acquire) != 0 {
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .expect("the stored-values load task never finished");
+        assert!(idx.stored_value_loads.is_empty());
+    }
+
+    fn pinned_admission_2427(
+        hydration: u64,
+        governor: Option<Arc<crate::governor::ResourceGovernor>>,
+    ) -> ReadAdmission {
+        ReadAdmission {
+            hydration: SegmentHydrationBudget::new(hydration),
+            read_budget: ReadTransientBudget::new(1 << 30, std::time::Duration::from_secs(5)),
+            governor,
+        }
+    }
+
+    /// #2427: a whole-segment stored-values decode the hydration cache
+    /// refuses reserves its size in the read budget before decoding and holds
+    /// it until the last reader drops the value; one the cache keeps
+    /// reserves nothing.
+    ///
+    /// Fails before the fix: the cold load decoded and parsed the section
+    /// with no reservation, so the read budget saw 0 bytes and 0 admissions.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn transient_stored_values_hold_a_read_reservation_until_dropped_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let idx = vector_index_2427(&engine, "sv-read-budget", 256).await;
+        let seg = idx.store.snapshot().segments[0].clone();
+
+        let full = pinned_admission_2427(0, None);
+        let docs = idx
+            .stored_values_load_with(&seg.id, full.clone())
+            .await
+            .unwrap()
+            .expect("stored values load");
+        assert_eq!(docs.len() as u64, seg.doc_count);
+        assert!(!idx.stored_value_cache.contains_key(&seg.id));
+        let held = full.read_budget.snapshot().current;
+        assert!(held > 0, "the transient decode must hold a reservation");
+        assert_eq!(full.read_budget.snapshot().admitted, 1);
+        let second = Arc::clone(&docs);
+        drop(docs);
+        assert_eq!(full.read_budget.snapshot().current, held);
+        drop(second);
+        await_stored_value_load_task_2427(&idx).await;
+        assert_eq!(
+            full.read_budget.snapshot().current,
+            0,
+            "released with the last reader"
+        );
+
+        let roomy = pinned_admission_2427(u64::MAX, None);
+        let cached = idx
+            .stored_values_load_with(&seg.id, roomy.clone())
+            .await
+            .unwrap()
+            .expect("stored values load");
+        assert!(idx.stored_value_cache.contains_key(&seg.id));
+        assert_eq!(roomy.read_budget.snapshot().current, 0);
+        assert_eq!(roomy.read_budget.snapshot().admitted, 0);
+        drop(cached);
+    }
+
+    /// #2427: a cold stored-values decode that would carry the process past
+    /// its hard memory limit is refused with a 429 before it allocates —
+    /// every single-flight follower sees the 429, nothing is cached or
+    /// reserved, and the single-flight slot is freed for a later retry.
+    ///
+    /// Fails before the fix: the decode ran unconditionally (no `Err` path).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cold_stored_values_decode_over_the_hard_limit_is_a_429_2427() {
+        const MIB: u64 = 1024 * 1024;
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let idx = vector_index_2427(&engine, "sv-breaker", 256).await;
+        let seg = idx.store.snapshot().segments[0].clone();
+        let at_limit =
+            crate::governor::ResourceGovernor::with_rss_and_limit_for_test(1024 * MIB, 1024 * MIB);
+        let tripped = pinned_admission_2427(0, Some(at_limit));
+        let err = match idx.stored_values_load_with(&seg.id, tripped.clone()).await {
+            Err(err) => err,
+            Ok(value) => panic!("expected a 429, got a value: {}", value.is_some()),
+        };
+        assert!(
+            matches!(
+                &err,
+                EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. })
+            ),
+            "{err:?}"
+        );
+        assert!(format!("{err}").contains("stored_values_decode"), "{err}");
+        assert!(!idx.stored_value_cache.contains_key(&seg.id));
+        assert_eq!(tripped.read_budget.snapshot().admitted, 0);
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while !idx.stored_value_loads.is_empty() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the refused load must free its single-flight slot");
+
+        // Room under the limit: the same load succeeds.
+        let roomy_node =
+            crate::governor::ResourceGovernor::with_rss_and_limit_for_test(MIB, 64 * 1024 * MIB);
+        let ok = idx
+            .stored_values_load_with(&seg.id, pinned_admission_2427(0, Some(roomy_node)))
+            .await
+            .unwrap();
+        assert!(ok.is_some());
+    }
+
+    /// #2427: the exact kNN scan's per-query vector column (built from the
+    /// stored documents when the cache refuses it) reserves read memory, and
+    /// a scan whose transients would cross the hard limit answers 429 rather
+    /// than allocating — the kNN search fails with `circuit_breaking_exception`
+    /// instead of silently skipping the segment or growing RSS into an OOM.
+    ///
+    /// Fails before the fix: the scan made no read reservation (admitted 0),
+    /// and a refused load was `None`, so the segment was skipped (`continue`).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn knn_scan_transients_reserve_read_memory_and_429_at_the_limit_2427() {
+        const MIB: u64 = 1024 * 1024;
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let idx = vector_index_2427(&engine, "knn-breaker", 256).await;
+        let request = SearchRequest {
+            timeout_ms: Some(10_000),
+            ..SearchRequest::default()
+        };
+        let query = [1.0_f32, 0.0, 0.5, 0.25];
+
+        // Cache full: the stored values and the column are both transient.
+        let full = pinned_admission_2427(0, None);
+        *idx.test_read_admission.lock() = Some(full.clone());
+        let result = idx
+            .run_knn_brute_force(
+                &request,
+                "embedding",
+                &query,
+                3,
+                Some(Box::new(QueryNode::MatchAll)),
+                "cosine",
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(result.hits.len(), 3);
+        assert_eq!(result.hits[0].id, "doc-255");
+        drop(result);
+        await_stored_value_load_task_2427(&idx).await;
+        let snap = full.read_budget.snapshot();
+        assert!(
+            snap.admitted >= 2,
+            "stored values and vector column must both reserve ({snap:?})"
+        );
+        assert_eq!(snap.current, 0, "released when the query drops them");
+        assert!(idx.vector_column_cache.is_empty());
+
+        // At the hard limit: a 429, not a partial answer.
+        let at_limit =
+            crate::governor::ResourceGovernor::with_rss_and_limit_for_test(1024 * MIB, 1024 * MIB);
+        *idx.test_read_admission.lock() = Some(pinned_admission_2427(0, Some(at_limit)));
+        let err = idx
+            .run_knn_brute_force(
+                &request,
+                "embedding",
+                &query,
+                3,
+                Some(Box::new(QueryNode::MatchAll)),
+                "cosine",
+                None,
+                None,
+            )
+            .await
+            .unwrap_err();
+        match &err {
+            EngineError::Common(e) => assert_eq!(e.http_status(), 429, "{e}"),
+            other => panic!("expected a 429 circuit_breaking_exception, got {other:?}"),
+        }
+        *idx.test_read_admission.lock() = None;
+    }
+
     fn topk_projection_config(dir: &std::path::Path) -> Config {
         let mut config = Config::default();
         config.server.data_dir = dir.to_string_lossy().into_owned();
@@ -2713,6 +3304,242 @@ mod flush_publication_recovery_tests {
                 .unwrap();
         }
         schema
+    }
+
+    /// #3486: `function_score { match_all, field_value_factor }` on
+    /// a field no document carries had no doc-values column to read, so the
+    /// columnar path bailed and the brute stored scan parsed every doc to
+    /// score each one as `missing` (11-16 s on a 504k-doc autoindex index).
+    /// An unmapped, column-less field now scores every row as missing on the
+    /// columnar path, with the same page as the brute scan; a mapped field
+    /// without a column (a suppressed array) still bails.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn fvf_on_an_absent_field_is_served_columnarly() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut schema = topk_projection_schema();
+        schema
+            .add_field(FieldConfig::new("rank", FieldType::Long))
+            .unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine.create_index("fvf-absent", schema).unwrap();
+        let idx = engine.get_index("fvf-absent").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..3000u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({ "title": format!("title {i}"), "rank": i % 97, "tags": [i, i + 1] }),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        for i in 3000..3040u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({ "title": "tail", "rank": 1 }),
+            )
+            .await
+            .unwrap();
+        }
+        let snap = idx.store.snapshot();
+        let segments_dir = idx.data_dir.join("segments");
+        let schema = idx.schema().await;
+        let fvf = |field: &str, missing: Option<f64>| FieldValueFactor {
+            field: field.to_string(),
+            factor: 1.0,
+            modifier: Modifier::None,
+            missing,
+        };
+        assert!(
+            idx.function_score_columnar(
+                &fvf("nope", Some(2.0)),
+                &snap.segments,
+                &segments_dir,
+                10,
+                &schema,
+                true,
+                &std::sync::OnceLock::new()
+            )
+            .is_some(),
+            "an unmapped field with no column scores every row as missing"
+        );
+        assert!(
+            idx.function_score_columnar(
+                &fvf("tags", Some(2.0)),
+                &snap.segments,
+                &segments_dir,
+                10,
+                &schema,
+                true,
+                &std::sync::OnceLock::new()
+            )
+            .is_none(),
+            "a mapped field whose column was suppressed keeps the brute scan"
+        );
+        assert!(
+            idx.function_score_columnar(
+                &fvf("title", None),
+                &snap.segments,
+                &segments_dir,
+                10,
+                &schema,
+                true,
+                &std::sync::OnceLock::new()
+            )
+            .is_none(),
+            "a non-numeric column keeps the brute scan"
+        );
+
+        // Same page as the brute scan (`min_score` defeats the columnar gate):
+        // every doc ties at the missing value, so insertion order decides.
+        let page = |body: Value| {
+            let idx = idx.clone();
+            async move {
+                let r = idx
+                    .search(&xerj_query::parse_request(&body).unwrap())
+                    .await
+                    .unwrap();
+                let hits: Vec<(String, f32)> =
+                    r.hits.iter().map(|h| (h.id.clone(), h.score)).collect();
+                (hits, r.total.value)
+            }
+        };
+        let f = json!({ "field": "nope", "missing": 2.5 });
+        let fast = page(json!({ "size": 12, "query": { "function_score": {
+            "query": { "match_all": {} }, "field_value_factor": f } } }))
+        .await;
+        let brute = page(
+            json!({ "size": 12, "min_score": 0, "query": { "function_score": {
+            "query": { "match_all": {} }, "field_value_factor": f } } }),
+        )
+        .await;
+        assert_eq!(fast.0.len(), 12);
+        assert!(fast.0.iter().all(|(_, s)| *s == 2.5), "{fast:?}");
+        assert_eq!(fast.0, brute.0);
+        assert_eq!(fast.0[0].0, "doc-0");
+
+        // With no `missing`, a doc without the field fails the request on
+        // both paths, as ES does (`Missing value for field [nope]`).
+        let missing = std::sync::OnceLock::new();
+        assert!(idx
+            .function_score_columnar(
+                &fvf("nope", None),
+                &snap.segments,
+                &segments_dir,
+                10,
+                &schema,
+                true,
+                &missing
+            )
+            .is_none());
+        assert_eq!(missing.get().map(String::as_str), Some("nope"));
+        for min_score in [Value::Null, json!(0)] {
+            let mut body = json!({ "size": 12, "query": { "function_score": {
+                "query": { "match_all": {} }, "field_value_factor": { "field": "nope" } } } });
+            if !min_score.is_null() {
+                body["min_score"] = min_score;
+            }
+            let err = idx
+                .search(&xerj_query::parse_request(&body).unwrap())
+                .await
+                .expect_err("no `missing` on an absent field must fail");
+            assert!(
+                err.to_string().contains("Missing value for field [nope]"),
+                "{err}"
+            );
+        }
+    }
+
+    /// #3500 under a `runtime` schema: unmapped keys stay in `_source`
+    /// without a mapping, so "unmapped" no longer proves "absent". `obj.r`
+    /// under an unmapped `obj` has no column (objects never get one) and the
+    /// brute scorer reads it from `_source`; the columnar path must not score
+    /// it as missing. Ingest uses several shards so segment rows are not in
+    /// arrival order (#3506), and the tied cases must still equal the scan.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn fvf_columnar_page_equals_scan_under_runtime_mapping_and_ties() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = topk_projection_config(dir.path());
+        config.engine.ingest_shards = 4;
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("fvf-runtime", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("fvf-runtime").unwrap();
+        idx.abort_background_tasks();
+        idx.schema.write().await.dynamic = xerj_common::schema::DynamicMapping::Runtime;
+        for i in 1..=40u64 {
+            idx.index_document(
+                Some(i.to_string()),
+                json!({ "title": format!("t{i}"), "r": i, "obj": { "r": i } }),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let schema = idx.schema().await;
+        assert!(schema.field("obj").is_none() && schema.field("r").is_none());
+
+        let snap = idx.store.snapshot();
+        let segments_dir = idx.data_dir.join("segments");
+        let fvf = FieldValueFactor {
+            field: "obj.r".to_string(),
+            factor: 1.0,
+            modifier: Modifier::None,
+            missing: Some(1.0),
+        };
+        assert!(
+            idx.function_score_columnar(
+                &fvf,
+                &snap.segments,
+                &segments_dir,
+                3,
+                &schema,
+                false,
+                &std::sync::OnceLock::new()
+            )
+            .is_none(),
+            "an unmapped field under a runtime schema may be in _source"
+        );
+
+        let page = |body: Value| {
+            let idx = idx.clone();
+            async move {
+                let r = idx
+                    .search(&xerj_query::parse_request(&body).unwrap())
+                    .await
+                    .unwrap();
+                r.hits
+                    .iter()
+                    .map(|h| (h.id.clone(), h.score))
+                    .collect::<Vec<_>>()
+            }
+        };
+        let cases = [
+            (
+                json!({ "field": "obj.r", "missing": 1 }),
+                ["40", "39", "38"],
+            ),
+            (json!({ "field": "r", "missing": 1 }), ["40", "39", "38"]),
+            (json!({ "field": "absent", "missing": 1 }), ["1", "2", "3"]),
+            (
+                json!({ "field": "r", "factor": 0, "missing": 1 }),
+                ["1", "2", "3"],
+            ),
+        ];
+        for (f, want) in cases {
+            let fast = page(json!({ "size": 3, "query": { "function_score": {
+                "query": { "match_all": {} }, "field_value_factor": f } } }))
+            .await;
+            let brute = page(
+                json!({ "size": 3, "min_score": 0, "query": { "function_score": {
+                "query": { "match_all": {} }, "field_value_factor": f } } }),
+            )
+            .await;
+            let ids: Vec<&str> = fast.iter().map(|(id, _)| id.as_str()).collect();
+            assert_eq!(ids, want, "{f}");
+            assert_eq!(fast, brute, "{f}: columnar page != stored scan");
+        }
     }
 
     /// #2422: a broad query (most rows of a segment match) on a cold
@@ -2854,6 +3681,115 @@ mod flush_publication_recovery_tests {
         drop(engine);
     }
 
+    /// #3470: the columnar executors (`scored_columnar` serves a plain
+    /// `match_all` page, `function_score_columnar` a `field_value_factor`
+    /// one) pick winners from doc-values columns and then hydrated each
+    /// winner through `stored_slices_for` — a whole stored-section decode per
+    /// hit whenever the hydration budget refused to keep it (820 s for the
+    /// zero-hit hint's `match_all size:256` on a 504k-doc index). On a cold
+    /// segment the page must read only its winning rows and leave the
+    /// section undecoded, with the same answer as the warm read.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cold_columnar_page_reads_only_winning_rows_3470() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut schema = topk_projection_schema();
+        schema
+            .add_field(FieldConfig::new("kind", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("rank", FieldType::Long))
+            .unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine.create_index("columnar-cold", schema).unwrap();
+        let idx = engine.get_index("columnar-cold").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..4096u64 {
+            let kind = ["code", "csv", "txt-prose"][(i % 3) as usize];
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({
+                    "title": format!("title {i}"),
+                    "body": format!("body text {i}"),
+                    "blob": "x",
+                    "kind": kind,
+                    "rank": i % 997,
+                }),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        drop(idx);
+        drop(engine);
+
+        let reopen = || {
+            let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+            let idx = engine.get_index("columnar-cold").unwrap();
+            idx.abort_background_tasks();
+            let segs: Vec<_> = idx.store.snapshot().segments.clone();
+            assert!(segs.iter().any(|s| s.doc_count > 1024), "precondition");
+            // Hold the background warm back so each query is observed alone.
+            for s in &segs {
+                idx.cold_stored_warms.insert(s.id.to_string(), ());
+            }
+            (engine, idx, segs)
+        };
+        let all_cold = |idx: &Index, segs: &[xerj_storage::segment::SegmentMeta]| {
+            segs.iter().all(|s| {
+                !idx.stored_slices_cache.contains_key(&s.id)
+                    && !idx.decoded_stored_cache.contains_key(&s.id)
+            })
+        };
+        let key = |r: &xerj_query::executor::SearchResult| -> Vec<(String, u32, Value)> {
+            let mut v: Vec<_> = r
+                .hits
+                .iter()
+                .map(|h| (h.id.clone(), h.score.to_bits(), h.source.clone()))
+                .collect();
+            v.sort_by(|a, b| a.0.cmp(&b.0));
+            v
+        };
+        let requests: Vec<SearchRequest> = [
+            // The zero-hit `unknown_value` hint's sample request.
+            json!({"query": {"match_all": {}}, "size": 256}),
+            json!({"query": {"function_score": {
+                "query": {"match_all": {}},
+                "field_value_factor": {"field": "rank"},
+            }}, "size": 64}),
+        ]
+        .iter()
+        .map(|b| xerj_query::parse_request(b).unwrap())
+        .collect();
+
+        let (engine, idx, segs) = reopen();
+        let mut cold = Vec::new();
+        for r in &requests {
+            cold.push(idx.search(r).await.unwrap());
+            assert!(
+                all_cold(&idx, &segs),
+                "a columnar page must not decode the whole stored section"
+            );
+        }
+        assert_eq!(cold[0].hits.len(), 256);
+        assert_eq!(cold[1].hits.len(), 64);
+        assert!(cold[0].hits.iter().all(|h| h.source["kind"].is_string()));
+        drop(idx);
+        drop(engine);
+
+        let (engine, idx, segs) = reopen();
+        for s in &segs {
+            let warmed = idx.stored_slices_for(&s.id, s.doc_count).is_some();
+            assert!(warmed || s.doc_count <= 1024, "segment {} must warm", s.id);
+        }
+        for (r, cold) in requests.iter().zip(&cold) {
+            let warm = idx.search(r).await.unwrap();
+            assert_eq!(key(cold), key(&warm));
+            assert_eq!(cold.total.value, warm.total.value);
+        }
+        drop(idx);
+        drop(engine);
+    }
+
     /// #2427: a cold query over a many-segment index must not start one
     /// whole-section stored decode per segment at once. Before the fix every
     /// cold segment the query hydrated from its winning rows spawned its own
@@ -2966,6 +3902,12 @@ mod flush_publication_recovery_tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn cold_topk_with_source_includes_reads_only_winning_rows() {
         let dir = tempfile::tempdir().unwrap();
+        // The background warm is skipped when the hydration budget has no
+        // room for the slices. Shared, the budget is filled or re-targeted by
+        // whatever else runs in this process (see
+        // `fts_reader_displaces_decoded_sections_when_the_budget_is_full`),
+        // and the warm then never lands.
+        isolate_test_hydration_budget(dir.path());
         let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
         engine
             .create_index("topk-cold", topk_projection_schema())
@@ -4706,6 +5648,7 @@ mod flush_publication_recovery_tests {
             .unwrap();
 
         let (held_tx, held_rx) = std::sync::mpsc::channel::<()>();
+        let gate = Arc::clone(&index.finalize_gate);
         let holder = std::thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -4713,10 +5656,7 @@ mod flush_publication_recovery_tests {
                 .unwrap();
             rt.block_on(async {
                 let permits = crate::pools::sizing().flush_finalize as u32;
-                let _held = crate::flush_finalize_gate()
-                    .acquire_many(permits)
-                    .await
-                    .unwrap();
+                let _held = gate.acquire_many(permits).await.unwrap();
                 held_tx.send(()).unwrap();
                 std::thread::sleep(std::time::Duration::from_millis(200));
             });
@@ -4730,10 +5670,65 @@ mod flush_publication_recovery_tests {
         holder.join().unwrap();
     }
 
+    /// #3324: the finalize gate belongs to a data dir, not to the process.
+    /// One engine holding every permit of its own gate (a wedged or very slow
+    /// finalize) must not stall a flush in another engine in the same
+    /// process, as one shared gate did for every test in a test binary.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_held_finalize_gate_does_not_stall_another_engine() {
+        let engine_at = |dir: &tempfile::TempDir| {
+            let mut config = Config::default();
+            config.server.data_dir = dir.path().to_string_lossy().into_owned();
+            crate::Engine::new(config).unwrap()
+        };
+        let (dir_a, dir_b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let (engine_a, engine_b) = (engine_at(&dir_a), engine_at(&dir_b));
+        engine_a.create_index("gate-a", Schema::empty()).unwrap();
+        engine_a.create_index("gate-a2", Schema::empty()).unwrap();
+        engine_b.create_index("gate-b", Schema::empty()).unwrap();
+        let a = engine_a.get_index("gate-a").unwrap();
+        let a2 = engine_a.get_index("gate-a2").unwrap();
+        let b = engine_b.get_index("gate-b").unwrap();
+        assert!(
+            Arc::ptr_eq(&a.finalize_gate, &a2.finalize_gate),
+            "indices of one engine share one gate"
+        );
+        assert!(
+            !Arc::ptr_eq(&a.finalize_gate, &b.finalize_gate),
+            "two engines on two data dirs have two gates"
+        );
+        for idx in [&a, &b] {
+            idx.abort_background_tasks();
+            idx.index_document(Some("d".into()), json!({"body": "gate"}))
+                .await
+                .unwrap();
+        }
+        let permits = crate::pools::sizing().flush_finalize as u32;
+        let held = a.finalize_gate.acquire_many(permits).await.unwrap();
+        b.flush_admit_timeout_ms.store(100, Ordering::Relaxed);
+        tokio::time::timeout(std::time::Duration::from_secs(30), b.flush())
+            .await
+            .expect("flush of the other engine must not hang")
+            .expect("engine B must flush while engine A holds its whole gate");
+        assert_eq!(b.memtable.doc_count(), 0);
+        a.flush_admit_timeout_ms.store(100, Ordering::Relaxed);
+        let err = a
+            .flush()
+            .await
+            .expect_err("engine A's own flush still waits on its held gate");
+        assert!(err.to_string().contains("finalize gate"), "{err}");
+        drop(held);
+        a.flush_admit_timeout_ms.store(30_000, Ordering::Relaxed);
+        a.flush()
+            .await
+            .expect("engine A flushes once its gate is free");
+        assert_eq!(a.memtable.doc_count(), 0);
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn a_flush_that_never_finishes_fails_that_index_and_the_run_continues() {
         // #1635 — `finalize-refresh` sat at items=0 with no error because
-        // `flush_finalize_gate().acquire()` (and the per-index flush
+        // the finalize-gate `acquire()` (and the per-index flush
         // semaphore) waited forever, and one stuck index blocked the refresh
         // of every later index. Hold every finalize-gate permit — a flush
         // that took one and never returned — and require the waiting index
@@ -4765,12 +5760,13 @@ mod flush_publication_recovery_tests {
         stuck.flush_admit_timeout_ms.store(100, Ordering::Relaxed);
 
         let permits_n = crate::pools::sizing().flush_finalize as u32;
-        let held = crate::flush_finalize_gate()
+        let held = stuck
+            .finalize_gate
             .acquire_many(permits_n)
             .await
             .expect("the test must be able to hold the finalize gate");
         assert_eq!(
-            crate::flush_finalize_gate().available_permits(),
+            stuck.finalize_gate.available_permits(),
             0,
             "the simulated flush must be holding every finalize permit"
         );
@@ -6012,6 +7008,144 @@ impl Drop for HnswPublicationGuard {
 }
 
 #[cfg(test)]
+mod knn_exact_cutover_tests {
+    use super::*;
+
+    #[test]
+    fn byte_rule_matches_the_documented_budget() {
+        let budget = KNN_EXACT_SCAN_MAX_KB_DEFAULT * 1024;
+        // #3006's indexes: 721 and 3,080 E5 vectors of 768 dims.
+        assert!(knn_prefers_exact_scan(721, 768, budget));
+        assert!(knn_prefers_exact_scan(3_080, 768, budget));
+        // 10,000 KiB / 3,072 B = 3,333.33 vectors of 768 dims.
+        assert!(knn_prefers_exact_scan(3_333, 768, budget));
+        assert!(!knn_prefers_exact_scan(3_334, 768, budget));
+        assert!(!knn_prefers_exact_scan(1_000_000, 384, budget));
+        // Low dimensions: the byte budget alone would take 1.28 M 2-d
+        // vectors; the document ceiling keeps those on the graph.
+        assert!(knn_prefers_exact_scan(16_384, 2, budget));
+        assert!(!knn_prefers_exact_scan(16_385, 2, budget));
+        assert!(!knn_prefers_exact_scan(1_000_000, 2, budget));
+        // `0` is the pre-#3006 gate: never prefer the scan.
+        assert!(!knn_prefers_exact_scan(1, 1, 0));
+        assert!(!knn_prefers_exact_scan(u64::MAX, usize::MAX, budget));
+    }
+
+    /// Over `HNSW_MIN_DOCS` with a complete graph, the production budget
+    /// sends an unfiltered kNN to the exact scan, and the served page is the
+    /// exact scan's page — same ids, scores, order and sources — at every
+    /// `from`/`size` window, while `total` stays the capped pool `k`.
+    #[tokio::test]
+    async fn small_vector_set_is_served_by_the_exact_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("embedding", FieldType::Vector))
+            .unwrap();
+        engine.create_index("cutover", schema).unwrap();
+        let index = engine.get_index("cutover").unwrap();
+        // Every 7th document repeats a vector, so the page has exact ties for
+        // the `seq_no, _id` tie-break to order.
+        // The raw ingest path is the one the ANN publication tests use.
+        let docs: Vec<(String, Arc<[u8]>)> = (0..HNSW_MIN_DOCS + 64)
+            .map(|i| {
+                let j = if i % 7 == 0 { 7 } else { i };
+                let x = (j + 1) as f32 / ((HNSW_MIN_DOCS + 64) as f32 * 2.0);
+                let source = serde_json::json!({"embedding": [x, 1.0 - x, 0.1], "n": i});
+                (
+                    format!("doc-{i:05}"),
+                    Arc::<[u8]>::from(serde_json::to_vec(&source).unwrap()),
+                )
+            })
+            .collect();
+        index.index_batch_turbo_raw(docs).await.unwrap();
+        let stats = index.hnsw_stats().await;
+        assert_eq!(stats["covered"], true, "{stats}");
+
+        let query = [1.0f32, 0.0, 0.0];
+        let k = 300;
+        let knn = |from: usize, size: usize| SearchRequest {
+            query: QueryNode::Knn {
+                field: "embedding".to_owned(),
+                vector: query.to_vec(),
+                k,
+                num_candidates: Some(k),
+                filter: None,
+                boost: None,
+                similarity: None,
+            },
+            from,
+            size,
+            ..SearchRequest::default()
+        };
+        let deadline = || std::time::Instant::now() + std::time::Duration::from_secs(30);
+
+        // Budget 0 (the unit-test default): the graph serves.
+        assert!(
+            index
+                .run_knn_hnsw(
+                    &knn(0, 10),
+                    deadline(),
+                    "embedding",
+                    &query,
+                    k,
+                    Some(k),
+                    "cosine"
+                )
+                .await
+                .is_some(),
+            "a complete graph must serve ANN at budget 0: {stats}"
+        );
+        index
+            .knn_exact_scan_max_bytes
+            .store(KNN_EXACT_SCAN_MAX_KB_DEFAULT * 1024, Ordering::Relaxed);
+        assert!(index
+            .run_knn_hnsw(
+                &knn(0, 10),
+                deadline(),
+                "embedding",
+                &query,
+                k,
+                Some(k),
+                "cosine"
+            )
+            .await
+            .is_none());
+
+        // The whole pool, hydrated: the oracle every window must agree with.
+        let oracle = index
+            .run_knn_brute_force(
+                &knn(0, k),
+                "embedding",
+                &query,
+                k,
+                None,
+                "cosine",
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(oracle.hits.len(), k);
+        for (from, size) in [(0, 10), (5, 20), (290, 50), (0, k), (k + 5, 10)] {
+            index.query_cache.clear();
+            let page = index.search(&knn(from, size)).await.unwrap();
+            assert_eq!(page.total.value, k as u64, "from={from} size={size}");
+            let want: Vec<_> = oracle.hits.iter().skip(from).take(size).collect();
+            assert_eq!(page.hits.len(), want.len(), "from={from} size={size}");
+            for (got, want) in page.hits.iter().zip(want) {
+                assert_eq!(got.id, want.id, "from={from} size={size}");
+                assert_eq!(got.score, want.score, "from={from} size={size}");
+                assert_eq!(got.source, want.source, "from={from} size={size}");
+            }
+        }
+    }
+}
+
+#[cfg(test)]
 mod raw_vector_publication_tests {
     use super::*;
 
@@ -7018,6 +8152,104 @@ mod merge_publication_transaction_tests {
         .expect("merge did not reach the pre-apply gate");
     }
 
+    /// `n` one-document segments, background merging stopped.
+    async fn forced_yield_fixture(dir: &TempDir, n: usize) -> (Engine, Arc<Index>) {
+        let (engine, index) = hand_driven_index(dir, "forced-yield", Schema::empty());
+        for i in 0..n {
+            index
+                .index_document(Some(format!("d{i}")), serde_json::json!({"value": i}))
+                .await
+                .unwrap();
+            index.flush().await.unwrap();
+        }
+        assert_eq!(index.store.snapshot().segments.len(), n);
+        (engine, index)
+    }
+
+    fn segment_docs(index: &Index) -> u64 {
+        index
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.doc_count)
+            .sum()
+    }
+
+    /// #2917 follow-up: a `_forcemerge` whose every pass stops one batch at
+    /// the memory limit but merges the others is making progress and must
+    /// converge. Pre-fix each such pass counted as a memory stop, so the
+    /// third one answered 429 with the index half merged.
+    ///
+    /// 12 segments, two per batch, the first batch of each of the first 5
+    /// passes stopped: 12 -> 7 -> 5 -> 4 -> 3 (merged 5, 2, 1, 1), then one
+    /// pass that merges nothing (its only batch stopped), then 3 -> 2 -> 1.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn forcemerge_converges_while_passes_merge_around_a_stopped_batch() {
+        let dir = TempDir::new().unwrap();
+        let (_engine, index) = forced_yield_fixture(&dir, 12).await;
+        index.test_forced_yield_passes.store(5, Ordering::Release);
+
+        let merged = index
+            .force_merge_with_memory_wait(1, std::time::Duration::from_secs(5))
+            .await
+            .expect("passes that merged something must not count towards the 429");
+
+        assert_eq!(index.test_forced_yield_passes.load(Ordering::Acquire), 0);
+        assert_eq!(index.store.snapshot().segments.len(), 1);
+        assert_eq!(segment_docs(&index), 12);
+        assert_eq!(merged, 5 + 2 + 1 + 1 + 1 + 1, "merged batches");
+    }
+
+    /// The 429 still fires on [`FORCE_MERGE_MEMORY_RETRIES`] + 1 passes IN A
+    /// ROW that merge nothing, with every input segment and document kept.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn forcemerge_429s_after_consecutive_passes_that_merge_nothing() {
+        let dir = TempDir::new().unwrap();
+        let (_engine, index) = forced_yield_fixture(&dir, 6).await;
+        index
+            .test_forced_yield_every_batch
+            .store(true, Ordering::Release);
+        index.test_forced_yield_passes.store(100, Ordering::Release);
+
+        let err = index
+            .force_merge_with_memory_wait(1, std::time::Duration::from_secs(5))
+            .await
+            .expect_err("passes that merge nothing must end in a 429");
+        match &err {
+            EngineError::Common(e) => assert_eq!(e.http_status(), 429, "{e}"),
+            other => panic!("expected a 429 circuit_breaking_exception, got {other:?}"),
+        }
+        assert_eq!(
+            100 - index.test_forced_yield_passes.load(Ordering::Acquire),
+            FORCE_MERGE_MEMORY_RETRIES + 1,
+            "passes run before the 429"
+        );
+        assert_eq!(index.store.snapshot().segments.len(), 6);
+        assert_eq!(segment_docs(&index), 6);
+
+        // The kept inputs are intact: once batches stop being stopped, the
+        // same index converges.
+        index.test_forced_yield_passes.store(0, Ordering::Release);
+        index
+            .force_merge_with_memory_wait(1, std::time::Duration::from_secs(5))
+            .await
+            .unwrap();
+        assert_eq!(index.store.snapshot().segments.len(), 1);
+        assert_eq!(segment_docs(&index), 6);
+    }
+
+    #[test]
+    fn forcemerge_memory_stops_count_only_passes_without_progress() {
+        let mut stops = 0;
+        for merged in [0, 0, 3, 0, 0, 1, 0] {
+            stops = force_merge_memory_stops_after_pass(stops, merged);
+        }
+        assert_eq!(stops, 1);
+        assert_eq!(force_merge_memory_stops_after_pass(2, 0), 3);
+        assert_eq!(force_merge_memory_stops_after_pass(2, 1), 0);
+    }
+
     /// #2234 — `_refresh` must publish a new write while a merge encode is
     /// held, on a runtime whose tokio blocking pool has a single thread.
     ///
@@ -7768,8 +9000,24 @@ mod merge_publication_transaction_tests {
     /// bumped epoch on the in-flight pass — the evaluation counter does not
     /// move until the encode returns. `std::thread::sleep` does not advance
     /// the paused clock, so it cannot itself schedule a merge check.
+    ///
+    /// Quiescence is judged by scheduler rounds, not by wall time. The pool
+    /// runs at nice +15 (`crate::merge_pool`), so on a loaded host one
+    /// encode can take far longer than any fixed budget while the scheduler
+    /// itself is doing nothing wrong: the old 10 s deadline failed 7/30
+    /// runs with "in progress true" when the test shared two cores with
+    /// sixteen nice-0 busy loops. Waiting on an in-flight pass is therefore
+    /// unbounded by design; what fails is a scheduler that keeps evaluating
+    /// with nothing in flight, which is the non-quiescence this guards.
     async fn settle_merge_scheduler(index: &Index) {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        // Each round that moves the counter is one debounced evaluation.
+        // These fixtures hold at most a handful of segments, so the merge
+        // cascade ends in a few rounds; 64 is far past any real cascade.
+        const MAX_ROUNDS: u32 = 64;
+        // Not a pass/fail budget: only a merge flag that is never cleared
+        // (a leaked pass) gets here, and it should fail rather than hang.
+        let hung = std::time::Instant::now() + std::time::Duration::from_secs(600);
+        let mut rounds = 0;
         loop {
             let before = index.merge_evaluation_count();
             std::thread::sleep(std::time::Duration::from_millis(15));
@@ -7777,7 +9025,16 @@ mod merge_publication_transaction_tests {
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
             tokio::task::yield_now().await;
             let after = index.merge_evaluation_count();
-            if after == before && !index.is_merge_in_progress() {
+            if index.is_merge_in_progress() {
+                // An encode is on the merge pool. Its finish is the next
+                // event, however long the host makes it take.
+                assert!(
+                    std::time::Instant::now() < hung,
+                    "a merge pass held the merge flag for 10 minutes (evaluations {after})"
+                );
+                continue;
+            }
+            if after == before {
                 // A second window with no real sleep: a still-armed debounce
                 // is the only thing that can move the counter.
                 tokio::time::sleep(std::time::Duration::from_secs(30)).await;
@@ -7785,9 +9042,11 @@ mod merge_publication_transaction_tests {
                     return;
                 }
             }
+            rounds += 1;
             assert!(
-                std::time::Instant::now() < deadline,
-                "background merges did not quiesce (evaluations {}, in progress {})",
+                rounds <= MAX_ROUNDS,
+                "background merges did not quiesce after {MAX_ROUNDS} scheduler rounds \
+                 (evaluations {}, in progress {})",
                 index.merge_evaluation_count(),
                 index.is_merge_in_progress()
             );
@@ -10574,30 +11833,86 @@ mod semantic_deadline_regression_tests {
 #[path = "fast_aggs.rs"]
 mod fast_aggs;
 
+/// #3510: whether `q` is a pure conjunction (`bool` with only `must` /
+/// `filter`, nested, or under `constant_score`) whose every leaf passes
+/// `leaf_ok`. A leaf on its own is just checked. Used to admit a filter-only
+/// `bool` to the `size:0` agg fast path when each leaf would take that path by
+/// itself (`query_node_to_agg_filter` mirrors this shape).
+fn filter_conjunction_leaves_all(q: &QueryNode, leaf_ok: &dyn Fn(&QueryNode) -> bool) -> bool {
+    match q {
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            minimum_should_match,
+        } => {
+            should.is_empty()
+                && must_not.is_empty()
+                && minimum_should_match.is_none()
+                && must
+                    .iter()
+                    .chain(filter)
+                    .all(|c| filter_conjunction_leaves_all(c, leaf_ok))
+        }
+        QueryNode::Constant { query, .. } => filter_conjunction_leaves_all(query, leaf_ok),
+        leaf => leaf_ok(leaf),
+    }
+}
+
 /// Reconstruct the ES-JSON form of a query filter that the columnar fast-agg
 /// path (`fast_aggs::compile_top_pred` + `aggs::doc_matches_filter`) can
 /// evaluate over doc-values WITHOUT hydrating `_source`.  Returns `None` for
 /// any query that isn't a plain conjunctive filter over exact/numeric fields
-/// (FTS, wild/prefix, must_not/should bool, date-string ranges, numeric term
-/// keys, …) — the caller then keeps the exact brute path.
+/// (FTS, wild/prefix, must_not/should bool, numeric term keys on a field not
+/// mapped `long`/`double`, …) — the caller then keeps the exact brute path.
 ///
 /// Only the leaf/bool shapes that `doc_matches_filter` and `compile_pred`
 /// jointly support are emitted, so the memtable matcher and the columnar
 /// predicate stay byte-identical.
-fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
+fn query_node_to_agg_filter(node: &QueryNode, schema: &Schema) -> Option<Value> {
     match node {
         QueryNode::MatchAll => Some(serde_json::json!({ "match_all": {} })),
         // `constant_score` is pure filter context — matching is exactly the
         // inner filter's (the wrapper only changes scores, which a size:0
         // agg never sees).
-        QueryNode::Constant { query, .. } => query_node_to_agg_filter(query),
-        // Exact term — keyword (string) values only.  Numeric/bool term keys
-        // have typed-coercion subtleties, so bail (brute path handles them).
+        QueryNode::Constant { query, .. } => query_node_to_agg_filter(query, schema),
+        // Exact term — keyword (string) values.  A numeric value on a numeric
+        // field is the arm below; bool keys and anything else bail (brute).
+        // #3510: a `term` / `terms` on analysed text matches the token stream
+        // (#3259), which no doc-values column holds. A top-level one never
+        // got here (it needs FTS); inside a conjunctive `bool` it now would.
+        QueryNode::Term { field, .. } | QueryNode::Terms { field, .. }
+            if field_is_analyzed_text(schema, field) =>
+        {
+            None
+        }
         QueryNode::Term {
             field,
             value: Value::String(s),
             ..
         } => Some(serde_json::json!({ "term": { field: s } })),
+        // #3466: a numeric `term` on a field mapped `long`/`double` is the
+        // one-point `range` [N, N]. The brute comparator `json_scalar_equal`
+        // matches numbers by value, and so do both sides of the fast path:
+        // `doc_matches_filter`'s numeric range arm on the memtable, and
+        // `Pred::RangeNum` on a numeric column (a column of any other kind
+        // still bails). `seg_term_positions` counts a numeric term the same
+        // way. The mapping gate keeps keyword/date/text fields out: there
+        // the memtable range arm does not mirror the brute comparator.
+        // |N| < 2^53 only: there f64 is exact, so no stored integer can
+        // round onto N, which integers compared exactly would not match.
+        QueryNode::Term {
+            field,
+            value: Value::Number(n),
+            ..
+        } if declared_field(schema, field)
+            .is_some_and(|f| matches!(f.field_type, FieldType::Long | FieldType::Double)) =>
+        {
+            const EXACT: f64 = 9_007_199_254_740_992.0;
+            n.as_f64().filter(|f| f.is_finite() && f.abs() < EXACT)?;
+            Some(serde_json::json!({ "range": { field: { "gte": n, "lte": n } } }))
+        }
         QueryNode::Terms { field, values, .. } => {
             let mut strs: Vec<Value> = Vec::with_capacity(values.len());
             for v in values {
@@ -10680,7 +11995,7 @@ fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
             }
             let mut clauses: Vec<Value> = Vec::with_capacity(must.len() + filter.len());
             for c in must.iter().chain(filter.iter()) {
-                clauses.push(query_node_to_agg_filter(c)?);
+                clauses.push(query_node_to_agg_filter(c, schema)?);
             }
             if clauses.is_empty() {
                 // bool with no positive clauses == match_all
@@ -11176,6 +12491,16 @@ pub struct Index {
     /// API-layer state (`engine.index_mappings`); the engine propagates the
     /// flag on create/open/put-mapping via [`Index::set_date_detection`].
     date_detection: AtomicBool,
+    /// The ES mapping's root `dynamic` setting (#3514), as the engine mode
+    /// it means: 0 = not set (the schema's own `dynamic` applies), else
+    /// `1 + DynamicMapping as u8`. Owned here for the same reason as
+    /// `date_detection`, and propagated with it; read through
+    /// [`Index::dynamic_mode`].
+    es_dynamic: std::sync::atomic::AtomicU8,
+    /// What the ES mapping declares (#3514), consulted under `dynamic: false`
+    /// before a clause on a field the engine schema does not map is lowered
+    /// to "matches nothing". Propagated with `es_dynamic`.
+    es_coverage: std::sync::RwLock<Arc<xerj_common::mapping_dynamic::MappingCoverage>>,
     /// Fast bail for ingest date validation: true once the schema holds any
     /// `date`-typed field (set at construction and when dynamic inference
     /// adds one; never unset — a stale `true` only costs a schema read).
@@ -11222,6 +12547,15 @@ pub struct Index {
     test_hold_merge_encode: Arc<AtomicBool>,
     #[cfg(test)]
     test_merge_encode_held: Arc<AtomicBool>,
+    /// #2917 follow-up — the next N forcemerge passes stop batches as if
+    /// RSS had reached the process limit: only the first batch of the pass
+    /// when `test_forced_yield_every_batch` is false, every batch when true.
+    /// Engine unit tests run without a governor, so the real stop cannot
+    /// fire.
+    #[cfg(test)]
+    test_forced_yield_passes: Arc<AtomicUsize>,
+    #[cfg(test)]
+    test_forced_yield_every_batch: Arc<AtomicBool>,
     /// #2234 — park `refresh` before it looks at the memtable. Off in release
     /// builds; `xerj-api` tests turn it on with the `refresh-test-hook` feature.
     #[cfg(any(test, feature = "refresh-test-hook"))]
@@ -11398,6 +12732,11 @@ pub struct Index {
     /// stale rebuild (RC4 W2 item 17, `rebuild_hnsw_from_docs`) once the
     /// graph has been re-derived from the authoritative doc set.
     hnsw_stale: Arc<std::sync::atomic::AtomicBool>,
+    /// #3006: an unfiltered kNN over at most this many bytes of stored f32
+    /// vectors (`vector_doc_count * dims * 4`) is served by the exact scan
+    /// even when a complete HNSW graph exists. See
+    /// [`knn_exact_scan_max_bytes_default`] and [`knn_prefers_exact_scan`].
+    knn_exact_scan_max_bytes: AtomicU64,
     /// True while `rebuild_hnsw_from_docs` is running (RC4 W2 item 17):
     /// guards against double-spawn and is surfaced in stats so operators
     /// can distinguish "healing" from "permanently degraded".
@@ -11457,8 +12796,16 @@ pub struct Index {
     test_hnsw_save_passage_snapshot_ready: Arc<AtomicBool>,
     #[cfg(test)]
     test_stored_value_load_delay_ms: Arc<AtomicU64>,
+    /// Pins the budgets read-side transients are admitted against (#2427).
+    #[cfg(test)]
+    test_read_admission: Arc<parking_lot::Mutex<Option<ReadAdmission>>>,
     #[cfg(test)]
     test_stored_value_load_count: Arc<AtomicU64>,
+    /// Cold stored-values load tasks not yet finished: decremented after the
+    /// task has dropped every sender, so at 0 the watch channels hold no
+    /// sent value (#2427 test sync).
+    #[cfg(test)]
+    test_stored_value_load_tasks: Arc<AtomicUsize>,
     #[cfg(test)]
     test_stored_value_load_pause_before_publish: Arc<std::sync::atomic::AtomicBool>,
     #[cfg(test)]
@@ -11490,10 +12837,14 @@ pub struct Index {
     flush_sema: Arc<tokio::sync::Semaphore>,
 
     /// Milliseconds a shard flush may wait for `flush_sema` or the
-    /// process-global finalize gate before failing. The wait is before the
+    /// data-dir finalize gate before failing. The wait is before the
     /// memtable freeze (#1635). Production sets this once from
     /// `engine.flush_admit_timeout_secs`; tests shrink it.
     flush_admit_timeout_ms: AtomicU64,
+    /// The finalize gate of this index's data dir (#3324,
+    /// [`crate::flush_finalize_gate_for`]): shared by every index of one
+    /// engine, separate from other engines in the same process.
+    finalize_gate: Arc<tokio::sync::Semaphore>,
     /// Milliseconds `flush` / `refresh` waits for one index before returning
     /// an error that names the index. The publish coordinator is detached,
     /// not aborted (#1015, #1635).
@@ -11623,6 +12974,10 @@ pub struct Index {
     /// Cold segments answered by row-selective hydration (observability and
     /// tests).
     cold_row_hydrations: AtomicU64,
+    /// #3018: hybrid requests whose deferred page could not be hydrated as
+    /// the version the legs scored (a concurrent write or merge), and were
+    /// answered by the undeferred pass instead.
+    hybrid_deferred_hand_backs: AtomicU64,
     /// Per-(segment, field, bounds) Range pre-filter position sets.
     /// `build_range_prefilter_cached` was cached in name only — it re-ran
     /// the O(matches) `range_doc_ids` walk + HashSet build per query per
@@ -11672,7 +13027,7 @@ pub struct Index {
     /// publishes the immutable parsed section to every concurrent vector
     /// query; the detached producer survives cancellation of any requester.
     stored_value_loads:
-        Arc<dashmap::DashMap<String, tokio::sync::watch::Sender<Option<Resident<Vec<Value>>>>>>,
+        Arc<dashmap::DashMap<String, tokio::sync::watch::Sender<Option<StoredValuesLoad>>>>,
     /// Bounds simultaneous whole-segment decompression/parsing across distinct
     /// cold segments. Per-segment single-flight removes duplicate work; this
     /// bound prevents a many-segment cold storm from multiplying peak memory.
@@ -11762,6 +13117,14 @@ pub struct Index {
     /// served.  Only ever consulted while `deletes_present` is true;
     /// bounded by wholesale clear (see `ghost_positions_for`).
     ghost_positions_cache: Arc<dashmap::DashMap<String, (u64, Arc<Vec<u64>>)>>,
+    /// [#3467] Live-row doc-values views of segments with resident ghosts
+    /// (#3444), keyed `"<segment_id>\u{1}<column names>"`; each entry holds
+    /// the ghost bitmap it was built from and is served only while the
+    /// segment's current bitmap is identical (see
+    /// `fast_aggs::cached_live_row_view`). Charged to the hydration budget as
+    /// doc values, evicted by segment-id prefix when a merge retires the
+    /// segment, bounded by wholesale clear at `LIVE_VIEW_CACHE_MAX` keys.
+    dv_live_view_cache: Arc<dashmap::DashMap<String, fast_aggs::LiveViewEntry>>,
     /// Regexp term-dictionary expansion cache — keyed by
     /// `(segment_id, field, pattern)`, holds the exact union doc count
     /// plus the first `REGEXP_EXPANSION_POS_CAP` matching doc positions
@@ -11882,6 +13245,11 @@ pub struct Index {
     /// cross the memory watermark (#1122). The debounced check retries;
     /// a pass that merges everything leaves this false.
     merge_batches_deferred: std::sync::atomic::AtomicBool,
+    /// Batches of the pass that just finished that stopped under memory
+    /// pressure (#2427 yield, or the #2917 forced-merge limit). Read by
+    /// `force_merge`, which retries and then reports a 429 instead of
+    /// looping on a batch that cannot fit.
+    merge_last_pass_yields: std::sync::atomic::AtomicUsize,
 }
 
 /// Keeps one index's schema unavailable to statistics until dropped.
@@ -12157,6 +13525,8 @@ impl Index {
             name,
             schema: Arc::new(RwLock::new(managed)),
             date_detection: AtomicBool::new(true),
+            es_dynamic: std::sync::atomic::AtomicU8::new(0),
+            es_coverage: std::sync::RwLock::new(Arc::default()),
             has_date_fields: AtomicBool::new(has_dates),
             date_format_exclusions: std::sync::RwLock::new(Arc::new(Default::default())),
             store,
@@ -12184,6 +13554,10 @@ impl Index {
             test_hold_merge_encode: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             test_merge_encode_held: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_forced_yield_passes: Arc::new(AtomicUsize::new(0)),
+            #[cfg(test)]
+            test_forced_yield_every_batch: Arc::new(AtomicBool::new(false)),
             #[cfg(any(test, feature = "refresh-test-hook"))]
             test_pause_refresh: Arc::new(AtomicBool::new(false)),
             #[cfg(any(test, feature = "refresh-test-hook"))]
@@ -12240,7 +13614,11 @@ impl Index {
             #[cfg(test)]
             test_stored_value_load_delay_ms: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
+            test_read_admission: Arc::new(parking_lot::Mutex::new(None)),
+            #[cfg(test)]
             test_stored_value_load_count: Arc::new(AtomicU64::new(0)),
+            #[cfg(test)]
+            test_stored_value_load_tasks: Arc::new(AtomicUsize::new(0)),
             #[cfg(test)]
             test_stored_value_load_pause_before_publish: Arc::new(
                 std::sync::atomic::AtomicBool::new(false),
@@ -12267,6 +13645,7 @@ impl Index {
             hnsw_field: Arc::new(std::sync::RwLock::new(None)),
             passage_chunk_fields: Arc::new(std::sync::RwLock::new(passage_chunk_fields_init)),
             hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            knn_exact_scan_max_bytes: AtomicU64::new(knn_exact_scan_max_bytes_default()),
             hnsw_rebuilding: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             hnsw_rebuild_task: Arc::new(parking_lot::Mutex::new(None)),
             sq8_stores: Arc::new(parking_lot::RwLock::new(HashMap::new())),
@@ -12282,6 +13661,7 @@ impl Index {
                 config.engine.ingest_shards.max(4),
             )),
             flush_admit_timeout_ms: AtomicU64::new(flush_admit_ms),
+            finalize_gate: crate::flush_finalize_gate_for(data_dir),
             flush_timeout_ms: AtomicU64::new(flush_budget_ms),
             merge_in_progress: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_config: config.merge.clone(),
@@ -12311,6 +13691,7 @@ impl Index {
             vector_column_cache: Arc::new(per_index_map()),
             shortcut_count_cache: Arc::new(per_index_map()),
             ghost_positions_cache: Arc::new(per_index_map()),
+            dv_live_view_cache: Arc::new(per_index_map()),
             regexp_expand_cache: Arc::new(per_index_map()),
             fast_date_cache: Arc::new(per_index_map()),
             fast_date_sorted_cache: Arc::new(per_index_map()),
@@ -12327,6 +13708,7 @@ impl Index {
             merge_evaluations: AtomicU64::new(0),
             merge_fts_reanalysed_docs: Arc::new(AtomicU64::new(0)),
             merge_batches_deferred: std::sync::atomic::AtomicBool::new(false),
+            merge_last_pass_yields: std::sync::atomic::AtomicUsize::new(0),
             schema_persist_failures: AtomicU64::new(0),
             self_ref: std::sync::OnceLock::new(),
             cold_stored_warms: dashmap::DashMap::new(),
@@ -12337,6 +13719,7 @@ impl Index {
             cold_stored_warm_live: std::sync::atomic::AtomicUsize::new(0),
             cold_stored_warms_skipped: AtomicU64::new(0),
             cold_row_hydrations: AtomicU64::new(0),
+            hybrid_deferred_hand_backs: AtomicU64::new(0),
         });
         let _ = index.self_ref.set(Arc::downgrade(&index));
         // #871 — event-driven merge scheduling: the store fires this hook on
@@ -12359,6 +13742,11 @@ impl Index {
         for field in index.ensure_sq8_stores_from_schema(&managed_schema_for_sq8) {
             index.spawn_sq8_walk(&field);
         }
+        // #3513: the memtable's doc-values cells of a normalized keyword field
+        // hold the normalized value from the first write.
+        index.memtable.set_keyword_normalizers(
+            xerj_common::normalizer::KeywordNormalizers::from_schema(&managed_schema_for_sq8),
+        );
         Ok(index)
     }
 
@@ -12467,6 +13855,10 @@ impl Index {
                 Arc::clone(&registry),
                 config.engine.ingest_shards,
             );
+            // #3513: replayed documents get normalized doc-values cells too.
+            mem.set_keyword_normalizers(xerj_common::normalizer::KeywordNormalizers::from_schema(
+                &schema.schema,
+            ));
             let wal_dir = store.wal_dir();
             // Must use the sharded-aware discovery: with the 16-shard WAL
             // layout the entries live in wal/s{N}/, and a reader on the
@@ -12638,6 +14030,8 @@ impl Index {
             name,
             schema: Arc::new(RwLock::new(schema)),
             date_detection: AtomicBool::new(true),
+            es_dynamic: std::sync::atomic::AtomicU8::new(0),
+            es_coverage: std::sync::RwLock::new(Arc::default()),
             has_date_fields: AtomicBool::new(has_dates),
             date_format_exclusions: std::sync::RwLock::new(Arc::new(Default::default())),
             max_concurrent_queries: Arc::new(Semaphore::new(64)),
@@ -12662,7 +14056,11 @@ impl Index {
             #[cfg(test)]
             test_stored_value_load_delay_ms: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
+            test_read_admission: Arc::new(parking_lot::Mutex::new(None)),
+            #[cfg(test)]
             test_stored_value_load_count: Arc::new(AtomicU64::new(0)),
+            #[cfg(test)]
+            test_stored_value_load_tasks: Arc::new(AtomicUsize::new(0)),
             #[cfg(test)]
             test_stored_value_load_pause_before_publish: Arc::new(
                 std::sync::atomic::AtomicBool::new(false),
@@ -12696,6 +14094,10 @@ impl Index {
             test_hold_merge_encode: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             test_merge_encode_held: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_forced_yield_passes: Arc::new(AtomicUsize::new(0)),
+            #[cfg(test)]
+            test_forced_yield_every_batch: Arc::new(AtomicBool::new(false)),
             #[cfg(any(test, feature = "refresh-test-hook"))]
             test_pause_refresh: Arc::new(AtomicBool::new(false)),
             #[cfg(any(test, feature = "refresh-test-hook"))]
@@ -12748,6 +14150,7 @@ impl Index {
             hnsw_field: Arc::new(std::sync::RwLock::new(hnsw_field_init)),
             passage_chunk_fields: Arc::new(std::sync::RwLock::new(passage_chunk_fields_init)),
             hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(hnsw_stale_init)),
+            knn_exact_scan_max_bytes: AtomicU64::new(knn_exact_scan_max_bytes_default()),
             hnsw_rebuilding: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             hnsw_rebuild_task: Arc::new(parking_lot::Mutex::new(None)),
             sq8_stores: Arc::new(parking_lot::RwLock::new(HashMap::new())),
@@ -12763,6 +14166,7 @@ impl Index {
                 config.engine.ingest_shards.max(4),
             )),
             flush_admit_timeout_ms: AtomicU64::new(flush_admit_ms),
+            finalize_gate: crate::flush_finalize_gate_for(data_dir),
             flush_timeout_ms: AtomicU64::new(flush_budget_ms),
             merge_in_progress: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_config: config.merge.clone(),
@@ -12792,6 +14196,7 @@ impl Index {
             vector_column_cache: Arc::new(per_index_map()),
             shortcut_count_cache: Arc::new(per_index_map()),
             ghost_positions_cache: Arc::new(per_index_map()),
+            dv_live_view_cache: Arc::new(per_index_map()),
             regexp_expand_cache: Arc::new(per_index_map()),
             fast_date_cache: Arc::new(per_index_map()),
             fast_date_sorted_cache: Arc::new(per_index_map()),
@@ -12808,6 +14213,7 @@ impl Index {
             merge_evaluations: AtomicU64::new(0),
             merge_fts_reanalysed_docs: Arc::new(AtomicU64::new(0)),
             merge_batches_deferred: std::sync::atomic::AtomicBool::new(false),
+            merge_last_pass_yields: std::sync::atomic::AtomicUsize::new(0),
             schema_persist_failures: AtomicU64::new(0),
             self_ref: std::sync::OnceLock::new(),
             cold_stored_warms: dashmap::DashMap::new(),
@@ -12818,6 +14224,7 @@ impl Index {
             cold_stored_warm_live: std::sync::atomic::AtomicUsize::new(0),
             cold_stored_warms_skipped: AtomicU64::new(0),
             cold_row_hydrations: AtomicU64::new(0),
+            hybrid_deferred_hand_backs: AtomicU64::new(0),
         });
         let _ = index.self_ref.set(Arc::downgrade(&index));
         // #871 — event-driven merge scheduling (see `Index::create` and
@@ -13495,19 +14902,27 @@ impl Index {
             None
         };
 
+        // #3324 — WAL write before the publication bracket, version map
+        // inside it; see `index_batch_turbo_raw`.
+        if self.collection_publication.state().2 {
+            return Err(collection_publication_interrupted());
+        }
+        let wal_t = std::time::Instant::now();
+        let seq_nos = self.store.wal_write_batch(&wal_refs)?;
+        let wal_elapsed = wal_t.elapsed();
         let mut collection_publication = self
             .collection_publication
             .begin()
             .map_err(|_| collection_publication_interrupted())?;
-        let wal_t = std::time::Instant::now();
-        let seq_nos = self.store.wal_append_batch(&wal_refs)?;
+        self.store
+            .publish_batch_versions(wal_refs.iter().map(|(id, _)| id.as_str()), &seq_nos);
         #[cfg(test)]
         if let Some(first) = processed.first() {
             self.publication_test_point(&first.id, PublicationTestPoint::TurboAfterWalVersionMap);
         }
         // RC4 W4 item 2: WAL durability-write latency.
         if let Some(m) = crate::engine_metrics() {
-            m.observe_wal_write(wal_t.elapsed().as_secs_f64());
+            m.observe_wal_write(wal_elapsed.as_secs_f64());
         }
         let t3_dur = t3.elapsed();
 
@@ -13620,7 +15035,7 @@ impl Index {
         {
             let schema_guard = self.schema.read().await;
             let is_dynamic = matches!(
-                schema_guard.dynamic,
+                self.dynamic_mode(&schema_guard),
                 xerj_common::schema::DynamicMapping::Dynamic
             );
             // Fast-path: for a stable, non-dynamic schema we can skip
@@ -14001,10 +15416,16 @@ impl Index {
             tokio::task::yield_now().await;
         }
 
-        let mut collection_publication = self
-            .collection_publication
-            .begin()
-            .map_err(|_| collection_publication_interrupted())?;
+        // #3324 — the WAL write runs BEFORE the publication bracket opens.
+        // It has no reader-visible effect, but it takes the WAL shard lock,
+        // which WAL maintenance and a strict-mode fsync hold across disk
+        // waits; inside the bracket every search on this index waited on
+        // that disk too. The version map and the memtable, which readers
+        // do see, are still published together inside the bracket.
+        // A poisoned index refuses the batch before it reaches the WAL.
+        if self.collection_publication.state().2 {
+            return Err(collection_publication_interrupted());
+        }
         let wal_t = std::time::Instant::now();
         let (docs, sources, seq_nos) = if has_copy_to {
             let (docs, _) = validated.into_parts();
@@ -14015,10 +15436,10 @@ impl Index {
                 .zip(&sources)
                 .map(|((id, _), source)| (id.clone(), Arc::clone(source)))
                 .collect();
-            let seq_nos = self.store.wal_append_batch(&wal_docs)?;
+            let seq_nos = self.store.wal_write_batch(&wal_docs)?;
             (docs, sources, seq_nos)
         } else {
-            let seq_nos = self.store.wal_append_batch_raw(&validated)?;
+            let seq_nos = self.store.wal_write_batch_raw(&validated)?;
             let (docs, parsed) = validated.into_parts();
             (
                 docs,
@@ -14026,6 +15447,13 @@ impl Index {
                 seq_nos,
             )
         };
+        let wal_elapsed = wal_t.elapsed();
+        let mut collection_publication = self
+            .collection_publication
+            .begin()
+            .map_err(|_| collection_publication_interrupted())?;
+        self.store
+            .publish_batch_versions(docs.iter().map(|(id, _)| id.as_str()), &seq_nos);
         #[cfg(test)]
         if let Some((doc, _)) = docs.first() {
             self.publication_test_point(doc, PublicationTestPoint::RawAfterWalVersionMap);
@@ -14033,7 +15461,7 @@ impl Index {
         }
         // RC4 W4 item 2: WAL durability-write latency.
         if let Some(m) = crate::engine_metrics() {
-            m.observe_wal_write(wal_t.elapsed().as_secs_f64());
+            m.observe_wal_write(wal_elapsed.as_secs_f64());
         }
         if prof {
             p_wal_us = p_t.elapsed().as_micros();
@@ -14348,11 +15776,17 @@ impl Index {
             if let Some((id, _)) = raw_docs.first() {
                 self.sync_prepublication_test_point(id)?;
             }
+            // #3324 — WAL write before the bracket; see `index_batch_turbo_raw`.
+            if self.collection_publication.state().2 {
+                return Err(collection_publication_interrupted());
+            }
+            let seq_nos = self.store.wal_write_batch(&wal_docs)?;
             let collection_publication = self
                 .collection_publication
                 .begin()
                 .map_err(|_| collection_publication_interrupted())?;
-            let seq_nos = self.store.wal_append_batch(&wal_docs)?;
+            self.store
+                .publish_batch_versions(wal_docs.iter().map(|(id, _)| id.as_str()), &seq_nos);
             let docs = raw_docs
                 .into_iter()
                 .zip(transformed)
@@ -14378,11 +15812,18 @@ impl Index {
             if let Some((id, _)) = validated.docs().first() {
                 self.sync_prepublication_test_point(id)?;
             }
+            if self.collection_publication.state().2 {
+                return Err(collection_publication_interrupted());
+            }
+            let seq_nos = self.store.wal_write_batch_raw(&validated)?;
             let collection_publication = self
                 .collection_publication
                 .begin()
                 .map_err(|_| collection_publication_interrupted())?;
-            let seq_nos = self.store.wal_append_batch_raw(&validated)?;
+            self.store.publish_batch_versions(
+                validated.docs().iter().map(|(id, _)| id.as_str()),
+                &seq_nos,
+            );
             let (raw_docs, parsed) = validated.into_parts();
             let parsed = parsed.expect("parse_validated_raw_batch retains parsed values");
             let docs = raw_docs
@@ -14396,11 +15837,18 @@ impl Index {
             if let Some((id, _)) = validated.docs().first() {
                 self.sync_prepublication_test_point(id)?;
             }
+            if self.collection_publication.state().2 {
+                return Err(collection_publication_interrupted());
+            }
+            let seq_nos = self.store.wal_write_batch_raw(&validated)?;
             let collection_publication = self
                 .collection_publication
                 .begin()
                 .map_err(|_| collection_publication_interrupted())?;
-            let seq_nos = self.store.wal_append_batch_raw(&validated)?;
+            self.store.publish_batch_versions(
+                validated.docs().iter().map(|(id, _)| id.as_str()),
+                &seq_nos,
+            );
             let (docs, parsed) = validated.into_parts();
             let docs = match parsed {
                 Some(parsed) => docs
@@ -14570,6 +16018,7 @@ impl Index {
         let index_name = self.name.as_str().to_string();
         let admit_timeout =
             std::time::Duration::from_millis(self.flush_admit_timeout_ms.load(Ordering::Relaxed));
+        let finalize_gate = Arc::clone(&self.finalize_gate);
         rt.spawn(async move {
             let on_drained = move || {
                 if let Ok(mut guard) = permit_cell_cb.lock() {
@@ -14592,6 +16041,7 @@ impl Index {
                 warm_caches,
                 index_name,
                 admit_timeout,
+                finalize_gate,
                 #[cfg(test)]
                 None,
             )
@@ -14827,6 +16277,16 @@ impl Index {
         }
     }
 
+    /// The analyzer a document-scan `match_phrase` uses for text fields
+    /// (#3285): the segment text analyzer when it is not `standard`, else
+    /// `None` (the standard walk).
+    fn scan_phrase_analyzer(&self) -> Option<Arc<AnalyzerPipeline>> {
+        match self.segment_text_analyzer() {
+            "standard" => None,
+            name => self.registry.get_analyzer(name),
+        }
+    }
+
     /// How the segment FTS query projection analyses text clauses (#937) —
     /// the same term space [`Self::segment_text_analyzer`] writes.
     fn segment_analyzer_binding(&self) -> SegmentAnalyzerBinding<'_> {
@@ -14925,31 +16385,45 @@ impl Index {
             self.flush_sema.acquire(),
         )
         .await?;
-        // M5.2 — explicit refresh drains EVERY non-empty shard in
-        // sequence (one shard per `do_flush_shard` call) so the
-        // user-visible `refresh()` returns with zero unflushed
-        // documents.  Sharded flushes run serially here because the
-        // caller is waiting synchronously; the background scheduler
-        // still fires shard flushes in parallel.
+        // M5.2 — explicit refresh drains EVERY non-empty shard (one
+        // segment per `do_flush_shard` call) so the user-visible
+        // `refresh()` returns with zero unflushed documents.
+        //
+        // #2929 — the shards drain CONCURRENTLY, as `flush()` already does
+        // (M5.15); the data-dir finalize gate still bounds how many
+        // build at once, and #2427's working-set reservation still charges
+        // each build before its freeze. Bulk routes every document to its
+        // own shard, so a 5-document catalog bulk lands on 5 shards and its
+        // refresh publishes 5 segments of ~117 files each (a set per field),
+        // every file fsynced and renamed. One shard at a time, that held
+        // autoindex's `finalize-catalog-commit` for ~35 s on Windows, where
+        // each file is a FlushFileBuffers plus a write-through MoveFileExW.
+        // With 10 ms injected per fsync on Linux the same 3-file run's
+        // commit took 1.75 s serially and 0.5 s concurrently.
         let n_shards = self.memtable.shard_count();
+        let mut shard_tasks = Vec::new();
+        let mut out_of_budget = false;
         for shard_idx in 0..n_shards {
             // #1226 — skip empty shards (same reasoning as `flush()`): a
-            // no-op shard finalize still acquires the process-global
+            // no-op shard finalize still acquires the data-dir
             // `flush_finalize_gate`, so an empty shard would make this
-            // serial refresh wait behind unrelated indices' ingest flushes
-            // for nothing. Bound the work to the shards actually holding
+            // refresh wait behind unrelated indices' ingest flushes for
+            // nothing. Bound the work to the shards actually holding
             // documents.
             if self.memtable.shard_load(shard_idx).0 == 0 {
                 continue;
             }
-            let left = deadline.saturating_duration_since(std::time::Instant::now());
-            if left.is_zero() {
-                return Err(flush_budget_timeout_error(&index_name, flush_timeout));
+            if deadline
+                .saturating_duration_since(std::time::Instant::now())
+                .is_zero()
+            {
+                out_of_budget = true;
+                break;
             }
             // Spawn so a timeout detaches the shard task instead of
             // cancelling a publication that has already frozen the
             // memtable (#1015). The success path still waits for it.
-            let task = tokio::spawn(do_flush_shard(
+            let flush = do_flush_shard(
                 shard_idx,
                 Arc::clone(&self.store),
                 Arc::clone(&self.memtable),
@@ -14959,15 +16433,38 @@ impl Index {
                 field_configs.clone(),
                 excluded_fts_fields.clone(),
                 dv_skip.clone(),
-                || {}, // serial refresh path — no permit to drop early
+                || {}, // refresh holds its permit — none to drop early
                 self.publish_warm_caches(),
                 index_name.clone(),
                 admit_timeout,
+                Arc::clone(&self.finalize_gate),
                 #[cfg(test)]
                 None,
-            ));
-            await_flush_task(&index_name, left, task).await?;
+            );
+            #[cfg(not(test))]
+            shard_tasks.push(tokio::spawn(flush));
+            #[cfg(test)]
+            {
+                let probe_index = index_name.clone();
+                shard_tasks.push(tokio::spawn(async move {
+                    let _in_flight = FlushShardProbe::enter(&probe_index).await;
+                    flush.await
+                }));
+            }
         }
+        let mut result: Result<()> = if out_of_budget {
+            Err(flush_budget_timeout_error(&index_name, flush_timeout))
+        } else {
+            Ok(())
+        };
+        for task in shard_tasks {
+            let left = deadline.saturating_duration_since(std::time::Instant::now());
+            let joined = await_flush_task(&index_name, left, task).await;
+            if result.is_ok() {
+                result = joined;
+            }
+        }
+        result?;
 
         // Update the doc counter so maybe_auto_flush uses a fresh baseline.
         self.last_flush_doc_count
@@ -15082,6 +16579,7 @@ impl Index {
             let admit_timeout = std::time::Duration::from_millis(
                 self.flush_admit_timeout_ms.load(Ordering::Relaxed),
             );
+            let finalize_gate = Arc::clone(&self.finalize_gate);
             tokio::spawn(async move {
                 // Release permit after drain (Phase 1), not after Phase 2
                 // I/O — lets new flushes dispatch while segment writes
@@ -15109,6 +16607,7 @@ impl Index {
                     warm_caches,
                     index_name,
                     admit_timeout,
+                    finalize_gate,
                     #[cfg(test)]
                     None,
                 )
@@ -15235,7 +16734,34 @@ impl Index {
     /// memtable has been flushed, segments are merged to the target, and
     /// the size-tiered background policy selects no further work until
     /// new writes arrive.
+    ///
+    /// Memory (#2917): a forced batch is no longer exempt from the cap. It
+    /// waits out an engaged breaker before it starts, stops (inputs kept)
+    /// when RSS reaches the process limit, and its output write is refused
+    /// when it would end past the watermark. After a pass that stopped a
+    /// batch the next pass runs once the breaker releases. Only
+    /// [`FORCE_MERGE_MEMORY_RETRIES`] such passes IN A ROW that merged
+    /// nothing are retried: a pass that merged any batch restarts the count.
+    /// A pass that cannot start for `force_merge_memory_wait()` is given up.
+    /// Either way this returns a `circuit_breaking_exception` (429) and the
+    /// index keeps every input segment.
+    ///
+    /// A dropped HTTP client does not cancel the merge: like Elasticsearch,
+    /// whose force-merge task is not cancellable, the work continues. The
+    /// HTTP handler runs this on its own task so a disconnect cannot drop
+    /// it half way (see `es_compat::forcemerge`).
     pub async fn force_merge(&self, max_num_segments: usize) -> Result<usize> {
+        self.force_merge_with_memory_wait(max_num_segments, force_merge_memory_wait())
+            .await
+    }
+
+    /// [`Self::force_merge`] with an explicit bound on how long a pass may
+    /// wait for memory headroom without merging anything (#2917).
+    pub async fn force_merge_with_memory_wait(
+        &self,
+        max_num_segments: usize,
+        memory_wait: std::time::Duration,
+    ) -> Result<usize> {
         use std::sync::atomic::Ordering as AtomicOrdering;
 
         let target = max_num_segments.max(1);
@@ -15262,19 +16788,57 @@ impl Index {
 
         let merge_start = std::time::Instant::now();
         let mut total = 0usize;
+        let mut memory_stops = 0usize;
+        let mut waiting_since: Option<std::time::Instant> = None;
         loop {
             let n = self.merge_pass_locked(Some(target)).await?;
             total += n;
             let seg_count = self.store.snapshot().segments.len();
-            // A small budget deferred every remaining batch. Waiting is
-            // not "already at `target`": the inputs are still there.
-            // The request timeout bounds the wait.
+            if n > 0 {
+                waiting_since = None;
+            }
+            // #2917: a batch stopped at the process limit. Wait for the
+            // breaker's drain and retry; past the retries, report it.
+            //
+            // The retries count CONSECUTIVE passes that merged nothing. A
+            // pass that stopped one batch but merged others made progress:
+            // on a large index every pass can narrow one batch at the limit
+            // while the rest converge, and counting those passes turned a
+            // forcemerge that was getting there into a 429 on its third
+            // pass, inputs kept.
+            if self.merge_last_pass_yields.load(AtomicOrdering::Relaxed) > 0 && seg_count > target {
+                memory_stops = force_merge_memory_stops_after_pass(memory_stops, n);
+                if memory_stops > FORCE_MERGE_MEMORY_RETRIES {
+                    return Err(force_merge_memory_refusal(
+                        self.name.as_str(),
+                        seg_count,
+                        target,
+                        "a merge batch stopped at the process memory limit",
+                        memory_stops,
+                    ));
+                }
+                wait_for_breaker_release(memory_wait).await;
+                continue;
+            }
+            // A small budget, or an engaged breaker (#2917), deferred every
+            // remaining batch. Waiting is not "already at `target`": the
+            // inputs are still there. Bounded by `memory_wait`.
             if n == 0
                 && seg_count > target
                 && self
                     .merge_batches_deferred
                     .load(std::sync::atomic::Ordering::Relaxed)
             {
+                let since = *waiting_since.get_or_insert_with(std::time::Instant::now);
+                if since.elapsed() >= memory_wait {
+                    return Err(force_merge_memory_refusal(
+                        self.name.as_str(),
+                        seg_count,
+                        target,
+                        "no merge batch could start inside the memory budget",
+                        memory_stops,
+                    ));
+                }
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 continue;
             }
@@ -15390,6 +16954,8 @@ impl Index {
         self.merge_evaluations.fetch_add(1, AtomicOrdering::Relaxed);
         self.merge_batches_deferred
             .store(false, AtomicOrdering::Relaxed);
+        self.merge_last_pass_yields
+            .store(0, AtomicOrdering::Relaxed);
 
         // V4 M4.5 — larger merge batches so a bursty-ingest index with
         // thousands of small segments converges in far fewer passes.
@@ -15489,11 +17055,17 @@ impl Index {
                 // filename is stored under a SHA-256 digest. Enumerating a
                 // source segment's fields needs the names back, and the
                 // mapping is where they live.
+                // #3464: and the object leaf paths, which have side-cars too.
                 schema
                     .schema
                     .fields
                     .iter()
                     .map(|field| field.name.clone())
+                    .chain(
+                        crate::memtable::fts_object_leaf_paths(&schema.schema)
+                            .into_iter()
+                            .map(|(path, _)| path),
+                    )
                     .collect::<Vec<String>>(),
             )
         };
@@ -15693,6 +17265,21 @@ impl Index {
         };
         let mut governor_deferred = 0usize;
 
+        #[cfg(test)]
+        let test_yield_pass = forced_merge
+            && self
+                .test_forced_yield_passes
+                .fetch_update(AtomicOrdering::AcqRel, AtomicOrdering::Acquire, |left| {
+                    left.checked_sub(1)
+                })
+                .is_ok();
+        #[cfg(test)]
+        let test_yield_every = self
+            .test_forced_yield_every_batch
+            .load(AtomicOrdering::Acquire);
+        #[cfg(test)]
+        let test_yield_first = Arc::new(AtomicBool::new(test_yield_pass));
+
         let spawn_one = |batch: Vec<xerj_storage::segment::SegmentId>,
                          metas: Vec<xerj_storage::segment::SegmentMeta>,
                          reservation: Option<crate::governor::MergeReservation>|
@@ -15705,10 +17292,14 @@ impl Index {
             // with the same rule the flush path uses.
             let text_analyzer_for_task = self.segment_text_analyzer();
             let excluded_fts_fields_for_task = excluded_fts_fields.clone();
+            let object_paths_for_task = fts_object_path_keys(&field_configs);
             let mapped_field_names_for_task = mapped_field_names.clone();
             let reanalysed_docs_for_task = Arc::clone(&self.merge_fts_reanalysed_docs);
             let segments_dir_for_task = segments_dir.clone();
             let dv_skip_for_merge = dv_skip.clone();
+            // #3513: the merge re-normalizes what it rebuilds from `_source`
+            // (terms and doc-values columns), as the flush did.
+            let normalizers_for_merge = self.memtable.keyword_normalizers();
             // #318 — the operator's `compression.level`, resolved once per
             // merge task. Merge is the only writer that honours it: it runs
             // on the nice-+15 SMALL pool, off the ingest critical path, which
@@ -15733,12 +17324,34 @@ impl Index {
             // Checked at each input segment, every 8192 surviving docs, and
             // before the output segment is created — never after, so a
             // yielded batch leaves no partial output behind.
+            #[cfg(test)]
+            let test_yield_first_for_task = Arc::clone(&test_yield_first);
             let must_yield = move || -> bool {
+                #[cfg(test)]
+                if test_yield_pass
+                    && (test_yield_every || test_yield_first_for_task.swap(false, Ordering::AcqRel))
+                {
+                    return true;
+                }
                 let Some(governor) = crate::governor::global() else {
                     return false;
                 };
                 if !governor.merge_must_yield_for(forced_for_task, input_bytes_for_task) {
                     return false;
+                }
+                if forced_for_task {
+                    // #2917: a forcemerge batch stops at the process limit
+                    // instead of growing past it.
+                    let cap = governor.note_forced_merge_yield(input_bytes_for_task);
+                    tracing::warn!(
+                        input_mb = input_bytes_for_task / (1024 * 1024),
+                        rss_mb = governor.observed_rss_bytes() / (1024 * 1024),
+                        limit_mb = governor.process_memory_limit_bytes() / (1024 * 1024),
+                        next_batch_cap_mb = cap / (1024 * 1024),
+                        "forcemerge batch stopped: RSS reached the process memory limit; \
+                         inputs kept, later batches narrowed"
+                    );
+                    return true;
                 }
                 let cap = governor.note_merge_yield(input_bytes_for_task);
                 tracing::warn!(
@@ -15781,7 +17394,11 @@ impl Index {
                 ) {
                     return true;
                 }
-                let cap = governor.note_merge_yield(input_bytes_for_task);
+                let cap = if forced_for_task {
+                    governor.note_forced_merge_yield(input_bytes_for_task)
+                } else {
+                    governor.note_merge_yield(input_bytes_for_task)
+                };
                 tracing::warn!(
                     input_mb = input_bytes_for_task / (1024 * 1024),
                     write_mb = extra / (1024 * 1024),
@@ -16131,6 +17748,29 @@ impl Index {
                                 return None;
                             }
                         };
+                        // #2917: a forcemerge batch stops before an input
+                        // decode that would take RSS to the process limit.
+                        // The decode is one call, so the checkpoints around
+                        // it cannot catch its peak.
+                        if forced_for_task {
+                            let decoded_bound = stored_slices_bound(stored_bytes_raw, meta.doc_count);
+                            if let Some(governor) = crate::governor::global() {
+                                if governor.forced_merge_decode_must_yield(decoded_bound) {
+                                    let cap = governor.note_forced_merge_yield(input_bytes_for_task);
+                                    tracing::warn!(
+                                        input_mb = input_bytes_for_task / (1024 * 1024),
+                                        decode_mb = decoded_bound / (1024 * 1024),
+                                        rss_mb = governor.observed_rss_bytes() / (1024 * 1024),
+                                        limit_mb = governor.process_memory_limit_bytes() / (1024 * 1024),
+                                        next_batch_cap_mb = cap / (1024 * 1024),
+                                        "forcemerge batch stopped before an input decode that would \
+                                         reach the process memory limit; inputs kept"
+                                    );
+                                    yielded_for_task.fetch_add(1, Ordering::Relaxed);
+                                    return None;
+                                }
+                            }
+                        }
                         let stored_bytes =
                             // #1122/#2433: keep stripped semantic vectors
                                 // stripped (the merged encode would only
@@ -16171,7 +17811,12 @@ impl Index {
                         //
                         // Bonus: serde_json takes `&[u8]` immutably so we don't
                         // need the `.to_vec()` the simd_json path required.
-                        let raw_docs: Vec<Box<RawValue>> =
+                        //
+                        // #2917: borrowed `&RawValue`s, not `Box<RawValue>`.
+                        // A box copied every document, so each input was held
+                        // twice (decoded bytes + one copy per row) for its whole
+                        // survivor scan; the scan only reads the text.
+                        let raw_docs: Vec<&RawValue> =
                             match serde_json::from_slice(&stored_bytes) {
                                 Ok(d) => d,
                                 Err(e) => {
@@ -16283,6 +17928,30 @@ impl Index {
                     // duplicate copies were filtered by the version map).
                     survivors.sort_unstable_by_key(|(seq, _, _, _, _)| *seq);
 
+                    // #2917: size `merged_json_buf` once for every survivor
+                    // (`[`, the rows, the commas, `]`). Growing it by
+                    // doubling reallocated a 480 MB buffer to 960 MB during
+                    // the drain of a 723 MB vector batch, holding both while
+                    // the survivors were still live, and left a quarter of
+                    // the capacity unused for the whole encode.
+                    let merged_len = survivors
+                        .iter()
+                        .map(|(_, _, raw, _, _)| raw.len())
+                        .sum::<usize>()
+                        .saturating_add(survivors.len())
+                        .saturating_add(1);
+                    if let Err(error) = merged_json_buf
+                        .try_reserve_exact(merged_len.saturating_sub(merged_json_buf.len()))
+                    {
+                        tracing::error!(
+                            bytes = merged_len,
+                            "merge aborted: not enough memory to reserve the merged stored buffer; \
+                             input segments were preserved and the node stayed up: {error}"
+                        );
+                        failed_for_task.fetch_add(1, Ordering::Relaxed);
+                        return None;
+                    }
+
                     // Single sorted stream → all four outputs.  `into_iter`
                     // frees each raw String right after its bytes are copied
                     // into `merged_json_buf`, keeping peak memory ~1× stored.
@@ -16360,7 +18029,16 @@ impl Index {
                                 fts_input_bytes = fts_input_bytes
                                     .saturating_add(crate::ingest_memory::estimated_json_heap(source));
                             }
-                            extract_fts_fields_excluding(source, &excluded_fts_fields_for_task)
+                            let mut fields = extract_fts_fields_excluding(
+                                source,
+                                &excluded_fts_fields_for_task,
+                                &object_paths_for_task,
+                            );
+                            crate::memtable::normalize_fts_field_values(
+                                &mut fields,
+                                &normalizers_for_merge,
+                            );
+                            fields
                         };
                         if let Err(error) =
                             crate::merge_reserve::try_push_merge(&mut fts_input, (id_str, fields, ()))
@@ -16439,10 +18117,26 @@ impl Index {
                         let held = json_bytes
                             .saturating_add(fts_bytes)
                             .saturating_add(merge_reader_bytes);
-                        let extra = crate::merge_budget::merge_write_phase_bytes(
-                            json_bytes,
-                            write_fts_bytes,
-                        );
+                        // #2917: a forcemerge write charges its array/object
+                        // rows at the streamed encode's measured cost and is
+                        // checked against the hard line; a background write
+                        // keeps the #2427 rule.
+                        let extra = if forced_for_task {
+                            let row_text = xerj_storage::stored_codec::stored_json_row_text_bytes(
+                                &merged_json_buf,
+                            )
+                            .unwrap_or(0);
+                            crate::merge_budget::forced_merge_write_phase_bytes(
+                                json_bytes,
+                                row_text,
+                                write_fts_bytes,
+                            )
+                        } else {
+                            crate::merge_budget::merge_write_phase_bytes(
+                                json_bytes,
+                                write_fts_bytes,
+                            )
+                        };
                         if !admit_write(reservation_for_encode.as_mut(), held, extra) {
                             yielded_for_task.fetch_add(1, Ordering::Relaxed);
                             return None;
@@ -16458,7 +18152,12 @@ impl Index {
                     // copies of the batch at once, past the last yield point.
                     let dv_timer = std::time::Instant::now();
                     let dv_columns = match merge_doc_value_sources(&merged_json_buf) {
-                        Ok(sources) => Some(build_doc_value_columns(sources, &dv_skip_for_merge)),
+                        Ok(sources) => Some(build_doc_value_columns(
+                            sources.map(|src| {
+                                src.map(|v| normalizers_for_merge.normalized_top_level(&v).unwrap_or(v))
+                            }),
+                            &dv_skip_for_merge,
+                        )),
                         Err(e) => {
                             tracing::warn!(
                                 "merge: merged stored JSON did not re-parse for doc-values, \
@@ -16927,6 +18626,24 @@ impl Index {
                         self.test_merge_repoint_ready
                             .store(false, Ordering::Release);
                     }
+                    // #3351 — disarm the inputs' orphan recovery BEFORE the
+                    // bracket opens. It is a snapshot save plus a directory
+                    // fsync (three fsyncs) and changes nothing a reader sees;
+                    // inside the bracket it held every search on the index
+                    // for 0.6-1.4 s per merge under write load. A merge that
+                    // stops after this point leaves its inputs snapshot-listed
+                    // and readable, the same handled state as a failed apply.
+                    let disarmed_inputs = match self.store.disarm_merge_inputs(&batch_slice) {
+                        Ok(inputs) => inputs,
+                        Err(e) => {
+                            tracing::warn!("merge: apply_merge failed: {e:?}");
+                            failed_batches.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            self.shortcut_count_cache
+                                .retain(|(seg, _), _| seg != merged_meta.id.as_str());
+                            launch_next!();
+                            continue;
+                        }
+                    };
                     // Segment construction is private scratch work. Enter the
                     // collection epoch only for the short authoritative
                     // VersionMap + durable snapshot publication performed by
@@ -16974,21 +18691,21 @@ impl Index {
                         .swap(false, Ordering::AcqRel)
                     {
                         self.store.apply_merge_with_repoints_and_post_publish(
-                            &batch_slice,
+                            disarmed_inputs,
                             merged_meta.clone(),
                             version_repoints,
                             || panic!("injected panic after durable merge publication"),
                         )
                     } else {
                         self.store.apply_merge_with_repoints(
-                            &batch_slice,
+                            disarmed_inputs,
                             merged_meta.clone(),
                             version_repoints,
                         )
                     };
                     #[cfg(not(test))]
                     let apply_result = self.store.apply_merge_with_repoints(
-                        &batch_slice,
+                        disarmed_inputs,
                         merged_meta.clone(),
                         version_repoints,
                     );
@@ -17150,6 +18867,8 @@ impl Index {
             launch_next!();
         }
         let yielded = yielded_batches.load(AtomicOrdering::Relaxed);
+        self.merge_last_pass_yields
+            .store(yielded, AtomicOrdering::Relaxed);
         if yielded > 0 {
             self.merge_batches_deferred
                 .store(true, AtomicOrdering::Relaxed);
@@ -17392,6 +19111,19 @@ impl Index {
             }
             self.merge_check_armed.store(false, AtomicOrdering::SeqCst);
         }
+    }
+
+    /// Undo [`Self::abort_background_tasks`]'s merge stop for an index that
+    /// goes back into service: a delete that could not free the name puts
+    /// the handle back (#206, #3274), and it must keep merging. Arms one
+    /// check so work that arrived while scheduling was stopped is seen.
+    pub fn resume_merge_scheduling(self: &Arc<Self>) {
+        // The aborted check task can no longer disarm itself.
+        self.merge_check_armed
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        self.merge_scheduling_stopped
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        self.request_merge_check();
     }
 
     /// Stop this index's background merge scheduling permanently and abort
@@ -18772,6 +20504,9 @@ impl Index {
     ///   * `vector_doc_count >= HNSW_MIN_DOCS` — small vector sets (every
     ///     ES-YAML vector test is ≤ a few hundred docs) keep today's
     ///     byte-identical exact path;
+    ///   * the stored vectors exceed the exact-scan budget (#3006,
+    ///     [`knn_prefers_exact_scan`]): below it the exact scan is the faster
+    ///     executor and its recall is exact;
     ///   * coverage: `hnsw_id_map.len() == vector_doc_count` (item 8), i.e.
     ///     every doc that CARRIES the pinned vector field has a graph entry.
     ///     Docs lacking the field are not vector docs and belong in neither
@@ -18846,6 +20581,16 @@ impl Index {
         // brute — never to wrong results.
         let vector_doc_count = self.vector_doc_count.load(Ordering::Relaxed);
         if vector_doc_count < HNSW_MIN_DOCS {
+            return None;
+        }
+        // #3006: a small vector set is cheaper to scan exactly than to search
+        // through the graph and then hydrate every candidate for the rescore,
+        // and the exact scan's answer has exact recall.
+        if knn_prefers_exact_scan(
+            vector_doc_count,
+            query_vec.len(),
+            self.knn_exact_scan_max_bytes.load(Ordering::Relaxed),
+        ) {
             return None;
         }
         if self.hnsw_id_map.read().await.len() as u64 != vector_doc_count {
@@ -19403,6 +21148,8 @@ impl Index {
         let store = Arc::clone(&self.store);
         let load_segment_id = segment_id.to_string();
         let vector_field = field.to_string();
+        let admission = self.read_admission();
+        let hydration = Arc::clone(&admission.hydration);
         let built = Self::on_background_pool(move || {
             let _permit = permit;
             let reader = store.open_segment_arc(&load_segment_id).ok()?;
@@ -19428,6 +21175,20 @@ impl Index {
             {
                 return None;
             }
+            // #2427: reserve the column before copying the projection into
+            // it. A refusal (the parent breaker) answers `Unavailable`: the
+            // caller's stored-document load then meets the same breaker and
+            // reports the 429.
+            let dims = projection
+                .vectors
+                .iter()
+                .flatten()
+                .map(Vec::len)
+                .next()
+                .unwrap_or(0);
+            let read_permit = admission
+                .admit(vector_column_estimate(rows, dims), "vector_column")
+                .ok()?;
             let mut builder = ColumnBuilder::new(&vector_field, ColumnMode::BestPassage);
             for row in 0..rows {
                 builder.push_projected(
@@ -19440,24 +21201,26 @@ impl Index {
                         .and_then(|chunks| chunks[row].as_deref()),
                 );
             }
-            Some(Some(builder.finish()))
+            Some(Some((builder.finish(), read_permit)))
         })
         .await;
-        let column = match built {
-            Some(Some(column)) => column,
+        let (column, read_permit) = match built {
+            Some(Some(built)) => built,
             Some(None) => return ProjectedColumn::NoStoredSection,
             None => return ProjectedColumn::Unavailable,
         };
         let bytes = column
             .retained_bytes()
             .saturating_add(column_key.len() as u64);
-        ProjectedColumn::Built(self.publish_current(
+        ProjectedColumn::Built(self.publish_current_permitted(
             &self.vector_column_cache,
             segment_id,
             column_key,
             SegmentCacheCategory::VectorColumn,
             bytes,
             column,
+            &hydration,
+            read_permit,
         ))
     }
 
@@ -19835,6 +21598,203 @@ impl Index {
         out
     }
 
+    /// #3018: fill the `_source` of the hybrid page hits a deferred leg left
+    /// `Null`, reading only those documents.
+    ///
+    /// Each one is read as the version the leg scored. The leg recorded the
+    /// hit's `seq_no` from the version-map entry it checked the scored copy
+    /// against, and a `seq_no` names exactly one write of the document. So
+    /// the entry is read again here: when it is live and still carries that
+    /// `seq_no`, the segment it names holds that very write (segments are
+    /// immutable; a flush or merge repoints a document without changing its
+    /// `seq_no`), and its row there is the document the leg scored. The row
+    /// is read from the segment's cached offset index when it is resident —
+    /// one JSON parse per page hit, the FTS walk's warm read — and
+    /// row-selectively otherwise (the cold FTS page read, #2422/#2423).
+    ///
+    /// `None` hands the request back to the undeferred pass: a hit without a
+    /// `seq_no`, a document deleted or rewritten since it was scored, one
+    /// that now lives in the memtable, or a segment that can no longer be
+    /// read (a merge retired it). Hits that already carry a source (memtable
+    /// documents, stored-scan hits) are kept as they are.
+    fn hydrate_deferred_hybrid_page(&self, mut page: Vec<Hit>) -> Option<Vec<Hit>> {
+        // segment -> (doc count, [(page slot, row)])
+        let mut by_segment: HashMap<Arc<str>, Vec<(usize, u32)>> = HashMap::new();
+        let mut wanted: Vec<usize> = Vec::new();
+        for (slot, hit) in page.iter().enumerate() {
+            if hit.source.is_null() {
+                wanted.push(slot);
+            }
+        }
+        if wanted.is_empty() {
+            return Some(page);
+        }
+        let snap = self.store.snapshot();
+        let mut doc_counts: HashMap<Arc<str>, u64> = HashMap::new();
+        for slot in wanted {
+            let hit = &page[slot];
+            let seq_no = hit.seq_no?;
+            let entry = self.store.version_map.get(&hit.id)?;
+            if entry.deleted || entry.seq_no.saturating_sub(1) != seq_no {
+                return None;
+            }
+            let segment = Arc::clone(&entry.segment_id);
+            drop(entry);
+            if &*segment == xerj_storage::version_map::IN_MEMORY_SEGMENT_ID {
+                return None;
+            }
+            let doc_count = match doc_counts.get(&segment) {
+                Some(&count) => count,
+                None => {
+                    // Same resolution as GET: the snapshot, else the segment
+                    // header (a merged segment between repoint and publish).
+                    let count = match snap.segments.iter().find(|m| m.id.as_str() == &*segment) {
+                        Some(meta) => meta.doc_count,
+                        None => {
+                            self.store
+                                .open_segment_arc(&segment)
+                                .ok()?
+                                .header()
+                                .doc_count
+                        }
+                    };
+                    doc_counts.insert(Arc::clone(&segment), count);
+                    count
+                }
+            };
+            let position = *self.id_pos_map_for(&segment, doc_count)?.get(&hit.id)?;
+            by_segment
+                .entry(segment)
+                .or_default()
+                .push((slot, position));
+        }
+        drop(snap);
+        for (segment, rows) in by_segment {
+            let doc_count = doc_counts.get(&segment).copied().unwrap_or(0);
+            let warm = self
+                .stored_slices_cache
+                .get(&*segment)
+                .map(|entry| Arc::clone(entry.value()));
+            let positions: Vec<u32> = rows.iter().map(|&(_, position)| position).collect();
+            let cold = match warm {
+                Some(_) => None,
+                None => self.hydrate_fts_rows_cold(&segment, &positions, None),
+            };
+            // A section the row decoder cannot address (the LZ4 layout of a
+            // small segment, a legacy wrapper) is read through its offset
+            // index, as the undeferred legs would have read it.
+            let warm = match (&warm, &cold) {
+                (None, None) => Some(self.stored_slices_for(&segment, doc_count)?),
+                _ => warm,
+            };
+            match warm {
+                Some(slices) => {
+                    for (slot, position) in rows {
+                        let &(start, end) = slices.offsets.get(position as usize)?;
+                        let slice = slices.bytes.get(start as usize..end as usize)?;
+                        // serde_json, not simd_json: see ffd49ac.
+                        let mut doc = serde_json::from_slice::<Value>(slice).ok()?;
+                        if doc.get("_id").and_then(Value::as_str) != Some(page[slot].id.as_str()) {
+                            return None;
+                        }
+                        page[slot].source = doc
+                            .get_mut("_source")
+                            .map(Value::take)
+                            .unwrap_or(Value::Null);
+                    }
+                }
+                None => {
+                    let mut docs = cold?;
+                    for (slot, position) in rows {
+                        let mut doc = docs.remove(&position)?;
+                        if doc.get("_id").and_then(Value::as_str) != Some(page[slot].id.as_str()) {
+                            return None;
+                        }
+                        page[slot].source = doc
+                            .get_mut("_source")
+                            .map(Value::take)
+                            .unwrap_or(Value::Null);
+                    }
+                    self.schedule_cold_stored_warm(&segment, doc_count);
+                }
+            }
+        }
+        Some(page)
+    }
+
+    /// Stored documents (`{"_id", "_source", …}`) at `positions` of one
+    /// segment, keyed by position, for the columnar executors' page
+    /// hydration (`scored_columnar`, `function_score_columnar`).
+    ///
+    /// Those executors pick their winners from doc-values columns and used to
+    /// call [`Self::stored_slices_for`] once PER WINNER. When the hydration
+    /// budget has no room for the segment, that build is transient — decoded,
+    /// used for one row, dropped — so a `size: 256` page decoded the whole
+    /// stored section of its segment 256 times. On a 504k-doc autoindex index
+    /// (929 MB, 138k-doc segments) an uncached `match_all` `size: 256` took
+    /// 38 s at load ~36 and 820 s at load 45-112, and the zero-hit
+    /// `unknown_value` hint runs exactly that request (#3470).
+    ///
+    /// Read order, the same as [`Self::hydrate_deferred_hybrid_page`]: the
+    /// warm offset index when resident (one JSON parse per row), else only
+    /// the wanted rows of a columnar section (the cold FTS page read,
+    /// #2422/#2423), else one offset-index build for the whole group. `None`
+    /// when a row cannot be read; the callers then bail to the brute path, as
+    /// a failed per-row read did before.
+    fn segment_docs_at(
+        &self,
+        seg_id: &str,
+        doc_count: u64,
+        positions: &[u32],
+    ) -> Option<HashMap<u32, Value>> {
+        let from_slices = |slices: &StoredSlices| -> Option<HashMap<u32, Value>> {
+            let mut docs = HashMap::with_capacity(positions.len());
+            for &pos in positions {
+                let &(start, end) = slices.offsets.get(pos as usize)?;
+                let slice = slices.bytes.get(start as usize..end as usize)?;
+                // serde_json, not simd_json: see ffd49ac.
+                docs.insert(pos, serde_json::from_slice::<Value>(slice).ok()?);
+            }
+            Some(docs)
+        };
+        let warm = self
+            .stored_slices_cache
+            .get(seg_id)
+            .map(|entry| Arc::clone(entry.value()));
+        if let Some(slices) = warm {
+            return from_slices(slices.value());
+        }
+        if let Some(rows) = self.hydrate_fts_rows_cold(seg_id, positions, None) {
+            self.schedule_cold_stored_warm(seg_id, doc_count);
+            return Some(rows);
+        }
+        let slices = self.stored_slices_for(seg_id, doc_count)?;
+        from_slices(slices.value())
+    }
+
+    /// [`Self::segment_docs_at`] for every segment a columnar page touches:
+    /// `rows` are `(segment index, row)` pairs into `segments`. Each segment
+    /// is read once, however many winners it holds.
+    fn columnar_page_docs(
+        &self,
+        segments: &[xerj_storage::segment::SegmentMeta],
+        rows: impl IntoIterator<Item = (u32, u32)>,
+    ) -> Option<HashMap<(u32, u32), Value>> {
+        let mut by_segment: HashMap<u32, Vec<u32>> = HashMap::new();
+        for (si, row) in rows {
+            by_segment.entry(si).or_default().push(row);
+        }
+        let mut out = HashMap::new();
+        for (si, positions) in by_segment {
+            let meta = segments.get(si as usize)?;
+            let docs = self.segment_docs_at(meta.id.as_str(), meta.doc_count, &positions)?;
+            for (row, doc) in docs {
+                out.insert((si, row), doc);
+            }
+        }
+        Some(out)
+    }
+
     #[allow(clippy::too_many_arguments)]
     async fn run_knn_brute_force_with_deadline(
         &self,
@@ -20170,12 +22130,15 @@ impl Index {
             }
             let docs_arc = match tokio::time::timeout_at(
                 tokio::time::Instant::from_std(deadline),
-                self.stored_values_for_async(&meta.id),
+                self.stored_values_for_async_checked(&meta.id),
             )
             .await
             {
-                Ok(Some(a)) => a,
-                Ok(None) => continue,
+                Ok(Ok(Some(a))) => a,
+                Ok(Ok(None)) => continue,
+                // #2427: the parent breaker refused the cold decode — a 429,
+                // not a segment silently missing from the answer.
+                Ok(Err(refused)) => return Err(refused),
                 Err(_) => {
                     timed_out = true;
                     break;
@@ -20188,6 +22151,17 @@ impl Index {
             let mut builder = cached_column
                 .is_none()
                 .then(|| ColumnBuilder::new(field, column_mode));
+            // #2427: a column the cache cannot keep is a per-query transient
+            // as large as the segment's vectors. Reserve it before building
+            // (a 429 if it would carry the process past its hard limit).
+            let admission = self.read_admission();
+            let mut column_permit = match builder.as_ref() {
+                Some(_) => admission.admit_on_runtime(
+                    vector_column_estimate(docs_arc.len(), query_vec.len()),
+                    "vector_column",
+                )?,
+                None => None,
+            };
             let view = segment_views.len();
             let mut segment_complete = true;
             // Cache-backed iteration: stored_values_for() handles the
@@ -20223,24 +22197,37 @@ impl Index {
                 (Some(column), _) => column,
                 // A column abandoned at the deadline covers a prefix of the
                 // segment. It serves this request's partial answer and is
-                // dropped — only a complete column is ever published.
+                // dropped — only a complete column is ever published. It is
+                // transient even when the cache had room, so it always holds
+                // a read reservation (#2427).
                 (None, Some(builder)) if !segment_complete => {
-                    CacheResident::uncached(builder.finish())
+                    let column = builder.finish();
+                    let bytes = column.retained_bytes();
+                    let permit = match column_permit.take() {
+                        Some(mut permit) => {
+                            permit.true_up(bytes);
+                            permit
+                        }
+                        None => admission.read_budget.reserve_built(bytes),
+                    };
+                    CacheResident::uncached_with_permit(column, Some(permit))
                 }
                 (None, Some(builder)) => {
                     let column = builder.finish();
                     let bytes = column
                         .retained_bytes()
                         .saturating_add(column_key.len() as u64);
-                    // Over budget this comes back uncached: the next query
-                    // derives it again, which is what every query did before.
-                    self.publish_current(
+                    // Over budget this comes back uncached, holding its read
+                    // reservation: the next query derives it again.
+                    self.publish_current_permitted(
                         &self.vector_column_cache,
                         &meta.id,
                         column_key,
                         SegmentCacheCategory::VectorColumn,
                         bytes,
                         column,
+                        &admission.hydration,
+                        column_permit.take(),
                     )
                 }
                 (None, None) => unreachable!("a builder exists whenever the column is not cached"),
@@ -20492,12 +22479,44 @@ impl Index {
         // shared stored values, so a query pays for `k` sources, not for the
         // corpus.
         rank_knn_pool(&mut scored, k, |entry| entry.1);
+        // #3006: put the capped pool in page order BEFORE hydrating, from ids
+        // alone (#3017's `score, seq_no, _id` key needs no source), so only
+        // the documents the response returns are hydrated. A `k: 300` request
+        // for a 10-hit page used to decode and clone 300 sources — every one
+        // carrying its stored vector — and keep 10. Aggregations read every
+        // neighbour's source, so with `aggs` the whole pool is still hydrated.
+        let mut ordered: Vec<(String, f32, Value, Option<u32>)> = scored
+            .iter()
+            .map(|&(candidate, score, ordinal)| {
+                let id = candidates[candidate].id(&mem_docs, &segment_views);
+                (id, score, Value::from(candidate as u64), ordinal)
+            })
+            .collect();
+        order_knn_pool_page_order(self, &mut ordered);
+        let page = if request.aggs.is_some() {
+            0..ordered.len()
+        } else if request.size == 0 {
+            0..0
+        } else {
+            let start = request.from.min(ordered.len());
+            start..request.from.saturating_add(request.size).min(ordered.len())
+        };
+        let candidate_of = |entry: &(String, f32, Value, Option<u32>)| {
+            entry.2.as_u64().expect("candidate index") as usize
+        };
+        // #3018: a hybrid leg leaves a column-scanned winner unhydrated: the
+        // hybrid executor reads the fused page alone. Aggregations read every
+        // neighbour, and a semantic highlight or `_passage` reads the page.
+        let defer_columnar = request.defer_source
+            && request.aggs.is_none()
+            && request.highlight.is_none()
+            && request.fields.is_empty();
         // #1091: winners in a column-scanned segment are hydrated together,
         // one row-selective decode per segment, before the page is assembled.
         let mut by_view: HashMap<usize, Vec<usize>> = HashMap::new();
-        for (candidate, _, _) in &scored {
-            if let KnnCandidateAt::Segment { view, position } = candidates[*candidate] {
-                if segment_views[view].docs.is_none() {
+        for entry in &ordered[page.clone()] {
+            if let KnnCandidateAt::Segment { view, position } = candidates[candidate_of(entry)] {
+                if segment_views[view].docs.is_none() && !defer_columnar {
                     by_view.entry(view).or_default().push(position);
                 }
             }
@@ -20544,14 +22563,52 @@ impl Index {
         for (view, positions) in by_view {
             let hydrate_started = std::time::Instant::now();
             let rows_wanted = positions.len();
-            let rows = match self
-                .hydrate_segment_rows(
-                    &segment_views[view].segment_id,
-                    positions.clone(),
-                    omit_companions.clone(),
-                )
-                .await
-            {
+            // #3006: a warm segment hydrates from its cached offset index —
+            // one JSON parse per returned row. The row decoder below walks
+            // every requested column end to end to reach its rows, so its
+            // cost is the segment's, not the page's: measured 20 ms on a
+            // 721-doc and 80 ms on a 3,080-doc segment of 768-dim vectors,
+            // for 10 rows as for 300, against a 2 ms scan. A cold segment
+            // still takes the row decode and then schedules the same
+            // background warm the BM25 cold path does (#2422/#2423), so the
+            // next query is warm.
+            let warm_rows = self
+                .stored_slices_cache
+                .get(segment_views[view].segment_id.as_str())
+                .map(|entry| Arc::clone(entry.value()))
+                .and_then(|slices| {
+                    positions
+                        .iter()
+                        .map(|&position| {
+                            let &(start, end) = slices.offsets.get(position)?;
+                            let slice = slices.bytes.get(start as usize..end as usize)?;
+                            // serde_json, not simd_json: see ffd49ac.
+                            let doc = serde_json::from_slice::<Value>(slice).ok()?;
+                            Some(knn_stored_hit_owned(doc))
+                        })
+                        .collect::<Option<Vec<_>>>()
+                });
+            let cold_rows = match warm_rows {
+                Some(rows) => Some(rows),
+                None => {
+                    let rows = self
+                        .hydrate_segment_rows(
+                            &segment_views[view].segment_id,
+                            positions.clone(),
+                            omit_companions.clone(),
+                        )
+                        .await;
+                    if let Some(meta) = snap
+                        .segments
+                        .iter()
+                        .find(|meta| meta.id == segment_views[view].segment_id)
+                    {
+                        self.schedule_cold_stored_warm(&meta.id, meta.doc_count);
+                    }
+                    rows
+                }
+            };
+            let rows = match cold_rows {
                 Some(rows) => rows,
                 // A section the row decoder cannot address — LZ4 below
                 // `V2_MIN_DOCS` documents, a ZBS3 wrapper, a dependency shape
@@ -20560,8 +22617,8 @@ impl Index {
                 // gone altogether sends the request back to a full rescan.
                 None => {
                     let Some(docs) = self
-                        .stored_values_for_async(&segment_views[view].segment_id)
-                        .await
+                        .stored_values_for_async_checked(&segment_views[view].segment_id)
+                        .await?
                     else {
                         return Ok(None);
                     };
@@ -20591,23 +22648,39 @@ impl Index {
                 tracing::info!(index=%self.name, segment=%segment_views[view].segment_id, rows=rows_wanted, elapsed_ms=hydrate_started.elapsed().as_millis() as u64, "semantic_phase=hydrate_rows");
             }
         }
-        let mut ranked: Vec<(String, f32, Value, Option<u32>)> = Vec::with_capacity(scored.len());
-        for (candidate, score, ordinal) in scored {
+        // #3017: the cap above kept tied candidates in scan order (memtable,
+        // then segments), which moves when a memtable flushes; `ordered` is
+        // the one score-ranked order every executor shares. Entries outside
+        // the page keep a `Null` source: `knn_result_from_ranked` counts them
+        // into `total` and never reads them.
+        let mut ranked = ordered;
+        for (at, entry) in ranked.iter_mut().enumerate() {
+            if !page.contains(&at) {
+                entry.2 = Value::Null;
+            }
+        }
+        for entry in &mut ranked[page] {
+            let candidate = candidate_of(entry);
             let (id, source) = match candidates[candidate].hydrate(&mem_docs, &segment_views) {
                 KnnHydrated::Ready(id, source) => (id, source),
                 KnnHydrated::Columnar { view, position } => {
                     match column_hits.remove(&(view, position)) {
                         Some(hit) => hit,
+                        None if defer_columnar => {
+                            match segment_views[view].column.identity(position) {
+                                Some((id, _)) => (id.to_string(), Value::Null),
+                                None => return Ok(None),
+                            }
+                        }
                         None => return Ok(None),
                     }
                 }
             };
-            ranked.push((id, score, source, ordinal));
+            if id != entry.0 {
+                return Ok(None);
+            }
+            entry.2 = source;
         }
-        // #3017: the cap above kept tied candidates in scan order (memtable,
-        // then segments), which moves when a memtable flushes; the page itself
-        // is put in the one score-ranked order every executor shares.
-        order_knn_pool_page_order(self, &mut ranked);
 
         // (result shaping is shared with the HNSW path so hits format / total
         // semantics cannot drift between the exact and approximate executors)
@@ -21601,6 +23674,82 @@ impl Index {
             .await
     }
 
+    /// #3018: run every hybrid leg at once, one OS thread per leg, and return
+    /// the outcomes in leg order. Leg 0 runs on the calling thread.
+    ///
+    /// The calling thread is handed to the blocking pool first
+    /// (`block_in_place`; a no-op hand-off when a search is already running
+    /// inside one, which is how a hybrid request arrives), so no async worker
+    /// is parked while the legs run. Each leg drives its own future with
+    /// `Handle::block_on`, so its awaits (segment loads on the blocking pool,
+    /// an embedder round trip) work as they do on the request's task.
+    ///
+    /// A thread does not inherit the request's task-locals, so the ones a
+    /// search consults are carried over by hand: the index-visibility rule
+    /// (`index_guard`), the script deadline, and a script-fault sink whose
+    /// first fault is re-raised into the request's own capture scope. The
+    /// semantic-highlight plan is not carried: hybrid legs never highlight.
+    ///
+    /// A panicking leg is resumed on the caller, exactly as a panic inside a
+    /// joined future would have unwound it.
+    fn run_hybrid_legs_on_threads(
+        &self,
+        handle: &tokio::runtime::Handle,
+        sub_requests: &[SearchRequest],
+        deadline: std::time::Instant,
+    ) -> Vec<Result<SearchResult>> {
+        let visibility = crate::index_guard::current();
+        let script_deadline = crate::painless::current_script_deadline();
+        let run_leg = |leg: &SearchRequest| {
+            let visibility = visibility.clone();
+            handle.block_on(crate::painless::with_script_fault_capture(async move {
+                let search = crate::index_guard::scoped_opt(
+                    visibility,
+                    Box::pin(self.search_inner(leg, deadline)),
+                );
+                match script_deadline {
+                    Some(at) => crate::painless::with_script_deadline(at, search).await,
+                    None => search.await,
+                }
+            }))
+        };
+        let outcomes: Vec<(Result<SearchResult>, Option<String>)> =
+            tokio::task::block_in_place(|| {
+                std::thread::scope(|scope| {
+                    let others: Vec<_> = sub_requests[1..]
+                        .iter()
+                        .map(|leg| {
+                            std::thread::Builder::new()
+                                .name("xerj-hybrid-leg".into())
+                                .spawn_scoped(scope, || run_leg(leg))
+                        })
+                        .collect();
+                    let mut outcomes = Vec::with_capacity(sub_requests.len());
+                    outcomes.push(run_leg(&sub_requests[0]));
+                    for (offset, spawned) in others.into_iter().enumerate() {
+                        let outcome = match spawned {
+                            Ok(thread) => thread
+                                .join()
+                                .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+                            // The OS refused a thread: run that leg here.
+                            Err(_) => run_leg(&sub_requests[offset + 1]),
+                        };
+                        outcomes.push(outcome);
+                    }
+                    outcomes
+                })
+            });
+        outcomes
+            .into_iter()
+            .map(|(outcome, fault)| {
+                if let Some(fault) = fault {
+                    crate::painless::record_script_fault(&fault);
+                }
+                outcome
+            })
+            .collect()
+    }
+
     async fn run_hybrid_with_deadline(
         &self,
         request: &SearchRequest,
@@ -21621,6 +23770,50 @@ impl Index {
             )));
         }
 
+        // #3018: fuse on ids, then hydrate only the page. The legs leave
+        // `_source` unread where they can (`SearchRequest::defer_source`),
+        // and `hydrate_deferred_hybrid_page` reads the page's documents
+        // afterwards — `size` documents instead of `legs × max(50, size)`.
+        // A page document that changed between scoring and hydration hands
+        // the request back (`None`), and it is answered by the undeferred
+        // pass below, which hydrates inside the legs as before.
+        if hybrid_defer_source_enabled() {
+            if let Some(result) = self
+                .run_hybrid_pass(request, deadline, started, &sub_queries, &fusion, true)
+                .await?
+            {
+                return Ok(result);
+            }
+            self.hybrid_deferred_hand_backs
+                .fetch_add(1, Ordering::Relaxed);
+        }
+        self.run_hybrid_pass(request, deadline, started, &sub_queries, &fusion, false)
+            .await?
+            .ok_or_else(|| {
+                EngineError::Common(xerj_common::XerjError::internal(
+                    "hybrid pass without deferred sources handed the request back",
+                ))
+            })
+    }
+
+    /// One execution of a hybrid request: run the legs, fuse, paginate.
+    ///
+    /// With `defer` the legs run with `SearchRequest::defer_source`: each
+    /// hit carries its id, score and `seq_no`, and a `Null` `_source` where
+    /// the leg would have had to read it from a segment. The page alone is
+    /// then hydrated and filtered here. `Ok(None)` when a page document can
+    /// no longer be read as the version the leg scored; without `defer`
+    /// the pass always answers.
+    #[allow(clippy::too_many_arguments)]
+    async fn run_hybrid_pass(
+        &self,
+        request: &SearchRequest,
+        deadline: std::time::Instant,
+        started: std::time::Instant,
+        sub_queries: &[xerj_query::ast::WeightedQuery],
+        fusion: &xerj_query::ast::FusionStrategy,
+        defer: bool,
+    ) -> Result<Option<SearchResult>> {
         // Each sub-list needs to be deeper than the final top-N so
         // fusion has enough material for stable rank-merge. ES uses
         // 50 by default; we mirror that, growing if the caller asked
@@ -21640,9 +23833,12 @@ impl Index {
         // Under the default lexical embedder the embedding is synchronous and
         // there is nothing to overlap; this costs nothing there.
         //
-        // Spawning each leg as its own task would buy real parallelism, but
-        // needs an `Arc<Self>` this `&self` chain does not have, next to the
-        // `block_in_place` hand-off that produced #751. Not for ~10 ms.
+        // #3018: that was the whole story only on a current-thread runtime.
+        // On the multi-thread runtime the legs now run in PARALLEL, one OS
+        // thread each (`run_hybrid_legs_on_threads`), because a lexical scan
+        // and a vector scan are both CPU-bound and do not await: a measured
+        // two-leg request cost the sum of its legs. The consumption order and
+        // the error/timeout rules below are the same for both executions.
         let mut sub_results: Vec<(Vec<Hit>, f32)> = Vec::with_capacity(sub_queries.len());
         let mut sub_savings: Vec<PayloadSavings> = Vec::new();
         let mut any_timed_out = false;
@@ -21673,14 +23869,37 @@ impl Index {
                 fields: Vec::new(),
                 profile: false,
                 leaf_ts_field: None,
-                savings: request.savings,
+                // A deferred leg leaves `_source` unfiltered; the page is
+                // filtered, and its savings measured, after hydration.
+                savings: if defer {
+                    xerj_query::ast::SavingsMode::Off
+                } else {
+                    request.savings
+                },
                 ids_only: false,
+                defer_source: defer,
             })
             .collect();
         let mut leg_outcomes: Vec<Option<Result<SearchResult>>> =
             sub_requests.iter().map(|_| None).collect();
+        let parallel_runtime = tokio::runtime::Handle::try_current()
+            .ok()
+            .filter(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread)
+            .filter(|_| hybrid_parallel_legs_enabled());
         if std::time::Instant::now() >= deadline {
             any_timed_out = true;
+        } else if let (Some(handle), true) = (parallel_runtime, sub_requests.len() > 1) {
+            // #3018: on the multi-thread runtime every leg gets its own OS
+            // thread. The join below only overlapped a leg's awaits; a BM25
+            // scan and an exact or ANN vector scan are CPU work that never
+            // awaits, so a two-leg request cost the SUM of its legs.
+            for (leg, outcome) in self
+                .run_hybrid_legs_on_threads(&handle, &sub_requests, deadline)
+                .into_iter()
+                .enumerate()
+            {
+                leg_outcomes[leg] = Some(outcome);
+            }
         } else {
             let mut poll_order: Vec<usize> = (0..sub_requests.len()).collect();
             // Stable: legs that embed keep their relative order, then the rest.
@@ -21701,7 +23920,7 @@ impl Index {
         // rules: the first failing leg in that order is the error returned,
         // and a leg that timed out ends the list — the legs after it are
         // dropped, as they were when they had simply never been started.
-        for (wq, outcome) in sub_queries.into_iter().zip(leg_outcomes) {
+        for (wq, outcome) in sub_queries.iter().zip(leg_outcomes) {
             let Some(outcome) = outcome else {
                 break;
             };
@@ -21745,8 +23964,8 @@ impl Index {
         // fused document, which is at most `legs × per_query_topk` lookups.
         let seq_no_of = |id: &str| self.lookup_seq_no(id).unwrap_or(u64::MAX);
         let fused = match fusion {
-            xerj_query::ast::FusionStrategy::Rrf { k } => fuse_rrf(&sub_results, k, &seq_no_of),
-            xerj_query::ast::FusionStrategy::Linear => fuse_linear(&sub_results, &seq_no_of),
+            xerj_query::ast::FusionStrategy::Rrf { k } => fuse_rrf(sub_results, *k, &seq_no_of),
+            xerj_query::ast::FusionStrategy::Linear => fuse_linear(sub_results, &seq_no_of),
             // Defense in depth: the parser already rejects `fusion: learned`
             // with a 400 (see xerj-query parser.rs::parse_hybrid), so this
             // arm is unreachable via the ES API. Fail loud rather than
@@ -21766,9 +23985,23 @@ impl Index {
             .skip(request.from)
             .take(request.size)
             .collect();
+        let (page, savings) = if defer {
+            let Some(page) = self.hydrate_deferred_hybrid_page(page) else {
+                return Ok(None);
+            };
+            let generated_companion_fields = self.embedding_companion_fields().await;
+            apply_source_filter_measured(
+                page,
+                &request.source,
+                &generated_companion_fields,
+                Some(request),
+            )
+        } else {
+            (page, merge_sub_savings(sub_savings))
+        };
 
         let took_ms = started.elapsed().as_millis() as u64;
-        Ok(SearchResult {
+        Ok(Some(SearchResult {
             hits: page,
             total: TotalHits {
                 value: total_value,
@@ -21784,8 +24017,8 @@ impl Index {
             profile: None,
             max_score: None,
             script_failure: None,
-            savings: merge_sub_savings(sub_savings),
-        })
+            savings,
+        }))
     }
 
     /// #825: execute one `Knn` clause standalone and return a replacement
@@ -21849,6 +24082,7 @@ impl Index {
                 leaf_ts_field: None,
                 savings: request.savings,
                 ids_only: false,
+                defer_source: false,
             };
             let plain = filter.is_none()
                 && boost.is_none()
@@ -22049,12 +24283,15 @@ impl Index {
             // run_knn_brute_force.
             let docs_arc = match tokio::time::timeout_at(
                 tokio::time::Instant::from_std(deadline),
-                self.stored_values_for_async(&meta.id),
+                self.stored_values_for_async_checked(&meta.id),
             )
             .await
             {
-                Ok(Some(a)) => a,
-                Ok(None) => continue,
+                Ok(Ok(Some(a))) => a,
+                Ok(Ok(None)) => continue,
+                // #2427: the parent breaker refused the cold decode — a 429,
+                // not a segment silently missing from the answer.
+                Ok(Err(refused)) => return Err(refused),
                 Err(_) => {
                     timed_out = true;
                     break;
@@ -22778,13 +25015,21 @@ impl Index {
                 ReadAdmission::WriterActive => continue,
             }
         };
-        if let Ok(Some(source)) = &mut res {
+        self.finish_get(&mut res);
+        self.metric_get_total_ms
+            .fetch_add(get_started.elapsed().as_millis() as u64, Ordering::Relaxed);
+        res
+    }
+
+    /// GET's response shaping and exists/missing counters for one answer.
+    fn finish_get(&self, res: &mut Result<Option<Value>>) {
+        if let Ok(Some(source)) = res {
             strip_internal_passage_metadata(source);
             // The stored source keeps embeddings packed (#1940). GET returns
             // the number array callers already see.
             xerj_common::packed_f32::expand_packed_f32_values(source);
         }
-        match &res {
+        match res {
             Ok(Some(_)) => {
                 self.metric_get_exists_count.fetch_add(1, Ordering::Relaxed);
             }
@@ -22794,9 +25039,205 @@ impl Index {
             }
             Err(_) => {}
         }
+    }
+
+    /// [`Self::get_document`] for many ids at once (`_mget`), answers aligned
+    /// with `ids`; each id counts as one GET. The ids whose stored copies sit
+    /// in one segment with no resident stored section are read with ONE
+    /// row-selective decode of that segment (#3498), not one per id.
+    pub async fn get_documents(&self, ids: &[&str]) -> Vec<Result<Option<Value>>> {
+        use crate::collection_publication::ReadAdmission;
+
+        let get_started = std::time::Instant::now();
+        self.metric_get_count
+            .fetch_add(ids.len() as u64, Ordering::Relaxed);
+        let interrupted = || {
+            ids.iter()
+                .map(|_| Err(collection_publication_interrupted()))
+                .collect::<Vec<_>>()
+        };
+        let mut res = loop {
+            let token = loop {
+                let notified = self.collection_publication.notified();
+                tokio::pin!(notified);
+                notified.as_mut().enable();
+                match self.collection_publication.try_admit_reader() {
+                    ReadAdmission::Admitted(token) => break token,
+                    ReadAdmission::Poisoned => return interrupted(),
+                    ReadAdmission::WriterActive => notified.await,
+                }
+            };
+            let result = self.get_documents_uncounted(ids).await;
+            match self.collection_publication.validate_reader(token) {
+                ReadAdmission::Admitted(_) => break result,
+                ReadAdmission::Poisoned => return interrupted(),
+                ReadAdmission::WriterActive => continue,
+            }
+        };
+        for answer in res.iter_mut() {
+            self.finish_get(answer);
+        }
         self.metric_get_total_ms
             .fetch_add(get_started.elapsed().as_millis() as u64, Ordering::Relaxed);
         res
+    }
+
+    /// The segment holding `id`'s live stored copy and its doc count, from the
+    /// version map. RC4 W2 #15: during a merge the version map can already
+    /// point at the merged segment while the snapshot does not list it yet;
+    /// its doc count then comes from the durable segment file's header.
+    fn get_owning_segment(
+        &self,
+        snap: &xerj_storage::IndexSnapshot,
+        id: &str,
+    ) -> Option<(std::sync::Arc<str>, u64)> {
+        let ver = self.store.version_map.get(id)?;
+        let seg_id: std::sync::Arc<str> = std::sync::Arc::clone(&ver.segment_id);
+        drop(ver);
+        let doc_count = match snap.segments.iter().find(|m| m.id.as_str() == &*seg_id) {
+            Some(meta) => meta.doc_count,
+            None if &*seg_id != xerj_storage::version_map::IN_MEMORY_SEGMENT_ID => self
+                .store
+                .open_segment_arc(&seg_id)
+                .ok()
+                .map(|r| r.header().doc_count)?,
+            None => return None,
+        };
+        Some((seg_id, doc_count))
+    }
+
+    /// Whether a segment's stored documents are resident (offset slices or
+    /// the decoded section), so a GET slices them without any decode.
+    fn stored_section_resident(&self, seg_id: &str) -> bool {
+        self.stored_slices_cache.contains_key(seg_id)
+            || self.decoded_stored_cache.contains_key(seg_id)
+    }
+
+    /// #3498: whether a GET on this segment reads its rows (`cold_stored_rows`)
+    /// rather than the slices: the section is not resident and no background
+    /// stored warm is running on this index. While one runs (it was scheduled
+    /// by an earlier cold GET or query), GETs take the slices path as before:
+    /// `stored_slices_for` is single-flight per segment and caches, so a burst
+    /// of GETs on cold segments pays one decode per segment instead of one
+    /// row decode per GET (at most one warm runs per index, so the other cold
+    /// segments of a burst would otherwise stay cold until it finished).
+    fn get_reads_cold_rows(&self, seg_id: &str) -> bool {
+        #[cfg(test)]
+        if GET_ROW_DECODE_OFF.load(Ordering::Relaxed) {
+            return false;
+        }
+        !self.stored_section_resident(seg_id)
+            && !self.cold_stored_warm_running.load(Ordering::Acquire)
+    }
+
+    /// #3498: `(_id, _source)` of the stored rows at `positions` of one
+    /// segment, decoded row-selectively on the calling thread and aligned with
+    /// `positions`. Only those rows become JSON values and nothing is cached:
+    /// `stored_slices_for` decompressed every column, brace-walked every row
+    /// and (budget permitting) kept the whole section for a single GET. `None`
+    /// (legacy LZ4 layout, a column shape the row decoder declines, an
+    /// open/decode error, a missing row) sends the caller to that full path.
+    fn cold_stored_rows(
+        &self,
+        seg_id: &str,
+        doc_count: u64,
+        positions: &[usize],
+    ) -> Option<Vec<(String, Value)>> {
+        use xerj_storage::stored_codec::{
+            decode_stored_v2_rows_projected_parallel, StoredV2RowHydrationResult,
+        };
+        let reader = self.store.open_segment_arc(seg_id).ok()?;
+        let bytes = reader.section(SectionType::Stored).ok()??;
+        let StoredV2RowHydrationResult::Hydrated { rows, .. } =
+            decode_stored_v2_rows_projected_parallel(bytes, positions, None).ok()?
+        else {
+            return None;
+        };
+        let by_ordinal: HashMap<usize, (String, Value)> = rows
+            .into_iter()
+            .filter_map(|row| {
+                let id = row.id.as_str()?.to_string();
+                Some((row.ordinal, (id, Value::Object(row.source))))
+            })
+            .collect();
+        // `get` + clone, not `remove`: one `_mget` may name an id twice.
+        let rows: Option<Vec<(String, Value)>> = positions
+            .iter()
+            .map(|position| by_ordinal.get(position).cloned())
+            .collect();
+        // Later GETs on this segment then slice the warm section, as a
+        // search does after answering a cold segment from its winning rows
+        // (#2422): at most one warm per index, and none when the section
+        // would not fit the hydration budget (then every GET stays a row
+        // decode instead of a transient whole-section decode).
+        if rows.is_some() {
+            #[cfg(test)]
+            GET_ROW_DECODES.with(|n| n.set(n.get() + 1));
+            let fits = self
+                .stored_slices_bound_for(seg_id, doc_count)
+                .is_some_and(|bound| self.segment_hydration_budget.has_headroom(bound));
+            if fits {
+                self.schedule_cold_stored_warm(seg_id, doc_count);
+            }
+        }
+        rows
+    }
+
+    /// Batch form of [`Self::get_document_uncounted`] (see `get_documents`).
+    /// Every id the batched row decode does not answer goes through the
+    /// single-id path, so the lookup semantics are the same.
+    async fn get_documents_uncounted(&self, ids: &[&str]) -> Vec<Result<Option<Value>>> {
+        let mut out: Vec<Option<Result<Option<Value>>>> = ids.iter().map(|_| None).collect();
+        let mut cold: HashMap<std::sync::Arc<str>, (u64, Vec<(usize, usize)>)> = HashMap::new();
+        {
+            let snap = self.store.snapshot();
+            for (slot, id) in ids.iter().enumerate() {
+                match self.store.version_map.get(id) {
+                    Some(entry) if !entry.deleted => {}
+                    _ => {
+                        out[slot] = Some(Ok(None));
+                        continue;
+                    }
+                }
+                if self.memtable.contains(id) {
+                    continue;
+                }
+                let Some((seg_id, doc_count)) = self.get_owning_segment(&snap, id) else {
+                    continue;
+                };
+                if !self.get_reads_cold_rows(&seg_id) {
+                    continue;
+                }
+                let Some(pos_map) = self.id_pos_map_for(&seg_id, doc_count) else {
+                    continue;
+                };
+                if let Some(&pos) = pos_map.get(*id) {
+                    cold.entry(seg_id)
+                        .or_insert_with(|| (doc_count, Vec::new()))
+                        .1
+                        .push((slot, pos as usize));
+                }
+            }
+        }
+        for (seg_id, (doc_count, wanted)) in cold {
+            let positions: Vec<usize> = wanted.iter().map(|&(_, pos)| pos).collect();
+            let Some(rows) = self.cold_stored_rows(&seg_id, doc_count, &positions) else {
+                continue;
+            };
+            for (&(slot, _), (row_id, source)) in wanted.iter().zip(rows) {
+                if row_id == ids[slot] {
+                    out[slot] = Some(Ok(Some(source)));
+                }
+            }
+        }
+        let mut answers: Vec<Result<Option<Value>>> = Vec::with_capacity(ids.len());
+        for (slot, answer) in out.into_iter().enumerate() {
+            answers.push(match answer {
+                Some(answer) => answer,
+                None => self.get_document_uncounted(ids[slot]).await,
+            });
+        }
+        answers
     }
 
     /// Metrics-free internal fetch: `get_document` minus the get.total /
@@ -22866,6 +25307,24 @@ impl Index {
                     None => None,
                 };
             if let Some(doc_count) = seg_doc_count {
+                // #3498: a segment whose stored section is not resident
+                // answers from its one row (`cold_stored_rows`) instead of
+                // decoding, brace-walking and caching every row for one GET.
+                if self.get_reads_cold_rows(&seg_id) {
+                    if let Some(pos_map) = self.id_pos_map_for(&seg_id, doc_count) {
+                        if let Some(&pos) = pos_map.get(id) {
+                            if let Some(mut rows) =
+                                self.cold_stored_rows(&seg_id, doc_count, &[pos as usize])
+                            {
+                                if let Some((row_id, source)) = rows.pop() {
+                                    if row_id == id {
+                                        return Ok(Some(source));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 if let (Some(pos_map), Some(slices)) = (
                     self.id_pos_map_for(&seg_id, doc_count),
                     self.stored_slices_for(&seg_id, doc_count),
@@ -23428,20 +25887,26 @@ impl Index {
     /// readable). Docs written after the walk started may or may not be seen;
     /// that is the same window any single search has.
     pub async fn fold_match_sources<F: FnMut(&Value)>(&self, query: &QueryNode, f: &mut F) {
+        // #3514: the same `dynamic: false` lowering `search` applies.
+        let masked = self.mask_dynamic_false_query(query).await;
+        let query = masked.as_ref().unwrap_or(query);
         // Resolve the query exactly as `search_inner` does (two guard takes,
         // same as that function's `dmq_schema` then `schema.read()` pair).
         let dmq_schema = self.schema().await;
         let resolved_query = {
             let schema = self.schema.read().await;
-            let resolved = rewrite_keyword_full_text_to_term(
+            let resolved = resolve_keyword_query(
                 &rewrite_query_aliases(query, &schema.schema),
                 &schema.schema,
             );
             let typeless = crate::memtable::lexically_typeless_fields(&schema.schema);
-            let lowered = if typeless.is_empty() {
+            let lowered = if typeless.is_empty()
+                && (schema.schema.fields.is_empty()
+                    || !query_has_unmapped_leaf_subfield(&resolved, &schema.schema))
+            {
                 resolved
             } else {
-                lower_lexically_typeless_clauses(&resolved, &typeless)
+                lower_unsatisfiable_clauses(&resolved, &typeless, &schema.schema)
             };
             unwrap_single_clause_bool(lowered)
         };
@@ -23925,16 +26390,34 @@ impl Index {
     pub async fn search(&self, request: &SearchRequest) -> Result<SearchResult> {
         use crate::collection_publication::ReadAdmission;
 
+        // #3514: under `dynamic: false`, clauses and agg targets on fields the
+        // mapping leaves unmapped answer as if the field were absent.
+        let masked = self.mask_dynamic_false_unmapped(request).await;
+        let request: &SearchRequest = &masked;
+
         let started = std::time::Instant::now();
         let deadline =
             started + std::time::Duration::from_millis(request.timeout_ms.unwrap_or(30_000));
+        let mut admission_wait: Option<std::time::Instant> = None;
         loop {
             let token = loop {
                 let notified = self.collection_publication.notified();
                 tokio::pin!(notified);
                 notified.as_mut().enable();
                 match self.collection_publication.try_admit_reader() {
-                    ReadAdmission::Admitted(token) => break token,
+                    ReadAdmission::Admitted(token) => {
+                        if let Some(since) = admission_wait.take() {
+                            let waited = since.elapsed();
+                            if xerj_storage::stall_trace::is_slow(waited) {
+                                tracing::warn!(
+                                    index = %self.name,
+                                    waited_ms = waited.as_millis() as u64,
+                                    "search waited for a collection publication bracket"
+                                );
+                            }
+                        }
+                        break token;
+                    }
                     ReadAdmission::Poisoned => {
                         return Err(collection_publication_interrupted());
                     }
@@ -23954,6 +26437,7 @@ impl Index {
                         // on the wake.
                         self.collection_publication.arm_reader();
                         let _waiting = ReaderWaitGuard(&self.collection_publication);
+                        admission_wait.get_or_insert_with(std::time::Instant::now);
                         if tokio::time::timeout_at(
                             tokio::time::Instant::from_std(deadline),
                             notified,
@@ -23961,6 +26445,11 @@ impl Index {
                         .await
                         .is_err()
                         {
+                            tracing::warn!(
+                                index = %self.name,
+                                waited_ms = started.elapsed().as_millis() as u64,
+                                "search deadline spent waiting for a collection publication bracket"
+                            );
                             return Ok(self.deadline_exhausted_result(started));
                         }
                     }
@@ -24054,8 +26543,12 @@ impl Index {
         // `dataset_version` counter which bumps on every doc write.
         //
         // Skipped when:
-        // - `request.profile == true` (profiling output should always
-        //   reflect a fresh execution).
+        // - `request.profile == true`: a profile must time a fresh
+        //   execution, so it is never stored in or served from this cache
+        //   (ES never caches profile requests either). #3315 briefly made
+        //   profile requests cache-eligible; that is reverted. #3020's
+        //   marker stays: every profile response says `request_cache:
+        //   "bypass"`.
         // - `request.scroll.is_some()` / scroll cursor (stateful).
         // - `request.search_after.is_some()` (cursor-based pagination
         //   could collide with cached state).
@@ -24108,6 +26601,13 @@ impl Index {
                     SavingsMode::Exact => 2,
                 },
             );
+            // #3362: the bucket cap is not in the body either, and it decides
+            // whether an aggregation answers or fails with too_many_buckets.
+            // `PUT _cluster/settings` changes it at runtime, so an answer
+            // computed under one cap must not be replayed under another.
+            if request.aggs.is_some() {
+                Hasher::write_usize(&mut h, crate::aggs::max_buckets());
+            }
             let body_hash: Option<u64> = serde_json::to_writer(HasherWriter(&mut h), request)
                 .ok()
                 .map(|_| h.finish());
@@ -24129,6 +26629,7 @@ impl Index {
                 self.query_cache_hits.fetch_add(1, Ordering::Relaxed);
                 let mut cloned = (**entry.value()).clone();
                 cloned.took_ms = 0;
+                stamp_request_cache(&mut cloned, request, RequestCacheOutcome::Hit);
                 self.metric_query_count.fetch_add(1, Ordering::Relaxed);
                 return Ok(cloned);
             }
@@ -24187,6 +26688,7 @@ impl Index {
                         if let Some(r) = rx.borrow_and_update().clone() {
                             let mut cloned = (*r).clone();
                             cloned.took_ms = 0;
+                            stamp_request_cache(&mut cloned, request, RequestCacheOutcome::Hit);
                             self.metric_query_count.fetch_add(1, Ordering::Relaxed);
                             self.metric_singleflight_coalesced
                                 .fetch_add(1, Ordering::Relaxed);
@@ -24212,6 +26714,7 @@ impl Index {
                             if let Some(entry) = self.query_cache.get(&key) {
                                 let mut cloned = (**entry.value()).clone();
                                 cloned.took_ms = 0;
+                                stamp_request_cache(&mut cloned, request, RequestCacheOutcome::Hit);
                                 self.metric_query_count.fetch_add(1, Ordering::Relaxed);
                                 self.metric_singleflight_coalesced
                                     .fetch_add(1, Ordering::Relaxed);
@@ -24379,7 +26882,18 @@ impl Index {
                 .await
         };
         match search_result {
-            Ok(result) => {
+            Ok(mut result) => {
+                if let Ok(r) = result.as_mut() {
+                    stamp_request_cache(
+                        r,
+                        request,
+                        if cache_key.is_some() {
+                            RequestCacheOutcome::Miss
+                        } else {
+                            RequestCacheOutcome::Bypass
+                        },
+                    );
+                }
                 let took_ms = search_start.elapsed().as_millis() as u64;
                 // Record metrics.
                 self.metric_query_count.fetch_add(1, Ordering::Relaxed);
@@ -24587,6 +27101,10 @@ impl Index {
         // partial by construction and MUST be replaced by `shortcut_count`
         // post-loop (mirrors `scan_hit_cap` for the unsorted bounded scan).
         let mut sort_candidates_narrowed = false;
+        // Set when a `residual_gate` segment pass stopped after its own best
+        // `materialisation_limit` hits; its `total_count` is then partial and
+        // the post-loop overwrite replaces it with the shortcut total.
+        let mut residual_truncated = false;
         // Slow-query phase attribution (logged for >1 s queries).
         let phase_t0 = std::time::Instant::now();
         let mut phase_marks: Vec<(&'static str, u64)> = Vec::new();
@@ -24666,10 +27184,13 @@ impl Index {
             // the lowering the missing postings hand the clause to the
             // stored-doc scan. See `lower_lexically_typeless_clauses`.
             let typeless = crate::memtable::lexically_typeless_fields(&schema.schema);
-            let lowered = if typeless.is_empty() {
+            let lowered = if typeless.is_empty()
+                && (schema.schema.fields.is_empty()
+                    || !query_has_unmapped_leaf_subfield(&resolved, &schema.schema))
+            {
                 resolved
             } else {
-                lower_lexically_typeless_clauses(&resolved, &typeless)
+                lower_unsatisfiable_clauses(&resolved, &typeless, &schema.schema)
             };
             // #399 — and it belongs HERE for exactly the reason above: every
             // path decision below is made on the SHAPE of this tree, so a
@@ -25125,8 +27646,9 @@ impl Index {
         // alone can't prove "keyword" (it also holds numerics/dates/bools),
         // and Text fields must NEVER enter the columnar scorer (they get
         // Keyword dv columns but ES analyzes them).
-        let (text_fields, exact_fields, kw_fields, num_fields, bool_fields): (
+        let (text_fields, exact_fields, kw_fields, num_fields, bool_fields, object_kw_fields): (
             Vec<String>,
+            std::collections::HashSet<String>,
             std::collections::HashSet<String>,
             std::collections::HashSet<String>,
             std::collections::HashSet<String>,
@@ -25194,8 +27716,27 @@ impl Index {
                     _ => {}
                 }
             }
-            (tf, ef, kw, num, bf)
+            // #3464: object leaves have side-cars of their own. A non-text
+            // leaf's side-car is keyword-analysed, so the projection must look
+            // it up by whole value (`exact_fields`), and a keyword leaf's
+            // `term` may project onto it (`object_kw`, the projection's
+            // keyword set only: the columnar scorers keep top-level `kw`).
+            // Text leaves stay out of `tf`, which is also the field-less
+            // expansion; patterns reach them through #3413's expansion.
+            let mut object_kw: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for (path, field_type) in crate::memtable::fts_object_leaf_paths(&schema_guard.schema) {
+                if matches!(field_type, FieldType::Text) {
+                    continue;
+                }
+                if matches!(field_type, FieldType::Keyword) {
+                    object_kw.insert(path.clone());
+                }
+                ef.insert(path);
+            }
+            (tf, ef, kw, num, bf, object_kw)
         };
+        let fts_kw_all: std::collections::HashSet<String> =
+            kw_fields.union(&object_kw_fields).cloned().collect();
         // #1359: `query_node_to_fts_projected` projects a `QueryNode::Term` on a
         // `FieldType::Keyword` field into `FtsQuery::Term` so a `bool` or
         // `dis_max` combining a text clause and a keyword `term` clause does
@@ -25221,7 +27762,7 @@ impl Index {
                         break if matches!(other, QueryNode::Term { .. }) {
                             &empty_kw_fields
                         } else {
-                            &kw_fields
+                            &fts_kw_all
                         };
                     }
                 }
@@ -25295,6 +27836,20 @@ impl Index {
             None
         };
         let fs_min_passed = std::sync::atomic::AtomicU64::new(0);
+        // #3512: a `field_value_factor` with no `missing` fails the request on
+        // the first scored doc without a value for its field, as ES does. ES
+        // only scores when the page is ranked by score (or `min_score` needs
+        // one), so a field sort or a count-only request does not fail. The
+        // scorer records the field; the request fails after the scan.
+        let fvf_needs_value: bool = matches!(
+            peeled_fs,
+            Some((QueryNode::FunctionScore { functions, .. }, _))
+                if functions.iter().any(|f| {
+                    f.field_value_factor.as_ref().is_some_and(|v| v.missing.is_none())
+                })
+        ) && ((size > 0 && !field_sort_active)
+            || request.min_score.is_some());
+        let fvf_missing_field = std::sync::OnceLock::<String>::new();
         // Population max over every score the brute scorer computes.  Under
         // a field sort only ~page hits survive the heap, but ES's
         // `track_scores: true` max_score is the max over ALL matches — the
@@ -25361,6 +27916,11 @@ impl Index {
                     max_boost,
                 } = fs_node
                 {
+                    if fvf_needs_value && fvf_missing_field.get().is_none() {
+                        if let Some(field) = fvf_field_without_value(functions, src, &dmq_schema) {
+                            let _ = fvf_missing_field.set(field.to_string());
+                        }
+                    }
                     let base = leaf_base_const
                         .unwrap_or_else(|| score_query_against_doc(inner, src, &dmq_schema))
                         * outer_boost;
@@ -25387,6 +27947,15 @@ impl Index {
             score
         };
         let score_doc: &(dyn Fn(&Value, &str) -> f32 + Send + Sync) = &score_doc;
+        // #3465: whether `score_doc` gives every match the same score. Only
+        // then may a full stored-scan collector keep a segment's first
+        // matches; otherwise it keeps the segment's best by score.
+        // Keyword term/match leaves count as untied here (always safe: it
+        // only costs the displacement scoring); the doc-values check that can
+        // prove them tied runs below, and only for `scan_early_stop` (#3497).
+        let scan_scores_tied: bool = ids_only
+            || (peeled_fs.is_none()
+                && (leaf_base_const.is_some() || scan_score_is_constant(query, &|_| false)));
 
         // Helper: admit a hit into the bounded `all_hits` collector.
         //
@@ -25422,6 +27991,15 @@ impl Index {
         // input and the surviving tied documents were decided by shard-walk
         // order: `size:5` and `size:1000` disagreed on a 600-document
         // all-tied memtable.
+        // #3508: the score the id-only memtable arms (`AllDocIds`,
+        // `DocValuesHits`) give each hit. A filter-only `bool` scores 0.0, as
+        // ES does and as the segment executors and `score_query_against_doc`
+        // do; every other shape keeps the brute path's constant 1.0.
+        // #3524: any constant-scoring shape scores its ES constant here, the
+        // value `score_query_against_doc` gives the same doc once it is in a
+        // segment: `bool{filter, boost: 2}` 0.0, `bool{must:[constant_score
+        // {boost: B}]}` B (both were 1.0, so the order changed at `_flush`).
+        let mem_id_hit_score: f32 = es_constant_score(query).unwrap_or(1.0);
         macro_rules! admit_hit {
             ($hit:expr) => {{
                 total_count += 1;
@@ -25496,7 +28074,7 @@ impl Index {
                                 topk.offer(
                                     Hit {
                                         id,
-                                        score: 1.0,
+                                        score: mem_id_hit_score,
                                         source,
                                         seq_no,
                                         version,
@@ -25517,7 +28095,7 @@ impl Index {
                             seen_ids.insert(id.clone());
                             all_hits.push(Hit {
                                 id,
-                                score: 1.0,
+                                score: mem_id_hit_score,
                                 source: Value::Null,
                                 // Deferred with `source`: `fill_memtable_sources`
                                 // resolves both from the SAME read once this
@@ -25684,6 +28262,9 @@ impl Index {
         } else {
             None
         };
+        // #3492: the date fields whose `constant_score` range leaves project
+        // to per-segment doc-values match sets (`DateDocs`).
+        let date_doc_fields = date_doc_field_names(&dmq_schema);
         // Exact memtable match total captured by the fused DV walk below and
         // threaded into `try_shortcut_count`, whose bool-conjunction arm
         // then skips its DUPLICATE memtable walk (mixed-RUW Fix 1: the
@@ -25761,11 +28342,13 @@ impl Index {
                     self.build_collection_stats(
                         &snap,
                         query,
+                        &dmq_schema,
                         &text_fields,
                         &exact_fields,
                         fts_kw_fields,
                         mem_doc_count,
                         pinned_probe,
+                        &date_doc_fields,
                     )
                     .map(Arc::new)
                 })
@@ -25774,8 +28357,26 @@ impl Index {
 
         let unindexed_dv_text_match = has_unindexed_doc_values_text_match(query, &dmq_schema);
 
+        // #3349: set when the memtable arm below scored its hits with exact
+        // BM25 through `mem_score_plan`; read by `exact_bm25_page`.
+        let mut mem_exact_bm25 = false;
         let mem_snapshot = {
             let mem = &*self.memtable;
+            // #3329: the analyzer the multi_match / phrase / filtered-bool
+            // memtable arms count query tokens with. Taken once, and only for
+            // the shapes those arms can serve (a shard read lock per call).
+            let mem_analyzer = if mem_doc_count > 0
+                && matches!(
+                    query,
+                    QueryNode::MultiMatch { .. }
+                        | QueryNode::MatchPhrase { .. }
+                        | QueryNode::Bool { .. }
+                        | QueryNode::QueryString { .. }
+                ) {
+                mem.default_analyzer()
+            } else {
+                None
+            };
             if mem_doc_count == 0 {
                 MemSnapshot::Empty
             } else if matches!(query, QueryNode::MatchAll) && size == 0 && request.aggs.is_none() {
@@ -25907,8 +28508,90 @@ impl Index {
                         uncollected,
                     )
                 }
-            } else if let Some((bf_field, bf_text, bf_must, bf_gate)) =
-                bool_filter_mem_fts_must(query)
+            } else if let Some((mm_subs, mm_tie)) =
+                multi_match_mem_fts_subs(query, &dmq_schema, &text_fields, mem_analyzer.as_deref())
+            {
+                // #3329: a field-centric `multi_match` used to fall through
+                // to the stored-doc scan, whose scorer gives 1.0 per matched
+                // field — every buffered hit tied and the ranking changed at
+                // flush (BEIR scifact nDCG@10 0.19 unflushed vs 0.62
+                // flushed). Score each field through the SAME memtable BM25
+                // path a standalone `match` takes and combine per doc like the
+                // segment projection: MAX for `best_fields`, SUM for
+                // `most_fields` / `cross_fields`. Same ghost-window widening
+                // as the `dis_max` arm above.
+                let mem_limit = if self.store.version_map.ghost_events() > 0 {
+                    usize::MAX
+                } else {
+                    fetch_limit
+                };
+                let mem_stats = collection_stats();
+                let (hits, mem_total) = mem.search_dis_max_boosted_with_total_using(
+                    &mm_subs,
+                    mm_tie,
+                    mem_limit,
+                    mem_stats.as_deref(),
+                );
+                if hits.is_empty() {
+                    MemSnapshot::Empty
+                } else {
+                    let uncollected = mem_total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::FtsHits(
+                        hits.into_iter().map(|h| (h.doc_id, h.score)).collect(),
+                        uncollected,
+                    )
+                }
+            } else if let Some(ph_subs) = self
+                .scan_phrase_analyzer()
+                .is_none()
+                .then(|| {
+                    phrase_mem_fts_subs(query, &dmq_schema, &text_fields, mem_analyzer.as_deref())
+                })
+                .flatten()
+            {
+                // #3329: `match_phrase` and `multi_match` `type: phrase` fell
+                // to the stored-doc scan too (1.0 per hit). Score each field
+                // like a `match` of the phrase text — what the segment's
+                // `execute_phrase` sums for a matching doc — gated by the
+                // stored-doc phrase predicate the scan already used, combined
+                // by MAX (dis_max, tie 0.0) like the segment projection.
+                // Each sub runs UNCAPPED inside
+                // `search_dis_max_gated_with_total_using` (a capped page could
+                // lose a gated hit); only the combined list is capped.
+                // Standard text analyzer only: under a non-standard one
+                // (`code`, #3285) the scan's phrase predicate needs the
+                // `ScanPhraseAnalyzer` scope and the segment phrase walks
+                // stacked positions, so that index keeps the doc-scan route.
+                let mem_limit = if self.store.version_map.ghost_events() > 0 {
+                    usize::MAX
+                } else {
+                    fetch_limit
+                };
+                let subs: Vec<(&str, &str, f32)> = ph_subs.iter().map(|(sub, _)| *sub).collect();
+                let admit = |i: usize, doc_id: &str| {
+                    mem.get_doc_source_arc(doc_id).is_some_and(|src| {
+                        doc_matches_query_typed(&ph_subs[i].1, &src, &dmq_schema)
+                    })
+                };
+                let mem_stats = collection_stats();
+                let (hits, mem_total) = mem.search_dis_max_gated_with_total_using(
+                    &subs,
+                    0.0,
+                    mem_limit,
+                    mem_stats.as_deref(),
+                    &admit,
+                );
+                if hits.is_empty() {
+                    MemSnapshot::Empty
+                } else {
+                    let uncollected = mem_total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::FtsHits(
+                        hits.into_iter().map(|h| (h.doc_id, h.score)).collect(),
+                        uncollected,
+                    )
+                }
+            } else if let Some((bf_plan, bf_must, bf_gate)) =
+                bool_filter_mem_fts_must(query, &dmq_schema, &text_fields, mem_analyzer.as_deref())
             {
                 // #2403: `bool{must:[match], filter|must_not:[..]}` used to
                 // fall through to the stored-doc scan, which scored every
@@ -25921,17 +28604,31 @@ impl Index {
                 // admits. UNCAPPED: the gate runs after scoring, so a capped
                 // list could drop a hit the gate would keep, and the consume
                 // arm's ghost-window liveness filter needs every hit anyway.
-                let mut field_boosts: std::collections::HashMap<String, f32> =
-                    std::collections::HashMap::new();
-                collect_field_boosts(bf_must, &mut field_boosts);
+                //
+                // #3329: a `multi_match` `must` scores through the same
+                // per-field combine as the standalone `multi_match` arm above.
                 let mem_stats = collection_stats();
-                let (hits, _) = mem.search_text_boosted_with_total_using(
-                    bf_text,
-                    &[bf_field],
-                    usize::MAX,
-                    &field_boosts,
-                    mem_stats.as_deref(),
-                );
+                let (hits, _) = match bf_plan {
+                    MemFtsMust::Match(bf_field, bf_text) => {
+                        let mut field_boosts: std::collections::HashMap<String, f32> =
+                            std::collections::HashMap::new();
+                        collect_field_boosts(bf_must, &mut field_boosts);
+                        mem.search_text_boosted_with_total_using(
+                            bf_text,
+                            &[bf_field],
+                            usize::MAX,
+                            &field_boosts,
+                            mem_stats.as_deref(),
+                        )
+                    }
+                    MemFtsMust::MultiMatch(subs, tie) => mem
+                        .search_dis_max_boosted_with_total_using(
+                            &subs,
+                            tie,
+                            usize::MAX,
+                            mem_stats.as_deref(),
+                        ),
+                };
                 // Same conservative `_id` detection as the doc-scan arm: only
                 // a gate that can read `_id` pays for injecting it.
                 let gate_may_read_id: bool = serde_json::to_string(&bf_gate)
@@ -25958,6 +28655,94 @@ impl Index {
                     MemSnapshot::Empty
                 } else {
                     MemSnapshot::FtsHits(kept, 0)
+                }
+            } else if let Some(plan) = mem_analyzer
+                .as_deref()
+                .and_then(|analyzer| {
+                    mem_score_plan(
+                        query,
+                        &MemPlanCtx {
+                            schema: &dmq_schema,
+                            text_fields: &text_fields,
+                            exact_fields: &exact_fields,
+                            analyzer,
+                            phrase_ok: self.scan_phrase_analyzer().is_none(),
+                        },
+                    )
+                })
+                .filter(|_| {
+                    pinned_probe.is_none()
+                        && query_node_to_fts_projected(
+                            query,
+                            &text_fields,
+                            &exact_fields,
+                            fts_kw_fields,
+                            self.segment_analyzer_binding(),
+                            None,
+                            DateDocs::Decline,
+                        )
+                        .is_some()
+                })
+            {
+                // #3349: a `bool` of scoring leaves (the `xerj search` body:
+                // `should` of `multi_match` + phrases + `constant_score`
+                // coverage clauses; `query_string` / `simple_query_string`
+                // with `fields`, which parse to `bool`s of `dis_max` /
+                // `multi_match`) fell to the stored-doc scan, whose scorer has
+                // no IDF, so the ranking changed at flush. Score every leaf
+                // through the memtable BM25 path and combine per doc the way
+                // the segment's `FtsQuery` executor combines the projection
+                // (`mem_score_plan`). Taken only when the segment side
+                // projects the same tree, so both arms score the same way.
+                // UNCAPPED inside (a gate or `minimum_should_match` runs after
+                // scoring); the combined list is capped like the arms above.
+                let mem_limit = if self.store.version_map.ghost_events() > 0 {
+                    usize::MAX
+                } else {
+                    fetch_limit
+                };
+                let gate_may_read_id = |gate: &QueryNode| -> bool {
+                    serde_json::to_string(gate)
+                        .map(|s| s.contains("_id") || s.contains("Ids") || s.contains("ids"))
+                        .unwrap_or(true)
+                };
+                let admit = |gate: &QueryNode, doc_id: &str| -> bool {
+                    let Some(source) = mem.get_doc_source_arc(doc_id) else {
+                        return false;
+                    };
+                    if source.get("_id").is_some() || !gate_may_read_id(gate) {
+                        return doc_matches_query_typed(gate, &source, &dmq_schema);
+                    }
+                    let mut with_id = (*source).clone();
+                    if let Some(obj) = with_id.as_object_mut() {
+                        obj.insert("_id".to_string(), Value::String(doc_id.to_string()));
+                    }
+                    doc_matches_query_typed(gate, &with_id, &dmq_schema)
+                };
+                let mem_stats = collection_stats();
+                let mut hits: Vec<crate::memtable::MemtableHit> =
+                    exec_mem_score_plan(&plan, mem, mem_stats.as_deref(), &admit)
+                        .into_iter()
+                        .map(|(doc_id, (score, seq_no))| crate::memtable::MemtableHit {
+                            doc_id,
+                            score,
+                            seq_no,
+                        })
+                        .collect();
+                // These hits carry exact BM25, so the page-local IDF
+                // rescore must leave them alone (see `exact_bm25_page`).
+                mem_exact_bm25 = true;
+                if hits.is_empty() {
+                    MemSnapshot::Empty
+                } else {
+                    crate::memtable::sort_hits_by_page_key(&mut hits);
+                    let total = hits.len() as u64;
+                    hits.truncate(mem_limit);
+                    let uncollected = total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::FtsHits(
+                        hits.into_iter().map(|h| (h.doc_id, h.score)).collect(),
+                        uncollected,
+                    )
                 }
             } else if is_doc_scan_query(query) {
                 // count_only + Term/Range short-circuits BEFORE
@@ -26296,6 +29081,9 @@ impl Index {
             }
             MemSnapshot::DocsForScan(docs) => {
                 // Lock already released — scan docs without holding the memtable lock.
+                // #3285: no `.await` in this arm, so the scoped analyzer
+                // stays on this thread for the whole walk.
+                let _phrase_analyzer = ScanPhraseAnalyzer::enter(self.scan_phrase_analyzer());
                 //
                 // `_id` injection (a full per-doc Object clone) is only
                 // observable when the query tree can actually read `_id`
@@ -26563,11 +29351,18 @@ impl Index {
         // matching via the per-segment ghost bitmaps). Only a non-empty
         // memtable — rows with no doc-values columns — keeps the brute path.
         let scored_fast_ready: bool = scored_plan.is_some() && self.memtable.doc_count() == 0;
-        let shortcut_count: Option<u64> = if scored_fast_ready {
+        let mut shortcut_count: Option<u64> = if scored_fast_ready {
             None
         } else {
-            self.try_shortcut_count(query, &snap, is_match_all, mem_matches_known, &dmq_schema)
-                .await
+            self.try_shortcut_count(
+                query,
+                &snap,
+                is_match_all,
+                mem_matches_known,
+                &dmq_schema,
+                count_only,
+            )
+            .await
         };
 
         // Whether this query resolves to an FTS (inverted-index) search.  The
@@ -26593,6 +29388,7 @@ impl Index {
             fts_kw_fields,
             self.segment_analyzer_binding(),
             pinned_probe,
+            DateDocs::Probe(&date_doc_fields),
         )
         .is_some();
 
@@ -26627,12 +29423,42 @@ impl Index {
         let agg_filter: Option<Value> = if is_match_all {
             None
         } else {
-            query_node_to_agg_filter(query)
+            query_node_to_agg_filter(query, &dmq_schema)
         };
+        // #3510: a filter-only `bool` (`must`/`filter`, nested, under
+        // `constant_score`) projects to an FTS conjunction as a whole, so
+        // `query_needs_fts` kept it off this path even when every leaf takes
+        // it on its own (`term cat` and `range n` each do; `bool.filter
+        // [term cat, range n]` ran the brute `_source` corpus). The columnar
+        // filter is the AND of its leaves, so the bool matches the brute path
+        // exactly when each leaf does: the leaf converts
+        // (`agg_filter.is_some()` covers the whole tree) and would not need
+        // FTS alone. A leaf that does (a `term` on analysed text, `match`)
+        // keeps the bool on the brute path. Each leaf is projected exactly as
+        // it would be at the top level, where a keyword `term` sees no FTS
+        // keyword fields (#1359, `fts_kw_fields` above).
+        let fts_conjunction_columnar = query_needs_fts
+            && agg_filter.is_some()
+            && filter_conjunction_leaves_all(query, &|leaf| {
+                query_node_to_fts_projected(
+                    leaf,
+                    &text_fields,
+                    &exact_fields,
+                    if matches!(leaf, QueryNode::Term { .. }) {
+                        &empty_kw_fields
+                    } else {
+                        fts_kw_fields
+                    },
+                    self.segment_analyzer_binding(),
+                    pinned_probe,
+                    DateDocs::Probe(&date_doc_fields),
+                )
+                .is_none()
+            });
         if size == 0
             && request.aggs.is_some()
             && request.min_score.is_none()
-            && !query_needs_fts
+            && (!query_needs_fts || fts_conjunction_columnar)
             && (is_match_all || agg_filter.is_some())
         {
             if let Some(aggs_def) = &request.aggs {
@@ -26700,6 +29526,23 @@ impl Index {
         // Cold score-ordered FTS hits whose `_source` is read only once the
         // segment loop has settled the page: `_id` -> (segment, row).
         let mut deferred_sources: HashMap<String, (String, u32, u64)> = HashMap::new();
+        // #3018: a hybrid leg (`defer_source`) whose page reads nothing from
+        // `_source`. Its score-ordered FTS walk reads each candidate's `_id`
+        // alone from a warm segment too (as the cold walk already does), and
+        // when the page is exact BM25 the deferred sources are left for the
+        // hybrid executor to read for its fused page only.
+        let defer_walk: bool = request.defer_source
+            && request.sort.is_empty()
+            && request.search_after.is_none()
+            && request.aggs.is_none()
+            && request.collapse.is_none()
+            && request.rescore.is_empty()
+            && request.min_score.is_none()
+            && !request.explain
+            && request.highlight.is_none()
+            && request.fields.is_empty()
+            && request.script_fields.is_none()
+            && !query_may_read_source_after_scoring(query);
         let materialisation_limit: usize = if mem_doc_count == 0
             && !deletes_present
             && size > 0
@@ -26732,11 +29575,19 @@ impl Index {
         let mut fs_fast_applied = false;
         if let Some(fvf) = fs_fast_fvf {
             if !deletes_present {
+                let unmapped_means_absent = matches!(
+                    self.dynamic_mode(&*self.schema.read().await),
+                    xerj_common::schema::DynamicMapping::Dynamic
+                        | xerj_common::schema::DynamicMapping::Strict
+                );
                 if let Some((hits, total)) = self.function_score_columnar(
                     fvf,
                     &snap.segments,
                     &segments_dir,
                     materialisation_limit,
+                    &dmq_schema,
+                    unmapped_means_absent,
+                    &fvf_missing_field,
                 ) {
                     seen_ids.clear();
                     seen_ids.extend(hits.iter().map(|h| h.id.clone()));
@@ -26745,6 +29596,11 @@ impl Index {
                     fs_fast_applied = true;
                 }
             }
+        }
+        if let Some(field) = fvf_missing_field.get() {
+            return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
+                fvf_missing_value_reason(field),
+            )));
         }
 
         // ── Columnar scored-family fast path ──────────────────────────────
@@ -26776,7 +29632,9 @@ impl Index {
         // score unification lands (#354 / #188). Mixed pages therefore keep
         // today's behaviour; a fully-flushed index gets exact BM25.
         let mut fts_scored_applied = false;
-        let mut heuristic_scored_applied = mem_doc_count > 0;
+        // #3349: memtable hits from the `mem_score_plan` arm are exact BM25
+        // against the same statistics as the segments, so they do not arm it.
+        let mut heuristic_scored_applied = mem_doc_count > 0 && !mem_exact_bm25;
         if let Some(plan) = &scored_plan {
             if scored_fast_ready {
                 if let Some((hits, total, from_applied)) = self.scored_columnar(
@@ -26800,6 +29658,35 @@ impl Index {
                     total_count = total;
                     scored_fast_applied = true;
                     scored_from_applied = from_applied;
+                }
+            }
+        }
+        // #3412: `scored_columnar` bails on a segment with no column for its
+        // field — always the case for a keyword field that went multi-valued —
+        // and the shortcut count was skipped above because it was expected to
+        // run. A count-only request then decoded every segment just to tally a
+        // number the FTS dictionary already holds. Only the term shape that
+        // oracle covers is re-probed, and only for count-only requests (see
+        // the `fts_keyword_oracle` parameter for why a page may not use it).
+        if count_only && scored_fast_ready && !scored_fast_applied && shortcut_count.is_none() {
+            let peeled = match query {
+                QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
+                    query.as_ref()
+                }
+                other => other,
+            };
+            if let QueryNode::Term { field, value, .. } = peeled {
+                if keyword_fts_term_oracle(&dmq_schema, field, value).is_some() {
+                    shortcut_count = self
+                        .try_shortcut_count(
+                            query,
+                            &snap,
+                            is_match_all,
+                            mem_matches_known,
+                            &dmq_schema,
+                            true,
+                        )
+                        .await;
                 }
             }
         }
@@ -26853,6 +29740,7 @@ impl Index {
                 fts_kw_fields,
                 self.segment_analyzer_binding(),
                 pinned_probe,
+                DateDocs::Probe(&date_doc_fields),
             );
             let needs_fts = fts_query_probe.is_some();
             // #361: a bool with a non-projectable non-scoring (`filter`/`must_not`)
@@ -26869,6 +29757,7 @@ impl Index {
                     fts_kw_fields,
                     self.segment_analyzer_binding(),
                     pinned_probe,
+                    DateDocs::Probe(&date_doc_fields),
                 );
             // A `query_string` whose projection DECLINED still has to be
             // answered by the stored-doc scan — an over-cap `tokens × fields`
@@ -26927,6 +29816,101 @@ impl Index {
             // itself is made delete-aware. (`deletes_present` hoisted above.)
             let count_authoritative: bool = !query_needs_fts
                 && (is_match_all_effective || (shortcut_count.is_some() && !deletes_present));
+            // #3497: F1's early stops (a segment's scan stops at its first
+            // `materialisation_limit` matches; a segment whose docs all
+            // arrived after the worst kept hit is skipped) assume every match
+            // scores the same, so the first matches in arrival order ARE the
+            // best. A shortcut count does not imply that: `bool{should:[term,
+            // range]}` resolves its count from doc values, yet a doc matching
+            // both clauses outscores one matching a single clause, and the
+            // bounded page kept the earlier, lower-scoring docs (size:1 named
+            // d00001 where the full page starts d00003). When scores can differ
+            // the scan walks every match and keeps each segment's best by
+            // score (#3465); the cross-segment merge then keeps the global
+            // best. `count_authoritative` still lets the shortcut stand in for
+            // `hits.total`. A field-sorted page offers every match to its
+            // heap either way, so this changes nothing there.
+            let scan_early_stop: bool = count_authoritative
+                && (scan_scores_tied
+                    || (peeled_fs.is_none()
+                        && scan_score_is_constant(query, &|leaf| {
+                            self.leaf_scan_score_tied(leaf, &kw_fields, &num_fields, &bool_fields)
+                        })));
+            // #3509: when scores can differ (no tied early stop), a bound on
+            // every match's score (`scan_score_upper_bound`, WAND / MaxScore)
+            // still lets the scan stop: a segment ends once its share of the
+            // collector is full at the ceiling, a later segment is skipped once
+            // the page is, and a match whose own bound cannot beat the kept
+            // hits is not parsed. Same preconditions as F1 (the shortcut holds
+            // `hits.total`), plus: `score_doc` is `score_query_against_doc`
+            // (no function_score, no leaf constant), relevance order, and
+            // nothing reads matches beyond the page (aggs, min_score,
+            // collapse, rescore).
+            let score_bound_leaf = |leaf: &QueryNode| {
+                self.leaf_score_bound(leaf, &kw_fields, &num_fields, &bool_fields)
+            };
+            let score_bound_ceiling: Option<f32> = if count_authoritative
+                && !scan_early_stop
+                && !count_only
+                && !ids_only
+                && sort_topk.is_none()
+                && peeled_fs.is_none()
+                && leaf_base_const.is_none()
+                && request.min_score.is_none()
+                && request.aggs.is_none()
+                && request.collapse.is_none()
+                && request.rescore.is_empty()
+            {
+                scan_score_upper_bound(query, &score_bound_leaf)
+            } else {
+                None
+            };
+            // A top-level `bool`'s clause bounds, in scorer order, with each
+            // `should` leaf kept for its per-segment position set
+            // (`ScanScoreBound::clauses`). `must` clauses always match.
+            let score_bound_clauses: Vec<(f32, Option<&QueryNode>)> = {
+                let mut top = query;
+                while let QueryNode::Named { query: inner, .. } = top {
+                    top = inner;
+                }
+                match top {
+                    QueryNode::Bool { must, should, .. }
+                        if score_bound_ceiling.is_some()
+                            && !has_analyzed_text_term_leaf(query, &dmq_schema) =>
+                    {
+                        must.iter()
+                            .map(|c| (c, None))
+                            .chain(should.iter().map(|c| (c, Some(c))))
+                            .map(|(c, leaf)| {
+                                scan_score_upper_bound(c, &score_bound_leaf).map(|b| (b, leaf))
+                            })
+                            .collect::<Option<Vec<_>>>()
+                            .unwrap_or_default()
+                    }
+                    _ => Vec::new(),
+                }
+            };
+            // Read-under-write bool collapse: `bool{must:[keyword term],
+            // filter:[range]}` takes the `residual_gate` FTS pass whenever the
+            // memtable holds a document (`scored_columnar` needs it empty).
+            // That pass decodes and re-tests EVERY match of every segment just
+            // to tally `hits.total` — ~4.5 µs per match, 6.6 s at 1.4M
+            // matches, while the same index with an empty memtable answers in
+            // ~20 ms. When the doc-values shortcut already holds the exact
+            // total (same delete-blind gate as F1 above), a segment can stop
+            // after it has admitted its own best `materialisation_limit` hits:
+            // `seg_hits` is sorted (score DESC, position ASC) and positions are
+            // `seq_no` order, so later hits of the same segment cannot displace
+            // them. The post-loop overwrite then takes the shortcut total.
+            let residual_bounded_ok: bool = residual_gate
+                && !count_only
+                && !deletes_present
+                && sort_topk.is_none()
+                && shortcut_count.is_some()
+                && request.aggs.is_none()
+                && request.min_score.is_none()
+                && request.collapse.is_none()
+                && request.rescore.is_empty();
 
             // Whether a Regexp query's field is keyword-typed — gates the
             // FST term-dictionary route of the regexp pre-filter (computed
@@ -26998,7 +29982,7 @@ impl Index {
                 // Segments that CAN compete are scanned, and the cross-segment
                 // merge at the bottom of the loop re-selects the best `cap` by
                 // the same comparator the final page sort uses.
-                if count_authoritative && all_hits.len() >= materialisation_limit {
+                if scan_early_stop && all_hits.len() >= materialisation_limit {
                     if scan_page_worst.is_none() {
                         scan_page_worst = self.worst_page_key(&all_hits);
                     }
@@ -27008,6 +29992,22 @@ impl Index {
                         // historical behaviour and stop.
                         None => break,
                         Some(_) => {}
+                    }
+                }
+                // #3509: no match here scores above the ceiling, so once the
+                // page's worst kept hit is above it, or at it and earlier than
+                // every doc of this segment, nothing here can displace it.
+                if let Some(ceiling) = score_bound_ceiling {
+                    if all_hits.len() >= materialisation_limit {
+                        if scan_page_worst.is_none() {
+                            scan_page_worst = self.worst_page_key(&all_hits);
+                        }
+                        if scan_page_worst.as_ref().is_some_and(|w| {
+                            w.0 > ceiling || (w.0 >= ceiling && meta.min_seq_no > w.1)
+                        }) {
+                            note_score_bound_prune();
+                            continue;
+                        }
                     }
                 }
                 // Cooperative deadline: stop fanning into further segments
@@ -27090,16 +30090,31 @@ impl Index {
                     // segment alone falls through to the stored-doc scan below.
                     let pinned_positions = pinned_probe
                         .and_then(|_| self.id_pos_map_for(seg_id.as_str(), meta.doc_count));
-                    let fts_query = query_node_to_fts_projected(
+                    // #3492: this segment's match sets for the date leaves.
+                    // `None` (a leaf whose set cannot be built) sends this
+                    // segment to the stored-doc scan: the probe already
+                    // counted the leaf as projectable, so declining it inside
+                    // a `filter` would drop the clause instead.
+                    let date_docs_map = self.date_docs_for_segment(
+                        &segments_dir,
+                        seg_id.as_str(),
+                        meta.doc_count,
                         query,
-                        &text_fields,
-                        &exact_fields,
-                        fts_kw_fields,
-                        self.segment_analyzer_binding(),
-                        pinned_positions
-                            .as_ref()
-                            .map(|map| PinnedIds::Positions(map)),
+                        &date_doc_fields,
                     );
+                    let fts_query = date_docs_map.as_ref().and_then(|date_docs_map| {
+                        query_node_to_fts_projected(
+                            query,
+                            &text_fields,
+                            &exact_fields,
+                            fts_kw_fields,
+                            self.segment_analyzer_binding(),
+                            pinned_positions
+                                .as_ref()
+                                .map(|map| PinnedIds::Positions(map)),
+                            DateDocs::Segment(&date_doc_fields, date_docs_map),
+                        )
+                    });
 
                     // Count-only fast path for single-term FTS queries:
                     // call `term_doc_freq` directly on the segment reader
@@ -27146,9 +30161,18 @@ impl Index {
                         // naming fields this segment never indexed (they can
                         // only match nothing here) and keep the postings path;
                         // if nothing survives, fall through as before.
-                        let fq =
-                            prune_missing_should_fields(&fq, &|f| reader.field_stats(f).is_some())
-                                .unwrap_or(fq);
+                        // #3464: a missing DOTTED field is not "no values
+                        // here". An object leaf in a segment built before it
+                        // had side-cars (or a multi-field, which never has
+                        // one) still has values in the stored documents, so
+                        // its clause must stay and send this segment to the
+                        // scan. Pruning it dropped those matches: `bool
+                        // should [match meta.title, match title]` found
+                        // nothing on meta.title after `_flush`.
+                        let fq = prune_missing_should_fields(&fq, &|f| {
+                            f.contains('.') || reader.field_stats(f).is_some()
+                        })
+                        .unwrap_or(fq);
                         let fts_has_field = {
                             let mut qf: Vec<String> = Vec::new();
                             collect_fts_query_fields(&fq, &mut qf);
@@ -27287,6 +30311,7 @@ impl Index {
                                                 .and_then(|d| d.get(pos as usize).cloned())
                                         }
                                     };
+                                    let mut seg_admitted: usize = 0;
                                     for (scanned, sh) in seg_hits.iter().enumerate() {
                                         // #2431: per-hit source reads + full
                                         // query re-test over O(matches) hits.
@@ -27294,6 +30319,8 @@ impl Index {
                                             deadline_exceeded = true;
                                             break;
                                         }
+                                        #[cfg(test)]
+                                        RESIDUAL_HITS_DECODED.with(|c| c.set(c.get() + 1));
                                         let doc = match fetch(sh.doc_id) {
                                             Some(d) => d,
                                             None => continue,
@@ -27374,6 +30401,7 @@ impl Index {
                                                 topk.offer(hit, seq, self);
                                             } else {
                                                 all_hits.push(hit);
+                                                seg_admitted += 1;
                                                 #[cfg(test)]
                                                 RESIDUAL_HITS_PEAK
                                                     .with(|c| c.set(c.get().max(all_hits.len())));
@@ -27396,6 +30424,22 @@ impl Index {
                                                         materialisation_limit,
                                                     );
                                                     all_hits = kept;
+                                                }
+                                                // This segment has admitted its own best
+                                                // `materialisation_limit` hits; with the
+                                                // shortcut total standing in for the tally
+                                                // (`residual_bounded_ok`), the rest of its
+                                                // matches can only be counted, so stop. A
+                                                // shortcut already below the exact running
+                                                // tally is not trusted (it under-counts
+                                                // some field shapes, see the F1 overwrite).
+                                                if residual_bounded_ok
+                                                    && seg_admitted >= materialisation_limit
+                                                    && shortcut_count
+                                                        .is_some_and(|sc| total_count <= sc)
+                                                {
+                                                    residual_truncated = true;
+                                                    break;
                                                 }
                                             }
                                         }
@@ -27829,6 +30873,7 @@ impl Index {
                                         let past_window: std::cell::OnceCell<
                                             Option<Resident<StoredSlices>>,
                                         > = std::cell::OnceCell::new();
+                                        let identity_walk = defer_walk && sort_topk.is_none();
                                         let fetch_doc = |pos: u32| -> Option<Value> {
                                             if let Some(ids) = cold_ids.as_ref() {
                                                 // Identity only: `_source` is
@@ -27869,6 +30914,21 @@ impl Index {
                                                 let slice = slices
                                                     .bytes
                                                     .get(start as usize..end as usize)?;
+                                                // #3018: identity only, as
+                                                // the cold walk above; an
+                                                // escaped `_id` takes the
+                                                // full parse.
+                                                if identity_walk {
+                                                    if let Some(id) = extract_stored_id_str(slice) {
+                                                        let mut doc =
+                                                            serde_json::Map::with_capacity(1);
+                                                        doc.insert(
+                                                            "_id".to_string(),
+                                                            Value::String(id.to_string()),
+                                                        );
+                                                        return Some(Value::Object(doc));
+                                                    }
+                                                }
                                                 serde_json::from_slice::<Value>(slice).ok()
                                             } else {
                                                 whole_fallback
@@ -28008,7 +31068,11 @@ impl Index {
                                             let source =
                                                 doc.get("_source").cloned().unwrap_or(Value::Null);
                                             seen_ids.insert(id.clone());
-                                            if cold_ids.is_some() {
+                                            if cold_ids.is_some()
+                                                || (defer_walk
+                                                    && slices_opt.is_some()
+                                                    && doc.get("_source").is_none())
+                                            {
                                                 deferred_sources.insert(
                                                     id.clone(),
                                                     (seg_id.to_string(), sh.doc_id, meta.doc_count),
@@ -28234,12 +31298,26 @@ impl Index {
                             // the pre-flush hit set — see
                             // `field_is_analyzed_text`).
                             None if field_is_analyzed_text(&dmq_schema, field) => None,
-                            None => self.build_term_prefilter_cached(
-                                &segments_dir,
-                                &seg_id,
-                                field,
-                                std::slice::from_ref(value),
-                            ),
+                            None => self
+                                .build_term_prefilter_cached(
+                                    &segments_dir,
+                                    &seg_id,
+                                    field,
+                                    std::slice::from_ref(value),
+                                )
+                                .or_else(|| {
+                                    // #3412: a multi-valued keyword field has
+                                    // no column in this segment; its FTS
+                                    // dictionary answers instead of a full
+                                    // stored decode + parse.
+                                    let term = keyword_fts_term_oracle(&dmq_schema, field, value)?;
+                                    self.build_keyword_term_fts_prefilter(
+                                        &segments_dir,
+                                        &seg_id,
+                                        field,
+                                        term,
+                                    )
+                                }),
                         }
                     } else if let QueryNode::Terms { field, values, .. } = query {
                         // Same field-sort narrowing as the Term arm (the
@@ -28270,6 +31348,35 @@ impl Index {
                                 field,
                                 values,
                             ),
+                        }
+                    } else if let QueryNode::Constant { query: inner, .. } = query {
+                        // #3412: `constant_score { filter: { term } }` matches
+                        // exactly what its inner `term` matches, so the same
+                        // exact position set applies (the score is the
+                        // constant, whatever the inner term would score).
+                        // Before, only a BARE `term` got a prefilter and this
+                        // common ES spelling parsed every stored doc.
+                        match inner.as_ref() {
+                            QueryNode::Term { field, value, .. }
+                                if !field_is_analyzed_text(&dmq_schema, field) =>
+                            {
+                                self.build_term_prefilter_cached(
+                                    &segments_dir,
+                                    &seg_id,
+                                    field,
+                                    std::slice::from_ref(value),
+                                )
+                                .or_else(|| {
+                                    let term = keyword_fts_term_oracle(&dmq_schema, field, value)?;
+                                    self.build_keyword_term_fts_prefilter(
+                                        &segments_dir,
+                                        &seg_id,
+                                        field,
+                                        term,
+                                    )
+                                })
+                            }
+                            _ => None,
                         }
                     } else if let QueryNode::Ids { values } = query {
                         // Resolve primary keys to stored positions via the
@@ -28352,7 +31459,7 @@ impl Index {
                         // `hits.total` (the 512-vs-847306 bench
                         // regression) and starve the top-N heap of
                         // candidates.
-                        let cap = if count_authoritative && sort_topk.is_none() {
+                        let cap = if scan_early_stop && sort_topk.is_none() {
                             Some(materialisation_limit)
                         } else {
                             None
@@ -28403,6 +31510,29 @@ impl Index {
                     // lookups + O(candidates) simd_json parses, no per-query
                     // decompress and no O(segment-bytes) brace re-scan.
                     let sorted_candidates_path = sort_topk.is_some() && sort_cand.is_some();
+                    // #3509: this segment's score bounds (see
+                    // `ScanScoreBound`). The page floor is the worst kept
+                    // score once earlier segments / the memtable filled it.
+                    let score_bound: Option<ScanScoreBound> =
+                        score_bound_ceiling.map(|ceiling| ScanScoreBound {
+                            ceiling,
+                            page_floor: if hits_before_segment >= materialisation_limit {
+                                all_hits.iter().map(|h| h.score).reduce(f32::min)
+                            } else {
+                                None
+                            },
+                            clauses: score_bound_clauses
+                                .iter()
+                                .map(|(bound, leaf)| {
+                                    (
+                                        *bound,
+                                        leaf.and_then(|l| {
+                                            self.bool_leaf_prefilter(&segments_dir, &seg_id, l)
+                                        }),
+                                    )
+                                })
+                                .collect(),
+                        });
                     if sorted_candidates_path && !is_match_all {
                         // The scan/hydrate below visits only the narrowed
                         // candidates, so its total tally is partial — flag
@@ -28482,7 +31612,7 @@ impl Index {
                             ids_only,
                             count_only,
                             scan_limit,
-                            count_authoritative,
+                            scan_early_stop,
                             &mut total_count,
                             &mut all_hits,
                             &mut seen_ids,
@@ -28494,6 +31624,8 @@ impl Index {
                             &mut dbg_walked,
                             &mut dbg_admitted,
                             score_doc,
+                            scan_scores_tied,
+                            score_bound.as_ref(),
                             &dmq_schema,
                         );
                         dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
@@ -28536,13 +31668,15 @@ impl Index {
                                     ids_only,
                                     count_only,
                                     scan_limit,
-                                    count_authoritative,
+                                    scan_early_stop,
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
                                     Some(search_deadline),
                                     &mut deadline_exceeded,
                                     score_doc,
+                                    scan_scores_tied,
+                                    score_bound.as_ref(),
                                     &dmq_schema,
                                 );
                             }
@@ -28554,7 +31688,7 @@ impl Index {
                                     ids_only,
                                     count_only,
                                     scan_limit,
-                                    count_authoritative,
+                                    scan_early_stop,
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
@@ -28566,6 +31700,8 @@ impl Index {
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
                                     score_doc,
+                                    scan_scores_tied,
+                                    score_bound.as_ref(),
                                     &dmq_schema,
                                 );
                             }
@@ -28677,7 +31813,19 @@ impl Index {
                                 // the decompressed section can be cached for
                                 // the next query (subject to the budget).
                                 let mut offsets: Vec<(u32, u32)> = Vec::new();
-                                let want_cache = sorted_candidates_path
+                                // #3412: an UNSORTED pre-filtered scan that is
+                                // not count-authoritative walks the whole
+                                // section anyway (no F1b early stop), so the
+                                // offsets cost nothing extra here. Caching them
+                                // sends the next pre-filtered query on this
+                                // segment to `hydrate_prefiltered_unsorted`
+                                // (random access to its matches) instead of
+                                // brace-walking the decoded section again:
+                                // 496 segments x ~1.4 MB walked per query was
+                                // most of a warm 417 ms `term` hit.
+                                let prefiltered_full_walk =
+                                    pre_filter.is_some() && sort_topk.is_none() && !scan_early_stop;
+                                let want_cache = (sorted_candidates_path || prefiltered_full_walk)
                                     && !projected
                                     && stored_bytes.len() <= u32::MAX as usize
                                     && !self.stored_slices_cache.contains_key(seg_id.as_str());
@@ -28688,7 +31836,7 @@ impl Index {
                                     ids_only,
                                     count_only,
                                     scan_limit,
-                                    count_authoritative,
+                                    scan_early_stop,
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
@@ -28700,6 +31848,8 @@ impl Index {
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
                                     score_doc,
+                                    scan_scores_tied,
+                                    score_bound.as_ref(),
                                     &dmq_schema,
                                 );
                                 dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
@@ -28804,13 +31954,25 @@ impl Index {
                 }
             }
         }
-        if !deferred_sources.is_empty() {
+        // #3018: a deferred hybrid leg leaves them unread when nothing below
+        // reads a hit's source: an exact-BM25 page (every hit scored by the
+        // segment FTS path — the heuristic rescores stay off) with no
+        // function_score and no pinned ids.
+        let keep_sources_deferred = defer_walk
+            && fts_scored_applied
+            && !heuristic_scored_applied
+            && !scored_fast_applied
+            && !fs_fast_applied
+            && peeled_fs.is_none()
+            && !matches!(query, QueryNode::Pinned { .. });
+        if !deferred_sources.is_empty() && !keep_sources_deferred {
             all_hits = self.hydrate_deferred_cold_sources(
                 all_hits,
                 &deferred_sources,
                 fts_row_keep.as_deref(),
                 &mut row_projected,
             );
+            deferred_sources.clear();
         }
         drop(snap);
 
@@ -28838,7 +32000,9 @@ impl Index {
         };
 
         // --- Fill memtable sources (for hits that don't yet have a source) ---
-        let mut final_hits = self.fill_memtable_sources(final_hits).await;
+        let mut final_hits = self
+            .fill_memtable_sources(final_hits, &deferred_sources)
+            .await;
 
         // --- Apply pinned query: boost pinned IDs to the top ---
         // Assign pinned IDs a score higher than any organic result so they sort first.
@@ -28866,6 +32030,15 @@ impl Index {
                     hit.score = f32::from_bits(0x7F00_0001_u32 + (p - rank as u32));
                 }
             }
+        }
+
+        // A `field_value_factor` with no `missing` met a scored doc without a
+        // value during the segment scans (the memtable and columnar paths
+        // were checked before them).
+        if let Some(field) = fvf_missing_field.get() {
+            return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
+                fvf_missing_value_reason(field),
+            )));
         }
 
         // --- Apply / validate function scores ---
@@ -29022,7 +32195,8 @@ impl Index {
         // `final_hits.len()`, so without this `_score` depends on `size` and
         // `bool{must:[A],must:[B]}` ranks differently from the same clauses
         // scoped with `post_filter`.)
-        let exact_bm25_page = fts_scored_applied && !heuristic_scored_applied;
+        // #3349: a memtable-only page scored by `mem_score_plan` is exact too.
+        let exact_bm25_page = (fts_scored_applied || mem_exact_bm25) && !heuristic_scored_applied;
         if !scored_fast_applied
             && !exact_bm25_page
             && !final_hits.is_empty()
@@ -29244,6 +32418,16 @@ impl Index {
         // same overwrite.
         if is_match_all_effective {
             total_count = self.live_doc_count();
+        } else if residual_truncated {
+            // A `residual_gate` segment pass stopped once it held its own
+            // best page (see `residual_bounded_ok`), so the tally is partial;
+            // the doc-values shortcut (segments + memtable, no deletes) is
+            // the exact total. Same sanity floor as the F1 branch below.
+            if let Some(sc) = shortcut_count {
+                if sc >= total_count.max(final_hits.len() as u64) {
+                    total_count = sc;
+                }
+            }
         } else if !count_only
             && !query_needs_fts
             && !scored_fast_applied
@@ -29428,6 +32612,10 @@ impl Index {
                         .iter()
                         .map(|m| m.doc_count)
                         .sum();
+                    // #3444: physical rows on purpose. The corpus keeps live
+                    // rows only, but measured on 200k live docs (~1 KB text
+                    // body each) the brute path held 842-851 MB of RSS (~4.3 KB a live doc), so
+                    // pricing superseded rows too is still not an overcharge.
                     let est = (self.memtable.doc_count() as u64)
                         .saturating_add(seg_docs)
                         .saturating_mul(EST_BYTES_PER_OWNED_DOC);
@@ -29496,7 +32684,7 @@ impl Index {
                 // caller decodes and publishes, every other concurrent
                 // caller (single-flight) and every later query (cache hit)
                 // just clone the `Arc`.
-                let arr = match self.stored_values_for_async(&seg.id).await {
+                let arr = match self.stored_values_for_async_checked(&seg.id).await? {
                     Some(a) => a,
                     // Segment unreadable (transient I/O, or merged away
                     // under this pass's snapshot). A skipped segment
@@ -29822,16 +33010,22 @@ impl Index {
         };
 
         // --- Apply _source filtering ---
-        let generated_companion_fields = {
-            let schema = self.schema.read().await;
-            generated_embedding_companion_fields(&schema.schema)
+        // #3018: a hybrid leg returns its sources raw; the hybrid executor
+        // filters (and measures) the fused page.
+        let (page, savings) = if request.defer_source {
+            (page, None)
+        } else {
+            let generated_companion_fields = {
+                let schema = self.schema.read().await;
+                generated_embedding_companion_fields(&schema.schema)
+            };
+            apply_source_filter_measured(
+                page,
+                &request.source,
+                &generated_companion_fields,
+                Some(request),
+            )
         };
-        let (page, savings) = apply_source_filter_measured(
-            page,
-            &request.source,
-            &generated_companion_fields,
-            Some(request),
-        );
 
         // --- Build profile data if requested ---
         let profile = if request.profile {
@@ -30030,6 +33224,7 @@ impl Index {
                 let store = Arc::clone(&store);
                 let memtable = Arc::clone(&memtable);
                 let collection_publication = Arc::clone(&index.collection_publication);
+                let finalize_gate = Arc::clone(&index.finalize_gate);
                 let registry = Arc::clone(&registry);
                 let data_dir = data_dir.clone();
                 let field_configs = field_configs.clone();
@@ -30074,6 +33269,7 @@ impl Index {
                         warm_caches,
                         shard_index_name,
                         admit_timeout,
+                        finalize_gate,
                         #[cfg(test)]
                         test_hook,
                     )
@@ -30257,6 +33453,7 @@ impl Index {
         self.vector_column_cache.clear();
         self.shortcut_count_cache.clear();
         self.ghost_positions_cache.clear();
+        self.dv_live_view_cache.clear();
         self.regexp_expand_cache.clear();
         self.fast_date_cache.clear();
         self.fast_date_sorted_cache.clear();
@@ -30279,6 +33476,7 @@ impl Index {
             + self.vector_column_cache.len()
             + self.shortcut_count_cache.len()
             + self.ghost_positions_cache.len()
+            + self.dv_live_view_cache.len()
             + self.regexp_expand_cache.len()
             + self.fast_date_cache.len()
             + self.fast_date_sorted_cache.len()
@@ -30515,6 +33713,24 @@ impl Index {
         field: Option<&str>,
         text: &str,
     ) -> std::result::Result<(String, Vec<xerj_fts::analyzer::Token>), String> {
+        // #3513: a normalized keyword field analyses to its one normalized
+        // term, the value it indexes.
+        if let (None, Some(f)) = (analyzer, field) {
+            let schema = self.schema.read().await;
+            if let Some(n) =
+                xerj_common::normalizer::KeywordNormalizers::from_schema(&schema.schema).get(f)
+            {
+                return Ok((
+                    n.name.clone(),
+                    vec![xerj_fts::analyzer::Token::new(
+                        n.normalize(text),
+                        0,
+                        0,
+                        u32::try_from(text.len()).unwrap_or(u32::MAX),
+                    )],
+                ));
+            }
+        }
         let name: String = match (analyzer, field) {
             (Some(a), _) => a.to_string(),
             (None, Some(f)) => {
@@ -31103,8 +34319,15 @@ impl Index {
     // ── Delete index ──────────────────────────────────────────────────────────
 
     /// Remove all data files for this index.
+    ///
+    /// The directory is renamed into `<data_dir>/_trash` first, so the name
+    /// is free even when a file in it cannot be removed yet (an NFS
+    /// silly-renamed mmap, a straggling flush); see [`crate::index_trash`]
+    /// (#3274). `Err` means the name could not be freed at all.
     pub async fn delete_all_data(&self) -> Result<()> {
-        std::fs::remove_dir_all(&self.data_dir).map_err(EngineError::Io)?;
+        let root = self.data_dir.parent().unwrap_or(&self.data_dir);
+        crate::index_trash::retire_dir(root, &self.data_dir, self.name.as_str())
+            .map_err(EngineError::Io)?;
         Ok(())
     }
 
@@ -31120,6 +34343,92 @@ impl Index {
     /// Current `date_detection` state (default true, like ES).
     pub fn date_detection_enabled(&self) -> bool {
         self.date_detection.load(Ordering::Relaxed)
+    }
+
+    /// Under a `dynamic: false` mode (`DynamicMapping::Runtime`), a query
+    /// whose clauses on unmapped fields are lowered to `match_none`; `None`
+    /// when the mode is another one or nothing changed.
+    async fn mask_dynamic_false_query(&self, query: &QueryNode) -> Option<QueryNode> {
+        let guard = self.schema.read().await;
+        if self.dynamic_mode(&guard) != xerj_common::schema::DynamicMapping::Runtime {
+            return None;
+        }
+        let coverage = self.es_coverage_snapshot();
+        let hidden = |f: &str| hidden_by_dynamic_false(&guard.schema, &coverage, f);
+        let lowered = lower_unmapped_clauses(query, &hidden);
+        (lowered != *query).then_some(lowered)
+    }
+
+    /// [`Index::mask_dynamic_false_query`] for a whole request: the query,
+    /// plus every agg `field` naming an unmapped field, which is pointed at
+    /// a name no document carries so both agg paths see an absent field.
+    async fn mask_dynamic_false_unmapped<'a>(
+        &self,
+        request: &'a SearchRequest,
+    ) -> std::borrow::Cow<'a, SearchRequest> {
+        use std::borrow::Cow;
+        let guard = self.schema.read().await;
+        if self.dynamic_mode(&guard) != xerj_common::schema::DynamicMapping::Runtime {
+            return Cow::Borrowed(request);
+        }
+        let coverage = self.es_coverage_snapshot();
+        let hidden = |f: &str| hidden_by_dynamic_false(&guard.schema, &coverage, f);
+        let lowered = lower_unmapped_clauses(&request.query, &hidden);
+        let mut aggs = request.aggs.clone();
+        let aggs_changed = aggs
+            .as_mut()
+            .is_some_and(|a| mask_unmapped_agg_fields(a, &hidden));
+        if lowered == request.query && !aggs_changed {
+            return Cow::Borrowed(request);
+        }
+        let mut owned = request.clone();
+        owned.query = lowered;
+        if aggs_changed {
+            owned.aggs = aggs;
+        }
+        Cow::Owned(owned)
+    }
+
+    fn es_coverage_snapshot(&self) -> Arc<xerj_common::mapping_dynamic::MappingCoverage> {
+        self.es_coverage
+            .read()
+            .map(|c| Arc::clone(&c))
+            .unwrap_or_default()
+    }
+
+    /// Set the dynamic mode the ES mapping's root `dynamic` asks for (#3514),
+    /// or `None` to fall back to the schema's own mode. Called by the engine
+    /// on create/open/put-mapping, next to [`Index::set_date_detection`].
+    pub fn set_es_dynamic(
+        &self,
+        mode: Option<xerj_common::schema::DynamicMapping>,
+        coverage: xerj_common::mapping_dynamic::MappingCoverage,
+    ) {
+        use xerj_common::schema::DynamicMapping;
+        if let Ok(mut slot) = self.es_coverage.write() {
+            *slot = Arc::new(coverage);
+        }
+        let code = match mode {
+            None => 0,
+            Some(DynamicMapping::Dynamic) => 1,
+            Some(DynamicMapping::Strict) => 2,
+            Some(DynamicMapping::Runtime) => 3,
+        };
+        self.es_dynamic.store(code, Ordering::Relaxed);
+    }
+
+    /// The dynamic mode in force: the ES mapping's root `dynamic` when one
+    /// was set, else `schema.dynamic`. Every "may an unmapped field be
+    /// mapped / is unmapped proof of absence" decision reads this, never
+    /// `schema.dynamic` directly.
+    pub fn dynamic_mode(&self, schema: &ManagedSchema) -> xerj_common::schema::DynamicMapping {
+        use xerj_common::schema::DynamicMapping;
+        match self.es_dynamic.load(Ordering::Relaxed) {
+            1 => DynamicMapping::Dynamic,
+            2 => DynamicMapping::Strict,
+            3 => DynamicMapping::Runtime,
+            _ => schema.dynamic,
+        }
     }
 
     /// Replace the set of date fields excluded from default-format ingest
@@ -31208,7 +34517,10 @@ impl Index {
         // snapshot.
         let (new_top_level, needs_merge): (Vec<(String, Value)>, Vec<(String, Value)>) = {
             let schema = self.schema.read().await;
-            if !matches!(schema.dynamic, xerj_common::schema::DynamicMapping::Dynamic) {
+            if !matches!(
+                self.dynamic_mode(&schema),
+                xerj_common::schema::DynamicMapping::Dynamic
+            ) {
                 return;
             }
             let mut new_top_level = Vec::new();
@@ -31267,8 +34579,19 @@ impl Index {
         }
 
         let date_detection = self.date_detection_enabled();
+        // #3513: a dynamic template that maps a new string to a normalized
+        // keyword. Resolved before the write lock (it reads the mapping file).
+        let templated = {
+            let candidates: Vec<(&str, &Value)> =
+                new_top_level.iter().map(|(k, v)| (k.as_str(), v)).collect();
+            self.dynamic_template_fields(&candidates, date_detection)
+                .await
+        };
         let mut schema = self.schema.write().await;
-        if !matches!(schema.dynamic, xerj_common::schema::DynamicMapping::Dynamic) {
+        if !matches!(
+            self.dynamic_mode(&schema),
+            xerj_common::schema::DynamicMapping::Dynamic
+        ) {
             return;
         }
         // Re-derive against the live schema under the write lock rather than
@@ -31295,7 +34618,10 @@ impl Index {
                 }
                 continue;
             }
-            let fc = dynamic_field_config(&key, &val, date_detection);
+            let fc = templated
+                .get(&key)
+                .cloned()
+                .unwrap_or_else(|| dynamic_field_config(&key, &val, date_detection));
             // #312: `fc` can carry an entire nested subtree, so count its real
             // recursive size (`total_field_count`, the same measure the guard's
             // `Schema::field_count()` uses) — counting it as one field let a
@@ -31351,7 +34677,10 @@ impl Index {
         // the full rationale (same fix, single-document form).
         let needs_write = {
             let schema = self.schema.read().await;
-            if !matches!(schema.dynamic, xerj_common::schema::DynamicMapping::Dynamic) {
+            if !matches!(
+                self.dynamic_mode(&schema),
+                xerj_common::schema::DynamicMapping::Dynamic
+            ) {
                 return;
             }
             obj.iter().any(|(key, val)| {
@@ -31397,8 +34726,23 @@ impl Index {
         // Slow path: at least one new field or new nested child found.
         // Upgrade to write lock and persist the updated schema.
         let date_detection = self.date_detection_enabled();
+        // #3513: see `evolve_schema_from_docs`.
+        let templated = {
+            let candidates: Vec<(&str, &Value)> = {
+                let schema = self.schema.read().await;
+                obj.iter()
+                    .filter(|(k, _)| !schema.schema.has_field(k))
+                    .map(|(k, v)| (k.as_str(), v))
+                    .collect()
+            };
+            self.dynamic_template_fields(&candidates, date_detection)
+                .await
+        };
         let mut schema = self.schema.write().await;
-        if !matches!(schema.dynamic, xerj_common::schema::DynamicMapping::Dynamic) {
+        if !matches!(
+            self.dynamic_mode(&schema),
+            xerj_common::schema::DynamicMapping::Dynamic
+        ) {
             return;
         }
         let mut schema_changed = false;
@@ -31422,7 +34766,10 @@ impl Index {
                 }
                 continue;
             }
-            let fc = dynamic_field_config(key, val, date_detection);
+            let fc = templated
+                .get(key)
+                .cloned()
+                .unwrap_or_else(|| dynamic_field_config(key, val, date_detection));
             // #312: count the new field's real recursive subtree size, not one,
             // so a single nested-object insert cannot overshoot the budget (the
             // single-doc evolve path, the twin of `evolve_schema_from_docs`).
@@ -31462,6 +34809,56 @@ impl Index {
     /// evil against rejecting a document that is already indexed — but it is
     /// an ERROR, not a shrug. `schema_persist_failures` counts it so a health
     /// check can see it without reading logs.
+    /// #3513: the new top-level fields among `candidates` that this index's
+    /// `dynamic_templates` map to a normalized keyword (see
+    /// [`normalized_keyword_from_dynamic_templates`]). Empty, without touching
+    /// the analysis settings, when no template names a normalizer. Reads the
+    /// persisted mapping (the one `PUT _mapping` and create write), only on
+    /// the slow path where a document brought fields the schema lacks.
+    async fn dynamic_template_fields(
+        &self,
+        candidates: &[(&str, &Value)],
+        date_detection: bool,
+    ) -> HashMap<String, FieldConfig> {
+        let mut out = HashMap::new();
+        if candidates.is_empty() {
+            return out;
+        }
+        let Ok(bytes) = std::fs::read(self.data_dir.join("es_mapping.json")) else {
+            return out;
+        };
+        let Ok(parsed) = serde_json::from_slice::<Value>(&bytes) else {
+            return out;
+        };
+        let mapping = parsed.get("mappings").unwrap_or(&parsed);
+        let Some(templates) = mapping.get("dynamic_templates").and_then(Value::as_array) else {
+            return out;
+        };
+        let names_a_normalizer = templates.iter().any(|t| {
+            t.as_object().is_some_and(|o| {
+                o.values()
+                    .any(|s| s.pointer("/mapping/normalizer").is_some())
+            })
+        });
+        if !names_a_normalizer {
+            return out;
+        }
+        let analysis = self.analysis_in_force().await;
+        for (key, val) in candidates {
+            let detected = dynamic_field_config(key, val, date_detection).field_type;
+            if let Some(fc) = normalized_keyword_from_dynamic_templates(
+                templates,
+                key,
+                val,
+                detected,
+                analysis.as_ref(),
+            ) {
+                out.insert((*key).to_string(), fc);
+            }
+        }
+        out
+    }
+
     async fn persist_evolved_schema(&self, schema: &ManagedSchema) {
         if let Err(e) = self.save_schema(schema).await {
             self.schema_persist_failures.fetch_add(1, Ordering::Relaxed);
@@ -31500,6 +34897,23 @@ impl Index {
         // evolution), so this is the one place the sync-readable date-scale
         // mirror has to be refreshed (#790). Swapped as a whole `Arc` so a
         // concurrent reader never observes a half-rebuilt set.
+        // #3513: same funnel for the memtable's keyword normalizers. A field
+        // that just gained one may already have raw cells in the memtable (the
+        // document that introduced it through a dynamic template is inserted
+        // before the schema evolves); those columns stop answering, so the
+        // normalizing `_source` scan does until the next flush.
+        let previous = self.memtable.keyword_normalizers();
+        let next_normalizers =
+            xerj_common::normalizer::KeywordNormalizers::from_schema(&schema.schema);
+        let newly_normalized: Vec<String> = next_normalizers
+            .paths()
+            .filter(|p| !p.contains('.') && previous.get(p) != next_normalizers.get(p))
+            .map(str::to_string)
+            .collect();
+        self.memtable.set_keyword_normalizers(next_normalizers);
+        for field in &newly_normalized {
+            self.memtable.mark_doc_values_unusable(field);
+        }
         let next = Arc::new(date_field_scales(&schema.schema));
         let changed = {
             let mut cur = self.date_field_scales.write();
@@ -31548,13 +34962,24 @@ impl Index {
         }
     }
 
-    async fn fill_memtable_sources(&self, hits: Vec<Hit>) -> Vec<Hit> {
+    async fn fill_memtable_sources(
+        &self,
+        hits: Vec<Hit>,
+        deferred: &HashMap<String, (String, u32, u64)>,
+    ) -> Vec<Hit> {
         // Look up sources from the active memtable for unflushed docs.
         // Flushed docs already have their sources filled by the segment reader
         // path in search_inner().
+        //
+        // #3018: a segment hit a hybrid leg deferred (`deferred`) is left as
+        // it is: its source is read by the hybrid executor from the version
+        // the leg scored, and a later memtable copy of the same id is not it.
         let mem = &*self.memtable;
         hits.into_iter()
             .map(|mut h| {
+                if deferred.contains_key(&h.id) {
+                    return h;
+                }
                 if h.source.is_null() {
                     if let Some(source) = mem.get_doc_source_as_value(&h.id) {
                         h.source = source;
@@ -31952,7 +35377,40 @@ fn build_fts_field_configs(
             },
         );
     }
+    // #3464: each `object` leaf gets its own side-car under its dotted path,
+    // analysed as its type says. A configured field is written even when no
+    // document in the segment has a value, so a segment that HAS the side-car
+    // was built knowing the path, and one without it predates it (see
+    // `fts_merge_readers` and `prune_missing_should_fields`).
+    for (path, field_type) in crate::memtable::fts_object_leaf_paths(schema) {
+        let is_text = matches!(field_type, FieldType::Text);
+        out.insert(
+            path,
+            FieldIndexConfig {
+                analyzer: if is_text { text_analyzer } else { "keyword" }.to_string(),
+                store_positions: is_text,
+                store_term_vectors: false,
+            },
+        );
+    }
     out
+}
+
+/// The dotted `object` leaf paths among `field_configs` (#3464), the keys the
+/// flush and merge builds add values for with
+/// [`crate::memtable::add_object_path_values`]. A top-level field whose name
+/// has a dot is in the list too; the walk then also finds that path through
+/// nested objects, which is the same field to ES.
+fn fts_object_path_keys(
+    field_configs: &HashMap<String, xerj_fts::index::FieldIndexConfig>,
+) -> Vec<String> {
+    let mut keys: Vec<String> = field_configs
+        .keys()
+        .filter(|k| k.contains('.'))
+        .cloned()
+        .collect();
+    keys.sort_unstable();
+    keys
 }
 
 /// Log `error` and remove this segment's FTS artifacts.
@@ -32012,6 +35470,7 @@ fn fts_merge_readers(
     text_analyzer: &str,
 ) -> Option<Vec<xerj_fts::index::FtsIndexReader>> {
     let default_store_positions = xerj_fts::index::FieldIndexConfig::default().store_positions;
+    let object_paths = fts_object_path_keys(field_configs);
     // ONE directory scan for the whole batch: a converging index keeps tens of
     // thousands of side-car files here, and this runs per merge batch.
     let segment_ids: Vec<&str> = metas.iter().map(|meta| meta.id.as_str()).collect();
@@ -32043,6 +35502,27 @@ fn fts_merge_readers(
                  this batch"
             );
             return None;
+        }
+        // #3464: an input built before object leaves had side-cars of their
+        // own holds those values only in its stored documents. Replaying its
+        // postings would give the merged segment empty side-cars for them, and
+        // those would then answer "no match" with authority. Every build
+        // since writes each configured path even when it is empty, so a
+        // missing path means an older input (or a path mapped after it was
+        // built): re-analyse this batch once, and the output carries them.
+        if meta.doc_count > 0 {
+            if let Some(path) = object_paths
+                .iter()
+                .find(|path| !names.iter().any(|name| name == *path))
+            {
+                tracing::info!(
+                    segment = %meta.id,
+                    path = %path,
+                    "merge: input segment has no side-car for an object field path, \
+                     re-analysing this batch"
+                );
+                return None;
+            }
         }
         let refs: Vec<&str> = names.iter().map(|name| name.as_str()).collect();
         let reader =
@@ -32137,8 +35617,11 @@ fn fts_merge_readers(
 fn extract_fts_fields_excluding(
     source: &Value,
     excluded: &std::collections::HashSet<String>,
+    object_paths: &[String],
 ) -> HashMap<String, xerj_fts::index::FieldValues> {
-    crate::memtable::extract_field_values_excluding(source, excluded)
+    let mut fields = crate::memtable::extract_field_values_excluding(source, excluded);
+    crate::memtable::add_object_path_values(source, object_paths, &mut fields);
+    fields
 }
 
 // ── Short-circuit count helper ───────────────────────────────────────────────
@@ -32360,6 +35843,16 @@ impl Index {
         is_match_all: bool,
         mem_matches_known: Option<u64>,
         schema: &Schema,
+        // #3412: may a column-less multi-valued keyword segment be counted
+        // from its FTS dictionary? Only for a count-only request. The count is
+        // exact, but on a size>0 request a shortcut count also switches the
+        // stored scan to F1's bounded mode, which skips segments whose docs
+        // all arrived after the worst kept hit — valid only when every match
+        // scores the same. The scan's `term` score is `1 + ln(1 + tf)` over
+        // the query's tokens in EVERY array element (`match_term_frequency`),
+        // so on an array field a later doc can outscore an earlier one and
+        // the bounded page would differ from the full one.
+        fts_keyword_oracle: bool,
     ) -> Option<u64> {
         // Unwrap wrapper queries so constant_score and boosted
         // queries benefit from the same fast paths.
@@ -32465,7 +35958,7 @@ impl Index {
                                         // treating the whole subnet as an empty
                                         // predicate, which counted 0 after flush
                                         // (#786).
-                                        if s.contains('/') {
+                                        if cidr_shaped(s) {
                                             abandoned = true;
                                             break;
                                         }
@@ -33046,7 +36539,7 @@ impl Index {
         // — which expands CIDR via `ip_matches_cidr`, exactly as the memtable's
         // hit path does — answers instead.
         if let Value::String(s) = value {
-            if s.contains('/') {
+            if cidr_shaped(s) {
                 return None;
             }
         }
@@ -33170,6 +36663,25 @@ impl Index {
 
             if served_by_dv {
                 continue;
+            }
+
+            // #3412: the one column-less shape whose term dictionary IS the
+            // scan's oracle — a declared keyword field that went multi-valued
+            // in this segment (no column by design), docs-only keyword
+            // side-car, non-numeric string value. See
+            // `keyword_fts_term_oracle` for why each other shape declines;
+            // the #362 abandon below still covers them all.
+            if let Some(term) = fts_keyword_oracle
+                .then(|| keyword_fts_term_oracle(schema, field, value))
+                .flatten()
+            {
+                if let Some(reader) =
+                    self.keyword_fts_reader_without_column(&segments_dir, &meta.id, field)
+                {
+                    let df = reader.term_doc_freq(field, term).unwrap_or(0);
+                    seg_matches = seg_matches.saturating_add(u64::from(df));
+                    continue;
+                }
             }
 
             // No doc-values column for this field in this segment: ABANDON
@@ -33380,6 +36892,9 @@ impl Index {
         let shadow_prefix = format!("{segment_id}\u{1}");
         self.sort_shadow_cache
             .retain(|key, _| !key.starts_with(&shadow_prefix));
+        // #3467: keyed "<segment_id>\u{1}<column names>".
+        self.dv_live_view_cache
+            .retain(|key, _| !key.starts_with(&shadow_prefix));
 
         // DashMap retains shard capacity after logical removals. Shrinking
         // only an entirely empty map avoids locking every shard on each merge.
@@ -33444,6 +36959,9 @@ impl Index {
         let permit = transient_read_permit(&self.segment_hydration_budget, read_budget, estimate);
         let reader = Arc::new(FtsIndexReader::open(fts_dir, segment_id, fields).ok()?);
         let bytes = reader.retained_bytes();
+        if !self.segment_hydration_budget.has_headroom(bytes) {
+            self.make_room_for_fts_reader(bytes);
+        }
         Some(self.publish_current_permitted(
             &self.fts_reader_cache,
             segment_id,
@@ -33454,6 +36972,48 @@ impl Index {
             &self.segment_hydration_budget,
             permit,
         ))
+    }
+
+    /// #3455: let an FTS reader displace this index's decoded stored sections
+    /// when the hydration budget is full.
+    ///
+    /// The budget admits first come, first served and never evicts. One
+    /// top-level `term` that falls to the stored scan decodes every segment's
+    /// stored section and fills it (whole decompressed sections, megabytes per
+    /// segment); after that no FTS reader is admitted, and every FTS-routed
+    /// query reopens and re-mmaps the side-cars of every segment. At the
+    /// 3 GiB cap on 496 segments that held `bool { must: [term, term] }` at
+    /// ~138 ms instead of ~16 ms, for the rest of the process's life. A
+    /// reader is small and reused by every FTS query on the segment; a
+    /// decoded section only serves the next full scan, which can decode
+    /// again. So a refused reader evicts decoded sections, then stored
+    /// slices, until it fits or none are left. Never the other way round, so
+    /// mixed workloads settle instead of thrashing. An evicted entry refunds
+    /// its charge when its last in-flight reader drops it.
+    fn make_room_for_fts_reader(&self, bytes: u64) {
+        let budget = &self.segment_hydration_budget;
+        let decoded: Vec<String> = self
+            .decoded_stored_cache
+            .iter()
+            .map(|e| e.key().clone())
+            .collect();
+        for key in decoded {
+            if budget.has_headroom(bytes) {
+                return;
+            }
+            self.decoded_stored_cache.remove(&key);
+        }
+        let slices: Vec<String> = self
+            .stored_slices_cache
+            .iter()
+            .map(|e| e.key().clone())
+            .collect();
+        for key in slices {
+            if budget.has_headroom(bytes) {
+                return;
+            }
+            self.stored_slices_cache.remove(&key);
+        }
     }
 
     fn dv_columns_for(
@@ -33532,9 +37092,33 @@ impl Index {
     /// arrival-order first-`cap` matches, so on a >`cap`-doc corpus its top-k
     /// is not the true top-k.
     ///
+    /// A segment with NO column for the field scores every row as missing
+    /// (`fvf.missing`, else 0.0) when the field is provably absent from its
+    /// docs: neither the name nor its top-level root is mapped, and no
+    /// ancestor path has a column (the `fast_aggs::field_needs_brute_fallback`
+    /// rule). A mapped field without a column may be a suppressed array or an
+    /// object leaf the brute resolver still reads, so it bails (#3486:
+    /// `ax_line` on a 504k-doc autoindex index took the brute scan,
+    /// 11-16 s, to score every doc as `missing`). "Unmapped" proves absence
+    /// only under `dynamic` or `strict` mapping (`unmapped_means_absent`):
+    /// a `runtime` schema keeps unmapped keys in `_source` without mapping
+    /// them, and the brute scorer reads them there (`obj.r` under an unmapped
+    /// `obj` has no column either), so that case bails too.
+    ///
+    /// Ties are broken by arrival order (`_seq_no` ascending), the order the
+    /// stored scan and the caller's final page sort use, so a tied page does
+    /// not depend on which path served it. Segment ROW order is not arrival
+    /// order (the sharded memtable flush interleaves rows, and the memtable
+    /// lists its shards one after another), so rows are ranked through the
+    /// cached per-segment `row_seqs_for` map, as `scored_columnar` does. An
+    /// all-missing segment contributes only its `cap` earliest rows (#3506:
+    /// 6 docs, size 3 returned ids 1 2 4 after `_bulk` and 2 3 4 after one
+    /// PUT per doc, where the stored scan returned 1 2 3).
+    ///
     /// Returns `None` — so the caller falls back to the unchanged brute scan —
-    /// for any segment lacking a numeric dv column for the field, a shape/count
-    /// mismatch, a malformed stored slice, or any per-row score that is
+    /// for any segment with a non-numeric dv column for the field, a mapped
+    /// field without a column, a segment without a complete `_id → seq_no`
+    /// map, a shape/count mismatch, a malformed stored slice, or any per-row score that is
     /// non-finite / negative (the ES `illegal_argument_exception` path, which
     /// the brute fallback reproduces with the exact reason + doc index).
     ///
@@ -33544,37 +37128,53 @@ impl Index {
     /// whereas the legacy brute path double-applies (squares) the function.
     /// The caller only reaches here with `deletes_present == false`, so every
     /// non-tombstoned row/entry is live.
+    #[allow(clippy::too_many_arguments)]
     fn function_score_columnar(
         &self,
         fvf: &FieldValueFactor,
         segments: &[xerj_storage::segment::SegmentMeta],
         segments_dir: &std::path::Path,
         cap: usize,
+        schema: &Schema,
+        unmapped_means_absent: bool,
+        missing_value: &std::sync::OnceLock<String>,
     ) -> Option<(Vec<Hit>, u64)> {
         use xerj_storage::doc_values::Column;
         let field = fvf.field.as_str();
+        let root = field.split_once('.').map_or(field, |(r, _)| r);
+        let field_mapped = schema
+            .fields
+            .iter()
+            .any(|f| f.name == field || f.name == root);
 
         enum Cand {
             Mem(u32),
             Seg(u32, u32),
         }
-        let mut cands: Vec<(f32, Cand)> = Vec::new();
+        // `(score, seq_no, candidate)`: the seq is the selection tie-break.
+        let mut cands: Vec<(f32, u64, Cand)> = Vec::new();
 
         // ── Live memtable docs ────────────────────────────────────────────
         // Sources are already parsed Values in memory; score them through the
         // identical `compute_field_value_factor` for byte-for-byte parity.
         let mem_docs = self.memtable.all_docs_with_sources_arc();
         for (i, (id, source)) in mem_docs.iter().enumerate() {
-            if let Some(ver) = self.store.version_map.get(id) {
-                if ver.deleted {
-                    continue;
-                }
+            // Same seq transform as `lookup_seq_no`, which the final page
+            // sort keys ties on.
+            let seq = match self.store.version_map.get(id) {
+                Some(ver) if ver.deleted => continue,
+                Some(ver) => ver.seq_no.saturating_sub(1),
+                None => u64::MAX,
+            };
+            if fvf.missing.is_none() && fvf_value_absent(field, source) {
+                let _ = missing_value.set(field.to_string());
+                return None;
             }
             let score = compute_field_value_factor(fvf, source);
             if !score.is_finite() || score < 0.0 {
                 return None;
             }
-            cands.push((score, Cand::Mem(i as u32)));
+            cands.push((score, seq, Cand::Mem(i as u32)));
         }
 
         // ── Segment numeric doc-values columns ────────────────────────────
@@ -33584,8 +37184,54 @@ impl Index {
         // per-row `_source`/`Value`/map lookup.
         for (si, meta) in segments.iter().enumerate() {
             let cols = self.dv_columns_for(segments_dir, &meta.id)?;
-            let Some(Column::Numeric(n)) = cols.get(field) else {
-                return None;
+            let seqs = self.row_seqs_for(meta.id.as_str(), meta.doc_count)?;
+            let n = match cols.get(field) {
+                Some(Column::Numeric(n)) => n,
+                Some(_) => return None,
+                None => {
+                    let mut rest = field;
+                    while let Some((ancestor, _)) = rest.rsplit_once('.') {
+                        if cols.contains_key(ancestor) {
+                            return None;
+                        }
+                        rest = ancestor;
+                    }
+                    // An empty map is a segment written before `.dv`
+                    // side-cars (every field reads absent), and `_`-prefixed
+                    // source keys never get a column: neither proves absence.
+                    if field_mapped
+                        || !unmapped_means_absent
+                        || cols.is_empty()
+                        || field.starts_with('_')
+                    {
+                        return None;
+                    }
+                    if fvf.missing.is_none() && meta.doc_count > 0 {
+                        let _ = missing_value.set(field.to_string());
+                        return None;
+                    }
+                    let score = fvf_score_from_raw(fvf, None);
+                    if !score.is_finite() || score < 0.0 {
+                        return None;
+                    }
+                    // Every row ties, so only the `cap` earliest arrivals can
+                    // reach the page.
+                    let rows = u32::try_from(meta.doc_count).ok()?;
+                    let mut order: Vec<u32> = (0..rows).collect();
+                    if cap < order.len() {
+                        if cap == 0 {
+                            continue;
+                        }
+                        order.select_nth_unstable_by_key(cap - 1, |&row| seqs[row as usize]);
+                        order.truncate(cap);
+                    }
+                    cands.extend(
+                        order
+                            .into_iter()
+                            .map(|row| (score, seqs[row as usize], Cand::Seg(si as u32, row))),
+                    );
+                    continue;
+                }
             };
             if n.doc_count as u64 != meta.doc_count {
                 return None;
@@ -33597,11 +37243,15 @@ impl Index {
                     // Numeric dv columns store the f64 bit-pattern.
                     Some(f64::from_bits(n.data[row as usize] as u64))
                 };
+                if raw.is_none() && fvf.missing.is_none() {
+                    let _ = missing_value.set(field.to_string());
+                    return None;
+                }
                 let score = fvf_score_from_raw(fvf, raw);
                 if !score.is_finite() || score < 0.0 {
                     return None;
                 }
-                cands.push((score, Cand::Seg(si as u32, row)));
+                cands.push((score, seqs[row as usize], Cand::Seg(si as u32, row)));
             }
         }
 
@@ -33613,7 +37263,9 @@ impl Index {
         let keep = cap.min(cands.len());
         if keep > 0 && cands.len() > keep {
             cands.select_nth_unstable_by(keep - 1, |a, b| {
-                b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
+                b.0.partial_cmp(&a.0)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| a.1.cmp(&b.1))
             });
             cands.truncate(keep);
         }
@@ -33622,7 +37274,15 @@ impl Index {
         // post-loop score sort, keyed by the re-applied function score) ──────
         let mut hits: Vec<Hit> = Vec::with_capacity(keep);
         let mut seen: HashSet<String> = HashSet::with_capacity(keep);
-        for (_score, cand) in cands {
+        // One read per segment, not one per winner (#3470).
+        let mut page_docs = self.columnar_page_docs(
+            segments,
+            cands.iter().filter_map(|(_, _, cand)| match cand {
+                Cand::Seg(si, row) => Some((*si, *row)),
+                Cand::Mem(_) => None,
+            }),
+        )?;
+        for (_score, _seq, cand) in cands {
             match cand {
                 Cand::Mem(i) => {
                     let (id, source) = &mem_docs[i as usize];
@@ -33651,14 +37311,11 @@ impl Index {
                     });
                 }
                 Cand::Seg(si, row) => {
-                    let meta = &segments[si as usize];
-                    let slices = self.stored_slices_for(meta.id.as_str(), meta.doc_count)?;
-                    let &(start, end) = slices.offsets.get(row as usize)?;
-                    let slice = slices.bytes.get(start as usize..end as usize)?;
-                    // serde_json (not simd_json) for the per-doc slice parse:
-                    // only `cap` winners are parsed, and serde handles every
-                    // raw-bytes-flush payload correctly (see `stored_values_for`).
-                    let doc: Value = serde_json::from_slice(slice).ok()?;
+                    // Every row is in the map (`columnar_page_docs` fails whole);
+                    // a miss is a repeated candidate, which `seen` would skip anyway.
+                    let Some(doc) = page_docs.remove(&(si, row)) else {
+                        continue;
+                    };
                     let id = doc
                         .get("_id")
                         .and_then(Value::as_str)
@@ -33782,6 +37439,7 @@ impl Index {
         &self,
         snap: &xerj_storage::index_store::IndexSnapshot,
         query: &QueryNode,
+        schema: &Schema,
         text_fields: &[String],
         exact_fields: &HashSet<String>,
         keyword_fields: &HashSet<String>,
@@ -33790,6 +37448,8 @@ impl Index {
         // hybrid resolves its lexical leaves here too instead of declining and
         // silently reverting every segment to per-segment BM25 statistics.
         pinned: Option<PinnedIds<'_>>,
+        // #3492: the same holds for the date leaves (`DateDocs`).
+        date_doc_fields: &DocSetFields,
     ) -> Option<xerj_fts::CollectionStats> {
         // Widest pre-pass we will pay for, budgeted per COST CLASS (#1186):
         //
@@ -33832,6 +37492,7 @@ impl Index {
             keyword_fields,
             self.segment_analyzer_binding(),
             pinned,
+            DateDocs::Probe(date_doc_fields),
         )?;
         let mut fields: Vec<String> = Vec::new();
         collect_fts_query_fields(&fq, &mut fields);
@@ -33851,11 +37512,47 @@ impl Index {
         // A filtered `bool` (#2403) has no query text of its own, but its
         // memtable arm scores the one `must` match: count that clause, or a
         // mixed index scores its segment hits against a union that left the
-        // unflushed docs out.
-        let mem_text = match bool_filter_mem_fts_must(query) {
-            Some((_, text, _, _)) => Some(text.to_string()),
-            None => extract_query_text(query),
-        };
+        // unflushed docs out. A field-centric `multi_match` (#3329) has no
+        // `extract_query_text` either; its memtable arm scores its query text
+        // over its fields, so count that too.
+        let mem_analyzer = self.memtable.default_analyzer();
+        let mem_text =
+            match bool_filter_mem_fts_must(query, schema, text_fields, mem_analyzer.as_deref()) {
+                Some((plan, _, _)) => plan.text().map(str::to_string),
+                None => extract_query_text(query)
+                    .or_else(|| {
+                        multi_match_mem_fts_subs(
+                            query,
+                            schema,
+                            text_fields,
+                            mem_analyzer.as_deref(),
+                        )
+                        .and_then(|(subs, _)| subs.first().map(|s| s.1.to_string()))
+                    })
+                    .or_else(|| {
+                        if self.scan_phrase_analyzer().is_some() {
+                            return None;
+                        }
+                        phrase_mem_fts_subs(query, schema, text_fields, mem_analyzer.as_deref())
+                            .and_then(|subs| subs.first().map(|((_, text, _), _)| text.to_string()))
+                    })
+                    .or_else(|| {
+                        // #3349: a planned `bool` scores every leaf's text.
+                        let plan = mem_score_plan(
+                            query,
+                            &MemPlanCtx {
+                                schema,
+                                text_fields,
+                                exact_fields,
+                                analyzer: mem_analyzer.as_deref()?,
+                                phrase_ok: self.scan_phrase_analyzer().is_none(),
+                            },
+                        )?;
+                        let mut texts = Vec::new();
+                        plan.collect_texts(&mut texts);
+                        Some(texts.join(" "))
+                    }),
+            };
         let mem_stats: Option<xerj_fts::CollectionStats> = if mem_doc_count > 0 {
             mem_text.and_then(|text| self.memtable.collection_stats(&text, &field_refs))
         } else {
@@ -33941,6 +37638,139 @@ impl Index {
         } else {
             Some(out)
         }
+    }
+
+    /// #3497: whether the stored scan scores every SEGMENT match of the leaf
+    /// `q` the same (`scan_score_is_constant`). A numeric / boolean `term`
+    /// always does (`match_term_frequency` counts string elements only). A
+    /// keyword `term` / `match` does when every segment ships a full,
+    /// null-free keyword column for the field — the shape a segment with an
+    /// array value never has — so each match holds exactly the queried value.
+    /// Unlike `leaf_constant_score` this ignores the memtable: the stored scan
+    /// only walks segments, and memtable hits are admitted separately.
+    fn leaf_scan_score_tied(
+        &self,
+        q: &QueryNode,
+        kw_fields: &HashSet<String>,
+        num_fields: &HashSet<String>,
+        bool_fields: &HashSet<String>,
+    ) -> bool {
+        use xerj_storage::doc_values::Column;
+        let mut node = q;
+        while let QueryNode::Named { query, .. } = node {
+            node = query;
+        }
+        let field: &str = match node {
+            QueryNode::Term { field, .. } | QueryNode::Match { field, .. }
+                if num_fields.contains(field) || bool_fields.contains(field) =>
+            {
+                return true;
+            }
+            QueryNode::Term {
+                field,
+                value: Value::String(term),
+                ..
+            } if kw_fields.contains(field) && !term.contains('/') => field,
+            QueryNode::Match {
+                field,
+                analyzer: None,
+                minimum_should_match: None,
+                ..
+            } if kw_fields.contains(field) => field,
+            _ => return false,
+        };
+        let snap = self.store.snapshot();
+        let segments_dir = self.data_dir.join("segments");
+        snap.segments.iter().all(|meta| {
+            let Some(cols) = self.dv_columns_for(&segments_dir, &meta.id) else {
+                return false;
+            };
+            matches!(
+                cols.get(field),
+                Some(Column::Keyword(k))
+                    if k.doc_count as u64 == meta.doc_count && k.null_bitmap.is_empty()
+            )
+        })
+    }
+
+    /// #3509: an upper bound on the stored scan's score for a SEGMENT match
+    /// of the `term` leaf `q` (`scan_score_upper_bound`). The score is
+    /// `boost * (1 + ln(1 + tf))` (`boost` when tf is 0), tf counting the
+    /// query's tokens in the matched value (`match_term_frequency`). It is
+    /// bounded when every segment ships a full, null-free column for the field
+    /// (one value per document, the #3497 tie argument):
+    /// - keyword, string value: a match holds exactly that string
+    ///   (`json_scalar_equal`) or a non-string (tf 0), so tf is the query's
+    ///   own tf, computed here with the scorer's own function;
+    /// - numeric / boolean: a string spelling that parses to the queried
+    ///   number (or names the boolean) holds the query token at most once, so
+    ///   tf <= 1.
+    ///
+    /// Anything else (no column, an array, a CIDR term, a negative boost):
+    /// `None`.
+    fn leaf_score_bound(
+        &self,
+        q: &QueryNode,
+        kw_fields: &HashSet<String>,
+        num_fields: &HashSet<String>,
+        bool_fields: &HashSet<String>,
+    ) -> Option<f32> {
+        use xerj_storage::doc_values::Column;
+        let QueryNode::Term {
+            field,
+            value,
+            boost,
+        } = q
+        else {
+            return None;
+        };
+        let b = boost.unwrap_or(1.0);
+        if !(b.is_finite() && b >= 0.0) {
+            return None;
+        }
+        let tf: f32 = match value {
+            Value::String(term) if kw_fields.contains(field) && !term.contains('/') => {
+                match_term_frequency(&serde_json::json!({ "v": term }), "v", term)
+            }
+            Value::Number(_) | Value::Bool(_)
+                if num_fields.contains(field) || bool_fields.contains(field) =>
+            {
+                1.0
+            }
+            // One whitespace-free token: it equals at most one token of the
+            // only string it can match, itself.
+            Value::String(term)
+                if (num_fields.contains(field) || bool_fields.contains(field))
+                    && !term.contains(char::is_whitespace) =>
+            {
+                1.0
+            }
+            _ => return None,
+        };
+        let snap = self.store.snapshot();
+        let segments_dir = self.data_dir.join("segments");
+        let full = snap.segments.iter().all(|meta| {
+            let Some(cols) = self.dv_columns_for(&segments_dir, &meta.id) else {
+                return false;
+            };
+            match cols.get(field.as_str()) {
+                Some(Column::Keyword(k)) => {
+                    k.doc_count as u64 == meta.doc_count && k.null_bitmap.is_empty()
+                }
+                Some(Column::Numeric(n)) => {
+                    n.doc_count as u64 == meta.doc_count && n.null_bitmap.is_empty()
+                }
+                _ => false,
+            }
+        });
+        if !full {
+            return None;
+        }
+        Some(if tf == 0.0 {
+            b
+        } else {
+            b * (1.0 + (1.0 + tf).ln())
+        })
     }
 
     fn leaf_constant_score(
@@ -35390,12 +39220,15 @@ impl Index {
         // these shapes; the caller's score sort finalises the order).
         let mut hits: Vec<Hit> = Vec::with_capacity(cands.len());
         let mut seen: HashSet<String> = HashSet::with_capacity(cands.len());
+        // One read per segment, not one per winner (#3470).
+        let mut page_docs =
+            self.columnar_page_docs(segments, cands.iter().map(|&(_, _, si, row)| (si, row)))?;
         for (score, _seq, si, row) in cands {
-            let meta = &segments[si as usize];
-            let slices = self.stored_slices_for(meta.id.as_str(), meta.doc_count)?;
-            let &(start, end) = slices.offsets.get(row as usize)?;
-            let slice = slices.bytes.get(start as usize..end as usize)?;
-            let doc: Value = serde_json::from_slice(slice).ok()?;
+            // Every row is in the map (`columnar_page_docs` fails whole);
+            // a miss is a repeated candidate, which `seen` would skip anyway.
+            let Some(doc) = page_docs.remove(&(si, row)) else {
+                continue;
+            };
             let id = doc
                 .get("_id")
                 .and_then(Value::as_str)
@@ -35499,9 +39332,59 @@ impl Index {
     /// warms the immutable segment for the next request. The segment-current
     /// check prevents such a detached completion from resurrecting a cache
     /// entry that a concurrent merge already retired.
+    ///
+    /// Background callers (index rebuilds, presence probes) read a refused
+    /// decode as `None`, like an unreadable segment; search paths use
+    /// [`Self::stored_values_for_async_checked`] to answer it with a 429.
     async fn stored_values_for_async(&self, segment_id: &str) -> Option<Resident<Vec<Value>>> {
+        self.stored_values_for_async_checked(segment_id)
+            .await
+            .ok()
+            .flatten()
+    }
+
+    /// [`Self::stored_values_for_async`] for a search: `Err` is the 429
+    /// `circuit_breaking_exception` of a cold decode the parent breaker
+    /// refused (#2427).
+    async fn stored_values_for_async_checked(
+        &self,
+        segment_id: &str,
+    ) -> Result<Option<Resident<Vec<Value>>>> {
+        self.stored_values_load_with(segment_id, self.read_admission())
+            .await
+    }
+
+    /// The process-wide budgets a read-side transient is admitted against.
+    fn read_admission(&self) -> ReadAdmission {
+        #[cfg(test)]
+        if let Some(pinned) = self.test_read_admission.lock().clone() {
+            return pinned;
+        }
+        ReadAdmission {
+            hydration: Arc::clone(&self.segment_hydration_budget),
+            read_budget: Arc::clone(crate::read_budget::global()),
+            governor: crate::governor::global(),
+        }
+    }
+
+    /// The cold load behind [`Self::stored_values_for_async_checked`], with
+    /// explicit budgets (tests pin them).
+    ///
+    /// #2427: a whole-segment decode the hydration cache cannot keep is a
+    /// per-query transient. Before the decode it reserves a bound on its peak
+    /// (decompressed section plus the parsed tree) in the read budget and
+    /// keeps the reservation until its last reader drops it, like the
+    /// stored-slices, doc-values and FTS-reader builds. One that would carry
+    /// the process past its hard memory limit is refused with a 429 before
+    /// anything is allocated. Before this the load decoded and parsed the
+    /// whole section with no reservation at all.
+    async fn stored_values_load_with(
+        &self,
+        segment_id: &str,
+        admission: ReadAdmission,
+    ) -> Result<Option<Resident<Vec<Value>>>> {
         if let Some(entry) = self.stored_value_cache.get(segment_id) {
-            return Some(Arc::clone(entry.value()));
+            return Ok(Some(Arc::clone(entry.value())));
         }
 
         let segment_id = segment_id.to_string();
@@ -35516,7 +39399,6 @@ impl Index {
                     let store = Arc::clone(&self.store);
                     let cache = Arc::clone(&self.stored_value_cache);
                     let lifecycle = Arc::clone(&self.segment_cache_lifecycle);
-                    let budget = Arc::clone(&self.segment_hydration_budget);
                     let loads = Arc::clone(&self.stored_value_loads);
                     let load_semaphore = Arc::clone(&self.stored_value_load_semaphore);
                     let load_segment_id = segment_id.clone();
@@ -35530,9 +39412,16 @@ impl Index {
                     #[cfg(test)]
                     let ready_to_publish =
                         Arc::clone(&self.test_stored_value_load_ready_to_publish);
+                    #[cfg(test)]
+                    let load_tasks = Arc::clone(&self.test_stored_value_load_tasks);
+                    #[cfg(test)]
+                    load_tasks.fetch_add(1, Ordering::AcqRel);
                     tokio::spawn(async move {
                         let Ok(permit) = load_semaphore.acquire_owned().await else {
-                            loads.remove(&segment_id);
+                            drop(sender);
+                            drop(loads.remove(&segment_id));
+                            #[cfg(test)]
+                            load_tasks.fetch_sub(1, Ordering::AcqRel);
                             return;
                         };
                         // #751 — the decode runs on the engine's own rayon
@@ -35569,8 +39458,8 @@ impl Index {
                         // pool's `nice(10)`, which only bites when every core is
                         // already saturated.
                         let (decoded_tx, decoded_rx) =
-                            tokio::sync::oneshot::channel::<Option<Resident<Vec<Value>>>>();
-                        let decode = move || -> Option<Resident<Vec<Value>>> {
+                            tokio::sync::oneshot::channel::<Option<StoredValuesLoad>>();
+                        let decode = move || -> Option<StoredValuesLoad> {
                             #[cfg(test)]
                             {
                                 load_count.fetch_add(1, Ordering::Relaxed);
@@ -35581,15 +39470,35 @@ impl Index {
                             }
                             let reader = store.open_segment(&load_segment_id).ok()?;
                             let stored_bytes_raw = reader.section(SectionType::Stored).ok()??;
+                            let doc_count = store
+                                .snapshot()
+                                .segments
+                                .iter()
+                                .find(|meta| meta.id == load_segment_id)
+                                .map_or(0, |meta| meta.doc_count);
+                            let estimate = stored_slices_bound(stored_bytes_raw, doc_count)
+                                .saturating_mul(STORED_VALUES_PEAK_FACTOR);
+                            let mut read_permit =
+                                match admission.admit(estimate, "stored_values_decode") {
+                                    Ok(permit) => permit,
+                                    Err(refused) => {
+                                        return Some(Err(Arc::from(refused.to_string())));
+                                    }
+                                };
                             let stored_bytes =
                                 xerj_storage::stored_codec::decode_stored(stored_bytes_raw).ok()?;
                             let docs: Vec<Value> = serde_json::from_slice(&stored_bytes).ok()?;
+                            drop(stored_bytes);
                             let key = load_segment_id.clone();
                             let bytes = cache_estimates::stored_values_bytes(
                                 &key,
                                 std::mem::size_of::<CacheResident<Vec<Value>>>(),
                                 &docs,
                             );
+                            if let Some(permit) = read_permit.as_mut() {
+                                permit.true_up(bytes);
+                            }
+                            let budget = &admission.hydration;
                             #[cfg(test)]
                             {
                                 ready_to_publish.store(true, Ordering::Release);
@@ -35605,7 +39514,7 @@ impl Index {
                                     .iter()
                                     .any(|meta| meta.id == load_segment_id)
                                 {
-                                    CacheResident::uncached(docs)
+                                    CacheResident::uncached_with_permit(docs, read_permit)
                                 } else {
                                     use dashmap::mapref::entry::Entry;
                                     match cache.entry(key) {
@@ -35615,6 +39524,8 @@ impl Index {
                                                 SegmentCacheCategory::StoredValues,
                                                 bytes,
                                             ) {
+                                                // The cache accounts it now;
+                                                // the reservation is returned.
                                                 let resident = CacheResident::admitted(
                                                     docs,
                                                     charge,
@@ -35624,13 +39535,16 @@ impl Index {
                                                 entry.insert(Arc::clone(&resident));
                                                 resident
                                             } else {
-                                                CacheResident::uncached(docs)
+                                                CacheResident::uncached_with_permit(
+                                                    docs,
+                                                    read_permit,
+                                                )
                                             }
                                         }
                                     }
                                 }
                             };
-                            Some(resident)
+                            Some(Ok(resident))
                         };
                         crate::background_pool().spawn(move || {
                             // Preserve the pre-#751 failure semantics: a panic
@@ -35649,7 +39563,16 @@ impl Index {
                             let _ = sender.send(Some(value));
                         }
                         drop(permit);
-                        loads.remove(&segment_id);
+                        // The watch channel keeps the last value sent, so
+                        // an uncached load stays alive, holding its read
+                        // reservation, until every sender is gone. Drop
+                        // this task's sender, then the slot's: after both
+                        // the channel holds no sender, and the load lives
+                        // only as long as its readers (#2427).
+                        drop(sender);
+                        drop(loads.remove(&segment_id));
+                        #[cfg(test)]
+                        load_tasks.fetch_sub(1, Ordering::AcqRel);
                     });
                     receiver
                 }
@@ -35657,11 +39580,17 @@ impl Index {
         };
 
         loop {
-            if let Some(value) = receiver.borrow_and_update().clone() {
-                return Some(value);
+            match receiver.borrow_and_update().clone() {
+                Some(Ok(value)) => return Ok(Some(value)),
+                Some(Err(refused)) => {
+                    return Err(EngineError::Common(
+                        xerj_common::XerjError::circuit_breaking(refused.to_string()),
+                    ))
+                }
+                None => {}
             }
             if receiver.changed().await.is_err() {
-                return None;
+                return Ok(None);
             }
         }
     }
@@ -35685,6 +39614,154 @@ impl Index {
     /// the field-sorted Range `sort_candidates_narrowed` path — pass
     /// `usize::MAX`.  The cache key deliberately EXCLUDES the cap: a set
     /// built uncapped is identical to (and valid for) any capped request.
+    /// #3492: this segment's match set for each date leaf in `query` (see
+    /// [`DateDocs`]). `None` when one of them cannot be built (no column, a
+    /// multi-valued field, a sparse date column): the segment then takes the
+    /// stored-doc scan.
+    ///
+    /// #3518: the same for each `range` filter [`filter_ranges_as_doc_sets`]
+    /// admits (a numeric or date column; any bounds). Those sets are cached
+    /// like any range prefilter: a filter's bounds repeat across queries.
+    fn date_docs_for_segment(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        doc_count: u64,
+        query: &QueryNode,
+        fields: &DocSetFields,
+    ) -> Option<HashMap<String, Arc<PrefilterSet>>> {
+        let mut out = HashMap::new();
+        if fields.dates.is_empty() && fields.ranges.is_empty() {
+            return Some(out);
+        }
+        let mut leaves = Vec::new();
+        collect_date_docs_leaves(query, fields, &mut leaves);
+        for (leaf, filter_range) in leaves {
+            let QueryNode::Range {
+                field,
+                gte,
+                gt,
+                lte,
+                lt,
+                ..
+            } = leaf
+            else {
+                continue;
+            };
+            let key = if filter_range {
+                range_docs_key(leaf)
+            } else {
+                date_docs_key(leaf)
+            };
+            let Some((_, key)) = key else {
+                continue;
+            };
+            if out.contains_key(&key) {
+                continue;
+            }
+            let (gt, lt) = if filter_range {
+                (gt.as_ref(), lt.as_ref())
+            } else {
+                (None, None)
+            };
+            // A long / double field's set must come from its numeric column.
+            // Strings coerced into it at ingest file a keyword column, whose
+            // date-shadow reading `range_prefilter` would otherwise apply.
+            if filter_range {
+                let cols = self.dv_columns_for(segments_dir, segment_id)?;
+                if !matches!(
+                    cols.get(field),
+                    Some(xerj_storage::doc_values::Column::Numeric(_))
+                ) {
+                    return None;
+                }
+            }
+            let set = self
+                .range_prefilter(
+                    segments_dir,
+                    segment_id,
+                    field,
+                    gte.as_ref(),
+                    gt,
+                    lte.as_ref(),
+                    lt,
+                    usize::MAX,
+                    filter_range,
+                )
+                .or_else(|| {
+                    // Date leaves only (`gte`/`lte`): the sparse shadow.
+                    if filter_range {
+                        return None;
+                    }
+                    self.sparse_date_range_set(
+                        segments_dir,
+                        segment_id,
+                        doc_count,
+                        field,
+                        gte.as_ref(),
+                        lte.as_ref(),
+                    )
+                })?;
+            out.insert(key, set);
+        }
+        Some(out)
+    }
+
+    /// The match set of a date range the range prefilter cannot serve
+    /// (#3492), from a cached `(epoch key, pos)` shadow of the docs that
+    /// have a value. Two cases: a date-string column with missing values
+    /// (the prefilter only reads the dense sort shadow, and an optional date
+    /// field is the common case), and a segment with no column for the
+    /// field, because it is absent there, under an object, or holds numbers
+    /// and strings both. The second shadow is read once from the stored
+    /// docs. Without this, every `q: <number>` on such an index fell back
+    /// to the stored-doc scan on every query.
+    fn sparse_date_range_set(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        doc_count: u64,
+        field: &str,
+        gte: Option<&Value>,
+        lte: Option<&Value>,
+    ) -> Option<Arc<PrefilterSet>> {
+        use xerj_storage::doc_values::Column;
+        let scale = self.date_scale(field);
+        let key = format!("{segment_id}\u{1}{field}\u{3}sparse");
+        let shadow = match self.sort_shadow_cache.get(&key) {
+            Some(entry) => Arc::clone(entry.value()),
+            None => {
+                let cols = self.dv_columns_for(segments_dir, segment_id)?;
+                let built = match cols.get(field) {
+                    Some(Column::Keyword(_)) => build_sparse_date_shadow(&cols, field, scale),
+                    Some(_) => None,
+                    None => {
+                        let slices = self.stored_slices_for(segment_id, doc_count)?;
+                        build_stored_date_shadow(slices.value(), field, scale)
+                    }
+                };
+                let bytes = cache_estimates::sort_shadow_bytes(
+                    &key,
+                    std::mem::size_of::<CacheResident<Option<Arc<Vec<(i64, u32)>>>>>(),
+                    built.as_ref().map(|shadow| shadow.capacity()),
+                );
+                self.publish_current(
+                    &self.sort_shadow_cache,
+                    segment_id,
+                    key,
+                    SegmentCacheCategory::SortShadow,
+                    bytes,
+                    built,
+                )
+            }
+        };
+        let shadow = shadow.value().as_ref()?;
+        let (lo, lo_incl, hi, hi_incl) = shadow_range_bounds(gte, None, lte, None, scale)?;
+        Some(Arc::new(PrefilterSet::from_vec(shadow_range_positions(
+            shadow, lo, hi, lo_incl, hi_incl,
+        ))))
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn build_range_prefilter_cached(
         &self,
@@ -35696,6 +39773,26 @@ impl Index {
         lte: Option<&Value>,
         lt: Option<&Value>,
         cap: usize,
+    ) -> Option<Arc<PrefilterSet>> {
+        self.range_prefilter(segments_dir, segment_id, field, gte, gt, lte, lt, cap, true)
+    }
+
+    /// [`Self::build_range_prefilter_cached`], with `remember: false` for a
+    /// one-off set (#3492: a date leaf's bounds change with every query
+    /// text, and storing them would evict the dashboards' range sets from
+    /// the 32-entry cache). A cached set is still used when present.
+    #[allow(clippy::too_many_arguments)]
+    fn range_prefilter(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        field: &str,
+        gte: Option<&Value>,
+        gt: Option<&Value>,
+        lte: Option<&Value>,
+        lt: Option<&Value>,
+        cap: usize,
+        remember: bool,
     ) -> Option<Arc<PrefilterSet>> {
         use xerj_storage::doc_values::Column;
 
@@ -35753,7 +39850,11 @@ impl Index {
                 .or_default();
             Arc::clone(e.value())
         };
-        let _g = flight.lock().ok()?;
+        let _g = if remember {
+            Some(flight.lock().ok()?)
+        } else {
+            None
+        };
         if let Some(hit) = self.range_prefilter_cache.get(&cache_key) {
             return Some(Arc::clone(hit.value()));
         }
@@ -35798,6 +39899,9 @@ impl Index {
             Some(Column::Presence(_)) | None => return None,
         };
         let built: Arc<PrefilterSet> = Arc::new(PrefilterSet::from_vec(matching));
+        if !remember {
+            return Some(built);
+        }
         if self.range_prefilter_cache.len() >= 32 {
             self.range_prefilter_cache.clear();
         }
@@ -35875,7 +39979,7 @@ impl Index {
                             // silently drops the whole subnet once the docs flush
                             // to a segment (#786). Bail to a full scan instead,
                             // mirroring the memtable fast paths' `/` bailout.
-                            if s.contains('/') {
+                            if cidr_shaped(s) {
                                 return None;
                             }
                             s.clone()
@@ -35907,6 +40011,67 @@ impl Index {
             // No ordinals to enumerate. A full scan stays correct.
             Column::Presence(_) => None,
         }
+    }
+
+    /// This segment's FTS reader for `field`, only when the field has NO
+    /// doc-values column here and its side-car is a docs-only keyword
+    /// dictionary — the case [`keyword_fts_term_oracle`] covers. A segment
+    /// with a column keeps the column paths (they are exact and cheaper); a
+    /// segment whose side-car is missing, degraded (#2349) or positional
+    /// returns `None` and the caller keeps the stored scan.
+    fn keyword_fts_reader_without_column(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        field: &str,
+    ) -> Option<Resident<Arc<FtsIndexReader>>> {
+        if let Some(cols) = self.dv_columns_for(segments_dir, segment_id) {
+            if cols.get(field).is_some() {
+                return None;
+            }
+        }
+        let reader = self.fts_reader_for(segments_dir, segment_id, &[field])?;
+        if reader.field_stats(field).is_none() || reader.field_has_positions(field) {
+            return None;
+        }
+        Some(reader)
+    }
+
+    /// Doc-position pre-filter for a top-level `term` on a multi-valued
+    /// keyword field, from the segment's FTS term dictionary (#3412).
+    ///
+    /// Same contract as [`Self::build_term_prefilter_cached`]: `Some(∅)` when
+    /// the term is absent (the segment is skipped without opening its stored
+    /// section), `Some(set)` with the COMPLETE match set when selective, and
+    /// `None` when the dictionary cannot answer or the set is too large to
+    /// help. Postings doc ids are stored positions (flush and merge assign FTS
+    /// doc ids in stored-section order — see `postings_union_expand`).
+    fn build_keyword_term_fts_prefilter(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        field: &str,
+        term: &str,
+    ) -> Option<Arc<PrefilterSet>> {
+        const TERM_PREFILTER_CAP: usize = 65_536;
+        let reader = self.keyword_fts_reader_without_column(segments_dir, segment_id, field)?;
+        let Some(tp) = reader.lookup_term(field, term) else {
+            return Some(Arc::new(PrefilterSet::from_vec(Vec::new())));
+        };
+        if tp.doc_frequency as usize > TERM_PREFILTER_CAP {
+            return None;
+        }
+        let mut postings = reader.postings_reader(field, &tp)?;
+        let mut positions: Vec<u32> = Vec::with_capacity(tp.doc_frequency as usize);
+        while let Some(p) = postings.next() {
+            positions.push(p.doc_id);
+        }
+        if positions.len() != tp.doc_frequency as usize {
+            // A short or corrupt posting list would drop matches: let the
+            // stored scan answer instead.
+            return None;
+        }
+        Some(Arc::new(PrefilterSet::from_vec(positions)))
     }
 
     /// Lazily-built, cached `_id → stored-position` index for a segment.
@@ -36106,6 +40271,51 @@ impl Index {
         Some(Arc::new(PrefilterSet::from_set(set)))
     }
 
+    /// Resolve a single `bool` leaf clause to its COMPLETE match-position set
+    /// for this segment (term/terms/range, also under `constant_score` /
+    /// boost). `None` = not resolvable to a complete set (e.g. a
+    /// `match`/`wildcard` clause, or a range broader than the cap).
+    fn bool_leaf_prefilter(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        child: &QueryNode,
+    ) -> Option<Arc<PrefilterSet>> {
+        let child = match child {
+            QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => query.as_ref(),
+            _ => child,
+        };
+        match child {
+            QueryNode::Term { field, value, .. } => self.build_term_prefilter_cached(
+                segments_dir,
+                segment_id,
+                field,
+                std::slice::from_ref(value),
+            ),
+            QueryNode::Terms { field, values, .. } => {
+                self.build_term_prefilter_cached(segments_dir, segment_id, field, values)
+            }
+            QueryNode::Range {
+                field,
+                gte,
+                gt,
+                lte,
+                lt,
+                ..
+            } => self.build_range_prefilter_cached(
+                segments_dir,
+                segment_id,
+                field,
+                gte.as_ref(),
+                gt.as_ref(),
+                lte.as_ref(),
+                lt.as_ref(),
+                BOOL_PREFILTER_CAP,
+            ),
+            _ => None,
+        }
+    }
+
     /// Superset pre-filter for a pure-conjunction `bool` (`must` + `filter`
     /// only — no `should` / `must_not`).
     ///
@@ -36141,47 +40351,7 @@ impl Index {
         else {
             return None;
         };
-        const BOOL_PREFILTER_CAP: usize = 65_536;
-        // Resolve a single leaf clause to its COMPLETE match-position set for
-        // this segment (term/terms/range only). `None` = not resolvable to a
-        // complete set (e.g. a `match`/`wildcard` clause).
-        let resolve = |child: &QueryNode| -> Option<Arc<PrefilterSet>> {
-            let child = match child {
-                QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
-                    query.as_ref()
-                }
-                _ => child,
-            };
-            match child {
-                QueryNode::Term { field, value, .. } => self.build_term_prefilter_cached(
-                    segments_dir,
-                    segment_id,
-                    field,
-                    std::slice::from_ref(value),
-                ),
-                QueryNode::Terms { field, values, .. } => {
-                    self.build_term_prefilter_cached(segments_dir, segment_id, field, values)
-                }
-                QueryNode::Range {
-                    field,
-                    gte,
-                    gt,
-                    lte,
-                    lt,
-                    ..
-                } => self.build_range_prefilter_cached(
-                    segments_dir,
-                    segment_id,
-                    field,
-                    gte.as_ref(),
-                    gt.as_ref(),
-                    lte.as_ref(),
-                    lt.as_ref(),
-                    BOOL_PREFILTER_CAP,
-                ),
-                _ => None,
-            }
-        };
+        let resolve = |child: &QueryNode| self.bool_leaf_prefilter(segments_dir, segment_id, child);
 
         // CASE A — at least one REQUIRED conjunct (`must`/`filter`).
         // Every hit is a subset of the AND of all required conjuncts, hence a
@@ -37037,8 +41207,19 @@ impl Index {
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
+        // #3465: see `scan_stored_section_into`.
+        scores_tied: bool,
+        // #3509: see `scan_stored_section_into`.
+        score_bound: Option<&ScanScoreBound>,
         schema: &Schema,
     ) {
+        // One call hydrates one segment: hits from `segment_floor` on are its own.
+        let segment_floor = all_hits.len();
+        // #3509: `(all_hits.len(), displacements)` when `segment_worst` was
+        // last computed.
+        let mut displacements: u64 = 0;
+        let mut worst_at: Option<(usize, u64)> = None;
+        let mut segment_worst: Option<f32> = None;
         // LOSS_BATTLE_PLAN B7 (completed): the positions arrive PRE-SORTED
         // ascending from the cached `PrefilterSet` — zero per-query set
         // collection, selection, or sorting.  With an authoritative count
@@ -37056,6 +41237,21 @@ impl Index {
             }
             if count_authoritative && !count_only && all_hits.len() >= materialisation_limit {
                 break;
+            }
+            if let Some(bound) = score_bound {
+                if worst_at != Some((all_hits.len(), displacements)) {
+                    segment_worst =
+                        segment_worst_score(all_hits, segment_floor, materialisation_limit);
+                    worst_at = Some((all_hits.len(), displacements));
+                }
+                if bound.segment_done(segment_worst) {
+                    note_score_bound_prune();
+                    break;
+                }
+                if bound.skips(pos, segment_worst) {
+                    note_score_bound_prune();
+                    continue;
+                }
             }
             let Some(&(start, end)) = slices.offsets.get(pos as usize) else {
                 continue;
@@ -37116,6 +41312,30 @@ impl Index {
             if all_hits.len() >= materialisation_limit {
                 if count_authoritative {
                     break;
+                }
+                // #3465: a match that outscores one of this segment's hits
+                // takes its slot (see `scan_stored_section_into`).
+                if !scores_tied && !ids_only && !seen_ids.contains(id_ref) {
+                    let source_ref = doc.get("_source").unwrap_or(&doc);
+                    let score = scorer(source_ref, id_ref);
+                    if let Some(at) = stored_scan_displaced_slot(&all_hits[segment_floor..], score)
+                    {
+                        displacements += 1;
+                        let id = id_ref.to_string();
+                        seen_ids.insert(id.clone());
+                        all_hits[segment_floor + at] = Hit {
+                            id,
+                            score,
+                            source: source_ref.clone(),
+                            seq_no: hit_seq_no,
+                            version: hit_version,
+                            sort: Vec::new(),
+                            explain: None,
+                            highlight: None,
+                            matched_queries: Vec::new(),
+                            passage: None,
+                        };
+                    }
                 }
                 continue;
             }
@@ -37366,20 +41586,35 @@ impl Index {
         // empty/null; a name whose root is unmapped is genuinely absent and a
         // valid empty result. Keyed off the schema, not a column probe, since
         // by construction neither of those fields carries a column to probe.
+        //
+        // "Unmapped root means absent" also needs every `_source` field to be
+        // mapped, which `dynamic: false` breaks (#3514): the set carries the
+        // mode so `field_needs_brute_fallback` can tell.
         let (bool_fields, mapped_fields): (
             std::collections::HashSet<String>,
-            std::collections::HashSet<String>,
+            fast_aggs::MappedFields,
         ) = {
             let guard = self.schema.read().await;
             let mut bool_fields = std::collections::HashSet::new();
-            let mut mapped_fields = std::collections::HashSet::new();
+            let mut names = std::collections::HashSet::new();
             for f in &guard.schema.fields {
                 if f.field_type == xerj_common::FieldType::Boolean {
                     bool_fields.insert(f.name.clone());
                 }
-                mapped_fields.insert(f.name.clone());
+                names.insert(f.name.clone());
             }
-            (bool_fields, mapped_fields)
+            let unmapped_means_absent = matches!(
+                self.dynamic_mode(&guard),
+                xerj_common::schema::DynamicMapping::Dynamic
+                    | xerj_common::schema::DynamicMapping::Strict
+            );
+            (
+                bool_fields,
+                fast_aggs::MappedFields {
+                    names,
+                    unmapped_means_absent,
+                },
+            )
         };
         self.try_fast_aggs(
             aggs_def,
@@ -37449,8 +41684,27 @@ impl Index {
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
+        // #3465: every match scores the same (`scan_scores_tied` in
+        // `search_inner`). When false, a full collector keeps this segment's
+        // best hits by score instead of its first ones.
+        scores_tied: bool,
+        // #3509: score bounds (`ScanScoreBound`); `Some` only when the caller
+        // may skip matches (the shortcut holds `hits.total`, relevance
+        // order). A match that cannot enter the page is not parsed, and the
+        // walk stops once this segment's share is full at the ceiling.
+        score_bound: Option<&ScanScoreBound>,
         schema: &Schema,
     ) {
+        // #3285: this walk is synchronous, so the scoped analyzer covers
+        // every `doc_matches_query_typed` below.
+        let _phrase_analyzer = ScanPhraseAnalyzer::enter(self.scan_phrase_analyzer());
+        // One call walks one segment: hits from `segment_floor` on are its own.
+        let segment_floor = all_hits.len();
+        // #3509: `(all_hits.len(), displacements)` when `segment_worst` was
+        // last computed.
+        let mut displacements: u64 = 0;
+        let mut worst_at: Option<(usize, u64)> = None;
+        let mut segment_worst: Option<f32> = None;
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
         // JSON array of objects).  We walk the bytes, find each top-level
@@ -37628,6 +41882,25 @@ impl Index {
             // advanced `i` past the doc, so just loop.
             if let Some(filter) = pre_filter {
                 if !filter.contains(&cur_pos) {
+                    continue;
+                }
+            }
+
+            // #3509: skip a match that cannot enter the page before parsing
+            // it; stop once nothing left in the segment can (not while the
+            // offsets map must cover the whole section).
+            if let Some(bound) = score_bound {
+                if worst_at != Some((all_hits.len(), displacements)) {
+                    segment_worst =
+                        segment_worst_score(all_hits, segment_floor, materialisation_limit);
+                    worst_at = Some((all_hits.len(), displacements));
+                }
+                if offsets_out.is_none() && bound.segment_done(segment_worst) {
+                    note_score_bound_prune();
+                    return;
+                }
+                if bound.skips(cur_pos, segment_worst) {
+                    note_score_bound_prune();
                     continue;
                 }
             }
@@ -37912,7 +42185,30 @@ impl Index {
                     break;
                 }
                 // Count not authoritative for this shape: keep scanning to
-                // tally the exact `hits.total`, just don't materialise sources.
+                // tally the exact `hits.total`, just don't materialise sources
+                // unless this match outscores one of the segment's hits.
+                if !scores_tied && !ids_only && !seen_ids.contains(id_ref) {
+                    let source_ref = doc.get("_source").unwrap_or(&doc);
+                    let score = scorer(source_ref, id_ref);
+                    if let Some(at) = stored_scan_displaced_slot(&all_hits[segment_floor..], score)
+                    {
+                        displacements += 1;
+                        let id = id_ref.to_string();
+                        seen_ids.insert(id.clone());
+                        all_hits[segment_floor + at] = Hit {
+                            id,
+                            score,
+                            source: source_ref.clone(),
+                            seq_no: hit_seq_no,
+                            version: hit_version,
+                            sort: Vec::new(),
+                            explain: None,
+                            highlight: None,
+                            matched_queries: Vec::new(),
+                            passage: None,
+                        };
+                    }
+                }
                 continue;
             }
 
@@ -38523,14 +42819,16 @@ fn flush_working_set_bytes(memtable_bytes: usize) -> u64 {
     (memtable_bytes as u64).saturating_mul(flush_working_set_pct()) / 100
 }
 
-/// Release a finished build's reservation, then return its freed pages to
-/// the OS when the process is close to the watermark (#2427).
+/// Release a finished build's reservation, then ask for its freed pages to
+/// go back to the OS when the process is close to the watermark (#2427).
 ///
 /// jemalloc keeps freed pages resident for `dirty_decay_ms` (1 s). A build
 /// frees several hundred MB at once, and on the gate those pages were still
 /// resident when the next burst allocated: 454 MB of the 3,364 MB peak was
 /// free pages. Purging right away hands them back before the next build
-/// starts; under the threshold the decay alone is enough.
+/// starts; under the threshold the decay alone is enough. The purge runs on
+/// its own thread ([`crate::engine::request_flush_build_purge`]): inline it
+/// held this flush for p50 77.8 ms, p99 281.9 ms.
 fn release_flush_build(reservation: crate::governor::FlushBuildReservation) {
     drop(reservation);
     let Some(governor) = crate::governor::global() else {
@@ -38538,7 +42836,7 @@ fn release_flush_build(reservation: crate::governor::FlushBuildReservation) {
     };
     let watermark = governor.memory_watermark_bytes();
     if flush_build_should_purge(governor.observed_rss_bytes(), watermark) {
-        crate::engine::purge_allocator_pages();
+        crate::engine::request_flush_build_purge();
     }
 }
 
@@ -38590,9 +42888,10 @@ async fn do_flush_shard(
     warm_caches: PublishWarmCaches,
     index_name: String,
     admit_timeout: std::time::Duration,
+    finalize_gate: Arc<tokio::sync::Semaphore>,
     #[cfg(test)] test_hook: Option<FlushPublisherTestHook>,
 ) -> Result<()> {
-    // #1226 — re-check emptiness BEFORE the process-global finalize gate.
+    // #1226 — re-check emptiness BEFORE the data-dir finalize gate.
     // `Index::refresh`/`Index::flush` already skip shards that look empty
     // when they build the fan-out (#1319), but this task may have waited on
     // `flush_sema` since then while a concurrent flush drained the shard,
@@ -38603,6 +42902,9 @@ async fn do_flush_shard(
         on_drained();
         return Ok(());
     }
+    // #3513: a normalized keyword field's terms and doc-values column hold
+    // the normalized value, as the memtable's cells do.
+    let flush_normalizers = memtable.keyword_normalizers();
     // Acquire admission before draining. Once the memtable has been drained
     // there must be no cancellation point until a non-cancellable blocking
     // worker owns both rollback data and the publication barrier.
@@ -38623,7 +42925,7 @@ async fn do_flush_shard(
             &index_name,
             "the finalize gate",
             admit_timeout,
-            crate::flush_finalize_gate().acquire(),
+            finalize_gate.acquire_owned(),
         )
         .await
         {
@@ -38807,6 +43109,8 @@ async fn do_flush_shard(
             // parse on the raw-bytes path) is pure and was a ~140 ms
             // SERIAL stretch per 31k-doc flush on the flush task —
             // par_iter preserves order and spreads it across the pool.
+            // #3464: object leaves get their own side-car values too.
+            let object_paths = fts_object_path_keys(&field_configs);
             let build_drained_fts = || {
                 use rayon::prelude::*;
                 raw.par_iter()
@@ -38827,9 +43131,14 @@ async fn do_flush_shard(
                         } else {
                             std::sync::Arc::new(serde_json::Value::Null)
                         };
-                        let fields = crate::memtable::extract_field_values_excluding(
+                        let mut fields = crate::memtable::extract_field_values_excluding(
                             &val,
                             &excluded_fts_fields,
+                        );
+                        crate::memtable::add_object_path_values(&val, &object_paths, &mut fields);
+                        crate::memtable::normalize_fts_field_values(
+                            &mut fields,
+                            &flush_normalizers,
                         );
                         (doc_id.clone(), fields, val)
                     })
@@ -38969,9 +43278,12 @@ async fn do_flush_shard(
             let t_dv = std::time::Instant::now();
             {
                 let columns = build_doc_value_columns(
-                    drained_fts_for_build
-                        .iter()
-                        .map(|(_id, _fields, src)| Some(&**src)),
+                    drained_fts_for_build.iter().map(|(_id, _fields, src)| {
+                        Some(match flush_normalizers.normalized_top_level(src) {
+                            Some(normalized) => std::borrow::Cow::Owned(normalized),
+                            None => std::borrow::Cow::Borrowed(&**src),
+                        })
+                    }),
                     &dv_skip_for_flush,
                 );
                 if !columns.is_empty() {
@@ -39079,7 +43391,7 @@ async fn do_flush_shard(
     // The segment encode + side-car build (CPU-heavy, ~600 ms) runs on the
     // deprioritised background pool (build_fts's inner install() is a
     // same-pool no-op).  Two flush-storm mitigations wrap it:
-    //   1. `flush_finalize_gate()` bounds how many shard finalizes run at
+    //   1. `flush_finalize_gate_for()` bounds how many shard finalizes run at
     //      once, staggering the 16-wide storm's core contention off the
     //      readers (see the gate's doc comment for the measured win).
     //   2. `spawn_blocking` runs the (blocking) finalize on a blocking
@@ -39104,7 +43416,7 @@ async fn do_flush_shard(
             callback();
         }
         let joined = tokio::task::spawn_blocking(move || {
-            let _fin_permit = fin_permit;
+            let fin_permit = fin_permit;
             let _pressure_permit = pressure_permit;
             let flush_reservation = flush_reservation;
             let flush_build_trace = flush_build_trace;
@@ -39163,8 +43475,16 @@ async fn do_flush_shard(
                         return Err(collection_publication_interrupted());
                     }
                 };
+                let bracket_opened = std::time::Instant::now();
                 let published = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     crate::background_pool().install(|| {
+                        let queued = bracket_opened.elapsed();
+                        if xerj_storage::stall_trace::is_slow(queued) {
+                            tracing::warn!(
+                                queued_ms = queued.as_millis() as u64,
+                                "flush publish queued on the background pool inside the publication bracket"
+                            );
+                        }
                         store_for_finalize
                             .publish_flush_segment(&storage_drained_for_finalize, &meta)
                     })
@@ -39211,6 +43531,19 @@ async fn do_flush_shard(
                         std::panic::resume_unwind(payload);
                     }
                 };
+                // #3324 — close the bracket HERE. `commit()` only records the
+                // outcome; the bracket stays open until the guard drops, and
+                // this guard used to live to the end of the closure, across
+                // `after_flush_publish` below (snapshot fsync, WAL rotate and
+                // prune). Every search on the index waited out that disk
+                // work: measured 0.5-1.7 s per flush under I/O pressure, the
+                // all-op stalls that ended at the "segment flushed" log line.
+                drop(collection_publication_guard);
+                // #3324 — the finalize permit bounds CPU-heavy segment builds.
+                // What follows is disk and network wait (snapshot fsync, WAL
+                // checkpoint, bucket catalog PUT), so the next queued
+                // finalize may start now instead of waiting on this disk.
+                drop(fin_permit);
                 // ── POST-publish maintenance — OUTSIDE the bracket (#1015):
                 // the bucket catalog PUT is network I/O and the WAL
                 // checkpoint/prune takes locks; neither belongs between
@@ -39699,7 +44032,7 @@ fn cheap_element_len(value: &Value) -> Option<u64> {
 /// * The sample is strided across the whole array rather than taken from the
 ///   head, and the extrapolation truncates rather than rounds, so what bias
 ///   remains leans toward under-claiming.
-fn json_len_sampled(value: &Value) -> u64 {
+pub fn json_len_sampled(value: &Value) -> u64 {
     json_len_sampled_at(value, 0)
 }
 
@@ -42238,6 +46571,10 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
     if query_terms.is_empty() {
         return hits;
     }
+    // A field holding none of the terms may still have matched on single
+    // CJK characters (the standard tokenizer indexes one per ideograph):
+    // tag those there rather than return a hit with no highlight.
+    let cjk_char_terms = cjk_char_fallback_terms(&query_terms);
 
     let pre_default = hl.pre_tag.as_deref().unwrap_or("<em>");
     let post_default = hl.post_tag.as_deref().unwrap_or("</em>");
@@ -42272,12 +46609,18 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                     // so matches can be translated back to original-text char
                     // boundaries (fixes the multibyte highlight SIGABRT).
                     let (text_lower, lower_map) = build_lower_offset_map(&text);
-                    let has_any = query_terms
-                        .iter()
-                        .any(|t| next_term_match(&text_lower, t, 0).is_some());
-                    if !has_any {
+                    let has_any = |terms: &[String]| {
+                        terms
+                            .iter()
+                            .any(|t| next_term_match(&text_lower, t, 0).is_some())
+                    };
+                    let query_terms = if has_any(&query_terms) {
+                        &query_terms
+                    } else if has_any(&cjk_char_terms) {
+                        &cjk_char_terms
+                    } else {
                         continue;
-                    }
+                    };
                     let fragments = if num_frags_raw == 0 {
                         // ES semantics: `number_of_fragments: 0` disables
                         // fragmenting entirely and emits the full text
@@ -42288,7 +46631,7 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                             &text,
                             &text_lower,
                             &lower_map,
-                            &query_terms,
+                            query_terms,
                             pre,
                             post,
                         )]
@@ -42298,7 +46641,7 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                             &text,
                             &text_lower,
                             &lower_map,
-                            &query_terms,
+                            query_terms,
                             pre,
                             post,
                             frag_size,
@@ -42458,16 +46801,31 @@ fn extract_highlight_terms(query: &QueryNode) -> Vec<String> {
 
 fn collect_highlight_terms(query: &QueryNode, out: &mut Vec<String>) {
     match query {
-        QueryNode::Match { query, .. }
-        | QueryNode::MatchPhrase { query, .. }
-        | QueryNode::MultiMatch { query, .. } => {
-            for tok in query.split_whitespace() {
+        QueryNode::Match { query: text, .. }
+        | QueryNode::MatchPhrase { query: text, .. }
+        | QueryNode::MultiMatch { query: text, .. } => {
+            // A phrase is contiguous, so its whole token is the term; `match`
+            // also matched the analyzer's CJK pieces one by one.
+            let phrase = matches!(
+                query,
+                QueryNode::MatchPhrase { .. }
+                    | QueryNode::MultiMatch {
+                        match_type: xerj_query::ast::MultiMatchType::Phrase
+                            | xerj_query::ast::MultiMatchType::PhrasePrefix,
+                        ..
+                    }
+            );
+            for tok in text.split_whitespace() {
                 let tok = tok
                     .trim_matches(|c: char| !c.is_alphanumeric())
                     .to_lowercase();
-                if !tok.is_empty() {
-                    out.push(tok);
+                if tok.is_empty() {
+                    continue;
                 }
+                if !phrase {
+                    push_unspaced_terms(&tok, out);
+                }
+                out.push(tok);
             }
         }
         QueryNode::QueryString { query, .. } => {
@@ -42501,6 +46859,15 @@ fn collect_highlight_terms(query: &QueryNode, out: &mut Vec<String>) {
                 collect_highlight_terms(q, out);
             }
         }
+        // A `best_fields` `multi_match` over text and keyword fields reaches
+        // here as a `dis_max` (#572), and since #3413 so does every
+        // unqualified `query_string` term and native `q`. Without this arm
+        // they highlighted nothing.
+        QueryNode::DisMax { queries, .. } => {
+            for q in queries {
+                collect_highlight_terms(q, out);
+            }
+        }
         QueryNode::Boosted { query, .. }
         | QueryNode::Constant { query, .. }
         | QueryNode::FunctionScore { query, .. } => {
@@ -42515,6 +46882,68 @@ fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
+/// Han, kana and Hangul: scripts the analyzers split inside an unbroken run
+/// (the standard tokenizer emits one token per ideograph, the `cjk` analyzer
+/// emits bigrams), so a run of them is not one word for highlighting.
+fn is_unspaced_script(c: char) -> bool {
+    matches!(c as u32,
+        0x3040..=0x30FF | 0x31F0..=0x31FF | 0x3400..=0x4DBF | 0x4E00..=0x9FFF |
+        0xAC00..=0xD7AF | 0xF900..=0xFAFF | 0x20000..=0x3FFFF)
+}
+
+/// Whether `a` followed by `b` is one word, so a highlight may not start or
+/// end between them. A Han, kana or Hangul character on either side is a
+/// token boundary, as in UAX #29 word segmentation.
+fn glued(a: char, b: char) -> bool {
+    is_word_char(a) && is_word_char(b) && !is_unspaced_script(a) && !is_unspaced_script(b)
+}
+
+/// Every Han, kana or Hangul character of `terms`, sorted and deduplicated:
+/// the highlight terms for a field where no whole term or pair occurs.
+fn cjk_char_fallback_terms(terms: &[String]) -> Vec<String> {
+    let mut chars: Vec<String> = terms
+        .iter()
+        .flat_map(|t| t.chars())
+        .filter(|&c| is_unspaced_script(c))
+        .map(String::from)
+        .collect();
+    chars.sort();
+    chars.dedup();
+    chars
+}
+
+/// Push the highlight terms of one query token. A token holding Han, kana or
+/// Hangul also yields its non-CJK parts and every adjacent CJK pair (a lone
+/// CJK character stands for itself), so a `match` on `北京天气` tags `北京`
+/// and `天气` in `北京的天气` the way the analyzers matched it.
+fn push_unspaced_terms(tok: &str, out: &mut Vec<String>) {
+    if !tok.chars().any(is_unspaced_script) {
+        return;
+    }
+    let chars: Vec<char> = tok.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let cjk = is_unspaced_script(chars[i]);
+        let mut j = i;
+        while j < chars.len() && is_unspaced_script(chars[j]) == cjk {
+            j += 1;
+        }
+        let run = &chars[i..j];
+        if cjk && run.len() == 1 {
+            out.push(run[0].to_string());
+        } else if cjk {
+            out.extend(run.windows(2).map(|w| w.iter().collect::<String>()));
+        } else {
+            let part: String = run.iter().collect();
+            let part = part.trim_matches(|c: char| !c.is_alphanumeric());
+            if !part.is_empty() {
+                out.push(part.to_string());
+            }
+        }
+        i = j;
+    }
+}
+
 /// The next occurrence of highlight `term` in `text_lower` at or after byte
 /// `from` that stands as a whole word: the characters on either side are not
 /// word characters. A term ending in `*` (a `query_string` prefix) needs a
@@ -42523,12 +46952,20 @@ fn is_word_char(c: char) -> bool {
 /// Plain substring search (#1948) highlighted `or` inside `for`, `no` inside `not`
 /// and `OR` inside `SECTOR`, and a phrase's short words then claimed the
 /// fragment away from the phrase itself.
+///
+/// Han, kana and Hangul have no spaces between words, so a neighbour in one
+/// of those scripts is a boundary (see [`glued`]). Treating every ideograph
+/// as a word character made `北京` in `我喜欢北京的天气` never a whole word,
+/// and a CJK `match_phrase` hit came back with no highlight at all.
 fn next_term_match(text_lower: &str, term: &str, from: usize) -> Option<(usize, usize)> {
     let (needle, prefix) = match term.strip_suffix('*') {
         Some(stem) => (stem, true),
         None => (term, false),
     };
-    if needle.is_empty() || from > text_lower.len() {
+    let (Some(first), Some(last)) = (needle.chars().next(), needle.chars().next_back()) else {
+        return None;
+    };
+    if from > text_lower.len() {
         return None;
     }
     let mut start = from;
@@ -42538,15 +46975,19 @@ fn next_term_match(text_lower: &str, term: &str, from: usize) -> Option<(usize, 
         let before_ok = !text_lower[..abs]
             .chars()
             .next_back()
-            .is_some_and(is_word_char);
+            .is_some_and(|prev| glued(prev, first));
         if prefix {
             end += text_lower[end..]
                 .char_indices()
-                .find(|&(_, c)| !is_word_char(c))
+                .find(|&(_, c)| !is_word_char(c) || is_unspaced_script(c))
                 .map(|(i, _)| i)
                 .unwrap_or(text_lower.len() - end);
         }
-        let after_ok = prefix || !text_lower[end..].chars().next().is_some_and(is_word_char);
+        let after_ok = prefix
+            || !text_lower[end..]
+                .chars()
+                .next()
+                .is_some_and(|next| glued(last, next));
         if before_ok && after_ok {
             return Some((abs, end));
         }
@@ -45756,6 +50197,22 @@ fn backfill_date_precision(fields: &mut [FieldConfig], props: &Value) -> usize {
                 _ => {}
             }
         }
+        // #3492: the mapping `format`, which a schema.json from before that
+        // change does not carry. Same rule: only an unset value is filled.
+        if fc.field_type == FieldType::Date && fc.options.date_format.is_none() {
+            let is_date = matches!(
+                def.get("type").and_then(Value::as_str),
+                Some("date" | "date_nanos")
+            );
+            if let Some(format) = def
+                .get("format")
+                .and_then(Value::as_str)
+                .filter(|f| is_date && !f.trim().is_empty())
+            {
+                fc.options.date_format = Some(format.to_string());
+                filled += 1;
+            }
+        }
         // Object/nested children live under `properties`; ES multi-fields
         // under `fields`. `FieldConfig::fields` holds both, keyed off the
         // parent's own type, so follow whichever the mapping supplies.
@@ -45794,9 +50251,8 @@ fn backfill_date_precision_from_disk(index_dir: &Path, schema: &mut ManagedSchem
         info!(
             index = name,
             fields = filled,
-            "back-filled date precision from es_mapping.json (index predates the \
-             date_precision flag); its date fields no longer guess their epoch \
-             scale per value"
+            "back-filled date precision / format from es_mapping.json (index \
+             predates the date_precision or date_format flag)"
         );
     }
 }
@@ -46190,6 +50646,96 @@ impl<'a> QueryScorer<'a> {
 /// importantly — every ES-YAML vector test (≤ a few hundred docs) keeps
 /// today's byte-identical exact path.
 const HNSW_MIN_DOCS: u64 = 1024;
+
+/// #3006: default byte budget below which an unfiltered kNN skips a complete
+/// HNSW graph and scans every stored vector exactly.
+///
+/// The cutover is a size of vector data, not a document count, because the
+/// exact scan's cost is `docs * dims` multiply-adds over a cached flat column,
+/// while the graph path pays a beam search (`ef >= HNSW_EF_FLOOR` = 800, so
+/// the beam alone visits most of a few-thousand-node graph) plus fetching and
+/// parsing EVERY candidate's stored document for the exact rescore. qdrant
+/// makes the same call with the same unit: `full_scan_threshold` in KB of
+/// vectors, default 10,000 (qdrant `lib/segment/src/types.rs:820-827,2321`;
+/// applied per segment in `lib/segment/src/index/hnsw_index/hnsw.rs:81-95`),
+/// and Lucene's `AbstractKnnVectorQuery` falls back to `exactSearch` when it
+/// is cheaper (`AbstractKnnVectorQuery.java:282-302`). Same default here;
+/// XERJ's measured crossover is in the #3006 commit body.
+///
+/// The process-wide override is `XERJ_KNN_EXACT_SCAN_MAX_KB` (`0` turns the
+/// cutover off and restores the old `HNSW_MIN_DOCS`-only gate).
+const KNN_EXACT_SCAN_MAX_KB_DEFAULT: u64 = 10_000;
+
+/// The exact-scan byte budget a new [`Index`] starts with (#3006).
+///
+/// Unit tests start at `0`, the pre-#3006 gate, so the many tests that build
+/// a just-over-`HNSW_MIN_DOCS` low-dimension corpus to exercise the ANN path
+/// keep exercising it; the cutover's own tests set the production value.
+fn knn_exact_scan_max_bytes_default() -> u64 {
+    if cfg!(test) {
+        return 0;
+    }
+    static BUDGET: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *BUDGET.get_or_init(|| {
+        std::env::var("XERJ_KNN_EXACT_SCAN_MAX_KB")
+            .ok()
+            .and_then(|raw| raw.trim().parse::<u64>().ok())
+            .unwrap_or(KNN_EXACT_SCAN_MAX_KB_DEFAULT)
+            .saturating_mul(1024)
+    })
+}
+
+/// #3018: whether a hybrid request fuses its legs on ids and hydrates only
+/// the page (`Index::run_hybrid_pass` with `defer`). On by default;
+/// `XERJ_HYBRID_DEFER_SOURCE=0` hydrates inside every leg, the pre-change
+/// execution — for measuring what the deferral is worth.
+fn hybrid_defer_source_enabled() -> bool {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        !matches!(
+            std::env::var("XERJ_HYBRID_DEFER_SOURCE")
+                .as_deref()
+                .map(str::trim),
+            Ok("0") | Ok("false") | Ok("off")
+        )
+    })
+}
+
+/// #3018: whether a hybrid request on the multi-thread runtime runs its legs
+/// on one OS thread each. On by default; `XERJ_HYBRID_PARALLEL_LEGS=0` keeps
+/// every leg on the request's thread, the pre-#3018 execution — for a node
+/// saturated with concurrent hybrid requests, where the extra threads buy no
+/// throughput, and for measuring what the parallel legs are worth.
+fn hybrid_parallel_legs_enabled() -> bool {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        !matches!(
+            std::env::var("XERJ_HYBRID_PARALLEL_LEGS")
+                .as_deref()
+                .map(str::trim),
+            Ok("0") | Ok("false") | Ok("off")
+        )
+    })
+}
+
+/// Whether an unfiltered kNN over `vector_doc_count` vectors of `dims` f32s
+/// should take the exact scan instead of the HNSW graph (#3006).
+fn knn_prefers_exact_scan(vector_doc_count: u64, dims: usize, max_bytes: u64) -> bool {
+    let bytes = vector_doc_count
+        .saturating_mul(dims as u64)
+        .saturating_mul(std::mem::size_of::<f32>() as u64);
+    max_bytes > 0 && bytes <= max_bytes && vector_doc_count <= KNN_EXACT_SCAN_MAX_DOCS
+}
+
+/// #3006: document ceiling on the exact-scan cutover, beside the byte budget.
+///
+/// The byte rule alone sends a low-dimension set to the scan at any size
+/// (10,000 KiB is 1.28 M vectors of 2 dims), and the scan pays a fixed
+/// per-candidate cost (pool entry, rank, id) on top of the dot product, so
+/// its cost there is the document count, not the bytes. 16,384 is about 5x
+/// the 3,080-vector set measured in #3006 and never binds at 768 dims
+/// (3,333 vectors fill the byte budget first).
+const KNN_EXACT_SCAN_MAX_DOCS: u64 = 16_384;
 
 /// Lower bound on the HNSW beam width (`ef`).
 ///
@@ -47186,12 +51732,18 @@ fn knn_result_from_ranked(
         }
     })
     .collect();
-    let (hits, savings) = apply_source_filter_measured(
-        hits,
-        &request.source,
-        generated_companion_fields,
-        Some(request),
-    );
+    // #3018: a hybrid leg returns its sources raw; the hybrid executor
+    // filters (and measures) the fused page.
+    let (hits, savings) = if request.defer_source {
+        (hits, None)
+    } else {
+        apply_source_filter_measured(
+            hits,
+            &request.source,
+            generated_companion_fields,
+            Some(request),
+        )
+    };
 
     SearchResult {
         hits,
@@ -47272,6 +51824,30 @@ impl KnnCandidateAt {
         }
     }
 
+    /// The candidate's `_id` alone, without touching its source (#3006): a
+    /// column-scanned segment answers from the column's identity, so the
+    /// whole capped pool can be put in page order before any hydration.
+    fn id(&self, mem_docs: &[(String, Arc<Value>)], segment_views: &[KnnSegmentView]) -> String {
+        match *self {
+            Self::Memtable(slot) => mem_docs[slot].0.clone(),
+            Self::Segment { view, position } => {
+                let segment = &segment_views[view];
+                match segment.docs.as_ref() {
+                    Some(docs) => docs[position]
+                        .get("_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    None => segment
+                        .column
+                        .identity(position)
+                        .map(|(id, _)| id.to_string())
+                        .unwrap_or_default(),
+                }
+            }
+        }
+    }
+
     /// The candidate's id and an OWNED source — paid for returned hits only.
     fn hydrate(
         &self,
@@ -47314,6 +51890,26 @@ fn knn_stored_hit(doc: &Value) -> (String, Value) {
         d
     });
     (id, source)
+}
+
+/// [`knn_stored_hit`] for a document the caller owns: the source is moved out,
+/// not cloned (#3006, the warm hydration of the exact scan).
+fn knn_stored_hit_owned(doc: Value) -> (String, Value) {
+    let mut doc = match doc {
+        Value::Object(doc) => doc,
+        other => return knn_stored_hit(&other),
+    };
+    let id = match doc.get("_id") {
+        Some(Value::String(id)) => id.clone(),
+        _ => String::new(),
+    };
+    match doc.remove("_source") {
+        Some(source) => (id, source),
+        None => {
+            doc.remove("_id");
+            (id, Value::Object(doc))
+        }
+    }
 }
 
 /// How the exact kNN scan shows one document to its `filter` (#939).
@@ -47782,12 +52378,15 @@ fn replace_direct_knn_with_pinned(q: &QueryNode, pinned: &QueryNode) -> QueryNod
 // when matched.
 // ── Hybrid fusion helpers ────────────────────────────────────────────────────
 //
-// Both fuse_rrf and fuse_linear take a slice of (hits, weight) pairs and
+// Both fuse_rrf and fuse_linear take the (hits, weight) pairs by value and
 // return a single Vec<Hit> in the fused order below. The same doc_id
 // appearing across multiple lists collapses to one Hit; the source is taken
 // from the first list that produced it (sub-lists may differ on what they
-// materialise, e.g. a kNN list returns the full source while a BM25 list
-// with `_source: false` returns null — first non-null wins).
+// materialise, e.g. a kNN list returns the full source while a deferred
+// BM25 leg returns null — first non-null wins). #3018: the hits are MOVED
+// into the fused list, never cloned. Cloning every leg hit's `_source`
+// (each one carrying its stored vector) cost ~1.2 ms of a ~5 ms two-leg
+// request on a 768-dim index, to keep `size` of the 100 copies.
 //
 // THE FUSED ORDER (#940) is the ONE total order every score-ranked page in
 // this engine uses (#270, `Index::sort_hits_page_order`):
@@ -47841,26 +52440,30 @@ fn fuse_accumulate(
     entries: &mut Vec<FusedEntry>,
     slot_by_id: &mut HashMap<String, usize>,
     contrib: f32,
-    h: &Hit,
+    mut h: Hit,
     seq_no_of: &dyn Fn(&str) -> u64,
 ) {
     match slot_by_id.get(&h.id) {
         Some(&slot) => {
             let existing = &mut entries[slot];
             existing.score += contrib;
-            // Take a non-null source from a later list if the first had
-            // `_source: false`.
+            // Take a non-null source from a later list if the first left it
+            // null (a deferred leg, #3018).
             if existing.hit.source.is_null() && !h.source.is_null() {
-                existing.hit.source = h.source.clone();
+                existing.hit.source = std::mem::take(&mut h.source);
+                if existing.hit.seq_no.is_none() {
+                    existing.hit.seq_no = h.seq_no;
+                    existing.hit.version = h.version;
+                }
             }
         }
         None => {
-            let mut hit = h.clone();
+            let mut hit = h;
             hit.score = 0.0; // overwritten with the fused score on output
-            slot_by_id.insert(h.id.clone(), entries.len());
+            slot_by_id.insert(hit.id.clone(), entries.len());
             entries.push(FusedEntry {
                 score: contrib,
-                seq_no: seq_no_of(&h.id),
+                seq_no: seq_no_of(&hit.id),
                 hit,
             });
         }
@@ -47906,12 +52509,16 @@ fn fuse_finish(mut entries: Vec<FusedEntry>) -> Vec<Hit> {
 /// OpenSearch / TREC convention) and is small enough that the top
 /// few ranks still dominate. Output is in THE FUSED ORDER (#940);
 /// `seq_no_of` resolves a document's arrival `seq_no` for the tie-break.
-fn fuse_rrf(sub_results: &[(Vec<Hit>, f32)], k: u32, seq_no_of: &dyn Fn(&str) -> u64) -> Vec<Hit> {
+fn fuse_rrf(
+    sub_results: Vec<(Vec<Hit>, f32)>,
+    k: u32,
+    seq_no_of: &dyn Fn(&str) -> u64,
+) -> Vec<Hit> {
     let kf = k as f32;
     let mut entries: Vec<FusedEntry> = Vec::new();
     let mut slot_by_id: HashMap<String, usize> = HashMap::new();
     for (hits, weight) in sub_results {
-        for (rank_zero_based, h) in hits.iter().enumerate() {
+        for (rank_zero_based, h) in hits.into_iter().enumerate() {
             let rank = (rank_zero_based + 1) as f32;
             let contrib = weight / (kf + rank);
             fuse_accumulate(&mut entries, &mut slot_by_id, contrib, h, seq_no_of);
@@ -47926,13 +52533,13 @@ fn fuse_rrf(sub_results: &[(Vec<Hit>, f32)], k: u32, seq_no_of: &dyn Fn(&str) ->
 /// score outliers. Output is in THE FUSED ORDER (#940) — a constant-score
 /// leg contributes 0.0 to every document it returns, so whole lists tie
 /// here, not just pairs.
-fn fuse_linear(sub_results: &[(Vec<Hit>, f32)], seq_no_of: &dyn Fn(&str) -> u64) -> Vec<Hit> {
+fn fuse_linear(sub_results: Vec<(Vec<Hit>, f32)>, seq_no_of: &dyn Fn(&str) -> u64) -> Vec<Hit> {
     let mut entries: Vec<FusedEntry> = Vec::new();
     let mut slot_by_id: HashMap<String, usize> = HashMap::new();
     for (hits, weight) in sub_results {
         // Min-max normalise within this sub-list.
         let (mut lo, mut hi) = (f32::INFINITY, f32::NEG_INFINITY);
-        for h in hits {
+        for h in &hits {
             if h.score < lo {
                 lo = h.score;
             }
@@ -47952,6 +52559,51 @@ fn fuse_linear(sub_results: &[(Vec<Hit>, f32)], seq_no_of: &dyn Fn(&str) -> u64)
         }
     }
     fuse_finish(entries)
+}
+
+/// #3018: whether `search_inner` may read a hit's `_source` after the
+/// segment walk has scored it, other than to return it — today that is the
+/// `matched_queries` pass, which evaluates every `_name`d clause against the
+/// hit's source. Conservative: a node not listed as a plain leaf or a
+/// transparent wrapper answers `true`, which keeps a deferred hybrid leg on
+/// the hydrating path.
+fn query_may_read_source_after_scoring(q: &QueryNode) -> bool {
+    match q {
+        QueryNode::MatchAll
+        | QueryNode::MatchNone
+        | QueryNode::Term { .. }
+        | QueryNode::Terms { .. }
+        | QueryNode::Range { .. }
+        | QueryNode::Prefix { .. }
+        | QueryNode::Wildcard { .. }
+        | QueryNode::Exists { .. }
+        | QueryNode::Ids { .. }
+        | QueryNode::Match { .. }
+        | QueryNode::MatchPhrase { .. }
+        | QueryNode::MatchPhrasePrefix { .. }
+        | QueryNode::MultiMatch { .. }
+        | QueryNode::Fuzzy { .. }
+        | QueryNode::Regexp { .. } => false,
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should)
+            .chain(must_not)
+            .chain(filter)
+            .any(query_may_read_source_after_scoring),
+        QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
+            query_may_read_source_after_scoring(query)
+        }
+        QueryNode::DisMax { queries, .. } => {
+            queries.iter().any(query_may_read_source_after_scoring)
+        }
+        _ => true,
+    }
 }
 
 /// Detect a semantic query (parser node `QueryNode::SemanticSearch`)
@@ -48276,21 +52928,162 @@ fn lookup_vector_quantization(schema: &Schema, field: &str) -> Option<String> {
 /// `FieldConfig::fields` (object sub-paths and multi-fields). Returns `None`
 /// for anything the schema does not declare — dynamic fields have no declared
 /// mapping options to honour.
-pub(crate) fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a FieldConfig> {
-    fn find<'a>(fields: &'a [FieldConfig], path: &[&str]) -> Option<&'a FieldConfig> {
-        let head = *path.first()?;
-        let tail = &path[1..];
+/// Zero-allocation dotted-path lookup through `FieldConfig::fields`, preferring
+/// the longest literal dotted key at each level (matching `get_field_value_parts`).
+fn declared_field_in<'a>(fields: &'a [FieldConfig], path: &str) -> Option<&'a FieldConfig> {
+    if path.is_empty() {
+        return None;
+    }
+    if let Some(fc) = fields.iter().find(|fc| fc.name == path) {
+        return Some(fc);
+    }
+    let mut end = path.len();
+    while let Some(dot) = path[..end].rfind('.') {
+        let head = &path[..dot];
+        let tail = &path[dot + 1..];
         for fc in fields {
             if fc.name == head {
-                if tail.is_empty() {
-                    return Some(fc);
+                if let Some(found) = declared_field_in(&fc.fields, tail) {
+                    return Some(found);
                 }
-                return find(&fc.fields, tail);
             }
         }
-        None
+        end = dot;
     }
-    find(&schema.fields, &field.split('.').collect::<Vec<_>>())
+    None
+}
+
+pub(crate) fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a FieldConfig> {
+    declared_field_in(&schema.fields, field)
+}
+
+/// True when `field` names an undeclared dotted sub-field under a declared
+/// non-container leaf field — e.g. `title.raw` when `title` is a dynamic
+/// `text` field whose only declared multi-field is `.keyword`, or
+/// `obj.name.raw` when `obj.name` is a leaf field without a `.raw`
+/// multi-field (#3515).
+///
+/// Ancestors typed `Object` or `Nested` are skipped: a dotted path under an
+/// object/nested mapping (such as `meta.owner` on an empty `object` mapping)
+/// names a JSON child key rather than a multi-field suffix and resolves
+/// directly against `_source`.
+pub(crate) fn is_unmapped_leaf_subfield(schema: &Schema, field: &str) -> bool {
+    if schema.fields.is_empty()
+        || !field.contains('.')
+        || field.contains('*')
+        || field.starts_with('_')
+    {
+        return false;
+    }
+    if declared_field_in(&schema.fields, field).is_some() {
+        return false;
+    }
+    for (idx, ch) in field.char_indices() {
+        if ch == '.' {
+            if let Some(ancestor) = declared_field_in(&schema.fields, &field[..idx]) {
+                if !matches!(ancestor.field_type, FieldType::Object | FieldType::Nested) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Child schema for elements inside a `nested` query at `path`: field names
+/// after `strip_nested_path_in_query` are relative to the nested element, not
+/// the root document. Returns a borrowed empty schema when `path` is undeclared
+/// or has no child mappings so root fields cannot shadow element fields.
+fn nested_element_schema<'a>(schema: &'a Schema, path: &str) -> std::borrow::Cow<'a, Schema> {
+    static EMPTY_SCHEMA: std::sync::LazyLock<Schema> = std::sync::LazyLock::new(Schema::empty);
+    match declared_field_in(&schema.fields, path) {
+        Some(fc) if !fc.fields.is_empty() => std::borrow::Cow::Owned(Schema {
+            fields: fc.fields.clone(),
+            version: 0,
+            updated_at: schema.updated_at,
+        }),
+        _ => std::borrow::Cow::Borrowed(&EMPTY_SCHEMA),
+    }
+}
+
+/// Cheap pre-check so queries without any unmapped leaf sub-field skip cloning
+/// the query tree in `lower_unsatisfiable_clauses` when `typeless` is empty.
+/// Mapped dotted fields (such as ECS/OTel `obj.name` or `title.keyword`) return
+/// `false` with zero allocation.
+fn query_has_unmapped_leaf_subfield(q: &QueryNode, schema: &Schema) -> bool {
+    match q {
+        QueryNode::Match { field, .. }
+        | QueryNode::MatchPhrase { field, .. }
+        | QueryNode::MatchPhrasePrefix { field, .. }
+        | QueryNode::Prefix { field, .. }
+        | QueryNode::Wildcard { field, .. }
+        | QueryNode::Fuzzy { field, .. }
+        | QueryNode::Intervals { field, .. } => is_unmapped_leaf_subfield(schema, field),
+        QueryNode::MultiMatch { fields, .. } | QueryNode::SimpleQueryString { fields, .. } => {
+            fields
+                .iter()
+                .any(|s| is_unmapped_leaf_subfield(schema, parse_field_boost(s).0))
+        }
+        QueryNode::QueryString {
+            default_field: Some(f),
+            ..
+        } => is_unmapped_leaf_subfield(schema, parse_field_boost(f).0),
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should)
+            .chain(must_not)
+            .chain(filter)
+            .any(|c| query_has_unmapped_leaf_subfield(c, schema)),
+        QueryNode::Constant { query, .. }
+        | QueryNode::Boosted { query, .. }
+        | QueryNode::Named { query, .. } => query_has_unmapped_leaf_subfield(query, schema),
+        QueryNode::FunctionScore {
+            query, functions, ..
+        } => {
+            query_has_unmapped_leaf_subfield(query, schema)
+                || functions
+                    .iter()
+                    .filter_map(|f| f.filter.as_ref())
+                    .any(|c| query_has_unmapped_leaf_subfield(c, schema))
+        }
+        QueryNode::Pinned { organic, .. } => query_has_unmapped_leaf_subfield(organic, schema),
+        QueryNode::Boosting {
+            positive, negative, ..
+        } => {
+            query_has_unmapped_leaf_subfield(positive, schema)
+                || query_has_unmapped_leaf_subfield(negative, schema)
+        }
+        QueryNode::DisMax { queries, .. } => queries
+            .iter()
+            .any(|c| query_has_unmapped_leaf_subfield(c, schema)),
+        QueryNode::Hybrid { queries, .. } => queries
+            .iter()
+            .any(|wq| query_has_unmapped_leaf_subfield(&wq.query, schema)),
+        QueryNode::Knn { filter, .. } | QueryNode::SemanticSearch { filter, .. } => filter
+            .as_deref()
+            .is_some_and(|c| query_has_unmapped_leaf_subfield(c, schema)),
+        QueryNode::SpanNear { clauses, .. } | QueryNode::SpanOr { clauses } => clauses
+            .iter()
+            .any(|c| query_has_unmapped_leaf_subfield(c, schema)),
+        QueryNode::SpanNot { include, exclude } => {
+            query_has_unmapped_leaf_subfield(include, schema)
+                || query_has_unmapped_leaf_subfield(exclude, schema)
+        }
+        QueryNode::SpanFirst { match_query, .. } => {
+            query_has_unmapped_leaf_subfield(match_query, schema)
+        }
+        QueryNode::SpanContaining { little, big } | QueryNode::SpanWithin { little, big } => {
+            query_has_unmapped_leaf_subfield(little, schema)
+                || query_has_unmapped_leaf_subfield(big, schema)
+        }
+        _ => false,
+    }
 }
 
 /// Is `field` an ANALYZED `text` field in `schema`?
@@ -48298,7 +53091,7 @@ pub(crate) fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a 
 /// Such a field's doc-values column — when its mapping asks for one (ES's
 /// `mapper.text.doc_values`) — holds the RAW `_source` values, while `_search`
 /// resolves a `term`/`terms` leaf against the analyzed token stream
-/// (`tokens_contain` in `doc_matches_query_typed` — the answer the memtable
+/// (`text_tokens_contain` in `doc_matches_query_typed` — the answer the memtable
 /// gives before any flush). A set built from the column is therefore NOT a
 /// superset of the segment's matches, and every consumer that treats it as one
 /// (the term/terms prefilters, the doc-values count shortcuts) silently drops
@@ -48312,6 +53105,71 @@ pub(crate) fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a 
 fn field_is_analyzed_text(schema: &Schema, field: &str) -> bool {
     declared_field(schema, field)
         .is_some_and(|f| matches!(f.field_type, FieldType::Text) && f.options.indexed)
+}
+
+/// The term a top-level `term` leaf looks up in a segment's FTS term
+/// dictionary, when that dictionary answers exactly what the stored scan
+/// (`doc_matches_query_typed` → `json_scalar_equal`) answers. `None` means
+/// "do not use the dictionary for this leaf".
+///
+/// Why it exists: a keyword field that holds an ARRAY in any document of a
+/// segment ships no doc-values column there (`build_doc_value_columns`'s
+/// `multi_valued` rule — a one-slot column would lie). Every term fast path
+/// keyed on the column then falls back to decoding and parsing the whole
+/// stored section, segment after segment. On an autoindex index whose
+/// `headings` field is an array this made a `term` 28-30 s over 493
+/// segments (#3412). The field's FTS side-car still holds every element as
+/// one whole-value term (`build_fts_field_configs` gives every non-text field
+/// the `keyword` analyzer; `extract_field_values` adds one value per array
+/// element), which is the oracle tantivy uses for the same query: look the
+/// term up in the segment's term dictionary, skip the segment when it is
+/// absent, else read that one posting list
+/// (`tantivy/src/query/term_query/term_weight.rs:179-200`, MIT).
+///
+/// The dictionary is exact against the scan only where both compare the same
+/// strings, so this declines:
+/// - a dotted field (object sub-field or `.keyword` multi-field: resolved
+///   through `_source`, and an `ignore_above` multi-field may not index long
+///   values);
+/// - any field not declared `keyword` (a `text` dictionary holds analysed
+///   tokens — the #362 trap; numeric/boolean/ip compare by value, not text);
+/// - a non-string query value, and a string that parses as a number (the scan
+///   matches `"5"` against a stored `5.0`, whose dictionary term is `"5.0"`);
+/// - a CIDR-shaped value, `<anything>/<integer>` (the scan expands a CIDR;
+///   #786). Any other `/` is an ordinary character: `ip_matches_cidr` needs
+///   the text after the first `/` to parse as a prefix length, so a path
+///   such as `src/main.rs` is compared as a literal by the scan too. Paths
+///   are the common case: autoindex's `ax_paths` is an array keyword of file
+///   paths, and declining every `/` kept #3412's fix off it entirely
+///   (#3456);
+/// - the empty string (never indexed as a term).
+///
+/// The per-segment caller adds one more guard: the field's side-car must be
+/// docs-only (`!field_has_positions`), i.e. written with the keyword analyzer.
+fn keyword_fts_term_oracle<'a>(schema: &Schema, field: &str, value: &'a Value) -> Option<&'a str> {
+    if field.contains('.') {
+        return None;
+    }
+    let declared = declared_field(schema, field)?;
+    if !matches!(declared.field_type, FieldType::Keyword) || declared.name != field {
+        return None;
+    }
+    let Value::String(s) = value else {
+        return None;
+    };
+    if s.is_empty() || cidr_shaped(s) || s.trim().parse::<f64>().is_ok() {
+        return None;
+    }
+    Some(s.as_str())
+}
+
+/// Could the stored scan read `s` as a CIDR? Mirrors the gate in
+/// `ip_matches_cidr`: a `/` whose suffix parses as a prefix length. Wider
+/// than a real CIDR on purpose (the network part is not checked), so every
+/// value the scan might expand is declined.
+fn cidr_shaped(s: &str) -> bool {
+    s.split_once('/')
+        .is_some_and(|(_, prefix)| prefix.parse::<u32>().is_ok())
 }
 
 /// Does `q` contain a `match` leaf for declared doc-values-only text?
@@ -48418,17 +53276,24 @@ fn check_buildable_query(
     query: &QueryNode,
     schema: &Schema,
 ) -> std::result::Result<QueryNode, xerj_common::XerjError> {
-    let resolved = rewrite_keyword_full_text_to_term(&rewrite_query_aliases(query, schema), schema);
+    let aliased = rewrite_query_aliases(query, schema);
+    let resolved = resolve_keyword_query(&aliased, schema);
     if let Some(field) = unsearchable_query_field(&resolved, schema) {
         return Err(xerj_common::XerjError::invalid_query(format!(
             "failed to create query: Cannot search on field [{field}] \
              since it is not indexed nor has doc values."
         )));
     }
-    if let Some(value) = non_numeric_term_value(&resolved, schema) {
+    // #3511: the value checks read the tree before field patterns expand:
+    // the expansion (#3413/#3463) turns `*` into lenient typed leaves, which
+    // would hide a mismatch from a clause that set `lenient: false`.
+    if let Some(value) = non_numeric_term_value(&aliased, schema) {
         return Err(xerj_common::XerjError::invalid_query(format!(
             "failed to create query: For input string: \"{value}\""
         )));
+    }
+    if let Some(reason) = mistyped_term_value(&aliased, schema) {
+        return Err(xerj_common::XerjError::invalid_query(reason));
     }
     Ok(resolved)
 }
@@ -48719,6 +53584,160 @@ fn non_numeric_term_value(q: &QueryNode, schema: &Schema) -> Option<String> {
     }
 }
 
+/// The ES error for the first value a clause sends to a `boolean`, `ip` or
+/// `date` field that the field's type cannot read (#3511): the boolean, ip
+/// and date half of [`non_numeric_term_value`].
+///
+/// ES builds a term query from the whole value on these types, and a value
+/// that does not parse fails the request with a 400 (read for semantics only,
+/// no code copied): `BooleanFieldType.indexedValueForSearch`, `InetAddresses`
+/// `forString` / `parseCidr`, and the date field's format parser. XERJ
+/// answered a silent 0-hit 200. The clauses checked, and the `lenient` rule,
+/// are the same as for numeric fields: `term` / `terms` always, and the
+/// full-text leaves (`match`, `match_phrase`, `multi_match`, and what
+/// `query_string` lowers to) unless lenient. A field pattern checks every
+/// typed field it matches. Only string values are checked; date math (`now`,
+/// `||`) is left to the date resolver.
+///
+/// The reason is the text ES puts in `root_cause`: boolean and ip errors are
+/// wrapped as `failed to create query: …` (`query_shard_exception`), and a
+/// date error is the bare `failed to parse date field …` message, which the
+/// API maps to a `parse_exception` root cause.
+fn mistyped_term_value(q: &QueryNode, schema: &Schema) -> Option<String> {
+    let check = |field: &str, text: &str| -> Option<String> {
+        if text.is_empty() {
+            return None;
+        }
+        if field.contains(['*', '?']) {
+            pattern_field_paths(schema)
+                .into_iter()
+                .filter(|(path, _)| crate::engine::glob_match(field, path))
+                .find_map(|(_, f)| typed_value_error(f, text))
+        } else {
+            declared_field(schema, field).and_then(|f| typed_value_error(f, text))
+        }
+    };
+    let check_value = |field: &str, v: &serde_json::Value| check(field, v.as_str()?);
+    match q {
+        QueryNode::Term { field, value, .. } => check_value(field, value),
+        QueryNode::Terms { field, values, .. } => values.iter().find_map(|v| check_value(field, v)),
+        QueryNode::Match {
+            field,
+            query,
+            lenient: false,
+            ..
+        }
+        | QueryNode::MatchPhrase {
+            field,
+            query,
+            lenient: false,
+            ..
+        } => check(field, query),
+        QueryNode::MultiMatch {
+            fields,
+            query,
+            lenient: false,
+            ..
+        } => fields
+            .iter()
+            .find_map(|f| check(parse_field_boost(f).0, query)),
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should)
+            .chain(must_not)
+            .chain(filter)
+            .find_map(|c| mistyped_term_value(c, schema)),
+        QueryNode::Constant { query, .. }
+        | QueryNode::Boosted { query, .. }
+        | QueryNode::Named { query, .. }
+        | QueryNode::Nested { query, .. }
+        | QueryNode::FunctionScore { query, .. } => mistyped_term_value(query, schema),
+        QueryNode::Pinned { organic, .. } => mistyped_term_value(organic, schema),
+        QueryNode::Boosting {
+            positive, negative, ..
+        } => {
+            mistyped_term_value(positive, schema).or_else(|| mistyped_term_value(negative, schema))
+        }
+        QueryNode::DisMax { queries, .. } => {
+            queries.iter().find_map(|c| mistyped_term_value(c, schema))
+        }
+        QueryNode::Knn { filter, .. } | QueryNode::SemanticSearch { filter, .. } => {
+            filter.as_ref().and_then(|f| mistyped_term_value(f, schema))
+        }
+        _ => None,
+    }
+}
+
+/// The ES error for `text` sent to the boolean, ip or date field `f`, or
+/// `None` when the field reads it (or has another type). See
+/// [`mistyped_term_value`].
+fn typed_value_error(f: &FieldConfig, text: &str) -> Option<String> {
+    match f.field_type {
+        FieldType::Boolean => (text != "true" && text != "false").then(|| {
+            format!(
+                "failed to create query: Can't parse boolean value [{text}], \
+                 expected [true] or [false]"
+            )
+        }),
+        FieldType::Ip => {
+            let not_ip =
+                |s: &str| format!("failed to create query: '{s}' is not an IP string literal.");
+            let parts: Vec<&str> = text.split('/').collect();
+            match parts.as_slice() {
+                [addr] => addr
+                    .parse::<std::net::IpAddr>()
+                    .is_err()
+                    .then(|| not_ip(addr)),
+                [addr, bits] => {
+                    let Ok(ip) = addr.parse::<std::net::IpAddr>() else {
+                        return Some(not_ip(addr));
+                    };
+                    let Ok(bits) = bits.parse::<i32>() else {
+                        return Some(format!(
+                            "failed to create query: For input string: \"{bits}\""
+                        ));
+                    };
+                    let max = if ip.is_ipv4() { 32 } else { 128 };
+                    (!(0..=max).contains(&bits)).then(|| {
+                        format!(
+                            "failed to create query: Illegal prefix length [{bits}] in \
+                             [{text}]. Must be 0-32 for IPv4 ranges, 0-128 for IPv6 ranges"
+                        )
+                    })
+                }
+                _ => Some(format!(
+                    "failed to create query: Expected [ip/prefix] but was [{text}]"
+                )),
+            }
+        }
+        FieldType::Date => {
+            if text.trim_start().starts_with("now") || text.contains("||") {
+                return None;
+            }
+            let format = f
+                .options
+                .date_format
+                .as_deref()
+                .unwrap_or(DEFAULT_DATE_FORMAT);
+            let formats = xerj_query::dates::compile_formats_cached(format).ok()?;
+            match xerj_query::dates::resolve_date_bound_str(text, false, Some(&formats)) {
+                Err(xerj_query::dates::DateResolveError::UnparseableValue(v)) => Some(format!(
+                    "failed to parse date field [{v}] with format [{format}]: \
+                     [failed to parse date field [{v}] with format [{format}]]"
+                )),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
 /// Whether `field` names a numeric (`long` / `double`) field or, for a pattern
 /// containing `*` / `?`, whether any declared numeric field matches it
 /// (#1284). Dotted paths are matched in full, as `multi_match` and
@@ -48743,6 +53762,111 @@ fn numeric_field_matches(schema: &Schema, field: &str) -> bool {
     } else {
         declared_field(schema, field).is_some_and(is_numeric)
     }
+}
+
+/// Agg `field` a `dynamic: false` mapping leaves unmapped is rewritten to
+/// this prefix plus the name: no `_source` key and no column can carry it,
+/// so the columnar and the stored-doc agg paths both answer "absent" (empty
+/// buckets, `null` metrics, every doc `missing`), which is what ES answers
+/// for an unmapped field.
+const UNMAPPED_AGG_FIELD_PREFIX: &str = "\u{1}unmapped\u{1}";
+
+/// Rewrite, in an `aggs` tree, every `"field": "<name>"` that `hidden`
+/// flags (#3514). Agg types whose parameters are a QUERY (`filter`,
+/// `filters`, `adjacency_matrix`) are not walked: their field names are
+/// object keys, not `field` values, and a `term` on a field literally named
+/// `field` must not be touched. Scripts are left alone. Returns whether
+/// anything changed.
+fn mask_unmapped_agg_fields(aggs: &mut Value, hidden: &dyn Fn(&str) -> bool) -> bool {
+    fn params(v: &mut Value, hidden: &dyn Fn(&str) -> bool) -> bool {
+        let mut changed = false;
+        match v {
+            Value::Object(o) => {
+                for (k, child) in o.iter_mut() {
+                    match (k.as_str(), &mut *child) {
+                        ("script", _) => {}
+                        ("field", Value::String(name)) => {
+                            if hidden(name) {
+                                *name = format!("{UNMAPPED_AGG_FIELD_PREFIX}{name}");
+                                changed = true;
+                            }
+                        }
+                        _ => changed |= params(child, hidden),
+                    }
+                }
+            }
+            Value::Array(items) => {
+                for item in items {
+                    changed |= params(item, hidden);
+                }
+            }
+            _ => {}
+        }
+        changed
+    }
+    let Some(named) = aggs.as_object_mut() else {
+        return false;
+    };
+    let mut changed = false;
+    for body in named.values_mut() {
+        let Some(body) = body.as_object_mut() else {
+            continue;
+        };
+        for (kind, value) in body.iter_mut() {
+            changed |= match kind.as_str() {
+                "aggs" | "aggregations" => mask_unmapped_agg_fields(value, hidden),
+                "meta" | "filter" | "filters" | "adjacency_matrix" => false,
+                _ => params(value, hidden),
+            };
+        }
+    }
+    changed
+}
+
+/// The #328 pass over lexically typeless fields; see [`lower_clauses_naming`].
+#[cfg(test)]
+fn lower_lexically_typeless_clauses(
+    q: &QueryNode,
+    typeless: &std::collections::HashSet<String>,
+) -> QueryNode {
+    static EMPTY_SCHEMA: std::sync::LazyLock<Schema> = std::sync::LazyLock::new(Schema::empty);
+    lower_unsatisfiable_clauses(q, typeless, &EMPTY_SCHEMA)
+}
+
+/// #3514: under a root `dynamic: false` a field the mapping does not declare
+/// stays in `_source` but is not indexed, and ES answers every clause on it,
+/// `exists` included, with no hits. The stored-doc scan reads `_source`
+/// whatever the mapping says, so those clauses are lowered to `match_none`
+/// before any path decision, with the same folds as the typeless pass below.
+fn lower_unmapped_clauses(q: &QueryNode, hidden: &dyn Fn(&str) -> bool) -> QueryNode {
+    lower_clauses_naming(q, hidden, hidden, true)
+}
+
+/// Whether `field` is one a root `dynamic: false` keeps out of the index: a
+/// name the engine schema does not map (no declared field, and no declared
+/// LEAF ancestor whose multi-field or sub-key it could be) and the ES mapping
+/// does not cover either (`MappingCoverage`: runtime fields, objects that
+/// re-open dynamic mapping, leaves the schema does not model). Metadata
+/// names and patterns are never hidden.
+fn hidden_by_dynamic_false(
+    schema: &Schema,
+    coverage: &xerj_common::mapping_dynamic::MappingCoverage,
+    field: &str,
+) -> bool {
+    if field.is_empty() || field.starts_with('_') || field.contains('*') || field.contains('?') {
+        return false;
+    }
+    if declared_field(schema, field).is_some() || coverage.covers(field) {
+        return false;
+    }
+    let mut rest = field;
+    while let Some((ancestor, _)) = rest.rsplit_once('.') {
+        if let Some(fc) = declared_field(schema, ancestor) {
+            return matches!(fc.field_type, FieldType::Object | FieldType::Nested);
+        }
+        rest = ancestor;
+    }
+    true
 }
 
 /// Lower every LEXICAL clause that names a lexically typeless field to
@@ -48831,9 +53955,36 @@ fn numeric_field_matches(schema: &Schema, field: &str) -> bool {
 /// the set is not the same `emb` the inner clause names. Rewriting through it
 /// could turn a legitimate inner clause into a silent zero. The inner clause
 /// keeps exactly today's behaviour.
-fn lower_lexically_typeless_clauses(
+///
+/// Lower lexically typeless (`dense_vector`, #328) leaves and full-text leaves
+/// naming an undeclared sub-field of a declared leaf field (`title.raw`, #3515)
+/// to `MatchNone`, then fold the resulting `MatchNone` nodes through `Bool`,
+/// `Constant`, and `Boosted` so they never fall back to a stored-doc scan that
+/// strips unknown suffixes or walks unindexed vectors.
+fn lower_unsatisfiable_clauses(
     q: &QueryNode,
     typeless: &std::collections::HashSet<String>,
+    schema: &Schema,
+) -> QueryNode {
+    lower_clauses_naming(
+        q,
+        &|field: &str| typeless.contains(field),
+        &|field: &str| typeless.contains(field) || is_unmapped_leaf_subfield(schema, field),
+        false,
+    )
+}
+
+/// The shared lowering walk. `unsatisfiable` flags a field no leaf can match
+/// (typeless #328, unmapped under `dynamic: false` #3514); `fulltext_dead`
+/// additionally flags fields only FULL-TEXT leaves and `fields` lists cannot
+/// match (an unmapped sub-field of a declared leaf, #3515) — term-level
+/// leaves on those keep today's behaviour (#3533). `exists_too` also lowers
+/// `exists`.
+fn lower_clauses_naming(
+    q: &QueryNode,
+    unsatisfiable: &dyn Fn(&str) -> bool,
+    fulltext_dead: &dyn Fn(&str) -> bool,
+    exists_too: bool,
 ) -> QueryNode {
     // One entry of a `fields: [...]` list. `"emb^3"` carries a boost.
     //
@@ -48864,53 +54015,64 @@ fn lower_lexically_typeless_clauses(
     // contains a `0`, while `liquidity` never appears in the array. Not a
     // regression (both columns agree) and not closed here; the CHANGELOG says
     // "names one outright" rather than "names one" for exactly this reason.
-    let is_typeless_spec = |spec: &String| -> bool {
+    let is_dead_fulltext_spec = |spec: &String| -> bool {
         let (name, _boost) = parse_field_boost(spec);
-        !name.contains('*') && typeless.contains(name)
+        !name.contains('*') && fulltext_dead(name)
     };
-    // A `fields: [...]` list with every vector entry removed. `None` means
-    // "leave this node alone": either nothing was dropped, or the list was
-    // already empty, which means "all fields" rather than "no fields".
+    // A `fields: [...]` list with every vector / unmapped sub-field entry
+    // removed. `None` means "leave this node alone": either nothing was
+    // dropped, or the list was already empty, which means "all fields" rather
+    // than "no fields".
     let prune_specs = |fields: &Vec<String>| -> Option<Vec<String>> {
-        if fields.is_empty() || !fields.iter().any(is_typeless_spec) {
+        if fields.is_empty() || !fields.iter().any(is_dead_fulltext_spec) {
             return None;
         }
         Some(
             fields
                 .iter()
-                .filter(|spec| !is_typeless_spec(spec))
+                .filter(|spec| !is_dead_fulltext_spec(spec))
                 .cloned()
                 .collect(),
         )
     };
-    let recurse = |c: &QueryNode| lower_lexically_typeless_clauses(c, typeless);
+    let recurse = |c: &QueryNode| lower_clauses_naming(c, unsatisfiable, fulltext_dead, exists_too);
     match q {
         // ── Leaves that name exactly one field ────────────────────────────
         QueryNode::Term { field, .. }
         | QueryNode::Terms { field, .. }
         | QueryNode::Range { field, .. }
-        | QueryNode::Prefix { field, .. }
-        | QueryNode::Wildcard { field, .. }
-        | QueryNode::Match { field, .. }
-        | QueryNode::MatchPhrase { field, .. }
-        | QueryNode::MatchPhrasePrefix { field, .. }
-        | QueryNode::Fuzzy { field, .. }
         | QueryNode::Regexp { field, .. }
-        | QueryNode::Intervals { field, .. }
         | QueryNode::SpanTerm { field, .. } => {
-            if typeless.contains(field) {
+            if unsatisfiable(field) {
                 QueryNode::MatchNone
             } else {
                 q.clone()
             }
         }
+        QueryNode::Match { field, .. }
+        | QueryNode::MatchPhrase { field, .. }
+        | QueryNode::MatchPhrasePrefix { field, .. }
+        | QueryNode::Prefix { field, .. }
+        | QueryNode::Wildcard { field, .. }
+        | QueryNode::Fuzzy { field, .. }
+        | QueryNode::Intervals { field, .. } => {
+            if fulltext_dead(field) {
+                QueryNode::MatchNone
+            } else {
+                q.clone()
+            }
+        }
+        // `exists` reads `_source` / doc values, which is right for a typeless
+        // field (it has a value) and wrong for one `dynamic: false` left
+        // unmapped (ES: no hits), hence the flag.
+        QueryNode::Exists { field } if exists_too && unsatisfiable(field) => QueryNode::MatchNone,
 
         // ── Multi-field forms: prune the list, empty list → MatchNone ─────
         // The empty case is the specific hole. `query_node_to_fts` returns
         // `None` for a field spec it cannot project, and `MultiMatch` is
         // unconditionally in `is_doc_scan_query`, so a list that named ONLY
-        // vector fields would otherwise reach the stored-doc scan and match
-        // every document instead of none.
+        // vector or unmapped sub-fields would otherwise reach the stored-doc
+        // scan and match through the parent field instead of matching nothing.
         QueryNode::MultiMatch {
             fields,
             query,
@@ -48947,7 +54109,7 @@ fn lower_lexically_typeless_clauses(
         QueryNode::QueryString {
             default_field: Some(f),
             ..
-        } if is_typeless_spec(f) => QueryNode::MatchNone,
+        } if is_dead_fulltext_spec(f) => QueryNode::MatchNone,
 
         // ── Composites: recurse, then fold the MatchNone we just created ──
         QueryNode::Bool {
@@ -49140,7 +54302,14 @@ fn lower_lexically_typeless_clauses(
             max_boost,
         } => QueryNode::FunctionScore {
             query: Box::new(recurse(query)),
-            functions: functions.clone(),
+            functions: functions
+                .iter()
+                .map(|f| {
+                    let mut nf = f.clone();
+                    nf.filter = f.filter.as_ref().map(recurse);
+                    nf
+                })
+                .collect(),
             score_mode: *score_mode,
             boost_mode: *boost_mode,
             max_boost: *max_boost,
@@ -49161,10 +54330,21 @@ fn lower_lexically_typeless_clauses(
         QueryNode::DisMax {
             queries,
             tie_breaker,
-        } => QueryNode::DisMax {
-            queries: queries.iter().map(recurse).collect(),
-            tie_breaker: *tie_breaker,
-        },
+        } => {
+            let mut live: Vec<QueryNode> = queries
+                .iter()
+                .map(recurse)
+                .filter(|c| !c.is_match_none())
+                .collect();
+            match live.len() {
+                0 => QueryNode::MatchNone,
+                1 => live.pop().unwrap_or(QueryNode::MatchNone),
+                _ => QueryNode::DisMax {
+                    queries: live,
+                    tie_breaker: *tie_breaker,
+                },
+            }
+        }
         QueryNode::Hybrid { queries, fusion } => QueryNode::Hybrid {
             queries: queries
                 .iter()
@@ -49769,6 +54949,819 @@ mod lexically_typeless_lowering_tests {
             q
         );
     }
+
+    #[test]
+    fn unmapped_leaf_subfield_predicate_distinguishes_leaves_multifields_and_objects() {
+        let mut schema = Schema::empty();
+        let mut title = FieldConfig::new("title", FieldType::Text);
+        title
+            .fields
+            .push(FieldConfig::new("keyword", FieldType::Keyword));
+        schema.fields.push(title);
+
+        let mut obj = FieldConfig::new("obj", FieldType::Object);
+        let mut name = FieldConfig::new("name", FieldType::Text);
+        name.fields
+            .push(FieldConfig::new("keyword", FieldType::Keyword));
+        obj.fields.push(name);
+        schema.fields.push(obj);
+
+        schema
+            .fields
+            .push(FieldConfig::new("open_obj", FieldType::Object));
+
+        assert!(is_unmapped_leaf_subfield(&schema, "title.raw"));
+        assert!(is_unmapped_leaf_subfield(&schema, "title.raw.extra"));
+        assert!(is_unmapped_leaf_subfield(&schema, "title.keyword.raw"));
+        assert!(is_unmapped_leaf_subfield(&schema, "obj.name.raw"));
+
+        assert!(!is_unmapped_leaf_subfield(&schema, "title"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "title.keyword"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "obj.name"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "obj.name.keyword"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "open_obj.dynamic_leaf"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "ghost.raw"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "title.*"));
+        assert!(!is_unmapped_leaf_subfield(&schema, "_id.raw"));
+    }
+
+    #[test]
+    fn unmapped_leaf_subfield_lowering_folds_fulltext_and_leaves_term_untouched() {
+        let mut schema = Schema::empty();
+        let mut title = FieldConfig::new("title", FieldType::Text);
+        title
+            .fields
+            .push(FieldConfig::new("keyword", FieldType::Keyword));
+        schema.fields.push(title);
+
+        let empty_typeless = std::collections::HashSet::new();
+        let m = |field: &str| QueryNode::Match {
+            field: field.into(),
+            query: "fruit".into(),
+            operator: xerj_query::ast::BoolOperator::Or,
+            analyzer: None,
+            boost: None,
+            minimum_should_match: None,
+            lenient: false,
+        };
+
+        // Bare match and constant_score bubble up to MatchNone.
+        assert!(
+            lower_unsatisfiable_clauses(&m("title.raw"), &empty_typeless, &schema).is_match_none()
+        );
+        assert!(lower_unsatisfiable_clauses(
+            &QueryNode::Constant {
+                score: 1.0,
+                query: Box::new(m("title.raw")),
+            },
+            &empty_typeless,
+            &schema,
+        )
+        .is_match_none());
+
+        // `bool.should` drops dead unmapped sub-field under default msm,
+        // preserving FTS projection for the live clause.
+        match lower_unsatisfiable_clauses(
+            &bool_of(
+                vec![],
+                vec![m("title.raw"), m("title")],
+                vec![],
+                vec![],
+                None,
+            ),
+            &empty_typeless,
+            &schema,
+        ) {
+            QueryNode::Bool { should, .. } => assert_eq!(should, vec![m("title")]),
+            other => panic!("expected pruned bool, got {other:?}"),
+        }
+
+        // Percentage msm preserves clause count so the denominator does not shift.
+        match lower_unsatisfiable_clauses(
+            &bool_of(
+                vec![],
+                vec![m("title.raw"), m("title")],
+                vec![],
+                vec![],
+                Some(MinShouldMatch::Percentage(100)),
+            ),
+            &empty_typeless,
+            &schema,
+        ) {
+            QueryNode::Bool { should, .. } => {
+                assert_eq!(should.len(), 2);
+                assert!(should[0].is_match_none());
+            }
+            other => panic!("expected bool with MatchNone preserved, got {other:?}"),
+        }
+
+        // Mapped multi-field and Term queries remain untouched.
+        assert_eq!(
+            lower_unsatisfiable_clauses(&m("title.keyword"), &empty_typeless, &schema),
+            m("title.keyword")
+        );
+        let t = term("title.raw", "Fruit");
+        assert_eq!(lower_unsatisfiable_clauses(&t, &empty_typeless, &schema), t);
+
+        // `DisMax` drops dead children, unwraps a single survivor, and folds all-dead to MatchNone.
+        assert_eq!(
+            lower_unsatisfiable_clauses(
+                &QueryNode::DisMax {
+                    queries: vec![m("title.raw"), m("title")],
+                    tie_breaker: 0.3,
+                },
+                &empty_typeless,
+                &schema,
+            ),
+            m("title")
+        );
+        assert!(lower_unsatisfiable_clauses(
+            &QueryNode::DisMax {
+                queries: vec![m("title.raw"), m("title.missing")],
+                tie_breaker: 0.0,
+            },
+            &empty_typeless,
+            &schema,
+        )
+        .is_match_none());
+
+        // Parser-lowered `Prefix`/`Wildcard`/`Fuzzy` and `Intervals` on unmapped sub-fields fold to MatchNone.
+        assert!(lower_unsatisfiable_clauses(
+            &QueryNode::Prefix {
+                field: "title.raw".into(),
+                value: "fru".into(),
+                boost: None,
+                constant_score: false,
+                case_insensitive: false,
+            },
+            &empty_typeless,
+            &schema,
+        )
+        .is_match_none());
+        assert!(lower_unsatisfiable_clauses(
+            &QueryNode::Wildcard {
+                field: "title.raw".into(),
+                value: "fru*".into(),
+                boost: None,
+                constant_score: false,
+                case_insensitive: false,
+            },
+            &empty_typeless,
+            &schema,
+        )
+        .is_match_none());
+
+        // Hot-path pre-check skips mapped dotted fields with zero tree clone.
+        assert!(!query_has_unmapped_leaf_subfield(
+            &m("title.keyword"),
+            &schema
+        ));
+        assert!(query_has_unmapped_leaf_subfield(&m("title.raw"), &schema));
+    }
+}
+
+/// Whether a `*` / `prefix*` field pattern may expand onto `f` (#3413): a
+/// searchable `text` or `keyword` field. Searchable is the rule the field-less
+/// expansion in `search_inner` already uses (`indexed` or doc values).
+///
+/// ES expands a pattern over every mapped field whose type can be searched as
+/// text and, under the `lenient` that `*` turns on, drops the ones a value
+/// does not parse for (`QueryParserHelper.resolveMappingField`, which skips
+/// `TextSearchInfo.NONE` types and metadata fields for `*`; elasticsearch
+/// `server/src/main/java/org/elasticsearch/index/search/
+/// QueryParserHelper.java:116-150`, AGPL, read for semantics only). This is
+/// the text and keyword part of that set. Numeric, boolean, date and ip fields
+/// get one exact typed leaf each, and only when the query text parses for the
+/// type ([`lenient_typed_pattern_leaves`], #3463).
+fn field_pattern_target(f: &FieldConfig) -> bool {
+    matches!(f.field_type, FieldType::Text | FieldType::Keyword)
+        && (f.options.indexed || f.options.doc_values)
+        && !f.name.starts_with('_')
+}
+
+/// Every mapped leaf field a pattern can name, by its dotted path: top-level
+/// fields and the properties of `object` fields, recursively. `nested`
+/// properties are left out (ES matches them only inside a `nested` query),
+/// and so are multi-fields (`title.raw`): their parent already holds the
+/// same value, and the expansion does not add a second clause for it.
+fn pattern_field_paths(schema: &Schema) -> Vec<(String, &FieldConfig)> {
+    fn walk<'s>(fields: &'s [FieldConfig], prefix: &str, out: &mut Vec<(String, &'s FieldConfig)>) {
+        for f in fields {
+            let path = if prefix.is_empty() {
+                f.name.clone()
+            } else {
+                format!("{prefix}.{}", f.name)
+            };
+            if matches!(f.field_type, FieldType::Object) {
+                walk(&f.fields, &path, out);
+            } else if !matches!(f.field_type, FieldType::Nested) {
+                out.push((path, f));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(&schema.fields, "", &mut out);
+    out
+}
+
+/// Resolve a `multi_match` style field list that holds at least one pattern
+/// into concrete field names, keeping each `^boost`. A field reached twice
+/// gets the product of its boosts, as ES does
+/// (`QueryParserHelper.resolveMappingFields`). `None` when nothing in the
+/// mapping matches, so the caller keeps the clause as it was.
+fn expand_field_specs(specs: &[String], schema: &Schema) -> Option<Vec<String>> {
+    let mut out: Vec<(String, f32)> = Vec::new();
+    let mut add = |name: &str, boost: f32| match out.iter_mut().find(|(f, _)| f == name) {
+        Some((_, b)) => *b *= boost,
+        None => out.push((name.to_string(), boost)),
+    };
+    for spec in specs {
+        let (name, boost) = parse_field_boost(spec);
+        if name.contains('*') {
+            for (path, f) in pattern_field_paths(schema) {
+                if field_pattern_target(f) && crate::engine::glob_match(name, &path) {
+                    add(&path, boost);
+                }
+            }
+        } else {
+            add(name, boost);
+        }
+    }
+    if out.is_empty() {
+        return None;
+    }
+    Some(
+        out.into_iter()
+            .map(|(f, b)| {
+                if (b - 1.0).abs() < f32::EPSILON {
+                    f
+                } else {
+                    format!("{f}^{b}")
+                }
+            })
+            .collect(),
+    )
+}
+
+/// The format a `date` field parses with when its mapping names none.
+const DEFAULT_DATE_FORMAT: &str = "strict_date_optional_time||epoch_millis";
+
+/// The exact leaf a full-text query makes on one numeric, boolean, date or ip
+/// field. `None` when `text` does not parse for the field's type (#3463).
+///
+/// ES runs a match query on these types as one term query over the whole text
+/// (`MatchQueryParser`, keyword search analyzer). A `*` field list turns
+/// `lenient` on, so a value that does not parse drops that field and the
+/// request does not fail (`MultiMatchQueryBuilder`, `QueryStringQueryBuilder`;
+/// read for semantics only, no code copied). ES scores the term query as a
+/// constant (its boost). Per type:
+///
+/// - `long`: an integer, or a float with no fractional part (`42.0` is 42).
+///   `42.5` matches no long.
+/// - `double`: any finite float. `42` and `42.0` are the same value.
+/// - `boolean`: exactly `true` or `false`.
+/// - `ip`: an address, or a CIDR block.
+/// - `date`: text the field's date format parses (the mapping `format`, or
+///   the default `strict_date_optional_time||epoch_millis`), as a `range`
+///   from the text rounded down to the text rounded up. That is ES
+///   `DateFieldType.termQuery`, so `2024-01-15` covers the whole day. Under
+///   the default format four digits are a year (a strict ISO year is exactly
+///   four digits; ES rounds it up to the end of 1 January) and any other
+///   bare integer is epoch millis (#3492).
+///   Date math (`now`, `||`) is not read here.
+///
+/// Numbers and IPv4 addresses become `constant_score` over a `match`
+/// for each spelling the field's keyword side-car can hold (the FTS writer
+/// indexes the source value's JSON text: 42 is `42`, 42.0 is `42.0`). That form
+/// projects onto the postings, so a query that mixes words and a number keeps
+/// BM25 for its words. The stored-doc scan answers the same `match` from the
+/// same text, so a hit does not change at `_flush`. Ingest coerces a numeric
+/// string (`"042"`) and a fractional value on a `long` to the integer
+/// (`field_coercion`, #781), but keeps an integral float (`42.0`) as sent, so
+/// a `long` leaf spells both `42` and `42.0` (#3492). Booleans, IPv6 and CIDR
+/// use the exact `term` leaf, and a clause that holds one of those is answered
+/// by the stored-doc scan. A date leaf is a `constant_score` over the
+/// `range`, which projects onto the segment's doc values (`DateDocs`).
+fn lenient_typed_leaf(
+    path: &str,
+    f: &FieldConfig,
+    text: &str,
+    boost: Option<f32>,
+) -> Option<QueryNode> {
+    let text = text.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let spelled = |spellings: Vec<String>| {
+        let mut matches: Vec<QueryNode> = spellings
+            .into_iter()
+            .map(|s| QueryNode::Match {
+                field: path.to_string(),
+                query: s,
+                operator: Default::default(),
+                analyzer: None,
+                boost: None,
+                minimum_should_match: None,
+                lenient: true,
+            })
+            .collect();
+        let query = if matches.len() == 1 {
+            matches.pop()?
+        } else {
+            QueryNode::Bool {
+                must: Vec::new(),
+                should: matches,
+                must_not: Vec::new(),
+                filter: Vec::new(),
+                minimum_should_match: Some(MinShouldMatch::Fixed(1)),
+            }
+        };
+        Some(QueryNode::Constant {
+            score: boost.unwrap_or(1.0),
+            query: Box::new(query),
+        })
+    };
+    match f.field_type {
+        FieldType::Long => {
+            let n = match text.parse::<i64>() {
+                Ok(n) => n,
+                Err(_) => {
+                    let x = text.parse::<f64>().ok()?;
+                    // `i64::MAX as f64` rounds up to 2^63, so that bound is
+                    // exclusive.
+                    if !x.is_finite()
+                        || x.fract() != 0.0
+                        || x < i64::MIN as f64
+                        || x >= i64::MAX as f64
+                    {
+                        return None;
+                    }
+                    x as i64
+                }
+            };
+            let mut spellings = vec![n.to_string()];
+            // An integral float on a `long` stays as sent in `_source`, so
+            // its side-car text is the float form (`42.0`). Exact in f64
+            // only below 2^53.
+            if n.unsigned_abs() < (1u64 << 53) {
+                if let Some(float) = serde_json::Number::from_f64(n as f64) {
+                    spellings.push(float.to_string());
+                }
+            }
+            spelled(spellings)
+        }
+        FieldType::Double => {
+            let x = text.parse::<f64>().ok().filter(|x| x.is_finite())?;
+            let float = serde_json::Number::from_f64(x)?.to_string();
+            let mut spellings = vec![float];
+            if x.fract() == 0.0 && x.abs() < 9.0e15 {
+                spellings.push((x as i64).to_string());
+            }
+            spelled(spellings)
+        }
+        // A boolean keeps the exact `term`: in the memtable a
+        // `constant_score` over `match` on a boolean field matches nothing
+        // (a separate defect), so the spelled form would change hits at
+        // `_flush`.
+        FieldType::Boolean => match text {
+            "true" | "false" => Some(QueryNode::Term {
+                field: path.to_string(),
+                value: Value::Bool(text == "true"),
+                boost,
+            }),
+            _ => None,
+        },
+        FieldType::Ip => {
+            let ip = |s: &str| s.parse::<std::net::IpAddr>().ok();
+            let exact = |ok: bool| {
+                ok.then(|| QueryNode::Term {
+                    field: path.to_string(),
+                    value: Value::String(text.to_string()),
+                    boost,
+                })
+            };
+            match text.split_once('/') {
+                Some((addr, bits)) => exact(match (ip(addr), bits.parse::<u8>()) {
+                    (Some(std::net::IpAddr::V4(_)), Ok(b)) => b <= 32,
+                    (Some(std::net::IpAddr::V6(_)), Ok(b)) => b <= 128,
+                    _ => false,
+                }),
+                None => match ip(text)? {
+                    std::net::IpAddr::V4(v4) => spelled(vec![v4.to_string()]),
+                    std::net::IpAddr::V6(_) => exact(true),
+                },
+            }
+        }
+        FieldType::Date => {
+            if text.starts_with("now") || text.contains("||") {
+                return None;
+            }
+            let format = f
+                .options
+                .date_format
+                .as_deref()
+                .unwrap_or(DEFAULT_DATE_FORMAT);
+            let formats = xerj_query::dates::compile_formats_cached(format).ok()?;
+            // The bounds resolve here, as `parse_range` resolves a parsed
+            // `range`: every comparator (memtable, doc values, stored scan)
+            // reads the resolved instants, and `lte` rounds up. A value no
+            // format parses skips the field (lenient).
+            let bound = |round_up: bool| match xerj_query::dates::resolve_date_bound_str(
+                text,
+                round_up,
+                Some(&formats),
+            ) {
+                Ok(Some(iso)) => Some(Value::String(iso)),
+                _ => None,
+            };
+            // ES scores the range as a constant (its boost). The
+            // `constant_score` form is also what `DateDocs` projects onto
+            // the segment's doc values (#3492).
+            Some(QueryNode::Constant {
+                score: boost.unwrap_or(1.0),
+                query: Box::new(QueryNode::Range {
+                    field: path.to_string(),
+                    gte: Some(bound(false)?),
+                    gt: None,
+                    lte: Some(bound(true)?),
+                    lt: None,
+                    boost: None,
+                    lenient: false,
+                }),
+            })
+        }
+        _ => None,
+    }
+}
+
+/// The typed leaves that a field list with patterns adds for the numeric,
+/// boolean, date and ip fields its patterns reach (#3463). There is one leaf
+/// per field the text parses for. A field named outright in `specs` keeps its
+/// existing route and is not added twice. A field reached by two patterns gets
+/// the product of their boosts, as in [`expand_field_specs`]. The clause boost
+/// multiplies in the same way as in the keyword split.
+fn lenient_typed_pattern_leaves(
+    specs: &[String],
+    text: &str,
+    clause_boost: Option<f32>,
+    schema: &Schema,
+) -> Vec<QueryNode> {
+    let named: Vec<&str> = specs
+        .iter()
+        .map(|s| parse_field_boost(s).0)
+        .filter(|n| !n.contains('*'))
+        .collect();
+    let paths = pattern_field_paths(schema);
+    let mut hits: Vec<(&str, &FieldConfig, f32)> = Vec::new();
+    for spec in specs {
+        let (pattern, boost) = parse_field_boost(spec);
+        if !pattern.contains('*') {
+            continue;
+        }
+        for (path, f) in &paths {
+            let typed = matches!(
+                f.field_type,
+                FieldType::Long
+                    | FieldType::Double
+                    | FieldType::Boolean
+                    | FieldType::Date
+                    | FieldType::Ip
+            );
+            if !typed
+                || !(f.options.indexed || f.options.doc_values)
+                || f.name.starts_with('_')
+                || named.contains(&path.as_str())
+                || !crate::engine::glob_match(pattern, path)
+            {
+                continue;
+            }
+            match hits.iter_mut().find(|(p, _, _)| *p == path.as_str()) {
+                Some((_, _, b)) => *b *= boost,
+                None => hits.push((path.as_str(), *f, boost)),
+            }
+        }
+    }
+    hits.into_iter()
+        .filter_map(|(path, f, fboost)| {
+            let boost = if (fboost - 1.0).abs() < f32::EPSILON {
+                clause_boost
+            } else {
+                Some(fboost * clause_boost.unwrap_or(1.0))
+            };
+            lenient_typed_leaf(path, f, text, boost)
+        })
+        .collect()
+}
+
+/// Combine the text/keyword clause of a pattern with its typed leaves (#3463),
+/// the same way the keyword split combines its two halves. The best-field
+/// types (`best_fields`, the phrase types, and the per-term `query_string`
+/// form) get a `dis_max`. `most_fields` and `cross_fields` get a `should`.
+fn join_pattern_clauses(
+    base: Option<QueryNode>,
+    typed: Vec<QueryNode>,
+    match_type: xerj_query::ast::MultiMatchType,
+) -> Option<QueryNode> {
+    use xerj_query::ast::MultiMatchType;
+    let mut queries: Vec<QueryNode> = base.into_iter().chain(typed).collect();
+    match queries.len() {
+        0 => None,
+        1 => queries.pop(),
+        _ if matches!(
+            match_type,
+            MultiMatchType::MostFields | MultiMatchType::CrossFields
+        ) =>
+        {
+            Some(QueryNode::Bool {
+                must: Vec::new(),
+                should: queries,
+                must_not: Vec::new(),
+                filter: Vec::new(),
+                minimum_should_match: Some(MinShouldMatch::Fixed(1)),
+            })
+        }
+        _ => Some(QueryNode::DisMax {
+            queries,
+            tie_breaker: 0.0,
+        }),
+    }
+}
+
+/// #3413: a full-text clause whose field is a pattern, rewritten onto the
+/// concrete fields the pattern names, or `None` to leave the clause alone.
+///
+/// - `multi_match` with `"*"` / `"title*"` in `fields` (the native `q`
+///   parameter sends `["*"]`) keeps its type and parameters over the expanded
+///   list. Before this, no projection resolved a pattern: `["*"]` was
+///   dropped as unmapped, the query fell to the stored-doc scan, and it
+///   matched nothing.
+/// - `match` / `match_phrase` on a pattern (what an unqualified `query_string`
+///   term lowers to) becomes a `best_fields` `multi_match` over the expanded
+///   fields, the per-term `dis_max` ES builds for `query_string`
+///   (`QueryStringQueryParser`, type `best_fields`, tie_breaker 0). Before
+///   this the clause was answered by the stored-doc scan, which scores one
+///   point per matched clause, so a field-less `query_string` ranked by match
+///   count instead of BM25. A `match` with `minimum_should_match` has no
+///   `multi_match` form and is left alone.
+///
+/// #3463: numeric, boolean, date and ip fields that the pattern reaches get
+/// one exact typed leaf each when the text parses for the type, and are
+/// skipped without an error when it does not (ES lenient). The leaves join the
+/// text clause as a `dis_max` or a `should` ([`join_pattern_clauses`]).
+/// `q: "42"` now hits a `long` 42 and `q: "10.0.0.1"` hits an ip field. Before
+/// this, a date- or ip-shaped `match` leaf was left on the stored-doc scan,
+/// and a `multi_match` never reached those fields.
+fn expand_field_pattern_clause(q: &QueryNode, schema: &Schema) -> Option<QueryNode> {
+    use xerj_query::ast::{BoolOperator, MultiMatchType};
+    let multi = |fields: Vec<String>,
+                 query: &str,
+                 match_type: MultiMatchType,
+                 operator: Option<BoolOperator>,
+                 analyzer: &Option<String>,
+                 boost: Option<f32>,
+                 slop: u32,
+                 lenient: bool| QueryNode::MultiMatch {
+        fields,
+        query: query.to_string(),
+        match_type,
+        operator,
+        analyzer: analyzer.clone(),
+        boost,
+        slop,
+        max_expansions: 50,
+        lenient,
+    };
+    match q {
+        QueryNode::MultiMatch {
+            fields,
+            query,
+            match_type,
+            boost,
+            ..
+        } if fields.iter().any(|s| parse_field_boost(s).0.contains('*')) => {
+            let typed = lenient_typed_pattern_leaves(fields, query, *boost, schema);
+            let base = expand_field_specs(fields, schema).map(|expanded| {
+                let mut out = q.clone();
+                if let QueryNode::MultiMatch { fields, .. } = &mut out {
+                    *fields = expanded;
+                }
+                out
+            });
+            join_pattern_clauses(base, typed, *match_type)
+        }
+        QueryNode::Match {
+            field,
+            query,
+            operator,
+            analyzer,
+            boost,
+            minimum_should_match: None,
+            lenient,
+        } if field.contains('*') => {
+            let typed =
+                lenient_typed_pattern_leaves(std::slice::from_ref(field), query, *boost, schema);
+            let base =
+                expand_field_specs(std::slice::from_ref(field), schema).map(|mut targets| {
+                    if targets.len() == 1 {
+                        if let Some(field) = targets.pop() {
+                            return QueryNode::Match {
+                                field,
+                                query: query.clone(),
+                                operator: *operator,
+                                analyzer: analyzer.clone(),
+                                boost: *boost,
+                                minimum_should_match: None,
+                                lenient: *lenient,
+                            };
+                        }
+                    }
+                    let operator =
+                        matches!(operator, BoolOperator::And).then_some(BoolOperator::And);
+                    multi(
+                        targets,
+                        query,
+                        MultiMatchType::BestFields,
+                        operator,
+                        analyzer,
+                        *boost,
+                        0,
+                        *lenient,
+                    )
+                });
+            join_pattern_clauses(base, typed, MultiMatchType::BestFields)
+        }
+        QueryNode::MatchPhrase {
+            field,
+            query,
+            slop,
+            analyzer,
+            boost,
+            lenient,
+        } if field.contains('*') => {
+            let typed =
+                lenient_typed_pattern_leaves(std::slice::from_ref(field), query, *boost, schema);
+            let base =
+                expand_field_specs(std::slice::from_ref(field), schema).map(|mut targets| {
+                    if targets.len() == 1 {
+                        if let Some(field) = targets.pop() {
+                            return QueryNode::MatchPhrase {
+                                field,
+                                query: query.clone(),
+                                slop: *slop,
+                                analyzer: analyzer.clone(),
+                                boost: *boost,
+                                lenient: *lenient,
+                            };
+                        }
+                    }
+                    multi(
+                        targets,
+                        query,
+                        MultiMatchType::Phrase,
+                        None,
+                        analyzer,
+                        *boost,
+                        *slop,
+                        *lenient,
+                    )
+                });
+            join_pattern_clauses(base, typed, MultiMatchType::Phrase)
+        }
+        // The opaque node (a string the parser could not lower) with
+        // `default_field: "*"` means what no `default_field` means, and only
+        // the field-less form has an FTS projection.
+        QueryNode::QueryString {
+            query,
+            default_field: Some(f),
+            default_operator,
+            boost,
+        } if f == "*" => Some(QueryNode::QueryString {
+            query: query.clone(),
+            default_field: None,
+            default_operator: *default_operator,
+            boost: *boost,
+        }),
+        _ => None,
+    }
+}
+
+/// The keyword half of query resolution: keyword `match`/`multi_match`
+/// become whole-value `Term`s ([`rewrite_keyword_full_text_to_term`]), then
+/// every value compared against a normalized keyword field is normalized
+/// ([`normalize_keyword_query_values`], #3513).
+fn resolve_keyword_query(q: &QueryNode, schema: &Schema) -> QueryNode {
+    let mut resolved = rewrite_keyword_full_text_to_term(q, schema);
+    let normalizers = xerj_common::normalizer::KeywordNormalizers::from_schema(schema);
+    if !normalizers.is_empty() {
+        normalize_keyword_query_values(&mut resolved, &normalizers);
+    }
+    resolved
+}
+
+/// #3513: ES normalizes the value of a `term`, `terms`, `prefix`, `wildcard`,
+/// `fuzzy` and `range` (and of `match`, which is a `term` here by now) on a
+/// keyword field with a normalizer, so `term tag: "FRUIT"` finds the
+/// normalized term `fruit`. Every structure such a query can be answered from
+/// holds normalized values (FTS terms, doc-values columns, memtable cells), and
+/// the `_source` matcher normalizes the document side
+/// ([`doc_matches_query_typed`]), so normalizing the query once here makes all
+/// of them agree. `regexp` is left as written, as ES leaves it. A field with
+/// no normalizer is untouched.
+fn normalize_keyword_query_values(
+    q: &mut QueryNode,
+    normalizers: &xerj_common::normalizer::KeywordNormalizers,
+) {
+    fn norm_value(n: &xerj_common::normalizer::KeywordNormalizer, v: &mut Value) {
+        if let Value::String(s) = v {
+            *s = n.normalize(s);
+        }
+    }
+    match q {
+        QueryNode::Term { field, value, .. } => {
+            if let Some(n) = normalizers.get(field) {
+                norm_value(n, value);
+            }
+        }
+        QueryNode::Terms { field, values, .. } => {
+            if let Some(n) = normalizers.get(field) {
+                values.iter_mut().for_each(|v| norm_value(n, v));
+            }
+        }
+        QueryNode::Prefix { field, value, .. }
+        | QueryNode::Wildcard { field, value, .. }
+        | QueryNode::Fuzzy { field, value, .. } => {
+            if let Some(n) = normalizers.get(field) {
+                *value = n.normalize(value);
+            }
+        }
+        QueryNode::Range {
+            field,
+            gte,
+            gt,
+            lte,
+            lt,
+            ..
+        } => {
+            if let Some(n) = normalizers.get(field) {
+                for bound in [gte, gt, lte, lt].into_iter().flatten() {
+                    norm_value(n, bound);
+                }
+            }
+        }
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => {
+            for c in must
+                .iter_mut()
+                .chain(should.iter_mut())
+                .chain(must_not.iter_mut())
+                .chain(filter.iter_mut())
+            {
+                normalize_keyword_query_values(c, normalizers);
+            }
+        }
+        QueryNode::Constant { query, .. }
+        | QueryNode::Boosted { query, .. }
+        | QueryNode::Nested { query, .. }
+        | QueryNode::Named { query, .. } => normalize_keyword_query_values(query, normalizers),
+        QueryNode::Pinned { organic, .. } => normalize_keyword_query_values(organic, normalizers),
+        QueryNode::FunctionScore {
+            query, functions, ..
+        } => {
+            normalize_keyword_query_values(query, normalizers);
+            for f in functions.iter_mut() {
+                if let Some(filter) = f.filter.as_mut() {
+                    normalize_keyword_query_values(filter, normalizers);
+                }
+            }
+        }
+        QueryNode::Boosting {
+            positive, negative, ..
+        } => {
+            normalize_keyword_query_values(positive, normalizers);
+            normalize_keyword_query_values(negative, normalizers);
+        }
+        QueryNode::DisMax { queries, .. } => {
+            for c in queries.iter_mut() {
+                normalize_keyword_query_values(c, normalizers);
+            }
+        }
+        QueryNode::Hybrid { queries, .. } => {
+            for wq in queries.iter_mut() {
+                normalize_keyword_query_values(&mut wq.query, normalizers);
+            }
+        }
+        QueryNode::Knn { filter, .. } | QueryNode::SemanticSearch { filter, .. } => {
+            if let Some(f) = filter.as_mut() {
+                normalize_keyword_query_values(f, normalizers);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// #354: `match`/`multi_match` on a `keyword` field must take the query text
@@ -49782,11 +55775,37 @@ mod lexically_typeless_lowering_tests {
 /// over the remaining text fields. Same traversal coverage as
 /// `rewrite_query_aliases`, and applied after it so field names are canonical.
 fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNode {
+    // #3413: resolve `*` / `title*` field patterns against the mapping first,
+    // so the keyword split below and every path after it see concrete names.
+    // The expanded clause names no pattern, so this recursion runs once.
+    if let Some(expanded) = expand_field_pattern_clause(q, schema) {
+        return rewrite_keyword_full_text_to_term(&expanded, schema);
+    }
     fn is_keyword(schema: &Schema, field: &str) -> bool {
+        // #3464: an object leaf (`meta.tag`) by its dotted path, too. Its
+        // side-car holds whole values, so the memtable must also compare it
+        // whole, or a hit would change at `_flush`.
+        // A keyword multi-field (`title.raw` under a `text` title, or the
+        // dynamic `.keyword`) is not analysed either: ES runs `match` on it as
+        // a whole-value term. Without this arm the memtable answered 0 for an
+        // exact value and segments tokenised it, so `match title.raw: "World"`
+        // hit "Hello World" after `_flush`.
         schema
             .fields
             .iter()
             .any(|f| f.name == field && matches!(f.field_type, FieldType::Keyword))
+            || (field.contains('.')
+                && pattern_field_paths(schema).iter().any(|(path, f)| {
+                    (path == field && matches!(f.field_type, FieldType::Keyword))
+                        || field
+                            .strip_prefix(path.as_str())
+                            .and_then(|rest| rest.strip_prefix('.'))
+                            .is_some_and(|sub| {
+                                f.fields.iter().any(|m| {
+                                    m.name == sub && matches!(m.field_type, FieldType::Keyword)
+                                })
+                            })
+                }))
     }
     match q {
         QueryNode::Match {
@@ -51189,6 +57208,110 @@ const DYNAMIC_MAPPING_DEPTH_LIMIT: usize = 20;
 /// attempting to reconcile a heterogeneous shape across array entries --
 /// no behavior change for arrays beyond what recursing into their inferred
 /// Object element already implies.
+/// #3513: the field a `dynamic_templates` list maps a NEW top-level string
+/// field to, when the first template that matches it maps it to a `keyword`
+/// with a `normalizer`. `None` otherwise, and the field keeps the dynamic
+/// mapping it always had.
+///
+/// This build applies dynamic templates for exactly this case. A template
+/// that maps a field any other way is still not applied (as before), so the
+/// first-match rule is kept by stopping at the first template that matches,
+/// whatever it maps to. Matching follows the ES template conditions for a
+/// root field: `match_mapping_type` (`string`, `date`, `*`, or a list),
+/// `match`/`unmatch` and `path_match`/`path_unmatch` (globs, or regexes with
+/// `match_pattern: regex`). Templates that use `runtime` are skipped.
+fn normalized_keyword_from_dynamic_templates(
+    templates: &[Value],
+    key: &str,
+    val: &Value,
+    detected: FieldType,
+    analysis: Option<&Value>,
+) -> Option<FieldConfig> {
+    let is_string = match val {
+        Value::String(_) => true,
+        Value::Array(arr) => arr
+            .iter()
+            .find(|v| !v.is_null())
+            .is_some_and(Value::is_string),
+        _ => false,
+    };
+    if !is_string {
+        return None;
+    }
+    let mapping_type = match detected {
+        FieldType::Date => "date",
+        FieldType::Text | FieldType::Keyword => "string",
+        _ => return None,
+    };
+    fn list(v: Option<&Value>) -> Option<Vec<&str>> {
+        match v {
+            None => None,
+            Some(Value::String(s)) => Some(vec![s.as_str()]),
+            Some(Value::Array(a)) => Some(a.iter().filter_map(Value::as_str).collect()),
+            Some(_) => Some(Vec::new()),
+        }
+    }
+    for entry in templates {
+        let Some((_, spec)) = entry.as_object().and_then(|o| o.iter().next()) else {
+            continue;
+        };
+        let Some(mapping) = spec.get("mapping") else {
+            continue;
+        };
+        let regex = spec.get("match_pattern").and_then(Value::as_str) == Some("regex");
+        let matches_any = |patterns: &[&str]| {
+            patterns.iter().any(|p| {
+                if regex {
+                    Regex::new(p).is_ok_and(|r| r.is_match(key))
+                } else {
+                    wildcard_match(key, p)
+                }
+            })
+        };
+        if let Some(types) = list(spec.get("match_mapping_type")) {
+            if !types.iter().any(|t| *t == "*" || *t == mapping_type) {
+                continue;
+            }
+        }
+        let mut excluded = false;
+        for (positive, negative) in [("match", "unmatch"), ("path_match", "path_unmatch")] {
+            if let Some(p) = list(spec.get(positive)) {
+                if !matches_any(&p) {
+                    excluded = true;
+                }
+            }
+            if let Some(p) = list(spec.get(negative)) {
+                if matches_any(&p) {
+                    excluded = true;
+                }
+            }
+        }
+        if excluded {
+            continue;
+        }
+        // First matching template wins.
+        if mapping.get("type").and_then(Value::as_str) != Some("keyword") {
+            return None;
+        }
+        let name = mapping.get("normalizer").and_then(Value::as_str)?;
+        let normalizer =
+            xerj_common::normalizer::KeywordNormalizer::resolve(name, analysis).ok()?;
+        let mut fc = FieldConfig::new(key, FieldType::Keyword);
+        fc.options.normalizer = Some(normalizer);
+        if let Some(n) = mapping.get("ignore_above").and_then(Value::as_u64) {
+            fc.options.ignore_above = u32::try_from(n).ok();
+        }
+        if let Some(dv) = mapping.get("doc_values").and_then(Value::as_bool) {
+            fc.options.doc_values = dv;
+        }
+        if let Some(indexed) = mapping.get("index").and_then(Value::as_bool) {
+            fc.options.indexed = indexed;
+        }
+        return Some(fc);
+    }
+    None
+}
+
 fn dynamic_field_config(key: &str, val: &Value, date_detection: bool) -> FieldConfig {
     dynamic_field_config_at_depth(key, val, date_detection, 1)
 }
@@ -51934,6 +58057,199 @@ fn dis_max_mem_fts_subs(q: &QueryNode) -> Option<(Vec<(&str, &str, f32)>, f32)> 
     }
 }
 
+/// The per-field `(field, query, boost)` subs and the combine `tie_breaker`
+/// of a field-centric `multi_match` the memtable BM25 path can score the way
+/// the segment projection does (#3329).
+///
+/// `query_node_to_fts_projected` lowers `best_fields` / `most_fields` /
+/// `cross_fields` to one clause per field — the per-token BM25 sum, times the
+/// field's `^boost` — and combines them with `dis_max` (tie 0.0) for
+/// `best_fields` and a summing `bool.should` for the other two, under the
+/// outer `boost`. Each field clause is exactly what the memtable scores for a
+/// standalone single-field `match`, so the combination is
+/// `max + tie × (Σ − max)` with tie 0.0 (max) or 1.0 (sum), and the outer
+/// boost folds into every sub because both combines are linear.
+///
+/// Without this every buffered `multi_match` hit took the stored-doc scan,
+/// whose scorer gives 1.0 per matched field, so the ranking changed at
+/// `_flush` (BEIR scifact nDCG@10 0.19 unflushed vs 0.62 flushed).
+///
+/// Declines (`None`, keeping the doc-scan route) wherever the segment
+/// projection would take a different path or the memtable could not
+/// reproduce it: phrase types, a per-query `analyzer`, multi-token
+/// `operator: and`, a query that analyses to no token, a wildcard field, or
+/// any field that is not an analysed, indexed `text` field of the mapping
+/// (keyword fields are already split out by
+/// `rewrite_keyword_full_text_to_term`; unmapped and dotted sub-field names
+/// keep their existing routing).
+fn multi_match_mem_fts_subs<'a>(
+    q: &'a QueryNode,
+    schema: &Schema,
+    text_fields: &'a [String],
+    analyzer: Option<&AnalyzerPipeline>,
+) -> Option<(Vec<(&'a str, &'a str, f32)>, f32)> {
+    use xerj_query::ast::{BoolOperator, MultiMatchType};
+    let QueryNode::MultiMatch {
+        fields,
+        query,
+        match_type,
+        operator,
+        analyzer: None,
+        boost,
+        ..
+    } = q
+    else {
+        return None;
+    };
+    let tie = match match_type {
+        MultiMatchType::BestFields => 0.0,
+        MultiMatchType::MostFields | MultiMatchType::CrossFields => 1.0,
+        MultiMatchType::Phrase | MultiMatchType::PhrasePrefix => return None,
+    };
+    let tokens = analyzer?.analyze(query).len();
+    if tokens == 0 || (matches!(operator, Some(BoolOperator::And)) && tokens > 1) {
+        return None;
+    }
+    let outer = boost.unwrap_or(1.0);
+    let specs: Vec<(&'a str, f32)> = if fields.is_empty() {
+        text_fields.iter().map(|f| (f.as_str(), 1.0)).collect()
+    } else {
+        fields.iter().map(|s| parse_field_boost(s)).collect()
+    };
+    if specs.is_empty()
+        || !specs
+            .iter()
+            .all(|(f, _)| mem_fts_scorable_text_field(schema, f))
+    {
+        return None;
+    }
+    Some((
+        specs
+            .into_iter()
+            .map(|(f, fb)| (f, query.as_str(), fb * outer))
+            .collect(),
+        tie,
+    ))
+}
+
+/// `true` when the memtable BM25 path scores `name` exactly as the segment
+/// does: an analysed, indexed `text` field of the mapping, named outright (no
+/// wildcard).
+fn mem_fts_scorable_text_field(schema: &Schema, name: &str) -> bool {
+    !name.contains('*')
+        && schema.fields.iter().any(|f| {
+            f.name == name
+                && matches!(f.field_type, FieldType::Text)
+                && f.options.indexed
+                && f.options.analyzed
+        })
+}
+
+/// Per-field phrase subs for the memtable BM25 path (#3329): each
+/// `(field, query, boost)` plus the single-field clause whose stored-doc
+/// match is that sub's membership gate.
+type MemPhraseSubs<'a> = Vec<((&'a str, &'a str, f32), QueryNode)>;
+
+/// The phrase shapes the segment projection lowers to positional
+/// `FtsQuery::Phrase` clauses (#3329): `match_phrase` with slop 0, and
+/// `multi_match` `type: phrase` (any slop, one clause per field, combined by
+/// `dis_max` with tie 0.0). `execute_phrase` scores a matching doc as the sum
+/// of its phrase terms' BM25 on that field — the same number a single-field
+/// `match` of the phrase text gives that doc — so the memtable scores each
+/// field through the `match` path and keeps only the docs the stored-doc
+/// phrase predicate admits (the predicate the doc-scan already used, so the
+/// hit set is unchanged).
+///
+/// Same declines as the segment projection plus the memtable's own:
+/// `phrase_prefix`, a per-query `analyzer`, sloppy `match_phrase`, a query
+/// with no analysed token, and any field that is not an analysed, indexed
+/// `text` field.
+fn phrase_mem_fts_subs<'a>(
+    q: &'a QueryNode,
+    schema: &Schema,
+    text_fields: &'a [String],
+    analyzer: Option<&AnalyzerPipeline>,
+) -> Option<MemPhraseSubs<'a>> {
+    match q {
+        QueryNode::MatchPhrase {
+            field,
+            query,
+            slop: 0,
+            analyzer: None,
+            boost,
+            ..
+        } => {
+            if !mem_fts_scorable_text_field(schema, field) || analyzer?.analyze(query).is_empty() {
+                return None;
+            }
+            Some(vec![(
+                (field.as_str(), query.as_str(), boost.unwrap_or(1.0)),
+                q.clone(),
+            )])
+        }
+        QueryNode::MultiMatch {
+            fields,
+            query,
+            match_type: xerj_query::ast::MultiMatchType::Phrase,
+            analyzer: None,
+            boost,
+            ..
+        } => {
+            if analyzer?.analyze(query).is_empty() {
+                return None;
+            }
+            let specs: Vec<&'a str> = if fields.is_empty() {
+                text_fields.iter().map(String::as_str).collect()
+            } else {
+                fields.iter().map(String::as_str).collect()
+            };
+            if specs.is_empty()
+                || !specs
+                    .iter()
+                    .all(|s| mem_fts_scorable_text_field(schema, parse_field_boost(s).0))
+            {
+                return None;
+            }
+            let outer = boost.unwrap_or(1.0);
+            Some(
+                specs
+                    .into_iter()
+                    .map(|spec| {
+                        let (field, fb) = parse_field_boost(spec);
+                        let mut gate = q.clone();
+                        if let QueryNode::MultiMatch { fields, .. } = &mut gate {
+                            *fields = vec![spec.to_string()];
+                        }
+                        ((field, query.as_str(), fb * outer), gate)
+                    })
+                    .collect(),
+            )
+        }
+        _ => None,
+    }
+}
+
+/// How the memtable BM25 path scores the lone `must` clause of a filtered
+/// `bool` (#2403, #3329).
+enum MemFtsMust<'a> {
+    /// A single-field `match`: `(field, query)`, boost via
+    /// `collect_field_boosts`.
+    Match(&'a str, &'a str),
+    /// A field-centric `multi_match`: per-field subs and the combine tie.
+    MultiMatch(Vec<(&'a str, &'a str, f32)>, f32),
+}
+
+impl MemFtsMust<'_> {
+    /// The query text the memtable scores, for its share of the index-wide
+    /// collection statistics.
+    fn text(&self) -> Option<&str> {
+        match self {
+            MemFtsMust::Match(_, text) => Some(text),
+            MemFtsMust::MultiMatch(subs, _) => subs.first().map(|s| s.1),
+        }
+    }
+}
+
 /// The lone `must` match's `(field, query)` and the non-scoring gate of a
 /// `bool{must:[match], filter:[..], must_not:[..]}` whose `must` clause would
 /// take the standalone-`Match` memtable FTS arm on its own (#2403): same
@@ -51944,7 +58260,15 @@ fn dis_max_mem_fts_subs(q: &QueryNode) -> Option<(Vec<(&str, &str, f32)>, f32)> 
 /// `filter` and `must_not` clauses, evaluated per hit by the stored-doc
 /// matcher, so membership stays what the doc-scan route enforced. Any other
 /// shape answers `None` and keeps its existing route.
-fn bool_filter_mem_fts_must(q: &QueryNode) -> Option<(&str, &str, &QueryNode, QueryNode)> {
+///
+/// #3329: a `multi_match` `must` clause qualifies on the same terms as a
+/// standalone one (`multi_match_mem_fts_subs`).
+fn bool_filter_mem_fts_must<'a>(
+    q: &'a QueryNode,
+    schema: &Schema,
+    text_fields: &'a [String],
+    analyzer: Option<&AnalyzerPipeline>,
+) -> Option<(MemFtsMust<'a>, &'a QueryNode, QueryNode)> {
     let QueryNode::Bool {
         must,
         should,
@@ -51963,18 +58287,24 @@ fn bool_filter_mem_fts_must(q: &QueryNode) -> Option<(&str, &str, &QueryNode, Qu
     // the index default, while the stored-doc matcher and the segment
     // projection honour it, so taking this arm would change the hit set at
     // flush.
-    let QueryNode::Match {
-        field,
-        query,
-        analyzer: None,
-        ..
-    } = clause
-    else {
-        return None;
+    let plan = match clause {
+        QueryNode::Match {
+            field,
+            query,
+            analyzer: None,
+            ..
+        } => {
+            if is_doc_scan_query(clause) || extract_query_text(clause).is_none() {
+                return None;
+            }
+            MemFtsMust::Match(field.as_str(), query.as_str())
+        }
+        QueryNode::MultiMatch { .. } => {
+            let (subs, tie) = multi_match_mem_fts_subs(clause, schema, text_fields, analyzer)?;
+            MemFtsMust::MultiMatch(subs, tie)
+        }
+        _ => return None,
     };
-    if is_doc_scan_query(clause) || extract_query_text(clause).is_none() {
-        return None;
-    }
     let gate = QueryNode::Bool {
         must: Vec::new(),
         should: Vec::new(),
@@ -51982,7 +58312,523 @@ fn bool_filter_mem_fts_must(q: &QueryNode) -> Option<(&str, &str, &QueryNode, Qu
         filter: filter.clone(),
         minimum_should_match: None,
     };
-    Some((field.as_str(), query.as_str(), clause, gate))
+    Some((plan, clause, gate))
+}
+
+/// What a memtable `match` leaf requires of the query tokens a document
+/// matched (#3349). The segment projection lowers `match` to a per-token
+/// `bool`: `should` (any token), `must` (`operator: and`), or `should` with a
+/// `minimum_should_match`, and scores every one of them as the sum of the
+/// matching tokens' BM25.
+#[derive(Clone, Copy)]
+enum MemTokenNeed {
+    /// At least one token.
+    Any,
+    /// Every token occurrence (`operator: and`).
+    All,
+    /// At least this many token occurrences (`minimum_should_match`).
+    AtLeast(u32),
+}
+
+/// A query tree the memtable can score the way the segment's `FtsQuery`
+/// executor scores its projection (#3349): every scoring leaf goes through
+/// the memtable BM25 path a standalone `match` takes, and the combinators
+/// mirror `FtsSearcher::execute_bool` / `execute_dis_max` /
+/// `ConstantScore`. Built by [`mem_score_plan`]; executed by
+/// [`exec_mem_score_plan`].
+enum MemScorePlan<'a> {
+    /// One field's `match` (also a `query_string` with a text
+    /// `default_field`): per-token BM25 sum times `boost`, kept when the
+    /// matched-token count meets `need`.
+    Text {
+        field: &'a str,
+        query: &'a str,
+        boost: f32,
+        need: MemTokenNeed,
+    },
+    /// A positional phrase on one field: scored like a `match` of the phrase
+    /// text (what `execute_phrase` sums for a matching doc), kept only when
+    /// the stored-doc phrase predicate admits the doc (#3329).
+    Phrase {
+        field: &'a str,
+        query: &'a str,
+        boost: f32,
+        gate: QueryNode,
+    },
+    /// `max + tie × (Σ − max)` over the subs, times `boost`.
+    DisMax {
+        subs: Vec<MemScorePlan<'a>>,
+        tie: f32,
+        boost: f32,
+    },
+    /// `execute_bool`: required `must` clauses intersect, `should` clauses
+    /// count towards `min_should`, the score is the sum of the matching
+    /// scoring clauses. `filter` / `must_not` are non-scoring, so they are a
+    /// stored-doc `gate` applied to the combined hits, the way the #2403 arm
+    /// and the segment's residual gate apply them.
+    Bool {
+        must: Vec<MemScorePlan<'a>>,
+        should: Vec<MemScorePlan<'a>>,
+        min_should: u32,
+        gate: Option<QueryNode>,
+    },
+    /// `constant_score`: the inner query's hit set, every hit scoring
+    /// `score`.
+    Constant {
+        inner: Box<MemScorePlan<'a>>,
+        score: f32,
+    },
+}
+
+impl MemScorePlan<'_> {
+    /// Every query text a leaf scores, for the memtable's share of the
+    /// index-wide collection statistics (#188).
+    fn collect_texts<'s>(&'s self, out: &mut Vec<&'s str>) {
+        match self {
+            MemScorePlan::Text { query, .. } | MemScorePlan::Phrase { query, .. } => {
+                if !out.contains(query) {
+                    out.push(query);
+                }
+            }
+            MemScorePlan::DisMax { subs, .. } => subs.iter().for_each(|s| s.collect_texts(out)),
+            MemScorePlan::Bool { must, should, .. } => must
+                .iter()
+                .chain(should.iter())
+                .for_each(|s| s.collect_texts(out)),
+            MemScorePlan::Constant { inner, .. } => inner.collect_texts(out),
+        }
+    }
+}
+
+/// The inputs [`mem_score_plan`] reads besides the query.
+struct MemPlanCtx<'a> {
+    schema: &'a Schema,
+    text_fields: &'a [String],
+    exact_fields: &'a HashSet<String>,
+    analyzer: &'a AnalyzerPipeline,
+    /// `false` on an index whose text analyzer is not `standard`: the phrase
+    /// leaf then declines, as the #3329 phrase arm does (#3285).
+    phrase_ok: bool,
+}
+
+/// `true` for a `match` query text the stored-doc scan answers with its
+/// date-equality short-circuit (`is_doc_scan_query`), which a token search
+/// cannot reproduce.
+fn date_shaped_match_text(query: &str) -> bool {
+    crate::aggs::parse_date_ms(&Value::String(query.to_string())).is_some()
+        && query.chars().any(|c| c == '-' || c == '/' || c == 'T')
+}
+
+/// The memtable score plan for a `bool` query tree (#3349), or `None` when
+/// any part of it would score differently from the segment projection
+/// (`query_node_to_fts_projected`) — the query then keeps its stored-doc
+/// scan route.
+///
+/// Only a top-level `bool` or `query_string` is planned: the other bare leaf
+/// shapes already have their own memtable arms (`match`, `dis_max` #834,
+/// `multi_match` and phrases #3329, filtered `bool` #2403). A bare opaque
+/// `query_string` had none: the generic memtable text arm searched every
+/// field, so `default_field: title` matched `body`-only documents until a
+/// flush (#3413). Leaves: single-field text `match`
+/// (any operator or `minimum_should_match`), text `match_phrase` (slop 0),
+/// field-centric and `phrase` `multi_match`, `query_string` with a text
+/// `default_field` or none (every text field, summed);
+/// combinators: `bool`, `dis_max`, `constant_score`.
+/// Declines everything else, notably a keyword `term` (its segment BM25 runs
+/// on keyword postings the memtable does not keep), `boost` wrappers (the
+/// projection declines them too), a per-query `analyzer`, wildcard or
+/// non-text fields, and a `bool` whose `filter` is its only required clause.
+fn mem_score_plan<'a>(q: &'a QueryNode, cx: &MemPlanCtx<'a>) -> Option<MemScorePlan<'a>> {
+    if !matches!(q, QueryNode::Bool { .. } | QueryNode::QueryString { .. }) {
+        return None;
+    }
+    mem_score_plan_node(q, cx)
+}
+
+fn mem_score_plan_node<'a>(q: &'a QueryNode, cx: &MemPlanCtx<'a>) -> Option<MemScorePlan<'a>> {
+    use xerj_query::ast::{BoolOperator, MultiMatchType};
+    match q {
+        QueryNode::Match {
+            field,
+            query,
+            operator,
+            boost,
+            analyzer: None,
+            minimum_should_match,
+            ..
+        } => {
+            if !mem_fts_scorable_text_field(cx.schema, field) || date_shaped_match_text(query) {
+                return None;
+            }
+            let tokens = cx.analyzer.analyze(query).len();
+            if tokens == 0 {
+                return None;
+            }
+            // Same resolution as the projection's `match` arm.
+            let need = if tokens == 1 {
+                MemTokenNeed::Any
+            } else if matches!(operator, BoolOperator::And) {
+                MemTokenNeed::All
+            } else {
+                match minimum_should_match {
+                    None => MemTokenNeed::Any,
+                    Some(MinShouldMatch::Fixed(n)) => MemTokenNeed::AtLeast(*n),
+                    Some(MinShouldMatch::Percentage(pct)) => MemTokenNeed::AtLeast(
+                        ((tokens as f32 * (*pct as f32 / 100.0)).floor() as u32).max(1),
+                    ),
+                    Some(_) => return None,
+                }
+            };
+            Some(MemScorePlan::Text {
+                field,
+                query,
+                boost: boost.unwrap_or(1.0),
+                need,
+            })
+        }
+        QueryNode::QueryString {
+            query,
+            default_field: Some(field),
+            boost,
+            ..
+        } => {
+            if !mem_fts_scorable_text_field(cx.schema, field)
+                || cx.analyzer.analyze(query).is_empty()
+            {
+                return None;
+            }
+            Some(MemScorePlan::Text {
+                field,
+                query,
+                boost: boost.unwrap_or(1.0),
+                need: MemTokenNeed::Any,
+            })
+        }
+        // #3413: the field-less opaque `query_string`. The segment projects it
+        // as one `should` of every (token, text field) term, i.e. the SUM of
+        // the per-field scores, so the memtable sums the same per-field `Text`
+        // leaves (tie 1.0). Same `tokens × fields` cap as the projection,
+        // which declines past it.
+        QueryNode::QueryString {
+            query,
+            default_field: None,
+            boost,
+            ..
+        } => {
+            let tokens = cx.analyzer.analyze(query).len();
+            if tokens == 0
+                || cx.text_fields.is_empty()
+                || tokens.saturating_mul(cx.text_fields.len()) > 4_096
+                || !cx
+                    .text_fields
+                    .iter()
+                    .all(|f| mem_fts_scorable_text_field(cx.schema, f))
+            {
+                return None;
+            }
+            Some(MemScorePlan::DisMax {
+                subs: cx
+                    .text_fields
+                    .iter()
+                    .map(|field| MemScorePlan::Text {
+                        field,
+                        query,
+                        boost: 1.0,
+                        need: MemTokenNeed::Any,
+                    })
+                    .collect(),
+                tie: 1.0,
+                boost: boost.unwrap_or(1.0),
+            })
+        }
+        QueryNode::MatchPhrase {
+            field,
+            query,
+            slop: 0,
+            analyzer: None,
+            boost,
+            ..
+        } => {
+            if !cx.phrase_ok || !mem_fts_scorable_text_field(cx.schema, field) {
+                return None;
+            }
+            let tokens = cx.analyzer.analyze(query).len();
+            if tokens == 0 {
+                return None;
+            }
+            let boost = boost.unwrap_or(1.0);
+            Some(if tokens == 1 {
+                MemScorePlan::Text {
+                    field,
+                    query,
+                    boost,
+                    need: MemTokenNeed::Any,
+                }
+            } else {
+                MemScorePlan::Phrase {
+                    field,
+                    query,
+                    boost,
+                    gate: q.clone(),
+                }
+            })
+        }
+        QueryNode::MultiMatch {
+            fields,
+            query,
+            match_type,
+            operator,
+            analyzer: None,
+            boost,
+            ..
+        } => {
+            let tokens = cx.analyzer.analyze(query).len();
+            if tokens == 0 {
+                return None;
+            }
+            let is_and = matches!(operator, Some(BoolOperator::And)) && tokens > 1;
+            let (tie, phrase) = match match_type {
+                MultiMatchType::BestFields => (0.0, false),
+                MultiMatchType::MostFields => (1.0, false),
+                // The projection declines a multi-token `operator: and`
+                // cross_fields (term-centric, no per-field lowering).
+                MultiMatchType::CrossFields if !is_and => (1.0, false),
+                MultiMatchType::Phrase if cx.phrase_ok => (0.0, true),
+                _ => return None,
+            };
+            // The projection drops unmapped fields; every kept one must be a
+            // text field the memtable scores exactly.
+            let specs: Vec<(&'a str, f32, &'a str)> = if fields.is_empty() {
+                cx.text_fields
+                    .iter()
+                    .map(|f| (f.as_str(), 1.0, f.as_str()))
+                    .collect()
+            } else {
+                fields
+                    .iter()
+                    .map(|s| {
+                        let (f, b) = parse_field_boost(s);
+                        (f, b, s.as_str())
+                    })
+                    .filter(|(f, _, _)| {
+                        multi_match_field_is_mapped(f, cx.text_fields, cx.exact_fields)
+                    })
+                    .collect()
+            };
+            if specs.is_empty()
+                || !specs
+                    .iter()
+                    .all(|(f, _, _)| mem_fts_scorable_text_field(cx.schema, f))
+            {
+                return None;
+            }
+            let subs: Vec<MemScorePlan<'a>> = specs
+                .into_iter()
+                .map(|(field, fb, spec)| {
+                    if phrase && tokens > 1 {
+                        let mut gate = q.clone();
+                        if let QueryNode::MultiMatch { fields, .. } = &mut gate {
+                            *fields = vec![spec.to_string()];
+                        }
+                        MemScorePlan::Phrase {
+                            field,
+                            query,
+                            boost: fb,
+                            gate,
+                        }
+                    } else {
+                        MemScorePlan::Text {
+                            field,
+                            query,
+                            boost: fb,
+                            need: if is_and {
+                                MemTokenNeed::All
+                            } else {
+                                MemTokenNeed::Any
+                            },
+                        }
+                    }
+                })
+                .collect();
+            Some(MemScorePlan::DisMax {
+                subs,
+                tie,
+                boost: boost.unwrap_or(1.0),
+            })
+        }
+        QueryNode::DisMax {
+            queries,
+            tie_breaker,
+        } if !queries.is_empty() => Some(MemScorePlan::DisMax {
+            subs: queries
+                .iter()
+                .map(|sub| mem_score_plan_node(sub, cx))
+                .collect::<Option<Vec<_>>>()?,
+            tie: *tie_breaker,
+            boost: 1.0,
+        }),
+        QueryNode::Constant { score, query } => Some(MemScorePlan::Constant {
+            inner: Box::new(mem_score_plan_node(query, cx)?),
+            score: *score,
+        }),
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            minimum_should_match,
+        } => {
+            // A `filter` as the only required clause makes every filtered
+            // doc a hit, which needs the whole memtable enumerated.
+            if must.is_empty() && !filter.is_empty() {
+                return None;
+            }
+            let msm = match minimum_should_match {
+                None => None,
+                Some(MinShouldMatch::Fixed(n)) => Some(*n),
+                Some(MinShouldMatch::Percentage(pct)) => {
+                    Some(((should.len() as f32 * (*pct as f32 / 100.0)).floor() as u32).max(1))
+                }
+                Some(_) => return None,
+            };
+            let must = must
+                .iter()
+                .map(|sub| mem_score_plan_node(sub, cx))
+                .collect::<Option<Vec<_>>>()?;
+            // A `should` leaf on a field no index maps matches nothing; the
+            // projection skips it (`should_leaf_targets_unmapped_field`).
+            let should = should
+                .iter()
+                .filter(|sub| {
+                    !should_leaf_targets_unmapped_field(sub, cx.text_fields, cx.exact_fields)
+                })
+                .map(|sub| mem_score_plan_node(sub, cx))
+                .collect::<Option<Vec<_>>>()?;
+            if must.is_empty() && should.is_empty() {
+                return None;
+            }
+            let min_should = msm.unwrap_or(if must.is_empty() && !should.is_empty() {
+                1
+            } else {
+                0
+            });
+            let gate = (!filter.is_empty() || !must_not.is_empty()).then(|| QueryNode::Bool {
+                must: Vec::new(),
+                should: Vec::new(),
+                must_not: must_not.clone(),
+                filter: filter.clone(),
+                minimum_should_match: None,
+            });
+            Some(MemScorePlan::Bool {
+                must,
+                should,
+                min_should,
+                gate,
+            })
+        }
+        _ => None,
+    }
+}
+
+/// Per-doc `(score, seq_no)` for one plan node's hits.
+type MemPlanHits = HashMap<String, (f32, u64)>;
+
+/// Execute a [`MemScorePlan`] against the memtable (#3349). `admit(gate,
+/// doc_id)` evaluates a stored-doc predicate (phrase gates, `filter` /
+/// `must_not`) on a buffered doc.
+fn exec_mem_score_plan(
+    plan: &MemScorePlan<'_>,
+    mem: &crate::memtable::ShardedFtsMemtable,
+    stats: Option<&xerj_fts::CollectionStats>,
+    admit: &dyn Fn(&QueryNode, &str) -> bool,
+) -> MemPlanHits {
+    match plan {
+        MemScorePlan::Text {
+            field,
+            query,
+            boost,
+            need,
+        } => {
+            let (hits, tokens) = mem.search_field_counted_using(query, field, *boost, stats);
+            let tokens = tokens as u32;
+            hits.into_iter()
+                .filter(|(_, matched)| match need {
+                    MemTokenNeed::Any => true,
+                    MemTokenNeed::All => *matched >= tokens,
+                    MemTokenNeed::AtLeast(n) => matched >= n,
+                })
+                .map(|(h, _)| (h.doc_id, (h.score, h.seq_no)))
+                .collect()
+        }
+        MemScorePlan::Phrase {
+            field,
+            query,
+            boost,
+            gate,
+        } => {
+            let (hits, _) = mem.search_field_counted_using(query, field, *boost, stats);
+            hits.into_iter()
+                .filter(|(h, _)| admit(gate, &h.doc_id))
+                .map(|(h, _)| (h.doc_id, (h.score, h.seq_no)))
+                .collect()
+        }
+        MemScorePlan::DisMax { subs, tie, boost } => {
+            let mut acc: HashMap<String, (f32, f32, u64)> = HashMap::new();
+            for sub in subs {
+                for (doc, (score, seq)) in exec_mem_score_plan(sub, mem, stats, admit) {
+                    let e = acc.entry(doc).or_insert((f32::NEG_INFINITY, 0.0, seq));
+                    if score > e.0 {
+                        e.0 = score;
+                    }
+                    e.1 += score;
+                }
+            }
+            acc.into_iter()
+                .map(|(doc, (max, sum, seq))| (doc, ((max + tie * (sum - max)) * boost, seq)))
+                .collect()
+        }
+        MemScorePlan::Constant { inner, score } => exec_mem_score_plan(inner, mem, stats, admit)
+            .into_iter()
+            .map(|(doc, (_, seq))| (doc, (*score, seq)))
+            .collect(),
+        MemScorePlan::Bool {
+            must,
+            should,
+            min_should,
+            gate,
+        } => {
+            // (score, matched should clauses, seq_no). Clause order is the
+            // segment's: `must` scores first, then `should`.
+            let mut candidates: Option<HashSet<String>> = None;
+            let mut acc: HashMap<String, (f32, u32, u64)> = HashMap::new();
+            for sub in must {
+                let hits = exec_mem_score_plan(sub, mem, stats, admit);
+                candidates = Some(match candidates {
+                    None => hits.keys().cloned().collect(),
+                    Some(prev) => prev.into_iter().filter(|d| hits.contains_key(d)).collect(),
+                });
+                for (doc, (score, seq)) in hits {
+                    acc.entry(doc).or_insert((0.0, 0, seq)).0 += score;
+                }
+            }
+            for sub in should {
+                for (doc, (score, seq)) in exec_mem_score_plan(sub, mem, stats, admit) {
+                    let e = acc.entry(doc).or_insert((0.0, 0, seq));
+                    e.0 += score;
+                    e.1 += 1;
+                }
+            }
+            acc.into_iter()
+                .filter(|(doc, (_, matched, _))| {
+                    candidates.as_ref().is_none_or(|c| c.contains(doc))
+                        && (candidates.is_some() || *matched > 0)
+                        && *matched >= *min_should
+                })
+                .filter(|(doc, _)| gate.as_ref().is_none_or(|g| admit(g, doc)))
+                .map(|(doc, (score, _, seq))| (doc, (score, seq)))
+                .collect()
+        }
+    }
 }
 
 /// Erase `bool` wrappers whose only clause is a single SCORING clause.
@@ -52433,6 +59279,143 @@ fn geo_coord(v: &Value) -> Option<f64> {
         .or_else(|| v.as_str().and_then(|s| s.trim().parse().ok()))
 }
 
+thread_local! {
+    /// The index text analyzer a document-scan `match_phrase` must use
+    /// (#3285). Set only around synchronous scan loops by
+    /// [`ScanPhraseAnalyzer::enter`]; `None` (the default) keeps the
+    /// standard-analyzer walk every other caller has always had.
+    static SCAN_PHRASE_ANALYZER: std::cell::RefCell<Option<Arc<AnalyzerPipeline>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Scope guard for [`SCAN_PHRASE_ANALYZER`]. Not `Send`, so holding it
+/// across an `.await` in a spawned future is a compile error rather than a
+/// value leaking onto another task's thread.
+pub(crate) struct ScanPhraseAnalyzer {
+    previous: Option<Arc<AnalyzerPipeline>>,
+    _not_send: std::marker::PhantomData<*const ()>,
+}
+
+impl ScanPhraseAnalyzer {
+    pub(crate) fn enter(analyzer: Option<Arc<AnalyzerPipeline>>) -> Self {
+        let previous = SCAN_PHRASE_ANALYZER.with(|cell| cell.replace(analyzer));
+        Self {
+            previous,
+            _not_send: std::marker::PhantomData,
+        }
+    }
+}
+
+impl Drop for ScanPhraseAnalyzer {
+    fn drop(&mut self) {
+        let previous = self.previous.take();
+        SCAN_PHRASE_ANALYZER.with(|cell| *cell.borrow_mut() = previous);
+    }
+}
+
+fn scan_phrase_analyzer() -> Option<Arc<AnalyzerPipeline>> {
+    SCAN_PHRASE_ANALYZER.with(|cell| cell.borrow().clone())
+}
+
+/// `match_phrase` over one text value with the index's own text analyzer —
+/// the document-scan twin of the segment projection, which builds its
+/// `PhraseQuery` from [`phrase_terms_and_positions`] and matches indexed
+/// positions. Same terms, same positions, same matcher, so a buffered
+/// document answers as it will after `_flush` (#3285).
+fn analyzed_phrase_match(analyzer: &AnalyzerPipeline, text: &str, query: &str, slop: u32) -> bool {
+    let query_tokens = analyzer.analyze(query);
+    if query_tokens.is_empty() {
+        return true;
+    }
+    let (terms, positions) = phrase_terms_and_positions(&query_tokens);
+    let doc_tokens = analyzer.analyze(text);
+    let lists: Vec<Vec<u32>> = terms
+        .iter()
+        .enumerate()
+        .map(|(i, term)| {
+            let mut raw: Vec<u32> = doc_tokens
+                .iter()
+                .filter(|t| &t.text == term)
+                .map(|t| t.position)
+                .collect();
+            raw.sort_unstable();
+            raw.dedup();
+            if positions.is_empty() {
+                raw
+            } else {
+                xerj_fts::search::shift_to_slot(&raw, positions[i], i as u32)
+            }
+        })
+        .collect();
+    let refs: Vec<&[u32]> = lists.iter().map(Vec::as_slice).collect();
+    xerj_fts::search::phrase_positions_match(&refs, slop)
+}
+
+/// Phrase terms, plus their relative phrase positions when the analyzer
+/// stacked tokens on one position (#3285).
+///
+/// The `code` analyzer (`word_delimiter`) emits an identifier's sub-words at
+/// the identifier's own position: `request.client.host` indexes `request`,
+/// `client`, `host` and `request.client.host` all at one position. Flattening
+/// that stack into a four-term phrase asked for the four terms one after
+/// another, which no document holds, so `match_phrase` found nothing that
+/// `match` found. The stack is kept as one phrase position instead: every
+/// term in it must occur at the same document position.
+///
+/// Inside a stack, a delimiter compound (a token with a non-alphanumeric
+/// character whose alphanumeric runs are all in the stack too) is dropped:
+/// its parts carry it. That is what lets `client.host` match the indexed
+/// `request.client.host` — the document stack has `client` and `host`, but
+/// not the token `client.host`.
+///
+/// Positions a stop filter skipped are kept as holes, because the indexed
+/// document has the same holes: `quick the fox` under `english` is
+/// `quick@0 fox@2` on both sides, which a flattened `quick fox` never
+/// matched. A stream with neither stacks nor holes (the standard analyzer)
+/// is returned flat with no positions, so it builds exactly the phrase it
+/// built before.
+fn phrase_terms_and_positions(tokens: &[xerj_fts::analyzer::Token]) -> (Vec<String>, Vec<u32>) {
+    let mut seen = HashSet::new();
+    let stacked = tokens.iter().any(|t| !seen.insert(t.position));
+    let base = tokens.iter().map(|t| t.position).min().unwrap_or(0);
+    // A stop filter leaves holes (`quick the fox` → quick@0, fox@2); the
+    // indexed document has the same holes, so the phrase keeps them too.
+    let gapped = tokens
+        .iter()
+        .enumerate()
+        .any(|(i, t)| t.position - base != i as u32);
+    if !stacked && !gapped {
+        return (tokens.iter().map(|t| t.text.clone()).collect(), Vec::new());
+    }
+    let mut groups: std::collections::BTreeMap<u32, Vec<&str>> = std::collections::BTreeMap::new();
+    for t in tokens {
+        let group = groups.entry(t.position - base).or_default();
+        if !group.contains(&t.text.as_str()) {
+            group.push(t.text.as_str());
+        }
+    }
+    let mut terms = Vec::new();
+    let mut positions = Vec::new();
+    for (pos, group) in groups {
+        let is_compound = |tok: &str| {
+            group.len() > 1
+                && tok.chars().any(|c| !c.is_alphanumeric())
+                && tok
+                    .split(|c: char| !c.is_alphanumeric())
+                    .filter(|r| !r.is_empty())
+                    .all(|r| group.contains(&r))
+        };
+        let kept: Vec<&str> = group.iter().copied().filter(|t| !is_compound(t)).collect();
+        // A stack of nothing but compounds keeps them all.
+        let kept = if kept.is_empty() { group } else { kept };
+        for t in kept {
+            terms.push(t.to_string());
+            positions.push(pos);
+        }
+    }
+    (terms, positions)
+}
+
 /// The analyzed token stream the stored-doc evaluator treats as "positions".
 ///
 /// It runs the **standard analyzer** — the same pipeline the indexing path
@@ -52636,6 +59619,45 @@ fn multi_match_field_values_lc(source: &Value, field: &str) -> Option<Vec<String
     }
 }
 
+/// #3020: how the whole-response query cache served one request.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RequestCacheOutcome {
+    /// Eligible, executed, and (unless timed out) stored for the next caller.
+    Miss,
+    /// Answered from the cache or from an identical in-flight request.
+    Hit,
+    /// Not eligible (`profile: true`, `search_after`,
+    /// `XERJ_DISABLE_QUERY_CACHE=1`). Every profile response reports this.
+    Bypass,
+}
+
+impl RequestCacheOutcome {
+    fn as_str(self) -> &'static str {
+        match self {
+            RequestCacheOutcome::Miss => "miss",
+            RequestCacheOutcome::Hit => "hit",
+            RequestCacheOutcome::Bypass => "bypass",
+        }
+    }
+}
+
+/// Record the cache outcome in a `profile: true` result's engine profile
+/// (`profile.request_cache`), which the `_search` handler copies into every
+/// shard of the ES profile. A request without `profile` is left untouched,
+/// so a non-profile response never grows a key.
+fn stamp_request_cache(r: &mut SearchResult, request: &SearchRequest, how: RequestCacheOutcome) {
+    if !request.profile {
+        return;
+    }
+    let v = Value::String(how.as_str().to_string());
+    match r.profile.as_mut().and_then(Value::as_object_mut) {
+        Some(obj) => {
+            obj.insert("request_cache".to_string(), v);
+        }
+        None => r.profile = Some(serde_json::json!({ "request_cache": v })),
+    }
+}
+
 /// Evaluate a query against a single stored document source value.
 ///
 /// Returns true if the document matches the query.
@@ -52667,7 +59689,80 @@ pub(crate) fn value_present(v: &Value) -> bool {
     }
 }
 
+/// Text-field token fallback shared by the stored-scan `term` and `terms`
+/// arms: if the doc value is a string with whitespace (it looks tokenised),
+/// each space-separated token is a candidate match. This mirrors ES running
+/// `term`/`terms` against the analysed token stream of a text field, case
+/// folded to match the `standard` analyzer.
+fn text_tokens_contain(doc_val: &Option<Value>, v: &Value) -> bool {
+    let target = match v {
+        Value::String(s) => s.to_lowercase(),
+        Value::Number(n) => n.to_string(),
+        _ => return false,
+    };
+    let dv = match doc_val {
+        Some(Value::String(s)) => s,
+        _ => return false,
+    };
+    if !dv.contains(char::is_whitespace) {
+        return false;
+    }
+    dv.split_whitespace().any(|t| {
+        t.trim_matches(|c: char| !c.is_alphanumeric())
+            .eq_ignore_ascii_case(&target)
+    })
+}
+
+/// Does `schema` declare any keyword normalizer (#3513)? A walk without
+/// allocation, so the matcher's per-document cost is unchanged for the
+/// mappings that have none.
+fn schema_has_keyword_normalizer(schema: &Schema) -> bool {
+    fn any(fields: &[FieldConfig]) -> bool {
+        fields
+            .iter()
+            .any(|f| f.options.normalizer.is_some() || any(&f.fields))
+    }
+    any(&schema.fields)
+}
+
+/// [`get_field_value`] as a normalized keyword field indexes it (#3513): the
+/// stored `_source` keeps the original, but its terms, doc-values column and
+/// aggregation keys hold the normalized value, so the `_source` matcher must
+/// compare that value to agree with them.
+fn get_field_value_as_indexed(
+    source: &Value,
+    field: &str,
+    schema: &Schema,
+    has_normalizer: bool,
+) -> Option<Value> {
+    let value = get_field_value(source, field)?;
+    if !has_normalizer {
+        return Some(value);
+    }
+    match declared_field(schema, field) {
+        Some(FieldConfig {
+            field_type: FieldType::Keyword,
+            options:
+                xerj_common::types::FieldOptions {
+                    normalizer: Some(n),
+                    ..
+                },
+            ..
+        }) => Some(n.normalize_json(&value)),
+        _ => Some(value),
+    }
+}
+
+/// The `_source` matcher. Expects a query already resolved by
+/// [`check_buildable_query`] / [`resolve_keyword_query`]: in particular, values
+/// compared against a normalized keyword field are normalized there, and the
+/// document side is normalized here (#3513).
 pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bool {
+    let has_normalizer = schema_has_keyword_normalizer(schema);
+    // Shadows the free fn for every arm below.
+    let get_field_value = |source: &Value, field: &str| -> Option<Value> {
+        get_field_value_as_indexed(source, field, schema, has_normalizer)
+    };
     match q {
         QueryNode::MatchAll => true,
         QueryNode::MatchNone => false,
@@ -52684,7 +59779,15 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                     }
                 }
             }
-            json_values_equal(&doc_val, value)
+            if json_values_equal(&doc_val, value) {
+                return true;
+            }
+            // #3259: `term` is `terms` with one value. On a mapped, indexed
+            // `text` field the `terms` arm below also matches the analysed
+            // token stream, so `term: "quick"` returned 0 where
+            // `terms: ["quick"]` returned 2. Same token rule here; the raw
+            // whole-value match above is kept (an open question on #3259).
+            field_is_analyzed_text(schema, field) && text_tokens_contain(&doc_val, value)
         }
 
         QueryNode::Terms { field, values, .. } => {
@@ -52701,30 +59804,7 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             {
                 return false;
             }
-            // Text-field fallback: if the doc has a string with whitespace
-            // (i.e. looks tokenized), treat each space-separated token as a
-            // candidate match. This mirrors ES's behavior of running `terms`
-            // against the analyzed-token stream for text fields. Case folded
-            // to match ES's standard analyzer.
-            fn tokens_contain(doc_val: &Option<Value>, v: &Value) -> bool {
-                let target = match v {
-                    Value::String(s) => s.to_lowercase(),
-                    Value::Number(n) => n.to_string(),
-                    _ => return false,
-                };
-                let dv = match doc_val {
-                    Some(Value::String(s)) => s,
-                    _ => return false,
-                };
-                if !dv.contains(char::is_whitespace) {
-                    return false;
-                }
-                dv.split_whitespace().any(|t| {
-                    t.trim_matches(|c: char| !c.is_alphanumeric())
-                        .eq_ignore_ascii_case(&target)
-                })
-            }
-            values.iter().any(|v| tokens_contain(&doc_val, v))
+            values.iter().any(|v| text_tokens_contain(&doc_val, v))
         }
 
         QueryNode::Range {
@@ -52758,6 +59838,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             case_insensitive,
             ..
         } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             // #396: prefix semantics depend on the field's mapping, and ES never
             // analyses the prefix VALUE itself.
             //  - keyword: match the RAW stored value, case-SENSITIVE by default
@@ -52834,6 +59917,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             case_insensitive,
             ..
         } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             // #396/#668: `wildcard` must mirror its segment path per field type
             // (ES never analyses the pattern):
             //  - analysed TEXT: the segment matches the RAW pattern against the
@@ -53094,6 +60180,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             if field == "_index" {
                 return true;
             }
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             // Analyzer-aware case handling: `whitespace` / `keyword`
             // analyzers don't lowercase, so a match query for "BROWN"
             // should compare case-sensitively against field tokens. The
@@ -53187,10 +60276,13 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             }
             // Tokenize both query and field — honor the operator: AND requires
             // every query token to be present in the field; OR requires any.
-            // Short single-character tokens are kept when numeric (to preserve
-            // `match: {field: 1}` against a numeric field doc value 1); only
-            // single-character alphabetic tokens (historic stopword noise) are
-            // dropped.
+            // #3507: every analysed token counts, one-letter ones included.
+            // The `standard` analyzer has no stop words, and the segment side
+            // (`query_node_to_fts_projected`) keeps `a` as a term. This used
+            // to drop one-letter alphabetic tokens, so a flushed
+            // `bool{must:[match t:"a"], filter:[range]}` (FTS superset, then
+            // this re-test in the `residual_gate` pass) found the query empty
+            // and kept 0 of 3 hits, and `must_not: match "a"` excluded nothing.
             let fold = |s: &str| -> String {
                 if preserve_case {
                     s.to_string()
@@ -53209,15 +60301,6 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                 // until `_refresh`; and it splits `foo_bar`, `don't` and
                 // `3.14`, so `foo` matched here and not after `_refresh`.
                 phrase_tokens(query)
-                    .into_iter()
-                    .filter(|w| {
-                        w.len() >= 2
-                            || w.chars()
-                                .next()
-                                .map(|c| c.is_ascii_digit())
-                                .unwrap_or(false)
-                    })
-                    .collect()
             };
             if q_tokens.is_empty() {
                 return false;
@@ -53380,6 +60463,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                 .iter()
                 .filter_map(|field_spec| {
                     let (field, _) = parse_field_boost(field_spec);
+                    if is_unmapped_leaf_subfield(schema, field) {
+                        return None;
+                    }
                     multi_match_field_values_lc(source, field)
                 })
                 .collect();
@@ -53490,6 +60576,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
         QueryNode::MatchPhrase {
             field, query, slop, ..
         } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             // The same analyzer as the field side below (#1280): a split here
             // made `报表` one query term against the field's `报`,`表`, and
             // `3.14` two terms against the field's one.
@@ -53522,6 +60611,29 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                     query_tokens,
                     slop,
                 ))
+            }
+            // #3285: a text field of an index whose declared default
+            // analyzer is not `standard` (the `code` analyzer autoindex
+            // puts on code datasets) is matched with that analyzer, the
+            // term space its segments hold.
+            let scoped = scan_phrase_analyzer().filter(|_| {
+                schema
+                    .field(field)
+                    .is_some_and(|f| matches!(f.field_type, FieldType::Text))
+            });
+            if let Some(analyzer) = scoped {
+                let one = |v: &Value| -> bool {
+                    let s = match v {
+                        Value::String(s) => s.clone(),
+                        Value::Bool(_) | Value::Number(_) => v.to_string(),
+                        _ => return false,
+                    };
+                    analyzed_phrase_match(&analyzer, &s, query, *slop)
+                };
+                return get_field_value(source, field).is_some_and(|v| match &v {
+                    Value::Array(arr) => arr.iter().any(&one),
+                    _ => one(&v),
+                });
             }
             get_field_value(source, field)
                 .and_then(|v| match &v {
@@ -53592,6 +60704,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             case_insensitive,
             prefix_length,
         } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             let max_edits = match fuzziness {
                 Fuzziness::Auto => auto_fuzziness(query_value),
                 Fuzziness::Fixed(n) => *n as usize,
@@ -53677,6 +60792,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
         QueryNode::MatchPhrasePrefix {
             field, query, slop, ..
         } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             // POSITIONAL, not substring (issue #230). Pre-fix this arm found
             // the head phrase as a raw substring (`s_lower.find(head)`) and
             // required the prefix to follow it in the raw text — so
@@ -53807,8 +60925,14 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             }
             let mut buf = String::new();
             match default_field.as_deref() {
-                Some(f) if f != "*" && !f.is_empty() => get_field_value(source, f)
-                    .is_some_and(|v| any_token_hit(&v, &terms, query.as_str(), &mut buf)),
+                Some(f) if f != "*" && !f.is_empty() => {
+                    let (field_name, _) = parse_field_boost(f);
+                    if is_unmapped_leaf_subfield(schema, field_name) {
+                        return false;
+                    }
+                    get_field_value(source, field_name)
+                        .is_some_and(|v| any_token_hit(&v, &terms, query.as_str(), &mut buf))
+                }
                 _ => match source {
                     Value::Object(obj) => obj
                         .iter()
@@ -53827,11 +60951,14 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
         // though they resolve against the element — strip the prefix first.
         QueryNode::Nested { path, query, .. } => {
             let inner = strip_nested_path_in_query(query, path);
+            let inner_schema = nested_element_schema(schema, path);
             match get_field_value(source, path) {
                 Some(Value::Array(arr)) => arr
                     .iter()
-                    .any(|elem| doc_matches_query_typed(&inner, elem, schema)),
-                Some(elem @ Value::Object(_)) => doc_matches_query_typed(&inner, &elem, schema),
+                    .any(|elem| doc_matches_query_typed(&inner, elem, &inner_schema)),
+                Some(elem @ Value::Object(_)) => {
+                    doc_matches_query_typed(&inner, &elem, &inner_schema)
+                }
                 _ => false,
             }
         }
@@ -53867,6 +60994,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
 
             // A document matches if any term appears in any of the check fields.
             check_fields.iter().any(|field| {
+                if is_unmapped_leaf_subfield(schema, field) {
+                    return false;
+                }
                 get_field_value(source, field)
                     .and_then(|v| match v {
                         Value::String(s) => {
@@ -54171,6 +61301,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
         // the rule tree into a set of matching intervals, and report
         // `true` if at least one interval survives after filters.
         QueryNode::Intervals { field, rule } => {
+            if is_unmapped_leaf_subfield(schema, field) {
+                return false;
+            }
             let text = match get_field_value(source, field) {
                 Some(Value::String(s)) => s,
                 _ => return false,
@@ -55024,13 +62157,241 @@ fn query_tree_contains_ids(q: &QueryNode) -> bool {
     }
 }
 
+/// Whether `score_query_against_doc` gives every matching document the same
+/// score for `q`, so the stored-scan collector may keep the FIRST matches of a
+/// segment (positions are `seq_no` order, and ties go to the earlier arrival).
+/// `false` is always safe: the collector then keeps a segment's best hits by
+/// score instead (#3465). `Term` and `Match` score the query's token count
+/// across every array element (`match_term_frequency`), so they count as
+/// constant only when `leaf_const` says so (`leaf_scan_score_tied`: a full,
+/// null-free doc-values column in every segment, so no doc holds an array).
+///
+/// #3497: a `bool` scores the SUM of its `must` and `should` clause scores
+/// (filter / must_not add nothing), so it is constant when every `must` clause
+/// is and there is no `should` clause: an optional `should` adds its score to
+/// some matches and not to others (`bool{should:[term, range]}`: a doc
+/// matching both clauses outscores one matching a single clause).
+fn scan_score_is_constant(q: &QueryNode, leaf_const: &dyn Fn(&QueryNode) -> bool) -> bool {
+    match q {
+        QueryNode::MatchAll
+        | QueryNode::MatchNone
+        | QueryNode::Constant { .. }
+        | QueryNode::Boosted { .. }
+        | QueryNode::Terms { .. }
+        | QueryNode::Range { .. }
+        | QueryNode::Prefix { .. }
+        | QueryNode::Wildcard { .. } => true,
+        QueryNode::Named { query, .. } => scan_score_is_constant(query, leaf_const),
+        QueryNode::Bool { must, should, .. } => {
+            should.is_empty() && must.iter().all(|c| scan_score_is_constant(c, leaf_const))
+        }
+        QueryNode::Term { .. } | QueryNode::Match { .. } => leaf_const(q),
+        _ => false,
+    }
+}
+
+/// #3509: an upper bound on `score_query_against_doc(q, ..)` over every
+/// document that matches `q`, or `None` when this shape has none it can prove.
+/// WAND / MaxScore's per-clause "max score" (tantivy
+/// `query/boolean_query/block_wand_union.rs`, MIT; approach only, no code
+/// copied): once the stored-scan collector's worst kept score reaches the
+/// bound, no later match can enter the page.
+///
+/// Every clause bound is at least 0.0 and at least the clause's score on ANY
+/// document (an unmatched clause scores 0.0), so a `bool` adds them in the
+/// order its scorer does (`must`, then `should`; `filter` / `must_not` add
+/// nothing). Float addition is monotone, so the sum of the bounds is at least
+/// the sum of the scores. A `bool` whose clauses sum to 0.0 scores 1.0, hence
+/// the `max(1.0)`. `leaf_bound` answers `term` (see `leaf_score_bound`: its
+/// score depends on the matched value).
+fn scan_score_upper_bound(
+    q: &QueryNode,
+    leaf_bound: &dyn Fn(&QueryNode) -> Option<f32>,
+) -> Option<f32> {
+    let nonneg = |b: f32| b.is_finite().then_some(b.max(0.0));
+    match q {
+        QueryNode::MatchAll => Some(1.0),
+        QueryNode::MatchNone => Some(0.0),
+        QueryNode::Constant { score, .. } => nonneg(*score),
+        // #3524: the brute scorer multiplies a constant-scoring query's
+        // score by the boost (`bool{must:[range, range]}^2` is 4.0).
+        QueryNode::Boosted { boost, query } => {
+            nonneg(es_constant_score(query).map_or(*boost, |s| s * boost))
+        }
+        QueryNode::Terms { boost, .. }
+        | QueryNode::Range { boost, .. }
+        | QueryNode::Prefix { boost, .. }
+        | QueryNode::Wildcard { boost, .. } => nonneg(boost.unwrap_or(1.0)),
+        QueryNode::Named { query, .. } => scan_score_upper_bound(query, leaf_bound),
+        QueryNode::Term { .. } => leaf_bound(q),
+        QueryNode::Bool { must, should, .. } => {
+            let mut sum = 0.0f32;
+            for c in must.iter().chain(should) {
+                sum += scan_score_upper_bound(c, leaf_bound)?;
+            }
+            Some(sum.max(1.0))
+        }
+        _ => None,
+    }
+}
+
+/// #3509: per-document score bounds for the stored scan (WAND / MaxScore, see
+/// `scan_score_upper_bound`). Built per segment by `search_inner` only when
+/// the page may skip matches: the shortcut supplies `hits.total`, no field
+/// sort, no function_score, and scores can differ (else the tied early stop
+/// already applies).
+struct ScanScoreBound {
+    /// No match of the query scores above this.
+    ceiling: f32,
+    /// The worst score of a page already full before this segment (earlier
+    /// segments, the memtable). A match bounded strictly below it cannot get
+    /// in. Equal can: it may have arrived earlier than the worst kept hit.
+    page_floor: Option<f32>,
+    /// A top-level `bool`'s scoring clauses in scorer order (`must`, then
+    /// `should`): each clause's bound and, for a `should` leaf that resolves
+    /// to its COMPLETE doc-values match set in this segment, that set. A
+    /// position outside the set cannot match the clause, so the clause adds
+    /// 0.0 to that document. Empty: every document gets `ceiling`.
+    clauses: Vec<(f32, Option<Arc<PrefilterSet>>)>,
+}
+
+impl ScanScoreBound {
+    /// The bound for the document at `pos` (same order and arithmetic as
+    /// `scan_score_upper_bound`, with non-member clauses dropped).
+    fn doc_bound(&self, pos: u32) -> f32 {
+        if self.clauses.is_empty() {
+            return self.ceiling;
+        }
+        let mut sum = 0.0f32;
+        for (bound, set) in &self.clauses {
+            let member = match set {
+                Some(set) => set.set.contains(&pos),
+                None => true,
+            };
+            if member {
+                sum += *bound;
+            }
+        }
+        sum.max(1.0)
+    }
+
+    /// Whether the match at `pos` cannot enter the page. `segment_worst` is
+    /// the lowest score among this segment's kept hits once its share of the
+    /// collector is full: a later position loses a tie there (the segment is
+    /// walked in `seq_no` order), so equal is skipped too.
+    fn skips(&self, pos: u32, segment_worst: Option<f32>) -> bool {
+        let bound = self.doc_bound(pos);
+        self.page_floor.is_some_and(|f| bound < f) || segment_worst.is_some_and(|w| bound <= w)
+    }
+
+    /// Whether nothing left in this segment can enter the page: its share of
+    /// the collector is full and its worst kept score reaches the ceiling.
+    fn segment_done(&self, segment_worst: Option<f32>) -> bool {
+        segment_worst.is_some_and(|w| w >= self.ceiling)
+    }
+}
+
+/// #3509: how often a score bound skipped a match, ended a segment or
+/// skipped one (tests assert the bound actually prunes).
+#[cfg(test)]
+static SCORE_BOUND_PRUNES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+#[inline]
+fn note_score_bound_prune() {
+    #[cfg(test)]
+    SCORE_BOUND_PRUNES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// #3509: the lowest score in a segment's share of the stored-scan collector,
+/// once that share is full (`None` before).
+fn segment_worst_score(all_hits: &[Hit], segment_floor: usize, limit: usize) -> Option<f32> {
+    if all_hits.len() < limit || all_hits.len() <= segment_floor {
+        return None;
+    }
+    all_hits[segment_floor..]
+        .iter()
+        .map(|h| h.score)
+        .reduce(f32::min)
+}
+
+/// The slot a new match takes in a full stored-scan collector, or `None` when
+/// it does not beat any of `segment_hits` (#3465).
+///
+/// `segment_hits` are this segment's admitted hits, and the new match arrived
+/// after all of them (a segment is walked in position = `seq_no` order). The
+/// worst hit is the lowest score, then the latest arrival. The new match must
+/// score strictly higher: on a tie the earlier arrival keeps its place, the
+/// page's `(score DESC, seq_no ASC)` order. Same rule as tantivy's
+/// `TopNComputer` (`collector/top_score_collector.rs:495-520`, MIT; approach
+/// only), which skips a doc scoring at or below the threshold because docs
+/// arrive in ascending doc id.
+fn stored_scan_displaced_slot(segment_hits: &[Hit], score: f32) -> Option<usize> {
+    let (at, worst) = segment_hits.iter().enumerate().min_by(|(_, a), (_, b)| {
+        a.score.total_cmp(&b.score).then_with(|| {
+            b.seq_no
+                .unwrap_or(u64::MAX)
+                .cmp(&a.seq_no.unwrap_or(u64::MAX))
+        })
+    })?;
+    (score.total_cmp(&worst.score) == std::cmp::Ordering::Greater).then_some(at)
+}
+
+/// Whether `q` is a `bool` with no `must` and no `should` (possibly under
+/// `_name`): every clause runs in filter context and ES scores each hit 0.0
+/// (#3508).
+fn is_filter_context_bool(q: &QueryNode) -> bool {
+    match q {
+        QueryNode::Bool {
+            must,
+            should,
+            filter,
+            must_not,
+            ..
+        } => must.is_empty() && should.is_empty() && !(filter.is_empty() && must_not.is_empty()),
+        QueryNode::Named { query, .. } => is_filter_context_bool(query),
+        _ => false,
+    }
+}
+
+/// #3524: the score ES gives EVERY hit of `q`, for the shapes where that is
+/// one constant; `None` when the score depends on the document (BM25 leaves)
+/// or the shape is not covered here.
+///
+/// Lucene composes these multiplicatively and additively without looking at
+/// the document: `BoostQuery` multiplies its query's score, `ConstantScore`
+/// replaces it, a `range` / `terms` leaf scores its `boost`, a filter-context
+/// `bool` scores 0.0 and a `bool` with no `should` sums its `must` clauses
+/// (`filter` / `must_not` add nothing). `bool{filter:[..], boost: 2}` is
+/// `2 × 0.0`, and `bool{must:[constant_score{.., boost: B}]}` is `B`.
+fn es_constant_score(q: &QueryNode) -> Option<f32> {
+    match q {
+        QueryNode::MatchAll => Some(1.0),
+        QueryNode::Constant { score, .. } => Some(*score),
+        QueryNode::Named { query, .. } => es_constant_score(query),
+        QueryNode::Boosted { boost, query } => es_constant_score(query).map(|s| s * boost),
+        QueryNode::Range { boost, .. } | QueryNode::Terms { boost, .. } => {
+            Some(boost.unwrap_or(1.0))
+        }
+        QueryNode::Bool { .. } if is_filter_context_bool(q) => Some(0.0),
+        QueryNode::Bool { must, should, .. } if should.is_empty() && !must.is_empty() => must
+            .iter()
+            .map(es_constant_score)
+            .try_fold(0.0f32, |acc, s| s.map(|s| acc + s)),
+        _ => None,
+    }
+}
+
 fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f32 {
     match q {
         QueryNode::MatchAll => 1.0,
         QueryNode::MatchNone => 0.0,
         QueryNode::Boosted { boost, query } => {
             if doc_matches_query_typed(query, source, schema) {
-                *boost
+                // #3524: a boost multiplies its query's score. For a
+                // constant-scoring query that is exact (`bool{filter,
+                // boost: 2}` is 2 × 0.0, not 2.0); other shapes keep the
+                // flat boost.
+                es_constant_score(query).map_or(*boost, |s| s * boost)
             } else {
                 0.0
             }
@@ -55103,6 +62464,17 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
             if !doc_matches_query_typed(q, source, schema) {
                 return 0.0;
             }
+            // #3508: with no `must` and no `should`, every clause is in
+            // filter context (`filter`, `must_not`), and ES scores the hit
+            // 0.0. A `must_not`-only bool gets a match-all FILTER clause
+            // (`Queries.fixNegativeQueryIfNeeded`), so it also scores 0.0.
+            // The segment executors already returned 0.0; this scorer (the
+            // memtable, and every doc once the memtable is non-empty) fell
+            // through to the 1.0 fallback below, so the score changed at
+            // `_flush`.
+            if is_filter_context_bool(q) {
+                return 0.0;
+            }
             // Sum all contributing sub-query scores. DON'T clamp to 1.0
             // minimum — the score gradient is what lets downstream
             // ranking distinguish "doc matches 1 clause" from "doc
@@ -55115,6 +62487,22 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
                 score += score_query_against_doc(sub, source, schema);
             }
             let _ = (must_not, minimum_should_match);
+            // #3524: a zero sum is the ES score when every `must` clause
+            // scores a constant 0.0 (none at all: `bool{filter, should}`
+            // where no `should` matched; or filter-context / boost-0
+            // children). ES adds nothing for an unmatched `should`, so
+            // `bool{filter:[range], should:[<no match>]}` scores 0.0, not the
+            // 1.0 floor below.
+            // A `should` that matched yet scored 0.0 here is an approximation
+            // gap of this scorer, not an ES zero, and keeps the floor.
+            if score == 0.0
+                && must.iter().all(|c| es_constant_score(c) == Some(0.0))
+                && should.iter().all(|c| {
+                    es_constant_score(c) == Some(0.0) || !doc_matches_query_typed(c, source, schema)
+                })
+            {
+                return 0.0;
+            }
             if score == 0.0 {
                 // ids clauses score their exact constant (`boost`,
                 // default 1.0; 0.0 in filter context) — live-verified on
@@ -55217,6 +62605,9 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
             let mut matched = false;
             for field_spec in fields {
                 let (field, field_boost) = parse_field_boost(field_spec);
+                if is_unmapped_leaf_subfield(schema, field) {
+                    continue;
+                }
                 // Same per-field value extraction as `doc_matches_query`:
                 // strings, arrays (one entry per element, #332), and other
                 // scalars — an array-valued field admitted by membership must
@@ -55250,6 +62641,9 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
                             .iter()
                             .filter_map(|fs| {
                                 let (f, _) = parse_field_boost(fs);
+                                if is_unmapped_leaf_subfield(schema, f) {
+                                    return None;
+                                }
                                 match get_field_value(source, f) {
                                     Some(Value::String(s)) => Some(s.to_lowercase()),
                                     Some(Value::Array(arr)) => Some(
@@ -55341,15 +62735,16 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
             score_mode,
         } => {
             let inner = strip_nested_path_in_query(query, path);
+            let inner_schema = nested_element_schema(schema, path);
             let child_scores: Vec<f32> = match get_field_value(source, path) {
                 Some(Value::Array(arr)) => arr
                     .iter()
-                    .filter(|elem| doc_matches_query_typed(&inner, elem, schema))
-                    .map(|elem| score_query_against_doc(&inner, elem, schema))
+                    .filter(|elem| doc_matches_query_typed(&inner, elem, &inner_schema))
+                    .map(|elem| score_query_against_doc(&inner, elem, &inner_schema))
                     .collect(),
                 Some(elem @ Value::Object(_)) => {
-                    if doc_matches_query_typed(&inner, &elem, schema) {
-                        vec![score_query_against_doc(&inner, &elem, schema)]
+                    if doc_matches_query_typed(&inner, &elem, &inner_schema) {
+                        vec![score_query_against_doc(&inner, &elem, &inner_schema)]
                     } else {
                         Vec::new()
                     }
@@ -55789,6 +63184,10 @@ struct PrefilterSet {
     sorted: Vec<u32>,
 }
 
+/// Cap on one `bool` leaf's range position set and on a pure-`should`
+/// union (`build_bool_prefilter_cached`, `bool_leaf_prefilter`).
+const BOOL_PREFILTER_CAP: usize = 65_536;
+
 impl PrefilterSet {
     /// Build from a position vector (any order; sorted + deduped here).
     fn from_vec(mut positions: Vec<u32>) -> Self {
@@ -56106,6 +63505,79 @@ fn build_sort_shadow(
     }
 }
 
+/// [`build_sort_shadow`]'s epoch keys for a date-string column with missing
+/// values (#3492): one `(key, pos)` per doc that has a value, sorted the
+/// same way. A doc without a value has no entry, so it matches no range,
+/// as in the stored-doc scan. `None` when the field has no keyword column,
+/// or when any term does not read as a date.
+fn build_sparse_date_shadow(
+    cols: &std::collections::BTreeMap<String, xerj_storage::doc_values::Column>,
+    field: &str,
+    scale: DateScale,
+) -> Option<Arc<Vec<(i64, u32)>>> {
+    use xerj_storage::doc_values::Column;
+    let Some(Column::Keyword(k)) = cols.get(field) else {
+        return None;
+    };
+    if k.ords.len() != k.doc_count as usize {
+        return None;
+    }
+    let mut keys: Vec<f64> = Vec::with_capacity(k.terms.len());
+    for t in &k.terms {
+        keys.push(sort_date_normalize(t, scale)?.as_f64()?);
+    }
+    let mut sorted: Vec<(i64, u32)> = k
+        .ords
+        .iter()
+        .enumerate()
+        .filter(|(pos, _)| !k.null_bitmap.contains(*pos as u32))
+        .filter_map(|(pos, ord)| Some((keys.get(*ord as usize)?.to_bits() as i64, pos as u32)))
+        .collect();
+    sorted.sort_unstable_by(|a, b| {
+        f64::from_bits(a.0 as u64)
+            .partial_cmp(&f64::from_bits(b.0 as u64))
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.1.cmp(&b.1))
+    });
+    Some(Arc::new(sorted))
+}
+
+/// The same shadow as [`build_sparse_date_shadow`], read from the stored
+/// docs of a segment whose doc values have no column for `field` (#3492).
+/// A number is epoch millis, a string goes through the sort shadow's date
+/// normalisation, and a doc without the field has no entry. `None` when a
+/// value is an array, an object, or a string that does not read as a date:
+/// the shadow could not answer a range for it the way the stored-doc scan
+/// does.
+fn build_stored_date_shadow(
+    slices: &StoredSlices,
+    field: &str,
+    scale: DateScale,
+) -> Option<Arc<Vec<(i64, u32)>>> {
+    let mut sorted: Vec<(i64, u32)> = Vec::new();
+    for (pos, &(start, end)) in slices.offsets.iter().enumerate() {
+        let slice = slices.bytes.get(start as usize..end as usize)?;
+        let doc = serde_json::from_slice::<Value>(slice).ok()?;
+        let Some(source) = doc.get("_source") else {
+            continue;
+        };
+        let key = match get_field_value(source, field) {
+            None | Some(Value::Null) => continue,
+            Some(Value::Number(n)) => epoch_ms_bound_on_scale(n.as_i64()? as f64, scale),
+            Some(Value::String(s)) => sort_date_normalize(&s, scale)?.as_f64()?,
+            Some(_) => return None,
+        };
+        sorted.push((key.to_bits() as i64, pos as u32));
+    }
+    sorted.sort_unstable_by(|a, b| {
+        f64::from_bits(a.0 as u64)
+            .partial_cmp(&f64::from_bits(b.0 as u64))
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.1.cmp(&b.1))
+    });
+    Some(Arc::new(sorted))
+}
+
 /// A NUMERIC range bound on a date field is epoch-MILLISECONDS — on a
 /// `date_nanos` field too — put onto the shadow's own scale (#889).
 ///
@@ -56356,6 +63828,82 @@ fn publish_prepublication<T>(
             Some(resident)
         }
     }
+}
+
+/// Times in a row a `_forcemerge` retries a pass in which a batch stopped
+/// at the process memory limit and no batch merged, before it reports a
+/// 429 (#2917). A retry runs after the breaker's drain released caches,
+/// under the halved batch cap. A pass that merged any batch resets the
+/// count.
+pub const FORCE_MERGE_MEMORY_RETRIES: usize = 2;
+
+/// The `_forcemerge` memory-stop count after a pass in which a batch
+/// stopped at the process limit (#2917). A pass that merged `merged > 0`
+/// batches made progress, so the count restarts; only consecutive passes
+/// that merged nothing move it towards the 429.
+fn force_merge_memory_stops_after_pass(stops: usize, merged: usize) -> usize {
+    if merged > 0 {
+        0
+    } else {
+        stops + 1
+    }
+}
+
+/// Default bound on how long a `_forcemerge` pass waits for memory headroom
+/// without merging anything (#2917).
+pub const FORCE_MERGE_MEMORY_WAIT_DEFAULT: std::time::Duration =
+    std::time::Duration::from_secs(300);
+
+/// [`FORCE_MERGE_MEMORY_WAIT_DEFAULT`], or `XERJ_FORCEMERGE_MEMORY_WAIT_SECS`.
+fn force_merge_memory_wait() -> std::time::Duration {
+    std::env::var("XERJ_FORCEMERGE_MEMORY_WAIT_SECS")
+        .ok()
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .map(std::time::Duration::from_secs)
+        .unwrap_or(FORCE_MERGE_MEMORY_WAIT_DEFAULT)
+}
+
+/// Wait, at most `bound`, for the parent memory breaker to release.
+async fn wait_for_breaker_release(bound: std::time::Duration) {
+    let started = std::time::Instant::now();
+    loop {
+        let engaged = crate::governor::global().is_some_and(|g| g.memory_breaker_engaged());
+        if !engaged || started.elapsed() >= bound {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+}
+
+/// The 429 a `_forcemerge` returns when the memory budget refused it
+/// (#2917). The reason reads like the parent breaker's, with the numbers.
+fn force_merge_memory_refusal(
+    index: &str,
+    segments: usize,
+    target: usize,
+    what: &str,
+    stops: usize,
+) -> EngineError {
+    const MIB: u64 = 1024 * 1024;
+    let (rss, limit, watermark) = crate::governor::global()
+        .map(|g| {
+            (
+                g.observed_rss_bytes(),
+                g.process_memory_limit_bytes(),
+                g.memory_watermark_bytes(),
+            )
+        })
+        .unwrap_or((0, 0, 0));
+    EngineError::Common(xerj_common::XerjError::circuit_breaking(format!(
+        "[parent] forcemerge of [{index}] refused to protect the memory limit: {what} \
+         (batches stopped: {stops}); rss={}MB, watermark={}MB, limit={}MB; the index keeps \
+         {segments} segments (target {target}) and no document was changed; retry when \
+         the node has more headroom, or raise limits.max_process_memory_mb / \
+         XERJ_MAX_PROCESS_MEMORY_MB",
+        rss / MIB,
+        watermark / MIB,
+        limit / MIB,
+    )))
 }
 
 /// Warm one just-written segment's read-path caches OUTSIDE the query
@@ -57740,12 +65288,13 @@ fn prune_missing_should_fields(q: &FtsQuery, has_field: &dyn Fn(&str) -> bool) -
 ///
 ///   * a schema field itself (`text_fields` ∪ `exact_fields` is exactly the
 ///     flat schema field list — see the construction in `search`), or
-///   * a dotted path whose prefix is a schema field.  Sub-fields carry no
-///     top-level FTS side-car of their own (`build_fts_field_configs` and
-///     the memtable indexer both key on top-level `_source` keys), so both
-///     multi-fields (`title.keyword` — shares the parent's source value)
-///     and object sub-paths (`user.name`) are served by the stored-doc
-///     scan's `get_field_value` fallback today.  Keeping their clause in
+///   * a dotted path whose prefix is a schema field.  Multi-fields
+///     (`title.keyword`, which shares the parent's source value) carry no
+///     FTS side-car of their own and are served by the stored-doc scan's
+///     `get_field_value` fallback. Object leaves (`user.name`) have had their
+///     own side-car since #3464, but a segment built before that does not,
+///     and the memtable indexer still keys on top-level `_source` keys.
+///     Keeping their clause in
 ///     the projection is what routes the query onto that scan (the
 ///     per-segment `fts_has_field` gate fails), so dropping them here would
 ///     change matching for MAPPED data — they must survive the filter.
@@ -58072,6 +65621,7 @@ fn query_node_to_fts(
         exact_fields,
         SegmentAnalyzerBinding::Standard,
         None,
+        DateDocs::Decline,
     )
 }
 
@@ -58103,6 +65653,229 @@ impl PinnedIds<'_> {
             PinnedIds::Probe => None,
             PinnedIds::Positions(map) => map.get(id).copied(),
         }
+    }
+}
+
+/// How the projection treats a `constant_score` over a date `range` with
+/// both bounds inclusive (#3492): the leaf a `*` field pattern adds for a
+/// `date` field. A `range` has no postings, so before this the leaf declined
+/// the projection and the whole query took the stored-doc scan, which scores
+/// one point per matched clause. With a date field in the mapping, every
+/// number in a field-less `query_string` (`hello 7`) would then lose BM25 for
+/// its words. The segment's doc-values range match set
+/// (`build_range_prefilter_cached`, built uncapped) becomes a
+/// [`FtsQuery::DocScores`] leaf scored as the constant, the same way #892
+/// projects the pinned kNN ids.
+#[derive(Clone, Copy)]
+enum DateDocs<'a> {
+    /// The leaf does not project (every caller outside the segment search).
+    Decline,
+    /// Shape probe for these fields: an empty leaf, so "does this project at
+    /// all?" answers yes, as [`PinnedIds::Probe`] does.
+    Probe(&'a DocSetFields),
+    /// One segment's match sets for these fields, by [`date_docs_key`] /
+    /// [`range_docs_key`]. The segment search builds a set for every leaf the
+    /// probe covers, or skips the projection for the segment.
+    Segment(&'a DocSetFields, &'a HashMap<String, Arc<PrefilterSet>>),
+}
+
+/// The fields whose `range` leaves [`DateDocs`] may resolve to a doc-values
+/// match set.
+struct DocSetFields {
+    /// Date fields with doc values: `constant_score` over a date range
+    /// (#3492).
+    dates: HashSet<String>,
+    /// Long / double fields with doc values: a `range` FILTER of a `bool`
+    /// with no `must` and at least one `should` (#3518, see
+    /// [`filter_ranges_as_doc_sets`]). Date fields are left out: their
+    /// string bounds round (`lte: "2020-01-01"` is the end of that day), and
+    /// the stored-doc scan stays the reference for them.
+    ranges: HashSet<String>,
+}
+
+impl DateDocs<'_> {
+    fn fields(&self) -> Option<&DocSetFields> {
+        match self {
+            DateDocs::Decline => None,
+            DateDocs::Probe(fields) | DateDocs::Segment(fields, _) => Some(fields),
+        }
+    }
+
+    fn covers(&self, q: &QueryNode) -> bool {
+        match (self.fields(), date_docs_key(q)) {
+            (Some(fields), Some((field, _))) => fields.dates.contains(field),
+            _ => false,
+        }
+    }
+
+    fn resolve(&self, q: &QueryNode, score: f32) -> Option<FtsQuery> {
+        let (_, key) = date_docs_key(q)?;
+        self.resolve_key(&key, score)
+    }
+
+    /// #3518: whether `q` is a `range` filter leaf [`Self::resolve_range`]
+    /// answers.
+    fn covers_range(&self, q: &QueryNode) -> bool {
+        match (self.fields(), range_docs_key(q)) {
+            (Some(fields), Some((field, _))) => fields.ranges.contains(field),
+            _ => false,
+        }
+    }
+
+    /// #3518: the segment's exact match set of the `range` leaf `q`, as a
+    /// filter (the score is unused). `None` in a segment with no set for it:
+    /// the caller then declines the whole projection, because the probe
+    /// already counted the leaf as projected and a dropped filter would
+    /// widen the match set.
+    fn resolve_range(&self, q: &QueryNode) -> Option<FtsQuery> {
+        let (_, key) = range_docs_key(q)?;
+        self.resolve_key(&key, 0.0)
+    }
+
+    fn resolve_key(&self, key: &str, score: f32) -> Option<FtsQuery> {
+        let docs: Vec<(u32, f32)> = match self {
+            DateDocs::Decline => return None,
+            DateDocs::Probe(_) => Vec::new(),
+            DateDocs::Segment(_, sets) => sets
+                .get(key)?
+                .sorted
+                .iter()
+                .map(|&pos| (pos, score))
+                .collect(),
+        };
+        Some(FtsQuery::DocScores(xerj_fts::search::DocScoresQuery::new(
+            docs,
+        )))
+    }
+}
+
+/// #3518: whether a `bool`'s `range` filters project as doc-values match
+/// sets ([`DateDocs::resolve_range`]): no `must` and at least one `should`.
+///
+/// A `range` has no postings, so such a filter used to be skipped and
+/// re-applied by the residual gate. With no `must`, that left the FTS bool
+/// with only its `should` clauses, which then became REQUIRED (#3507), so the
+/// projection was declined and the whole bool took the stored-doc scan. The
+/// range's exact match set keeps the filter in the FTS bool: it narrows the
+/// hits, and the `should` clauses stay optional (or follow
+/// `minimum_should_match`) and add their BM25, as ES scores them.
+fn filter_ranges_as_doc_sets(must: &[QueryNode], should: &[QueryNode]) -> bool {
+    must.is_empty() && !should.is_empty()
+}
+
+/// The field and cache key of a `range` leaf [`DateDocs::resolve_range`] can
+/// resolve: at least one bound, not lenient (a lenient range lowered from a
+/// `query_string` keeps the existing paths).
+fn range_docs_key(q: &QueryNode) -> Option<(&str, String)> {
+    match q {
+        QueryNode::Range {
+            field,
+            gte,
+            gt,
+            lte,
+            lt,
+            lenient: false,
+            ..
+        } if gte.is_some() || gt.is_some() || lte.is_some() || lt.is_some() => {
+            let b = |v: &Option<Value>| v.as_ref().map(Value::to_string).unwrap_or_default();
+            Some((
+                field.as_str(),
+                format!(
+                    "{field}\u{2}{}\u{1}{}\u{1}{}\u{1}{}",
+                    b(gte),
+                    b(gt),
+                    b(lte),
+                    b(lt)
+                ),
+            ))
+        }
+        _ => None,
+    }
+}
+
+/// The field and cache key of a date leaf [`DateDocs`] can resolve: a
+/// `range` with resolved string bounds `gte` and `lte`, nothing else.
+fn date_docs_key(q: &QueryNode) -> Option<(&str, String)> {
+    match q {
+        QueryNode::Range {
+            field,
+            gte: Some(Value::String(lo)),
+            gt: None,
+            lte: Some(Value::String(hi)),
+            lt: None,
+            boost: None,
+            ..
+        } => Some((field.as_str(), format!("{field}\u{1}{lo}\u{1}{hi}"))),
+        _ => None,
+    }
+}
+
+/// The fields (object leaves by dotted path) with doc values whose `range`
+/// leaves [`DateDocs`] may resolve.
+fn date_doc_field_names(schema: &Schema) -> DocSetFields {
+    let mut out = DocSetFields {
+        dates: HashSet::new(),
+        ranges: HashSet::new(),
+    };
+    for (path, f) in pattern_field_paths(schema) {
+        if !f.options.doc_values {
+            continue;
+        }
+        match f.field_type {
+            FieldType::Date => {
+                out.dates.insert(path);
+            }
+            FieldType::Long | FieldType::Double => {
+                out.ranges.insert(path);
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// The leaves in `q` [`DateDocs`] resolves: `constant_score` date leaves
+/// (#3492) and the #3518 `range` filters, through `bool`, `dis_max`,
+/// `constant_score`, `boost` and `_name`, the shapes the projection walks.
+fn collect_date_docs_leaves<'q>(
+    q: &'q QueryNode,
+    fields: &DocSetFields,
+    out: &mut Vec<(&'q QueryNode, bool)>,
+) {
+    match q {
+        QueryNode::Constant { query, .. } => match date_docs_key(query) {
+            Some((field, _)) if fields.dates.contains(field) => out.push((query, false)),
+            _ => collect_date_docs_leaves(query, fields, out),
+        },
+        QueryNode::Boosted { query, .. } | QueryNode::Named { query, .. } => {
+            collect_date_docs_leaves(query, fields, out)
+        }
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => {
+            let ranges = filter_ranges_as_doc_sets(must, should);
+            for c in filter {
+                match range_docs_key(c) {
+                    Some((field, _)) if ranges && fields.ranges.contains(field) => {
+                        out.push((c, true))
+                    }
+                    _ => collect_date_docs_leaves(c, fields, out),
+                }
+            }
+            for c in must.iter().chain(should).chain(must_not) {
+                collect_date_docs_leaves(c, fields, out);
+            }
+        }
+        QueryNode::DisMax { queries, .. } => {
+            for c in queries {
+                collect_date_docs_leaves(c, fields, out);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -58225,6 +65998,7 @@ fn query_node_to_fts_projected(
     keyword_fields: &std::collections::HashSet<String>,
     binding: SegmentAnalyzerBinding<'_>,
     pinned: Option<PinnedIds<'_>>,
+    date_docs: DateDocs<'_>,
 ) -> Option<FtsQuery> {
     // #892: the pinned kNN disjunct, resolved to this segment's positions.
     // Checked before the `match` because the sub-tree IS a `Bool` and would
@@ -58255,6 +66029,12 @@ fn query_node_to_fts_projected(
         // segments, the clause added the inner BM25 instead of the boost.
         // (The keyword-schema shape is served bit-exactly by
         // `scored_columnar` before this projection is ever consulted.)
+        // #3492: a `constant_score` date `range` (the `*` pattern's date
+        // leaf) becomes this segment's doc-values match set, scored as the
+        // constant, so a query mixing words and a date keeps its postings.
+        QueryNode::Constant { query, score } if date_docs.covers(query) => {
+            date_docs.resolve(query, *score)
+        }
         QueryNode::Constant { query, score } => query_node_to_fts_projected(
             query,
             text_fields,
@@ -58262,6 +66042,7 @@ fn query_node_to_fts_projected(
             keyword_fields,
             binding,
             pinned,
+            date_docs,
         )
         .map(|inner| {
             FtsQuery::ConstantScore(Box::new(xerj_fts::search::ConstantScoreQuery {
@@ -58482,6 +66263,7 @@ fn query_node_to_fts_projected(
                             terms: terms.clone(),
                             slop: *slop,
                             boost: *fb,
+                            positions: Vec::new(),
                         })
                     });
                 }
@@ -58629,6 +66411,7 @@ fn query_node_to_fts_projected(
                         keyword_fields,
                         binding,
                         pinned,
+                        date_docs,
                     )
                 })
                 .collect();
@@ -58705,6 +66488,9 @@ fn query_node_to_fts_projected(
             // scan (whose base is all docs) answers, exactly as a `must_not`-
             // only keyword `term` (which never projects) already does.
             let mut projected_positive = false;
+            // #3507: which clause kinds actually reached the FTS bool.
+            let mut projected_filter = false;
+            let mut projected_should = false;
             // CRITICAL: if a `must` child can't be projected to FTS we
             // CANNOT lift just the projectable subset — the bool would
             // become more permissive than the original query.  Return
@@ -58718,6 +66504,7 @@ fn query_node_to_fts_projected(
                     keyword_fields,
                     binding,
                     pinned,
+                    date_docs,
                 )?;
                 bool_q = bool_q.must(fq);
                 projected_positive = true;
@@ -58735,7 +66522,19 @@ fn query_node_to_fts_projected(
             // #361: these used to be projected as `must`, which made
             // `bool{must:[text], filter:[term]}` score the filter's BM25 on
             // top of the text clause and reorder the page.
+            let ranges_as_doc_sets = filter_ranges_as_doc_sets(must, should);
             for sub in filter {
+                // #3518: a numeric `range` filter beside `should` clauses and
+                // no `must` projects as its exact doc-values match set. A
+                // segment without that set declines the whole projection
+                // (`?`): the probe counted the filter as projected, so the
+                // residual gate is off and skipping it would widen the hits.
+                if ranges_as_doc_sets && date_docs.covers_range(sub) {
+                    bool_q = bool_q.filter(date_docs.resolve_range(sub)?);
+                    projected_filter = true;
+                    projected_positive = true;
+                    continue;
+                }
                 // #361: a non-projecting filter child (e.g. `exists`,
                 // non-numeric `range`) is a NON-SCORING residual — skip it
                 // (instead of `?`-aborting the whole projection) so the scoring
@@ -58751,8 +66550,10 @@ fn query_node_to_fts_projected(
                     keyword_fields,
                     binding,
                     pinned,
+                    date_docs,
                 ) {
                     bool_q = bool_q.filter(fq);
+                    projected_filter = true;
                     projected_positive = true;
                 }
             }
@@ -58784,8 +66585,10 @@ fn query_node_to_fts_projected(
                     keyword_fields,
                     binding,
                     pinned,
+                    date_docs,
                 )?;
                 bool_q = bool_q.should(fq);
+                projected_should = true;
                 projected_positive = true;
             }
             // `must_not` children that don't project are similar: dropping
@@ -58795,6 +66598,26 @@ fn query_node_to_fts_projected(
                 // non-scoring residual — skip it (don't `?`-abort); the
                 // `residual_gate` pass in `search` re-excludes it via
                 // `doc_matches_query` over the original query.
+                //
+                // #3507: a child that projects but NOT exactly — a nested
+                // `bool` that skipped its own residual `filter`/`must_not` —
+                // projects a SUPERSET of its matches. Negating a superset
+                // excludes true hits, and the residual gate can only remove
+                // docs, never restore them (`bool{must:[match t:b],
+                // must_not:[bool{must:[match t:x], filter:[range n<=5]}]}`
+                // lost every `b x` doc with n > 5 after `_flush`). Leave such
+                // a child to the gate as a whole.
+                if bool_has_nonprojectable_nonscoring(
+                    sub,
+                    text_fields,
+                    exact_fields,
+                    keyword_fields,
+                    binding,
+                    pinned,
+                    date_docs,
+                ) {
+                    continue;
+                }
                 if let Some(fq) = query_node_to_fts_projected(
                     sub,
                     text_fields,
@@ -58802,9 +66625,31 @@ fn query_node_to_fts_projected(
                     keyword_fields,
                     binding,
                     pinned,
+                    date_docs,
                 ) {
                     bool_q = bool_q.must_not(fq);
                 }
+            }
+            // #3507: a skipped residual `filter` can leave the FTS bool with
+            // only `should` clauses, and a should-only bool REQUIRES one of
+            // them — while in the original, the `filter` makes every `should`
+            // optional (default `minimum_should_match` 0). The projection is
+            // then a SUBSET (`bool{filter:[range], should:[match cat],
+            // must_not:[match dog]}` kept only the `cat` docs after `_flush`),
+            // which no residual pass can widen. FTS cannot enumerate "all
+            // docs" for the optional clauses, so decline: the stored scan
+            // answers the whole bool.
+            //
+            // #3518: an explicit `minimum_should_match: 0` is the same shape
+            // (the FTS bool applied 0 but still enumerated only the `should`
+            // docs, so `filter`-only matches were lost).
+            if must.is_empty()
+                && !filter.is_empty()
+                && !projected_filter
+                && projected_should
+                && matches!(minimum_should_match, None | Some(MinShouldMatch::Fixed(0)))
+            {
+                return None;
             }
             if !projected_positive {
                 return None;
@@ -58954,11 +66799,13 @@ fn query_node_to_fts_projected(
                         b,
                     )));
                 }
+                let (terms, positions) = phrase_terms_and_positions(&tokens);
                 return Some(FtsQuery::Phrase(xerj_fts::search::PhraseQuery {
                     field: field.clone(),
-                    terms: tokens.iter().map(|t| t.text.clone()).collect(),
+                    terms,
                     slop: 0,
                     boost: b,
+                    positions,
                 }));
             }
             None
@@ -59207,6 +67054,7 @@ fn bool_has_nonprojectable_nonscoring(
     keyword_fields: &std::collections::HashSet<String>,
     binding: SegmentAnalyzerBinding<'_>,
     pinned: Option<PinnedIds<'_>>,
+    date_docs: DateDocs<'_>,
 ) -> bool {
     // #892: the #825 pinned sub-tree projects WHOLE (to a `DocScores` leaf),
     // so its internal `filter: [Ids{…}]` accelerator is never consulted by the
@@ -59225,7 +67073,13 @@ fn bool_has_nonprojectable_nonscoring(
             filter,
             ..
         } => {
-            for sub in filter.iter().chain(must_not.iter()) {
+            // #3518: these `range` filters project as exact doc-values sets
+            // (the `Bool` arm of `query_node_to_fts_projected`): no gate.
+            let ranges_as_doc_sets = filter_ranges_as_doc_sets(must, should);
+            let gated_filters = filter
+                .iter()
+                .filter(|sub| !(ranges_as_doc_sets && date_docs.covers_range(sub)));
+            for sub in gated_filters.chain(must_not.iter()) {
                 if query_node_to_fts_projected(
                     sub,
                     text_fields,
@@ -59233,6 +67087,7 @@ fn bool_has_nonprojectable_nonscoring(
                     keyword_fields,
                     binding,
                     pinned,
+                    date_docs,
                 )
                 .is_none()
                 {
@@ -59251,6 +67106,7 @@ fn bool_has_nonprojectable_nonscoring(
                         keyword_fields,
                         binding,
                         pinned,
+                        date_docs,
                     )
                 })
         }
@@ -59261,6 +67117,7 @@ fn bool_has_nonprojectable_nonscoring(
             keyword_fields,
             binding,
             pinned,
+            date_docs,
         ),
         _ => false,
     }
@@ -59333,6 +67190,48 @@ fn compute_field_value_factor(fvf: &FieldValueFactor, source: &Value) -> f32 {
         _ => None,
     });
     fvf_score_from_raw(fvf, raw)
+}
+
+/// The ES error a `field_value_factor` with no `missing` raises on a scored
+/// doc that has no value for its field (#3512): an
+/// `illegal_argument_exception`, 400. Read for semantics only, no code copied:
+/// ES `FieldValueFactorFunction` throws when the doc has no doc value and
+/// `missing` is unset, and an unmapped field reads as no value. XERJ scored
+/// the doc as 0.0.
+fn fvf_missing_value_reason(field: &str) -> String {
+    format!("Missing value for field [{field}]")
+}
+
+/// Whether `source` has no value for `field`: absent, `null`, or an array of
+/// only `null`s.
+fn fvf_value_absent(field: &str, source: &Value) -> bool {
+    match get_field_value(source, field) {
+        None | Some(Value::Null) => true,
+        Some(Value::Array(values)) => values.iter().all(Value::is_null),
+        Some(_) => false,
+    }
+}
+
+/// The field of the first `field_value_factor` with no `missing` that applies
+/// to `source` (no `filter`, or a `filter` the doc matches) while the doc has
+/// no value for its field ([`fvf_value_absent`]).
+fn fvf_field_without_value<'f>(
+    functions: &'f [ScoreFunction],
+    source: &Value,
+    schema: &Schema,
+) -> Option<&'f str> {
+    functions.iter().find_map(|func| {
+        let fvf = func.field_value_factor.as_ref()?;
+        if fvf.missing.is_some() || !fvf_value_absent(&fvf.field, source) {
+            return None;
+        }
+        if let Some(filter) = &func.filter {
+            if !doc_matches_query_typed(filter, source, schema) {
+                return None;
+            }
+        }
+        Some(fvf.field.as_str())
+    })
 }
 
 /// Gate + extractor for the columnar `function_score` fast path.
@@ -60673,6 +68572,32 @@ fn scored_fast_plan(
                 must_not: Vec::new(),
                 score: *score,
             })
+        }
+        // #3524: a boosted filter-only `bool` (`bool{filter, boost: 2}`) is
+        // the same Filtered plan; its score is `boost × 0.0`.
+        QueryNode::Boosted {
+            boost,
+            query: inner,
+        } if boost.is_finite() && *boost >= 0.0 && is_filter_context_bool(inner) => {
+            match scored_fast_plan(
+                inner,
+                request,
+                _size,
+                keyword_fields,
+                numeric_fields,
+                boolean_fields,
+            )? {
+                ScoredPlan::Filtered {
+                    filter,
+                    must_not,
+                    score,
+                } => Some(ScoredPlan::Filtered {
+                    filter,
+                    must_not,
+                    score: score * *boost,
+                }),
+                _ => None,
+            }
         }
         // Scoring bool / dis_max tree, possibly `Boosted`-wrapped, or a
         // bare scoring leaf (wrapped as a single-must bool — Σ over one
@@ -63615,6 +71540,118 @@ mod highlight_multibyte_tests {
         assert_eq!(next_term_match("rewild", "wild*", 0), None);
     }
 
+    fn hl_terms(query: serde_json::Value) -> Vec<String> {
+        extract_highlight_terms(&xerj_query::parse_query(&query).expect("query parses"))
+    }
+
+    #[test]
+    fn cjk_match_phrase_highlights_inside_an_unspaced_run() {
+        let text = "我喜欢北京的天气 and the weather in Beijing";
+        let (lower, map) = build_lower_offset_map(text);
+        let terms = hl_terms(serde_json::json!({"match_phrase": {"body": "北京"}}));
+        assert_eq!(terms, vec!["北京".to_string()]);
+        let frags = build_highlight_fragments(text, &lower, &map, &terms, "<em>", "</em>", 150, 3);
+        assert_eq!(
+            frags,
+            vec![format!(
+                "我喜欢<em>北京</em>的天气 and the weather in Beijing"
+            )]
+        );
+        let full = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert_eq!(full, "我喜欢<em>北京</em>的天气 and the weather in Beijing");
+
+        for (text, term) in [
+            ("東京都に住んでいます", "東京"),
+            ("東京都に住んでいます", "住んで"),
+            ("서울에서 만나요", "서울"),
+        ] {
+            let (lower, map) = build_lower_offset_map(text);
+            let full = highlight_full_text(text, &lower, &map, &[term.to_string()], "[", "]");
+            assert!(
+                full.contains(&format!("[{term}]")),
+                "{text} / {term}: {full}"
+            );
+        }
+    }
+
+    #[test]
+    fn cjk_match_tags_the_query_pairs_the_document_holds() {
+        let terms = hl_terms(serde_json::json!({"match": {"body": "北京天气"}}));
+        for t in ["北京", "京天", "天气", "北京天气"] {
+            assert!(terms.contains(&t.to_string()), "{t} in {terms:?}");
+        }
+        let text = "我喜欢北京的天气";
+        let (lower, map) = build_lower_offset_map(text);
+        let full = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert_eq!(full, "我喜欢<em>北京</em>的<em>天气</em>");
+        let text = "北京天气很好";
+        let (lower, map) = build_lower_offset_map(text);
+        let full = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert_eq!(
+            full, "<em>北京天气</em>很好",
+            "adjacent pairs merge into one tag"
+        );
+
+        // A phrase keeps the whole run; mixed tokens split at the script edge.
+        let phrase = hl_terms(serde_json::json!({"multi_match": {
+            "query": "北京天气", "fields": ["body"], "type": "phrase"}}));
+        assert_eq!(phrase, vec!["北京天气".to_string()]);
+        let mixed = hl_terms(serde_json::json!({"match": {"body": "iPhone手机"}}));
+        assert!(mixed.contains(&"iphone".to_string()), "{mixed:?}");
+        assert!(mixed.contains(&"手机".to_string()), "{mixed:?}");
+        let single = hl_terms(serde_json::json!({"match": {"body": "京"}}));
+        assert_eq!(single, vec!["京".to_string()]);
+    }
+
+    #[test]
+    fn every_cjk_match_hit_gets_a_highlight() {
+        let hit = |id: &str, body: &str| -> Hit {
+            serde_json::from_value(serde_json::json!({
+                "id": id, "score": 1.0, "_source": {"body": body},
+                "sort": [], "matched_queries": [],
+            }))
+            .expect("hit")
+        };
+        let hl: HighlightRequest =
+            serde_json::from_value(serde_json::json!({"fields": {"body": {}}})).expect("hl");
+        let query = xerj_query::parse_query(&serde_json::json!({"match": {"body": "北京天气"}}))
+            .expect("query");
+        let hits = apply_highlight(
+            vec![
+                hit("pair", "我喜欢北京的天气"),
+                hit("char", "東京都に住んでいます"),
+                hit("none", "nothing here"),
+            ],
+            &hl,
+            &query,
+        );
+        let body = |h: &Hit| h.highlight.as_ref().map(|m| m["body"].clone());
+        assert_eq!(
+            body(&hits[0]),
+            Some(vec!["我喜欢<em>北京</em>的<em>天气</em>".to_string()]),
+            "pairs win where they occur: no lone 北 or 天 tags"
+        );
+        assert_eq!(
+            body(&hits[1]),
+            Some(vec!["東<em>京</em>都に住んでいます".to_string()]),
+            "a hit that matched on one character still shows it"
+        );
+        assert_eq!(body(&hits[2]), None);
+    }
+
+    #[test]
+    fn cjk_boundaries_leave_latin_whole_word_rules_alone() {
+        assert!(next_term_match("北京abc", "abc", 0).is_some());
+        assert!(next_term_match("abc北京", "abc", 0).is_some());
+        assert_eq!(next_term_match("xabc北京", "abc", 0), None);
+        assert_eq!(next_term_match("for", "or", 0), None);
+        assert_eq!(next_term_match("sector", "or", 0), None);
+        let text = "a wildcard北京 and wild cats";
+        let (lower, map) = build_lower_offset_map(text);
+        let full = highlight_full_text(text, &lower, &map, &["wild*".to_string()], "[", "]");
+        assert_eq!(full, "a [wildcard]北京 and [wild] cats");
+    }
+
     #[test]
     fn fragment_highlight_after_multibyte_does_not_panic() {
         let text = "İstanbul cafe";
@@ -65924,6 +73961,7 @@ mod flush_memory_integration_tests {
             warm_caches,
             idx.name.as_str().to_string(),
             std::time::Duration::from_secs(30),
+            Arc::clone(&idx.finalize_gate),
             Some(hook),
         )
         .await;
@@ -66166,6 +74204,9 @@ thread_local! {
     /// reached inside the `residual_gate` per-segment loop.
     pub(crate) static RESIDUAL_HITS_PEAK: std::cell::Cell<usize> =
         const { std::cell::Cell::new(0) };
+    /// How many segment hits the `residual_gate` loop decoded and re-tested.
+    pub(crate) static RESIDUAL_HITS_DECODED: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
     /// #892 fail-before instrument: how many segments the search answered
     /// from the inverted index (`fts_handled`) and how many it answered by
     /// parsing their stored section. Which route a request took is invisible
@@ -66341,6 +74382,102 @@ mod residual_gate_trim_577_tests {
             "residual survivors must stay O(page cap), not O(matches): peak={peak} (N={N})"
         );
     }
+
+    /// Read-under-write bool collapse: with ONE document in the memtable,
+    /// `bool{must:[keyword match], filter:[range]}` loses the columnar scored
+    /// path and takes the residual pass, which decoded and re-tested every
+    /// match of every segment to tally `hits.total` (6.6 s at 1.4M matches
+    /// under a bulk writer). With the doc-values shortcut holding the exact
+    /// total, each segment now stops after its own best page. Fail-before:
+    /// the residual pass decoded every `ok` hit (2,000 here). Page and total
+    /// must equal the same query with `min_score: 0`, which stays unbounded.
+    #[tokio::test]
+    async fn residual_gate_stops_counting_when_the_shortcut_is_exact() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        // One segment per flush, so each segment holds more matches than
+        // the page cap and the per-segment stop can fire.
+        config.engine.ingest_shards = 1;
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("status", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("n", FieldType::Long))
+            .unwrap();
+        engine.create_index("residual-ruw", schema).unwrap();
+        let idx = engine.get_index("residual-ruw").unwrap();
+        idx.abort_background_tasks();
+
+        // Two flushed segments of 2,000 docs; half `ok`, n = 0..3999.
+        for batch in 0..2u64 {
+            for i in batch * 2000..(batch + 1) * 2000 {
+                let status = if i % 2 == 0 { "ok" } else { "err" };
+                idx.index_document(Some(format!("d{i}")), json!({"status": status, "n": i}))
+                    .await
+                    .unwrap();
+            }
+            idx.flush().await.unwrap();
+        }
+        // One unflushed doc: the memtable is no longer empty.
+        idx.index_document(Some("m0".into()), json!({"status": "ok", "n": 9000}))
+            .await
+            .unwrap();
+        assert_eq!(idx.memtable.doc_count(), 1);
+        assert_eq!(idx.store.snapshot().segments.len(), 2);
+
+        // ok docs with n >= 200: 1,900 in segments + the memtable doc.
+        let expected_total = 1901u64;
+        for size in [10usize, 300] {
+            let body = json!({
+                "size": size,
+                "track_total_hits": true,
+                "query": {"bool": {
+                    "must": [{"match": {"status": "ok"}}],
+                    "filter": [{"range": {"n": {"gte": 200}}}]
+                }}
+            });
+            let mut reference_body = body.clone();
+            reference_body["min_score"] = json!(0.0);
+
+            RESIDUAL_HITS_DECODED.with(|c| c.set(0));
+            let bounded = idx
+                .search(&xerj_query::parse_request(&body).unwrap())
+                .await
+                .unwrap();
+            let bounded_decoded = RESIDUAL_HITS_DECODED.with(|c| c.get());
+
+            // `min_score` keeps the bounded stop off (and takes another
+            // route), so it is an independent answer to compare against.
+            let reference = idx
+                .search(&xerj_query::parse_request(&reference_body).unwrap())
+                .await
+                .unwrap();
+
+            assert_eq!(reference.total.value, expected_total, "size {size}");
+            assert_eq!(bounded.total.value, expected_total, "size {size}");
+            let ids = |r: &SearchResult| r.hits.iter().map(|h| h.id.clone()).collect::<Vec<_>>();
+            assert_eq!(
+                ids(&bounded),
+                ids(&reference),
+                "page must not change (size {size})"
+            );
+            assert_eq!(bounded.hits.len(), size);
+            // 2,000 `ok` hits sit in the two segments; the old pass decoded
+            // every one of them.
+            assert!(
+                bounded_decoded > 0,
+                "the residual pass must have run for this query (size {size})"
+            );
+            assert!(
+                bounded_decoded < 2000,
+                "the residual pass must stop once each segment holds its page: \
+                 decoded {bounded_decoded} of 2000 ok hits (size {size})"
+            );
+        }
+    }
 }
 
 #[cfg(test)]
@@ -66502,6 +74639,7 @@ mod pinned_knn_fts_892_tests {
                 &empty,
                 SegmentAnalyzerBinding::Standard,
                 None,
+                DateDocs::Decline,
             )
             .is_none(),
             "no resolver ⇒ the pinned sub-tree must still decline"
@@ -66517,6 +74655,7 @@ mod pinned_knn_fts_892_tests {
             &empty,
             SegmentAnalyzerBinding::Standard,
             Some(PinnedIds::Positions(&positions)),
+            DateDocs::Decline,
         )
         .expect("a resolvable pinned sub-tree must project");
         match projected {
@@ -66594,6 +74733,207 @@ mod pinned_knn_fts_892_tests {
     }
 }
 
+/// #3018 — a hybrid leg leaves `_source` unread (`defer_source`), and the
+/// hybrid executor reads the fused page alone, as the version the leg scored.
+#[cfg(test)]
+mod hybrid_deferred_source_tests {
+    use super::*;
+    use serde_json::json;
+    use xerj_common::config::Config;
+    use xerj_common::types::{FieldConfig, FieldType, Schema};
+
+    const DIMS: usize = 8;
+
+    fn vector(i: usize) -> Vec<f32> {
+        (0..DIMS)
+            .map(|d| (((i * 31 + d * 17) % 97) as f32 / 97.0) - 0.5)
+            .collect()
+    }
+
+    fn body(i: usize) -> String {
+        let words = ["alpha", "beta", "gamma", "delta"];
+        let mut tokens: Vec<&str> = Vec::new();
+        for (w, word) in words.iter().enumerate() {
+            for _ in 0..((i + w * 3) % 4) {
+                tokens.push(word);
+            }
+        }
+        tokens.resize(10, "filler");
+        tokens.join(" ")
+    }
+
+    async fn index_with(docs: usize) -> (tempfile::TempDir, crate::Engine, Arc<Index>) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        let mut v = FieldConfig::new("vec", FieldType::Vector);
+        v.options.dimensions = Some(DIMS);
+        schema.add_field(v).unwrap();
+        engine.create_index("defer3018", schema).unwrap();
+        let idx = engine.get_index("defer3018").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..docs {
+            idx.index_document(
+                Some(format!("d{i:04}")),
+                json!({"body": body(i), "vec": vector(i), "n": i}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        (dir, engine, idx)
+    }
+
+    fn leg(query: Value, size: usize, defer: bool) -> SearchRequest {
+        let mut request =
+            xerj_query::parse_request(&json!({"query": query, "size": size})).unwrap();
+        request.defer_source = defer;
+        request
+    }
+
+    async fn run(idx: &Arc<Index>, request: &SearchRequest) -> SearchResult {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        idx.search_inner(request, deadline).await.unwrap()
+    }
+
+    fn key(result: &SearchResult) -> Vec<(String, u32, Option<u64>)> {
+        result
+            .hits
+            .iter()
+            .map(|h| (h.id.clone(), h.score.to_bits(), h.seq_no))
+            .collect()
+    }
+
+    /// The BM25 walk and the kNN exact scan answer a deferred leg with the
+    /// same ids, scores and `seq_no`s, and without a decoded `_source`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn deferred_legs_rank_identically_and_leave_sources_unread() {
+        let (_dir, _engine, idx) = index_with(600).await;
+        for query in [
+            json!({"match": {"body": "alpha gamma"}}),
+            json!({"knn": {"field": "vec", "query_vector": vector(7), "k": 50}}),
+        ] {
+            let full = run(&idx, &leg(query.clone(), 50, false)).await;
+            let deferred = run(&idx, &leg(query.clone(), 50, true)).await;
+            assert_eq!(full.hits.len(), 50, "{query}");
+            assert_eq!(key(&deferred), key(&full), "{query}: ranking moved");
+            assert!(full.hits.iter().all(|h| h.source.is_object()), "{query}");
+            assert!(
+                deferred.hits.iter().all(|h| h.source.is_null()),
+                "{query}: a deferred leg decoded a segment source"
+            );
+            assert!(deferred.hits.iter().all(|h| h.seq_no.is_some()), "{query}");
+        }
+        // A `_name`d clause is matched against each hit's source after the
+        // walk, so that leg keeps hydrating.
+        let named = json!({"bool": {"must": [
+            {"match": {"body": {"query": "alpha", "_name": "a"}}}
+        ]}});
+        let deferred = run(&idx, &leg(named, 20, true)).await;
+        assert!(!deferred.hits.is_empty());
+        assert!(deferred.hits.iter().all(|h| h.source.is_object()));
+        assert!(deferred
+            .hits
+            .iter()
+            .all(|h| h.matched_queries == vec!["a".to_string()]));
+    }
+
+    /// The page hydrator reads each deferred hit as the version the leg
+    /// scored, and hands the request back when that version is gone.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn page_hydration_reads_the_scored_version_or_hands_back() {
+        let (_dir, _engine, idx) = index_with(600).await;
+        let query = json!({"match": {"body": "alpha gamma"}});
+        let deferred = run(&idx, &leg(query.clone(), 10, true)).await;
+        assert_eq!(deferred.hits.len(), 10);
+        let page = idx
+            .hydrate_deferred_hybrid_page(deferred.hits.clone())
+            .expect("an unchanged page hydrates");
+        for hit in &page {
+            let stored = idx.get_document_uncounted(&hit.id).await.unwrap().unwrap();
+            assert_eq!(hit.source, stored, "{}", hit.id);
+        }
+
+        // A hit without a `seq_no` cannot be tied to a version.
+        let mut unknown = deferred.hits.clone();
+        unknown[3].seq_no = None;
+        assert!(idx.hydrate_deferred_hybrid_page(unknown).is_none());
+
+        // A document rewritten after it was scored is not the scored copy,
+        // in the memtable or flushed.
+        let rewritten = deferred.hits[4].id.clone();
+        idx.index_document(
+            Some(rewritten),
+            json!({"body": "rewritten", "vec": vector(1)}),
+        )
+        .await
+        .unwrap();
+        assert!(idx
+            .hydrate_deferred_hybrid_page(deferred.hits.clone())
+            .is_none());
+        idx.flush().await.unwrap();
+        assert!(idx
+            .hydrate_deferred_hybrid_page(deferred.hits.clone())
+            .is_none());
+
+        // And one deleted since.
+        let fresh = run(&idx, &leg(query, 10, true)).await;
+        assert!(idx
+            .hydrate_deferred_hybrid_page(fresh.hits.clone())
+            .is_some());
+        idx.delete_document(&fresh.hits[0].id).await.unwrap();
+        assert!(idx.hydrate_deferred_hybrid_page(fresh.hits).is_none());
+    }
+
+    /// End to end: the hybrid page carries the stored documents, filtered by
+    /// the request's `_source`, over a flushed segment plus memtable writes.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn hybrid_page_sources_match_the_stored_documents() {
+        let (_dir, _engine, idx) = index_with(600).await;
+        for i in 600..640 {
+            idx.index_document(
+                Some(format!("d{i:04}")),
+                json!({"body": body(i), "vec": vector(i), "n": i}),
+            )
+            .await
+            .unwrap();
+        }
+        for source in [json!(true), json!({"excludes": ["vec"]}), json!(["n"])] {
+            let request = xerj_query::parse_request(&json!({
+                "size": 10,
+                "_source": source,
+                "query": {"hybrid": {"queries": [
+                    {"query": {"match": {"body": "beta delta"}}},
+                    {"query": {"knn": {"field": "vec", "query_vector": vector(605), "k": 50}}}
+                ]}}
+            }))
+            .unwrap();
+            idx.query_cache.clear();
+            let result = idx.search(&request).await.unwrap();
+            assert_eq!(result.hits.len(), 10);
+            for hit in &result.hits {
+                let mut stored = idx.get_document(&hit.id).await.unwrap().unwrap();
+                match &source {
+                    Value::Bool(true) => {}
+                    Value::Array(_) => stored = json!({"n": stored["n"].clone()}),
+                    _ => {
+                        stored.as_object_mut().unwrap().remove("vec");
+                    }
+                }
+                let mut got = hit.source.clone();
+                xerj_common::packed_f32::expand_packed_f32_values(&mut got);
+                assert_eq!(got, stored, "{} with _source {source}", hit.id);
+            }
+        }
+        assert_eq!(idx.hybrid_deferred_hand_backs.load(Ordering::Relaxed), 0);
+    }
+}
+
 /// #940 — the fused order is total, and a function of the leg lists and the
 /// documents' arrival order alone.
 ///
@@ -66656,7 +74996,7 @@ mod hybrid_fused_order_tests {
         // doc-10 ahead of doc-2.
         let expected: Vec<String> = (0..24).map(|n| format!("doc-{n}")).collect();
         for call in 0..64 {
-            let fused = fuse_rrf(&legs, 60, &arrival);
+            let fused = fuse_rrf(legs.clone(), 60, &arrival);
             assert_eq!(
                 ids(&fused),
                 expected.iter().map(String::as_str).collect::<Vec<_>>(),
@@ -66684,7 +75024,7 @@ mod hybrid_fused_order_tests {
             (vec![hit("doc-4", 0.9), hit("doc-7", 0.8)], 1.0),
         ];
         for _ in 0..64 {
-            let fused = fuse_rrf(&legs, 60, &arrival);
+            let fused = fuse_rrf(legs.clone(), 60, &arrival);
             assert_eq!(fused[0].score.to_bits(), fused[1].score.to_bits());
             assert_eq!(ids(&fused), ["doc-4", "doc-7"]);
         }
@@ -66699,8 +75039,8 @@ mod hybrid_fused_order_tests {
         let mut swapped = legs.clone();
         swapped.reverse();
         assert_eq!(
-            ids(&fuse_rrf(&legs, 60, &arrival)),
-            ids(&fuse_rrf(&swapped, 60, &arrival))
+            ids(&fuse_rrf(legs.clone(), 60, &arrival)),
+            ids(&fuse_rrf(swapped.clone(), 60, &arrival))
         );
     }
 
@@ -66713,7 +75053,7 @@ mod hybrid_fused_order_tests {
             (vec![hit("alpha", 1.0)], 1.0),
         ];
         for _ in 0..64 {
-            let fused = fuse_rrf(&legs, 60, &|_| u64::MAX);
+            let fused = fuse_rrf(legs.clone(), 60, &|_| u64::MAX);
             assert_eq!(ids(&fused), ["alpha", "zeta"]);
         }
     }
@@ -66729,7 +75069,7 @@ mod hybrid_fused_order_tests {
             .collect();
         let legs = vec![(constant, 1.0)];
         for call in 0..64 {
-            let fused = fuse_linear(&legs, &arrival);
+            let fused = fuse_linear(legs.clone(), &arrival);
             assert!(fused.iter().all(|h| h.score == 0.0));
             assert_eq!(
                 ids(&fused),
@@ -66747,7 +75087,7 @@ mod hybrid_fused_order_tests {
             vec![hit("doc-1", 4.0), hit("doc-2", f32::NAN), hit("doc-3", 1.0)],
             1.0,
         )];
-        let fused = fuse_linear(&legs, &arrival);
+        let fused = fuse_linear(legs.clone(), &arrival);
         assert_eq!(ids(&fused), ["doc-1", "doc-3", "doc-2"]);
         assert!(fused[2].score.is_nan());
     }
@@ -66760,7 +75100,7 @@ mod hybrid_fused_order_tests {
             (vec![hit("doc-9", 3.0), hit("doc-1", 2.0)], 1.0),
             (vec![hit("doc-9", 0.9), hit("doc-2", 0.8)], 1.0),
         ];
-        let fused = fuse_rrf(&legs, 60, &arrival);
+        let fused = fuse_rrf(legs.clone(), 60, &arrival);
         assert_eq!(ids(&fused), ["doc-9", "doc-1", "doc-2"]);
         assert!(fused[0].score > fused[1].score);
         assert_eq!(fused[1].score.to_bits(), fused[2].score.to_bits());
@@ -67086,6 +75426,17 @@ mod exact_scan_hydration_tests {
     /// plus a live memtable, with every awkward document shape the scan has a
     /// rule for.
     async fn seed(idx: &Arc<Index>) {
+        // Hand-driven: every flush and merge below is explicit, so no
+        // background merge may publish under a test. The oracles read the
+        // memtable and then the segments with no publication bracket around
+        // the pair, and the cache test reads a segment snapshot after its
+        // scan; a merge landing in either window shows a segment the other
+        // read never saw. With 60 flush + force_merge rounds running beside
+        // `legacy_scan`, 164 of 10,760 oracle scans came back 1-5
+        // documents short of 282; `run_knn_brute_force`, which validates its
+        // capture against the publication, answered 282 in all 3,621. The
+        // oracle tears; the engine does not.
+        idx.abort_background_tasks();
         let mut rng = Lcg(0x939);
         let shared = rng.vector();
         for id in 0..150 {
@@ -67877,6 +76228,60 @@ mod exact_scan_hydration_tests {
         assert!(doc_matches_query_typed(&query, &source, &Schema::empty()));
     }
 
+    /// #3259: on a mapped, indexed `text` field `term` answers exactly like
+    /// `terms` with one value — token hits added, the raw whole-value hit
+    /// kept. Keyword and undeclared fields keep whole-value `term` matching.
+    #[test]
+    fn term_on_indexed_text_matches_tokens_like_terms() {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("tag", FieldType::Keyword))
+            .unwrap();
+        let term = |f: &str, v: &str| QueryNode::Term {
+            field: f.into(),
+            value: Value::from(v),
+            boost: None,
+        };
+        let terms = |f: &str, v: &str| QueryNode::Terms {
+            field: f.into(),
+            values: vec![Value::from(v)],
+            boost: None,
+        };
+        let docs = [
+            serde_json::json!({ "body": "the quick brown fox", "tag": "a b" }),
+            serde_json::json!({ "body": "quick start", "tag": "quick" }),
+            serde_json::json!({ "body": "lazy dog", "tag": "c" }),
+        ];
+        for v in ["quick", "fox", "the quick brown fox", "slow"] {
+            for d in &docs {
+                assert_eq!(
+                    doc_matches_query_typed(&term("body", v), d, &schema),
+                    doc_matches_query_typed(&terms("body", v), d, &schema),
+                    "term vs terms on body={v:?} doc={d}"
+                );
+            }
+        }
+        let hits = |q: &QueryNode| {
+            docs.iter()
+                .filter(|d| doc_matches_query_typed(q, d, &schema))
+                .count()
+        };
+        assert_eq!(hits(&term("body", "quick")), 2);
+        assert_eq!(hits(&term("body", "the quick brown fox")), 1);
+        // Keyword: whole value only, no token fallback for `term`.
+        assert_eq!(hits(&term("tag", "a")), 0);
+        assert_eq!(hits(&term("tag", "quick")), 1);
+        // Undeclared field: whole value only, as before.
+        assert!(!doc_matches_query_typed(
+            &term("text", "brown"),
+            &serde_json::json!({ "text": "quick brown fox" }),
+            &Schema::empty()
+        ));
+    }
+
     /// The full-source plan IS the old behaviour: the whole source with `_id`
     /// inserted over whatever the document carried under that key.
     #[test]
@@ -67897,15 +76302,14 @@ mod exact_scan_hydration_tests {
         // task spawned for a non-empty shard can find it drained by a
         // concurrent flush by the time it holds its `flush_sema` permit, and
         // the ingest-triggered flush paths call `do_flush_shard` directly.
-        // Those calls must not queue on the process-global
+        // Those calls must not queue on the data-dir
         // `flush_finalize_gate` just to discover there is nothing to drain.
         //
         // Exhaust the global gate, then flush an empty shard directly: it
         // must return at once and still fire `on_drained` (callers use it to
         // release their `flush_sema` permit). Without the pre-gate check the
-        // call blocks on `acquire()` and the timeout fires. The permits are
-        // held only for the duration of one no-op call, so concurrent tests
-        // that flush are delayed by microseconds, not stalled.
+        // call blocks on `acquire()` and the timeout fires. The gate is this
+        // engine's own (#3324), so holding all of it stalls no other test.
         let dir = tempfile::tempdir().unwrap();
         let eng = engine(&dir);
         let idx = eng.get_or_create_index("empty-shard-skip").unwrap();
@@ -67915,11 +76319,8 @@ mod exact_scan_hydration_tests {
         let drained = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let drained_flag = Arc::clone(&drained);
         let permits_n = crate::pools::sizing().flush_finalize as u32;
-        let held = crate::flush_finalize_gate()
-            .acquire_many(permits_n)
-            .await
-            .unwrap();
-        assert_eq!(crate::flush_finalize_gate().available_permits(), 0);
+        let held = idx.finalize_gate.acquire_many(permits_n).await.unwrap();
+        assert_eq!(idx.finalize_gate.available_permits(), 0);
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(2),
             do_flush_shard(
@@ -67936,6 +76337,7 @@ mod exact_scan_hydration_tests {
                 idx.publish_warm_caches(),
                 idx.name.as_str().to_string(),
                 std::time::Duration::from_secs(30),
+                Arc::clone(&idx.finalize_gate),
                 None,
             ),
         )
@@ -68103,6 +76505,38 @@ mod log_match_operator_tests {
             "the english analyzer already drops is, on a non-log index too"
         );
     }
+
+    #[test]
+    fn declared_field_resolves_literal_dotted_field_names_and_multifields() {
+        use xerj_common::types::{FieldConfig, FieldOptions, FieldType, Schema};
+
+        let mut schema = Schema::empty();
+        schema.fields.push(FieldConfig {
+            name: "files_manifest.json_recorded_at".to_string(),
+            field_type: FieldType::Date,
+            options: FieldOptions::default(),
+            embedding: None,
+            fields: vec![FieldConfig {
+                name: "keyword".to_string(),
+                field_type: FieldType::Keyword,
+                options: FieldOptions::default(),
+                embedding: None,
+                fields: vec![],
+            }],
+        });
+
+        let found = declared_field(&schema, "files_manifest.json_recorded_at")
+            .expect("literal dotted field name in Schema::fields must resolve");
+        assert!(matches!(found.field_type, FieldType::Date));
+
+        let kw = declared_field(&schema, "files_manifest.json_recorded_at.keyword")
+            .expect("multi-field under literal dotted field name must resolve");
+        assert!(matches!(kw.field_type, FieldType::Keyword));
+        assert!(
+            declared_field(&schema, "files_manifest.json_missing").is_none(),
+            "undeclared dotted sibling must still return None"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -68199,3 +76633,1408 @@ mod sqs_wildcard_fields_2427_tests {
         assert!(fts > 0 && scans == 0, "fts={fts} stored_scans={scans}");
     }
 }
+
+#[cfg(test)]
+mod multi_valued_keyword_term_3412_tests {
+    use super::*;
+    use serde_json::json;
+
+    const HEADS: [&str; 6] = [
+        "Install",
+        "Usage notes",
+        "raft leader election",
+        "FAQ",
+        "Install guide",
+        "true",
+    ];
+
+    /// Doc `i`'s `headings`: an array of 1-3 headings (so every segment
+    /// ships NO doc-values column for the field), absent on every 7th doc.
+    fn headings_for(i: usize) -> Option<Vec<&'static str>> {
+        if i.is_multiple_of(7) {
+            return None;
+        }
+        let n = 1 + i % 3;
+        let mut out: Vec<&'static str> = Vec::new();
+        for k in 0..n {
+            let h = HEADS[(i + 2 * k) % HEADS.len()];
+            if !out.contains(&h) {
+                out.push(h);
+            }
+        }
+        Some(out)
+    }
+
+    async fn multi_segment_index(
+        name: &str,
+    ) -> (tempfile::TempDir, crate::Engine, Arc<Index>, usize) {
+        let dir = tempfile::tempdir().unwrap();
+        // #3455 tests fill and re-target this index's hydration budget; on
+        // the shared one that races every test running beside them.
+        isolate_test_hydration_budget(dir.path());
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("headings", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        engine.create_index(name, schema).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        let mut n = 0usize;
+        for _round in 0..4 {
+            for _ in 0..60 {
+                let mut doc = json!({ "body": format!("section body {n}") });
+                if let Some(h) = headings_for(n) {
+                    doc["headings"] = json!(h);
+                }
+                idx.index_document(Some(format!("d{n:04}")), doc)
+                    .await
+                    .unwrap();
+                n += 1;
+            }
+            idx.flush().await.unwrap();
+        }
+        (dir, engine, idx, n)
+    }
+
+    fn expected_ids(n: usize, term: &str) -> Vec<String> {
+        (0..n)
+            .filter(|&i| headings_for(i).is_some_and(|h| h.contains(&term)))
+            .map(|i| format!("d{i:04}"))
+            .collect()
+    }
+
+    /// The page the stored scan returns: `(score DESC, seq ASC)`, where the
+    /// scan's `term` score grows with how many of the query's tokens appear
+    /// across ALL array elements (`match_term_frequency`) — "Install" scores
+    /// higher on `["Install", "Install guide"]` than on `["Install"]`.
+    fn expected_page(n: usize, term: &str) -> Vec<String> {
+        let q: Vec<String> = term.split_whitespace().map(str::to_lowercase).collect();
+        let tf = |h: &[&str]| -> usize {
+            h.iter()
+                .map(|e| {
+                    let lc = e.to_lowercase();
+                    let toks: Vec<&str> = lc.split(|c: char| !c.is_alphanumeric()).collect();
+                    q.iter()
+                        .map(|t| toks.iter().filter(|x| **x == t.as_str()).count())
+                        .sum::<usize>()
+                })
+                .sum()
+        };
+        let mut hits: Vec<(usize, usize)> = (0..n)
+            .filter_map(|i| {
+                let h = headings_for(i)?;
+                h.contains(&term).then(|| (tf(&h), i))
+            })
+            .collect();
+        hits.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        hits.into_iter().map(|(_, i)| format!("d{i:04}")).collect()
+    }
+
+    /// The segment dictionary answers exactly what the stored scan answers:
+    /// an absent term is `Some(∅)` (segment skipped, nothing decoded) and a
+    /// present term is the complete set of matching stored positions.
+    #[tokio::test]
+    async fn fts_dictionary_prefilter_is_exact_per_segment() {
+        let (_dir, _engine, idx, n) = multi_segment_index("mvk3412a").await;
+        let snap = idx.store.snapshot();
+        assert!(snap.segments.len() > 1, "{} segments", snap.segments.len());
+        let segments_dir = idx.data_dir.join("segments");
+        let mut present_total = 0usize;
+        for meta in snap.segments.iter() {
+            let has_column = idx
+                .dv_columns_for(&segments_dir, &meta.id)
+                .is_some_and(|c| c.get("headings").is_some());
+            assert!(!has_column, "a multi-valued keyword field ships no column");
+            let miss = idx
+                .build_keyword_term_fts_prefilter(&segments_dir, &meta.id, "headings", "nope")
+                .expect("dictionary answers an absent term");
+            assert!(miss.is_empty());
+            let hit = idx
+                .build_keyword_term_fts_prefilter(&segments_dir, &meta.id, "headings", "FAQ")
+                .expect("dictionary answers a present term");
+            present_total += hit.set.len();
+        }
+        assert_eq!(present_total, expected_ids(n, "FAQ").len());
+    }
+
+    /// `_search` totals and pages (`size` 0 / 5 / 1000) are what the stored
+    /// scan produced before — hits, misses, a boolean-spelled value, and a
+    /// case variant — and the count shortcut now resolves the shape instead
+    /// of abandoning to the counting scan.
+    #[tokio::test]
+    async fn term_on_multi_valued_keyword_matches_the_scan() {
+        let (_dir, _engine, idx, n) = multi_segment_index("mvk3412b").await;
+        for term in [
+            "Install",
+            "raft leader election",
+            "FAQ",
+            "true",
+            "nope",
+            "install",
+        ] {
+            let want = expected_ids(n, term);
+            for size in [0usize, 5, 1000] {
+                let req = xerj_query::parse_request(&json!({
+                    "size": size,
+                    "track_total_hits": true,
+                    "query": {"term": {"headings": term}}
+                }))
+                .unwrap();
+                let res = idx.search(&req).await.unwrap();
+                assert_eq!(
+                    res.total.value as usize,
+                    want.len(),
+                    "term={term:?} size={size}"
+                );
+                let got: Vec<&str> = res.hits.iter().map(|h| h.id.as_str()).collect();
+                let page = expected_page(n, term);
+                let want_page: Vec<&str> = page.iter().take(size).map(|s| s.as_str()).collect();
+                assert_eq!(got, want_page, "term={term:?} size={size}");
+
+                // `constant_score` wrapping the same term: same match set,
+                // every score the constant, so the page is arrival order.
+                let req = xerj_query::parse_request(&json!({
+                    "size": size,
+                    "track_total_hits": true,
+                    "query": {"constant_score": {"filter": {"term": {"headings": term}}}}
+                }))
+                .unwrap();
+                let res = idx.search(&req).await.unwrap();
+                assert_eq!(
+                    res.total.value as usize,
+                    want.len(),
+                    "constant_score term={term:?} size={size}"
+                );
+                let got: Vec<&str> = res.hits.iter().map(|h| h.id.as_str()).collect();
+                let want_page: Vec<&str> = want.iter().take(size).map(|s| s.as_str()).collect();
+                assert_eq!(got, want_page, "constant_score term={term:?} size={size}");
+            }
+            let schema = idx.schema().await;
+            let q = QueryNode::Term {
+                field: "headings".into(),
+                value: json!(term),
+                boost: None,
+            };
+            let snap = idx.store.snapshot();
+            let count = idx
+                .try_shortcut_count(&q, &snap, false, None, &schema, true)
+                .await;
+            assert_eq!(count, Some(want.len() as u64), "term={term:?}");
+            // A page request must not get it: F1 would bound the scan, and
+            // array scores are not tied (see `fts_keyword_oracle`).
+            let page_count = idx
+                .try_shortcut_count(&q, &snap, false, None, &schema, false)
+                .await;
+            assert_eq!(page_count, None, "term={term:?}");
+        }
+    }
+
+    /// #3465: one merged segment holds every doc, so its first five
+    /// "Install" matches (d0002 d0004 d0006 d0008 d0010) include d0006, which
+    /// scores lower (one element) than d0016 (two elements) further on. The
+    /// page is the segment's best five, not its first five. Each query runs
+    /// twice: the first walks the stored section and caches its offsets, so
+    /// the repeat can take the warm-slices arm (`hydrate_prefiltered_unsorted`).
+    #[tokio::test]
+    async fn a_merged_segment_pages_its_best_matches_not_its_first() {
+        let (_dir, _engine, idx, n) = multi_segment_index("mvk3465").await;
+        idx.force_merge(1).await.unwrap();
+        assert_eq!(idx.store.snapshot().segments.len(), 1);
+        for term in ["Install", "FAQ", "raft leader election"] {
+            let page = expected_page(n, term);
+            for size in [1usize, 5, 12] {
+                let want: Vec<&str> = page.iter().take(size).map(|s| s.as_str()).collect();
+                for pass in ["cold", "warm"] {
+                    let req = xerj_query::parse_request(&json!({
+                        "size": size,
+                        "query": {"term": {"headings": term}}
+                    }))
+                    .unwrap();
+                    let res = idx.search(&req).await.unwrap();
+                    let got: Vec<&str> = res.hits.iter().map(|h| h.id.as_str()).collect();
+                    assert_eq!(got, want, "term={term:?} size={size} {pass}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn oracle_declines_shapes_the_dictionary_cannot_answer() {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("tags", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("n", FieldType::Long))
+            .unwrap();
+        let ok = json!("red");
+        assert_eq!(keyword_fts_term_oracle(&schema, "tags", &ok), Some("red"));
+        // #3456: a path is a literal to the scan as well; only a value the
+        // scan could read as a CIDR declines.
+        let path = json!("copy11/crates/xerj-fts/src/search.rs");
+        assert_eq!(
+            keyword_fts_term_oracle(&schema, "tags", &path),
+            Some("copy11/crates/xerj-fts/src/search.rs")
+        );
+        assert!(keyword_fts_term_oracle(&schema, "tags", &json!("docs/12")).is_none());
+        assert!(keyword_fts_term_oracle(&schema, "tags", &json!("fe80::/10")).is_none());
+        for (field, value) in [
+            ("tags", json!("42")),
+            ("tags", json!("4.5e3")),
+            ("tags", json!("10.0.0.0/8")),
+            ("tags", json!("")),
+            ("tags", json!(42)),
+            ("tags", json!(true)),
+            ("body", json!("red")),
+            ("n", json!("red")),
+            ("tags.keyword", json!("red")),
+            ("unmapped", json!("red")),
+        ] {
+            assert_eq!(
+                keyword_fts_term_oracle(&schema, field, &value),
+                None,
+                "{field}={value}"
+            );
+        }
+    }
+
+    /// A numeric-looking value stays on the stored scan, which matches `"42"`
+    /// against a stored number as well as the literal string.
+    #[tokio::test]
+    async fn numeric_string_term_keeps_the_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("tags", FieldType::Keyword))
+            .unwrap();
+        engine.create_index("mvk3412c", schema).unwrap();
+        let idx = engine.get_index("mvk3412c").unwrap();
+        idx.index_document(Some("a".into()), json!({"tags": ["x", "y"]}))
+            .await
+            .unwrap();
+        idx.index_document(Some("b".into()), json!({"tags": ["42", "z"]}))
+            .await
+            .unwrap();
+        idx.flush().await.unwrap();
+        let req = xerj_query::parse_request(&json!({
+            "size": 10,
+            "track_total_hits": true,
+            "query": {"term": {"tags": "42"}}
+        }))
+        .unwrap();
+        let res = idx.search(&req).await.unwrap();
+        let ids: Vec<&str> = res.hits.iter().map(|h| h.id.as_str()).collect();
+        assert_eq!(ids, vec!["b"]);
+        assert_eq!(res.total.value, 1);
+        let schema = idx.schema().await;
+        assert!(keyword_fts_term_oracle(&schema, "tags", &json!("42")).is_none());
+    }
+
+    fn expected_and(n: usize, all: &[&str], none: &[&str]) -> Vec<String> {
+        (0..n)
+            .filter(|&i| {
+                headings_for(i).is_some_and(|h| {
+                    all.iter().all(|t| h.contains(t)) && !none.iter().any(|t| h.contains(t))
+                })
+            })
+            .map(|i| format!("d{i:04}"))
+            .collect()
+    }
+
+    /// #3455: with the hydration budget full of decoded stored sections (a
+    /// top-level `term` that falls to the stored scan: a numeric-looking
+    /// value keeps the scan, see `numeric_string_term_keeps_the_scan`), an
+    /// FTS reader still
+    /// gets admitted, by evicting decoded sections, instead of being
+    /// reopened by every FTS-routed query.
+    #[tokio::test]
+    async fn fts_reader_displaces_decoded_sections_when_the_budget_is_full() {
+        let (_dir, _engine, idx, _n) = multi_segment_index("mvk3455a").await;
+        let req = xerj_query::parse_request(&json!({
+            "size": 10, "track_total_hits": true,
+            "query": {"term": {"headings": "42"}}
+        }))
+        .unwrap();
+        idx.search(&req).await.unwrap();
+        idx.fts_reader_cache.clear();
+        let stored = |idx: &Index| idx.decoded_stored_cache.len() + idx.stored_slices_cache.len();
+        let decoded_before = stored(&idx);
+        assert!(
+            decoded_before > 0,
+            "the stored scan cached its decoded sections"
+        );
+        let budget = &idx.segment_hydration_budget;
+        budget.set_target(budget.used());
+        assert!(!budget.has_headroom(1));
+        let segments_dir = idx.data_dir.join("segments");
+        let seg = idx.store.snapshot().segments[0].id.clone();
+        let reader = idx
+            .fts_reader_for(&segments_dir, &seg, &["headings"])
+            .expect("reader opens");
+        drop(reader);
+        assert_eq!(idx.fts_reader_cache.len(), 1, "the reader was admitted");
+        assert!(stored(&idx) < decoded_before);
+        // Served from the cache now: no second open.
+        assert!(idx
+            .fts_reader_for(&segments_dir, &seg, &["headings"])
+            .is_some());
+        assert_eq!(idx.fts_reader_cache.len(), 1);
+    }
+
+    /// `_search` and `_count` over bool conjunctions of array-keyword terms
+    /// give the exact match set, whatever the clause kind or order.
+    #[tokio::test]
+    async fn bool_conjunction_on_multi_valued_keyword_matches_the_scan() {
+        let (_dir, _engine, idx, n) = multi_segment_index("mvk3455b").await;
+        let t = |v: &str| json!({"term": {"headings": v}});
+        let cases: Vec<(serde_json::Value, Vec<String>)> = vec![
+            (
+                json!({"bool": {"must": [t("Install"), t("raft leader election")]}}),
+                expected_and(n, &["Install", "raft leader election"], &[]),
+            ),
+            (
+                json!({"bool": {"filter": [t("raft leader election"), t("Install")]}}),
+                expected_and(n, &["Install", "raft leader election"], &[]),
+            ),
+            (
+                json!({"bool": {"must": [t("FAQ")], "filter": [t("Install guide")]}}),
+                expected_and(n, &["FAQ", "Install guide"], &[]),
+            ),
+            (
+                json!({"bool": {"must": [t("Install"), t("raft leader election")],
+                                 "must_not": [t("Install guide")]}}),
+                expected_and(n, &["Install", "raft leader election"], &["Install guide"]),
+            ),
+            (
+                json!({"bool": {"must": [t("Install"), t("raft leader election")],
+                                 "should": [t("Install guide")]}}),
+                expected_and(n, &["Install", "raft leader election"], &[]),
+            ),
+            (json!({"bool": {"must": [t("Install"), t("nope")]}}), vec![]),
+            (
+                json!({"bool": {"must": [t("Usage notes"), t("true"), t("FAQ")]}}),
+                expected_and(n, &["Usage notes", "true", "FAQ"], &[]),
+            ),
+        ];
+        for (query, want) in cases {
+            let req = xerj_query::parse_request(&json!({
+                "size": 1000,
+                "track_total_hits": true,
+                "query": query
+            }))
+            .unwrap();
+            let res = idx.search(&req).await.unwrap();
+            assert_eq!(res.total.value as usize, want.len(), "{query}");
+            let mut got: Vec<String> = res.hits.iter().map(|h| h.id.clone()).collect();
+            let full_page = got.clone();
+            got.sort();
+            assert_eq!(got, want, "{query}");
+            let req = xerj_query::parse_request(&json!({
+                "size": 5,
+                "track_total_hits": true,
+                "query": query
+            }))
+            .unwrap();
+            let res = idx.search(&req).await.unwrap();
+            let page: Vec<String> = res.hits.iter().map(|h| h.id.clone()).collect();
+            assert_eq!(
+                page,
+                full_page.into_iter().take(5).collect::<Vec<_>>(),
+                "{query}"
+            );
+        }
+    }
+
+    /// #3456: path values (`/` but not CIDR-shaped) on an array keyword
+    /// (dictionary oracle) and on a single-valued keyword (doc-values column)
+    /// give the scan's totals, for `_search`, `_count` and a bool conjunction;
+    /// a CIDR-shaped value on a keyword still matches only its literal.
+    #[tokio::test]
+    async fn path_values_on_keyword_fields_match_the_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("paths", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("path", FieldType::Keyword))
+            .unwrap();
+        engine.create_index("mvk3456", schema).unwrap();
+        let idx = engine.get_index("mvk3456").unwrap();
+        let dirs = ["src", "docs/guide", "crates/a/src", "10.0.0.0"];
+        let mut n = 0usize;
+        for _round in 0..3 {
+            for _ in 0..40 {
+                let d = dirs[n % dirs.len()];
+                let p = format!("{d}/f{}.rs", n % 5);
+                let alias = format!("{d}/alias{}.rs", n % 3);
+                idx.index_document(
+                    Some(format!("d{n:04}")),
+                    json!({"paths": [p.clone(), alias], "path": p}),
+                )
+                .await
+                .unwrap();
+                n += 1;
+            }
+            idx.flush().await.unwrap();
+        }
+        let expect = |field: &str, v: &str| -> usize {
+            (0..n)
+                .filter(|&i| {
+                    let d = dirs[i % dirs.len()];
+                    let p = format!("{d}/f{}.rs", i % 5);
+                    let alias = format!("{d}/alias{}.rs", i % 3);
+                    if field == "path" {
+                        p == v
+                    } else {
+                        p == v || alias == v
+                    }
+                })
+                .count()
+        };
+        for (field, v) in [
+            ("paths", "src/f0.rs"),
+            ("paths", "docs/guide/alias1.rs"),
+            ("paths", "crates/a/src/f3.rs"),
+            ("paths", "nope/none.rs"),
+            ("path", "docs/guide/f2.rs"),
+            ("path", "nope/none.rs"),
+            ("paths", "10.0.0.0/8"),
+            ("path", "10.0.0.0/8"),
+        ] {
+            let want = expect(field, v);
+            let q = json!({"term": {field: v}});
+            for size in [0usize, 5, 1000] {
+                let req = xerj_query::parse_request(&json!({
+                    "size": size, "track_total_hits": true, "query": q
+                }))
+                .unwrap();
+                let res = idx.search(&req).await.unwrap();
+                assert_eq!(res.total.value as usize, want, "{field}={v} size={size}");
+            }
+            let req = xerj_query::parse_request(&json!({
+                "size": 1000, "track_total_hits": true,
+                "query": {"bool": {"must": [q, {"term": {field: v}}]}}
+            }))
+            .unwrap();
+            let res = idx.search(&req).await.unwrap();
+            assert_eq!(res.total.value as usize, want, "bool {field}={v}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod field_pattern_expansion_3413_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn issue_schema() -> Schema {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("title", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("cat", FieldType::Keyword))
+            .unwrap();
+        schema
+    }
+
+    const DOCS: [(&str, &str, &str); 6] = [
+        (
+            "Vitamin D and bone density",
+            "a trial in older adults",
+            "trial",
+        ),
+        ("Bone health", "vitamin intake and bone mass", "review"),
+        ("Calcium", "bone density after vitamin supplements", "trial"),
+        ("Vitamin K", "clotting factors", "review"),
+        ("Exercise", "bone loading and density", "cohort"),
+        ("Unrelated", "nothing to see", "electronics"),
+    ];
+
+    async fn index_with_docs(flush: bool) -> (tempfile::TempDir, Arc<Index>) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("kb3413", issue_schema()).unwrap();
+        let idx = engine.get_index("kb3413").unwrap();
+        for (i, (title, body, cat)) in DOCS.iter().enumerate() {
+            idx.index_document(
+                Some(format!("d{i}")),
+                json!({ "title": title, "body": body, "cat": cat }),
+            )
+            .await
+            .unwrap();
+        }
+        if flush {
+            idx.flush().await.unwrap();
+        }
+        (dir, idx)
+    }
+
+    async fn run(idx: &Index, q: serde_json::Value) -> (Vec<(String, f32)>, usize, usize) {
+        SEG_FTS_HANDLED.with(|c| c.set(0));
+        SEG_STORED_SCANS.with(|c| c.set(0));
+        let req = xerj_query::parse_request(&json!({
+            "size": 20, "track_total_hits": true, "query": q
+        }))
+        .unwrap();
+        let res = idx.search(&req).await.unwrap();
+        let fts = SEG_FTS_HANDLED.with(|c| c.get());
+        let scans = SEG_STORED_SCANS.with(|c| c.get());
+        let mut hits: Vec<(String, f32)> = res.hits.into_iter().map(|h| (h.id, h.score)).collect();
+        hits.sort_by(|a, b| a.0.cmp(&b.0));
+        (hits, fts, scans)
+    }
+
+    fn assert_same_scores(a: &[(String, f32)], b: &[(String, f32)], what: &str) {
+        assert_eq!(
+            a.iter().map(|h| &h.0).collect::<Vec<_>>(),
+            b.iter().map(|h| &h.0).collect::<Vec<_>>(),
+            "{what}: hit sets differ"
+        );
+        for (x, y) in a.iter().zip(b) {
+            assert!(
+                (x.1 - y.1).abs() < 1e-4,
+                "{what}: {} scored {} vs {}",
+                x.0,
+                x.1,
+                y.1
+            );
+        }
+    }
+
+    /// FAIL-BEFORE: `multi_match` with `fields: ["*"]` (what native `q`
+    /// sends) returned 0 hits in the memtable and after `_flush`.
+    #[tokio::test]
+    async fn multi_match_star_matches_like_the_explicit_field_list() {
+        for flush in [false, true] {
+            let (_dir, idx) = index_with_docs(flush).await;
+            let star = run(
+                &idx,
+                json!({"multi_match": {"query": "vitamin bone density", "fields": ["*"]}}),
+            )
+            .await;
+            let named = run(
+                &idx,
+                json!({"multi_match": {
+                    "query": "vitamin bone density", "fields": ["title", "body", "cat"]
+                }}),
+            )
+            .await;
+            assert_eq!(star.0.len(), 5, "flush={flush}: {:?}", star.0);
+            assert_same_scores(&star.0, &named.0, &format!("flush={flush}"));
+            if flush {
+                assert!(
+                    star.1 > 0 && star.2 == 0,
+                    "`*` must be served by the inverted index: fts={} stored_scans={}",
+                    star.1,
+                    star.2
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn multi_match_prefix_pattern_and_keyword_target() {
+        let (_dir, idx) = index_with_docs(true).await;
+        let (hits, _, _) = run(
+            &idx,
+            json!({"multi_match": {"query": "vitamin", "fields": ["tit*"]}}),
+        )
+        .await;
+        let ids: Vec<&str> = hits.iter().map(|h| h.0.as_str()).collect();
+        assert_eq!(ids, vec!["d0", "d3"], "only `title` holds `vitamin` here");
+
+        // `*` reaches the keyword field, by whole value, as ES does.
+        let (hits, _, _) = run(
+            &idx,
+            json!({"multi_match": {"query": "electronics", "fields": ["*"]}}),
+        )
+        .await;
+        let ids: Vec<&str> = hits.iter().map(|h| h.0.as_str()).collect();
+        assert_eq!(ids, vec!["d5"]);
+
+        // A pattern that names no field still matches nothing.
+        let (hits, _, _) = run(
+            &idx,
+            json!({"multi_match": {"query": "vitamin", "fields": ["nope*"]}}),
+        )
+        .await;
+        assert!(hits.is_empty());
+    }
+
+    /// FAIL-BEFORE: a field-less `query_string` scored 3.0 / 2.0 / 1.0 (one
+    /// point per matched term) on both the memtable and flushed segments.
+    /// It must now score exactly like the same string over the explicit
+    /// field list, which is what ES treats it as (a per-term `dis_max`).
+    #[tokio::test]
+    async fn field_less_query_string_scores_bm25() {
+        let (_dir, idx) = index_with_docs(true).await;
+        let bare = run(
+            &idx,
+            json!({"query_string": {"query": "vitamin bone density"}}),
+        )
+        .await;
+        let named = run(
+            &idx,
+            json!({"query_string": {
+                "query": "vitamin bone density", "fields": ["title", "body", "cat"]
+            }}),
+        )
+        .await;
+        assert_eq!(bare.0.len(), 5);
+        assert_same_scores(&bare.0, &named.0, "flushed");
+        assert!(
+            bare.0.iter().any(|(_, s)| s.fract().abs() > 1e-3),
+            "scores look like match counts: {:?}",
+            bare.0
+        );
+        assert!(bare.1 > 0 && bare.2 == 0, "fts={} scans={}", bare.1, bare.2);
+    }
+
+    /// `field_explain` reports an opaque field-less `query_string` as
+    /// additive: its score must be the sum of the same clause run with each
+    /// text field as `default_field`, in the memtable and after `_flush`.
+    #[tokio::test]
+    async fn opaque_field_less_query_string_sums_its_fields() {
+        for flush in [false, true] {
+            let (_dir, idx) = index_with_docs(flush).await;
+            let run_node = |default_field: Option<&str>| {
+                let idx = idx.clone();
+                let node = QueryNode::QueryString {
+                    query: "vitamin bone density".into(),
+                    default_field: default_field.map(str::to_string),
+                    default_operator: None,
+                    boost: None,
+                };
+                async move {
+                    let mut req = xerj_query::parse_request(&json!({"size": 20})).unwrap();
+                    req.query = node;
+                    let res = idx.search(&req).await.unwrap();
+                    res.hits
+                        .into_iter()
+                        .map(|h| (h.id, h.score))
+                        .collect::<HashMap<String, f32>>()
+                }
+            };
+            let total = run_node(None).await;
+            let title = run_node(Some("title")).await;
+            let body = run_node(Some("body")).await;
+            assert_eq!(total.len(), 5, "flush={flush}: {total:?}");
+            // FAIL-BEFORE (memtable): a bare `default_field: title` searched
+            // every field and returned all 5 documents.
+            let mut title_ids: Vec<&String> = title.keys().collect();
+            title_ids.sort();
+            assert_eq!(title_ids, vec!["d0", "d1", "d3"], "flush={flush}");
+            for (id, score) in &total {
+                let sum =
+                    title.get(id).copied().unwrap_or(0.0) + body.get(id).copied().unwrap_or(0.0);
+                assert!(
+                    (score - sum).abs() < 1e-3,
+                    "flush={flush}: {id} scored {score}, per-field sum {sum}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn expand_field_specs_follows_the_mapping() {
+        let mut schema = issue_schema();
+        let mut hidden = FieldConfig::new("secret", FieldType::Text);
+        hidden.options.indexed = false;
+        hidden.options.doc_values = false;
+        schema.add_field(hidden).unwrap();
+        schema
+            .add_field(FieldConfig::new("count", FieldType::Long))
+            .unwrap();
+        let mut obj = FieldConfig::new("obj", FieldType::Object);
+        obj.fields.push(FieldConfig::new("inner", FieldType::Text));
+        schema.add_field(obj).unwrap();
+        let mut nested = FieldConfig::new("nest", FieldType::Nested);
+        nested
+            .fields
+            .push(FieldConfig::new("deep", FieldType::Text));
+        schema.add_field(nested).unwrap();
+        let star = expand_field_specs(&["*".to_string()], &schema).unwrap();
+        assert_eq!(star, vec!["title", "body", "cat", "obj.inner"]);
+        assert_eq!(
+            expand_field_specs(&["obj.*".to_string()], &schema).unwrap(),
+            vec!["obj.inner"]
+        );
+        // Boosts multiply when a field is reached twice; order is first seen.
+        let boosted =
+            expand_field_specs(&["title^2".to_string(), "*^3".to_string()], &schema).unwrap();
+        assert_eq!(boosted, vec!["title^6", "body^3", "cat^3", "obj.inner^3"]);
+        assert_eq!(expand_field_specs(&["zz*".to_string()], &schema), None);
+    }
+
+    fn typed_schema() -> Schema {
+        let mut schema = issue_schema();
+        for (name, ty) in [
+            ("n", FieldType::Long),
+            ("x", FieldType::Double),
+            ("ok", FieldType::Boolean),
+            ("ts", FieldType::Date),
+            ("addr", FieldType::Ip),
+        ] {
+            schema.add_field(FieldConfig::new(name, ty)).unwrap();
+        }
+        schema
+    }
+
+    /// The typed leaves a pattern clause carries, as (field, kind) pairs.
+    fn typed_leaves_of(q: &QueryNode) -> Vec<(String, &'static str)> {
+        let children: Vec<&QueryNode> = match q {
+            QueryNode::DisMax { queries, .. } => queries.iter().collect(),
+            QueryNode::Bool { should, .. } => should.iter().collect(),
+            other => vec![other],
+        };
+        children
+            .into_iter()
+            .filter_map(|c| match c {
+                QueryNode::Term { field, .. } => Some((field.clone(), "term")),
+                QueryNode::Range { field, .. } => Some((field.clone(), "range")),
+                QueryNode::Constant { query, .. } => match query.as_ref() {
+                    QueryNode::Range { field, .. } => Some((field.clone(), "range")),
+                    QueryNode::Match { field, .. } => Some((field.clone(), "const")),
+                    QueryNode::Bool { should, .. } => match should.first() {
+                        Some(QueryNode::Match { field, .. }) => Some((field.clone(), "const")),
+                        _ => None,
+                    },
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// #3463: a pattern reaches number, boolean, date and ip fields with one
+    /// exact leaf per field the text parses for, and skips the others.
+    #[test]
+    fn field_patterns_add_lenient_typed_leaves() {
+        let schema = typed_schema();
+        let leaf = |q: &str| QueryNode::Match {
+            field: "*".into(),
+            query: q.into(),
+            operator: Default::default(),
+            analyzer: None,
+            boost: None,
+            minimum_should_match: None,
+            lenient: true,
+        };
+        let typed =
+            |q: &str| typed_leaves_of(&expand_field_pattern_clause(&leaf(q), &schema).unwrap());
+        let pairs = |v: &[(&str, &'static str)]| -> Vec<(String, &'static str)> {
+            v.iter().map(|(f, k)| (f.to_string(), *k)).collect()
+        };
+        // FAIL-BEFORE: every one of these produced no typed leaf at all.
+        // #3492: a bare integer is epoch millis on the date field (default
+        // format `strict_date_optional_time||epoch_millis`), and four digits
+        // are a year.
+        assert_eq!(
+            typed("42"),
+            pairs(&[("n", "const"), ("x", "const"), ("ts", "range")])
+        );
+        assert_eq!(
+            typed("2024"),
+            pairs(&[("n", "const"), ("x", "const"), ("ts", "range")])
+        );
+        assert_eq!(typed("now"), pairs(&[]));
+        assert_eq!(typed("2024-01-15||+1d"), pairs(&[]));
+        assert_eq!(typed("42.5"), pairs(&[("x", "const")]));
+        assert_eq!(typed("42.0"), pairs(&[("n", "const"), ("x", "const")]));
+        assert_eq!(typed("true"), pairs(&[("ok", "term")]));
+        assert_eq!(typed("10.0.0.1"), pairs(&[("addr", "const")]));
+        assert_eq!(typed("::1"), pairs(&[("addr", "term")]));
+        assert_eq!(typed("10.0.0.0/8"), pairs(&[("addr", "term")]));
+        assert_eq!(typed("10.0.0.0/33"), pairs(&[]));
+        assert_eq!(typed("2024-01-15"), pairs(&[("ts", "range")]));
+        assert_eq!(typed("hello"), pairs(&[]));
+        assert_eq!(typed("NaN"), pairs(&[]));
+        assert!(matches!(
+            expand_field_pattern_clause(&leaf("hello"), &schema),
+            Some(QueryNode::MultiMatch { .. })
+        ));
+        // Each spelling the side-car can hold: `42` for the long, `42.0`
+        // and `42` for the double.
+        let Some(QueryNode::DisMax { queries, .. }) =
+            expand_field_pattern_clause(&leaf("42"), &schema)
+        else {
+            panic!("dis_max expected");
+        };
+        let spellings = |field: &str| -> Vec<String> {
+            for q in &queries {
+                let QueryNode::Constant { query, .. } = q else {
+                    continue;
+                };
+                let leaves: Vec<&QueryNode> = match query.as_ref() {
+                    QueryNode::Bool { should, .. } => should.iter().collect(),
+                    m => vec![m],
+                };
+                let found: Vec<String> = leaves
+                    .iter()
+                    .filter_map(|m| match m {
+                        QueryNode::Match {
+                            field: f, query, ..
+                        } if f == field => Some(query.clone()),
+                        _ => None,
+                    })
+                    .collect();
+                if !found.is_empty() {
+                    return found;
+                }
+            }
+            Vec::new()
+        };
+        // #3492: the long also spells `42.0`, the side-car text of an
+        // integral float that ingest keeps as sent.
+        assert_eq!(spellings("n"), vec!["42", "42.0"]);
+        assert_eq!(spellings("x"), vec!["42.0", "42"]);
+    }
+
+    /// The bounds of the `ts` date leaf a `*` pattern adds for `q`, under
+    /// the mapping `format` (`None` is the default).
+    fn date_leaf_bounds(format: Option<&str>, q: &str) -> Option<(String, String)> {
+        let mut ts = FieldConfig::new("ts", FieldType::Date);
+        ts.options.date_format = format.map(str::to_string);
+        match lenient_typed_leaf("ts", &ts, q, None)? {
+            QueryNode::Constant { query, .. } => match *query {
+                QueryNode::Range {
+                    gte: Some(Value::String(lo)),
+                    lte: Some(Value::String(hi)),
+                    ..
+                } => Some((lo, hi)),
+                other => panic!("range expected: {other:?}"),
+            },
+            other => panic!("constant_score expected: {other:?}"),
+        }
+    }
+
+    /// #3492: the date leaf parses with the field's format, as ES
+    /// `DateFieldType.termQuery` does.
+    #[test]
+    fn date_leaf_reads_numbers_through_the_field_format() {
+        let b = |lo: &str, hi: &str| Some((lo.to_string(), hi.to_string()));
+        // Default: epoch millis, one instant.
+        assert_eq!(
+            date_leaf_bounds(None, "1705312800000"),
+            b("2024-01-15T10:00:00.000Z", "2024-01-15T10:00:00.000Z")
+        );
+        assert_eq!(
+            date_leaf_bounds(None, "-5"),
+            b("1969-12-31T23:59:59.995Z", "1969-12-31T23:59:59.995Z")
+        );
+        // A strict ISO year is exactly four digits. ES rounds a partial
+        // date up by its time fields only, so the year is 1 January (the
+        // `range` resolver's rule, checked against ES 8.13.4).
+        assert_eq!(
+            date_leaf_bounds(None, "2024"),
+            b("2024-01-01T00:00:00.000Z", "2024-01-01T23:59:59.999Z")
+        );
+        assert_eq!(
+            date_leaf_bounds(None, "2024-01-15"),
+            b("2024-01-15T00:00:00.000Z", "2024-01-15T23:59:59.999Z")
+        );
+        assert_eq!(date_leaf_bounds(None, "42.5"), None);
+        assert_eq!(date_leaf_bounds(None, "hello"), None);
+        // A format without `epoch_millis` does not read numbers.
+        assert_eq!(date_leaf_bounds(Some("yyyy-MM-dd"), "1705312800000"), None);
+        assert_eq!(
+            date_leaf_bounds(Some("yyyy-MM-dd||epoch_millis"), "1705312800000"),
+            b("2024-01-15T10:00:00.000Z", "2024-01-15T10:00:00.000Z")
+        );
+        assert_eq!(
+            date_leaf_bounds(Some("epoch_second"), "1705312800"),
+            b("2024-01-15T10:00:00.000Z", "2024-01-15T10:00:00.000Z")
+        );
+        assert_eq!(
+            date_leaf_bounds(Some("dd/MM/yyyy"), "15/01/2024"),
+            b("2024-01-15T00:00:00.000Z", "2024-01-15T23:59:59.999Z")
+        );
+        assert_eq!(date_leaf_bounds(Some("epoch_millis"), "2024-01-15"), None);
+    }
+
+    /// `most_fields` sums, so its typed leaves join as a `should`. A field
+    /// named outright keeps its old route. A pattern that reaches only typed
+    /// fields the text does not parse for leaves the clause alone.
+    #[test]
+    fn typed_leaves_follow_the_multi_match_shape() {
+        let schema = typed_schema();
+        let mm =
+            |fields: &[&str], q: &str, t: xerj_query::ast::MultiMatchType| QueryNode::MultiMatch {
+                fields: fields.iter().map(|f| f.to_string()).collect(),
+                query: q.into(),
+                match_type: t,
+                operator: None,
+                analyzer: None,
+                boost: Some(2.0),
+                slop: 0,
+                max_expansions: 50,
+                lenient: false,
+            };
+        use xerj_query::ast::MultiMatchType::{BestFields, MostFields};
+        let most = expand_field_pattern_clause(&mm(&["*"], "true", MostFields), &schema).unwrap();
+        assert!(matches!(&most, QueryNode::Bool { should, .. } if should.len() == 2));
+        let best = expand_field_pattern_clause(&mm(&["*"], "true", BestFields), &schema).unwrap();
+        let QueryNode::DisMax { queries, .. } = &best else {
+            panic!("dis_max expected: {best:?}");
+        };
+        // The clause boost reaches the typed leaf, times the field boost.
+        assert!(queries.iter().any(|q| matches!(q,
+            QueryNode::Term { field, boost: Some(b), .. } if field == "ok" && (*b - 2.0).abs() < 1e-6)));
+        let boosted =
+            expand_field_pattern_clause(&mm(&["o*^3"], "true", BestFields), &schema).unwrap();
+        assert!(matches!(&boosted,
+            QueryNode::Term { field, boost: Some(b), .. } if field == "ok" && (*b - 6.0).abs() < 1e-6));
+        let spelled =
+            expand_field_pattern_clause(&mm(&["n*^3"], "42", BestFields), &schema).unwrap();
+        assert!(matches!(&spelled,
+            QueryNode::Constant { score, .. } if (*score - 6.0).abs() < 1e-6));
+        let named =
+            expand_field_pattern_clause(&mm(&["n", "*"], "42", BestFields), &schema).unwrap();
+        assert!(
+            !typed_leaves_of(&named).iter().any(|(f, _)| f == "n"),
+            "{named:?}"
+        );
+        assert!(expand_field_pattern_clause(&mm(&["n*"], "abc", BestFields), &schema).is_none());
+    }
+
+    /// End to end on both storage paths: `q: "42"` style queries hit typed
+    /// fields, the same hits in the memtable and after `_flush`.
+    #[tokio::test]
+    async fn star_queries_hit_typed_fields_in_memtable_and_segments() {
+        for flush in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut config = Config::default();
+            config.server.data_dir = dir.path().to_string_lossy().into_owned();
+            let engine = crate::Engine::new(config).unwrap();
+            engine.create_index("typed3463", typed_schema()).unwrap();
+            let idx = engine.get_index("typed3463").unwrap();
+            let docs = [
+                json!({"title": "hello world", "n": 42, "x": 2.5, "ok": true,
+                       "ts": "2024-01-15T10:00:00Z", "addr": "10.0.0.1"}),
+                json!({"title": "forty two", "n": 7, "x": 42.0, "ok": false,
+                       "ts": "2023-06-01", "addr": "192.168.1.9"}),
+                json!({"title": "story 42", "n": 1, "x": 1.0, "ok": false,
+                       "ts": "2020-01-01", "addr": "::1"}),
+                // #3492: an integral float on the long, an epoch-millis date.
+                json!({"title": "plain", "n": 42.0, "x": 9.5, "ok": false,
+                       "ts": 1_600_000_000_000i64, "addr": "172.16.0.9"}),
+            ];
+            for (i, d) in docs.into_iter().enumerate() {
+                idx.index_document(Some(format!("d{i}")), d).await.unwrap();
+            }
+            if flush {
+                idx.flush().await.unwrap();
+            }
+            let ids = |q: serde_json::Value| {
+                let idx = idx.clone();
+                async move {
+                    let (hits, _, _) = run(&idx, q).await;
+                    hits.into_iter().map(|h| h.0).collect::<Vec<_>>()
+                }
+            };
+            if flush {
+                // Words plus a number stay on the postings path, with BM25
+                // for the words and a constant 1.0 for the typed field.
+                let (hits, fts, scans) =
+                    run(&idx, json!({"query_string": {"query": "hello 7"}})).await;
+                assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+                let d1 = hits.iter().find(|h| h.0 == "d1").map(|h| h.1);
+                assert_eq!(d1, Some(1.0), "{hits:?}");
+                let d0 = hits.iter().find(|h| h.0 == "d0").map(|h| h.1).unwrap();
+                assert!(d0 != 1.0 && d0 > 0.0, "{hits:?}");
+                // #3492: the date leaves ("7" as epoch millis, a date) keep
+                // the postings path: they become doc-values match sets.
+                for q in ["1705312800000", "2024-01-15", "2020"] {
+                    let (hits, fts, scans) =
+                        run(&idx, json!({"multi_match": {"query": q, "fields": ["*"]}})).await;
+                    assert!(fts > 0 && scans == 0, "{q}: fts={fts} scans={scans}");
+                    assert_eq!(hits.iter().map(|h| h.1).collect::<Vec<_>>(), vec![1.0]);
+                }
+            }
+            let mm = |q: &str| json!({"multi_match": {"query": q, "fields": ["*"]}});
+            // FAIL-BEFORE: "42" found d2 only (its title), "true" nothing typed.
+            // #3492: d3 holds the long as 42.0.
+            assert_eq!(
+                ids(mm("42")).await,
+                vec!["d0", "d1", "d2", "d3"],
+                "flush={flush}"
+            );
+            // #3492: epoch millis and a bare year on the date field.
+            assert_eq!(ids(mm("1705312800000")).await, vec!["d0"], "flush={flush}");
+            assert_eq!(ids(mm("1600000000000")).await, vec!["d3"], "flush={flush}");
+            assert_eq!(ids(mm("2020")).await, vec!["d2"], "flush={flush}");
+            assert_eq!(ids(mm("true")).await, vec!["d0"], "flush={flush}");
+            assert_eq!(ids(mm("10.0.0.0/8")).await, vec!["d0"], "flush={flush}");
+            assert_eq!(ids(mm("2024-01-15")).await, vec!["d0"], "flush={flush}");
+            assert_eq!(ids(mm("2.5")).await, vec!["d0"], "flush={flush}");
+            assert_eq!(ids(mm("hello")).await, vec!["d0"], "flush={flush}");
+            assert_eq!(
+                ids(json!({"query_string": {"query": "true OR 7"}})).await,
+                vec!["d0", "d1"],
+                "flush={flush}"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod date_docs_3492_tests {
+    use super::*;
+    use serde_json::json;
+
+    async fn flushed(docs: Vec<serde_json::Value>) -> (tempfile::TempDir, Arc<Index>) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("title", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("ts", FieldType::Date))
+            .unwrap();
+        engine.create_index("dd3492", schema).unwrap();
+        let idx = engine.get_index("dd3492").unwrap();
+        for (i, d) in docs.into_iter().enumerate() {
+            idx.index_document(Some(format!("d{i}")), d).await.unwrap();
+        }
+        idx.flush().await.unwrap();
+        // One segment holds every doc, so its columns see all of them.
+        idx.force_merge(1).await.unwrap();
+        (dir, idx)
+    }
+
+    async fn run(idx: &Index, q: serde_json::Value) -> (Vec<String>, usize, usize) {
+        SEG_FTS_HANDLED.with(|c| c.set(0));
+        SEG_STORED_SCANS.with(|c| c.set(0));
+        let req = xerj_query::parse_request(&json!({
+            "size": 20, "track_total_hits": true, "query": q
+        }))
+        .unwrap();
+        let res = idx.search(&req).await.unwrap();
+        let fts = SEG_FTS_HANDLED.with(|c| c.get());
+        let scans = SEG_STORED_SCANS.with(|c| c.get());
+        let mut ids: Vec<String> = res.hits.into_iter().map(|h| h.id).collect();
+        ids.sort();
+        (ids, fts, scans)
+    }
+
+    fn filtered() -> serde_json::Value {
+        json!({"bool": {
+            "must": {"match": {"title": "apple"}},
+            "filter": {"constant_score": {"filter": {"range": {"ts": {
+                "gte": "2024-01-15", "lte": "2024-01-15"}}}}}
+        }})
+    }
+
+    /// A `constant_score` date range in a `filter` keeps the postings path
+    /// on a segment with a usable date column.
+    #[tokio::test]
+    async fn a_date_filter_projects_onto_doc_values() {
+        let (_dir, idx) = flushed(vec![
+            json!({"title": "apple pie", "ts": "2024-01-15T10:00:00Z"}),
+            json!({"title": "apple", "ts": "2024-01-15T23:00:00Z"}),
+            json!({"title": "apple", "ts": "2020-01-01"}),
+            json!({"title": "c", "ts": "2024-01-15T01:00:00Z"}),
+        ])
+        .await;
+        let (ids, fts, scans) = run(&idx, filtered()).await;
+        assert_eq!(ids, vec!["d0", "d1"]);
+        assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+    }
+
+    /// An optional date field: docs without a value match no range, and the
+    /// rest still come from doc values (the sparse epoch shadow).
+    #[tokio::test]
+    async fn a_date_filter_on_a_sparse_column_projects_onto_doc_values() {
+        let (_dir, idx) = flushed(vec![
+            json!({"title": "apple pie", "ts": "2024-01-15T10:00:00Z"}),
+            json!({"title": "apple", "ts": "2024-01-15T23:00:00Z"}),
+            json!({"title": "apple"}),
+            json!({"title": "apple", "ts": "2020-01-01"}),
+        ])
+        .await;
+        let (ids, fts, scans) = run(&idx, filtered()).await;
+        assert_eq!(ids, vec!["d0", "d1"]);
+        assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+    }
+
+    /// Numbers and strings in one date field ship no doc-values column. The
+    /// match set then comes from a shadow read once from the stored docs.
+    #[tokio::test]
+    async fn a_date_filter_on_numbers_and_strings_projects() {
+        let (_dir, idx) = flushed(vec![
+            json!({"title": "apple pie", "ts": "2024-01-15T10:00:00Z"}),
+            json!({"title": "apple", "ts": 1_705_359_600_000i64}),
+            json!({"title": "apple", "ts": 1_577_836_800_000i64}),
+            json!({"title": "apple", "ts": "2020-01-01"}),
+        ])
+        .await;
+        let (ids, fts, scans) = run(&idx, filtered()).await;
+        assert_eq!(ids, vec!["d0", "d1"]);
+        assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+    }
+
+    /// A multi-valued date field has no column and no shadow. The probe
+    /// still counts the leaf as projectable, so the segment must take the
+    /// stored-doc scan rather than drop the `filter`.
+    #[tokio::test]
+    async fn a_date_filter_without_a_match_set_takes_the_scan() {
+        let (_dir, idx) = flushed(vec![
+            json!({"title": "apple pie", "ts": "2024-01-15T10:00:00Z"}),
+            json!({"title": "apple", "ts": "2024-01-15T23:00:00Z"}),
+            json!({"title": "apple", "ts": ["2020-01-01", "2021-01-01"]}),
+        ])
+        .await;
+        let (ids, _, scans) = run(&idx, filtered()).await;
+        assert_eq!(ids, vec!["d0", "d1"]);
+        assert!(scans > 0, "scans={scans}");
+    }
+}
+
+#[cfg(test)]
+mod object_leaf_fts_3464_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn schema() -> Schema {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("title", FieldType::Text))
+            .unwrap();
+        let mut meta = FieldConfig::new("meta", FieldType::Object);
+        meta.fields.push(FieldConfig::new("note", FieldType::Text));
+        meta.fields
+            .push(FieldConfig::new("tag", FieldType::Keyword));
+        schema.add_field(meta).unwrap();
+        schema
+    }
+
+    fn docs() -> Vec<serde_json::Value> {
+        vec![
+            json!({"title": "pear", "meta": {"note": "apple pie", "tag": "Fruit"}}),
+            json!({"title": "apple", "meta": {"note": "banana", "tag": "x"}}),
+            json!({"title": "kiwi", "meta": [{"note": "plum"}, {"note": "apple tart", "tag": "Fruit"}]}),
+            json!({"title": "fig", "meta.note": "dotted apple key"}),
+            json!({"title": "lime"}),
+        ]
+    }
+
+    async fn index(flush: bool) -> (tempfile::TempDir, Arc<Index>) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("obj3464", schema()).unwrap();
+        let idx = engine.get_index("obj3464").unwrap();
+        for (i, d) in docs().into_iter().enumerate() {
+            idx.index_document(Some(format!("d{i}")), d).await.unwrap();
+        }
+        if flush {
+            idx.flush().await.unwrap();
+        }
+        (dir, idx)
+    }
+
+    async fn run(idx: &Index, q: serde_json::Value) -> (Vec<(String, f32)>, usize, usize) {
+        SEG_FTS_HANDLED.with(|c| c.set(0));
+        SEG_STORED_SCANS.with(|c| c.set(0));
+        let req = xerj_query::parse_request(&json!({
+            "size": 20, "track_total_hits": true, "query": q
+        }))
+        .unwrap();
+        let res = idx.search(&req).await.unwrap();
+        let fts = SEG_FTS_HANDLED.with(|c| c.get());
+        let scans = SEG_STORED_SCANS.with(|c| c.get());
+        let mut hits: Vec<(String, f32)> = res.hits.into_iter().map(|h| (h.id, h.score)).collect();
+        hits.sort_by(|a, b| a.0.cmp(&b.0));
+        (hits, fts, scans)
+    }
+
+    fn ids(hits: &[(String, f32)]) -> Vec<&str> {
+        hits.iter().map(|h| h.0.as_str()).collect()
+    }
+
+    #[test]
+    fn object_paths_collect_like_the_stored_scan() {
+        let paths = crate::memtable::fts_object_leaf_paths(&schema());
+        assert_eq!(
+            paths,
+            vec![
+                ("meta.note".to_string(), FieldType::Text),
+                ("meta.tag".to_string(), FieldType::Keyword)
+            ]
+        );
+        let keys: Vec<String> = paths.into_iter().map(|(p, _)| p).collect();
+        let values = |doc: serde_json::Value| {
+            let mut out = crate::memtable::extract_field_values_excluding(
+                &doc,
+                &std::collections::HashSet::new(),
+            );
+            crate::memtable::add_object_path_values(&doc, &keys, &mut out);
+            let mut v: Vec<(String, Vec<String>)> = out
+                .into_iter()
+                .filter(|(k, _)| k.starts_with("meta."))
+                .map(|(k, v)| (k, v.iter().map(str::to_string).collect()))
+                .collect();
+            v.sort();
+            v
+        };
+        let docs = docs();
+        assert_eq!(
+            values(docs[2].clone()),
+            vec![
+                ("meta.note".into(), vec!["plum".into(), "apple tart".into()]),
+                ("meta.tag".into(), vec!["Fruit".into()]),
+            ]
+        );
+        // A literal dotted key is the same path; both spellings add up.
+        assert_eq!(
+            values(json!({"meta.note": "a", "meta": {"note": "b"}})),
+            vec![("meta.note".into(), vec!["a".into(), "b".into()])]
+        );
+        assert_eq!(values(docs[4].clone()), vec![]);
+    }
+
+    /// FAIL-BEFORE: every flushed segment took the stored-doc scan and the
+    /// pattern query ranked by match count (1.0 each).
+    #[tokio::test]
+    async fn pattern_queries_on_object_leaves_use_the_postings() {
+        let (_dir, idx) = index(true).await;
+        let (hits, fts, scans) = run(
+            &idx,
+            json!({"multi_match": {"query": "apple", "fields": ["*"]}}),
+        )
+        .await;
+        assert_eq!(ids(&hits), vec!["d0", "d1", "d2", "d3"]);
+        assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+        assert!(
+            hits.iter().any(|h| h.1 != 1.0),
+            "BM25, not counts: {hits:?}"
+        );
+        let (named, _, _) = run(
+            &idx,
+            json!({"multi_match": {"query": "apple", "fields": ["title", "meta.note", "meta.tag"]}}),
+        )
+        .await;
+        assert_eq!(ids(&hits), ids(&named));
+        for (a, b) in hits.iter().zip(&named) {
+            assert!((a.1 - b.1).abs() < 1e-5, "{hits:?} vs {named:?}");
+        }
+        let (qs, fts, scans) = run(&idx, json!({"query_string": {"query": "apple"}})).await;
+        assert_eq!(ids(&qs), vec!["d0", "d1", "d2", "d3"]);
+        assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+    }
+
+    /// Same hits in the memtable and after `_flush`, keyword leaves by whole
+    /// value on both sides.
+    #[tokio::test]
+    async fn object_leaf_hits_do_not_change_at_flush() {
+        let queries = [
+            json!({"multi_match": {"query": "apple", "fields": ["*"]}}),
+            json!({"multi_match": {"query": "Fruit", "fields": ["*"]}}),
+            json!({"multi_match": {"query": "fruit", "fields": ["*"]}}),
+            json!({"match": {"meta.note": "plum"}}),
+            json!({"match": {"meta.tag": "Fruit"}}),
+            json!({"bool": {"should": [
+                {"match": {"meta.note": "apple"}}, {"match": {"title": "zzz"}}
+            ]}}),
+        ];
+        // FAIL-BEFORE (memtable): `meta.note` inside an array of objects
+        // matched nothing until a flush.
+        let expect: [Vec<&str>; 6] = [
+            vec!["d0", "d1", "d2", "d3"],
+            vec!["d0", "d2"],
+            vec![],
+            vec!["d2"],
+            vec!["d0", "d2"],
+            vec!["d0", "d2", "d3"],
+        ];
+        for flush in [false, true] {
+            let (_dir, idx) = index(flush).await;
+            for (q, want) in queries.iter().zip(&expect) {
+                let (hits, _, _) = run(&idx, q.clone()).await;
+                assert_eq!(&ids(&hits), want, "flush={flush} {q}");
+            }
+        }
+    }
+
+    /// A segment with no side-car for an object leaf (built before #3464)
+    /// still answers from its stored documents, including a `should` clause
+    /// on that leaf alone, and the next merge re-analyses it so the merged
+    /// segment carries the side-car.
+    #[tokio::test]
+    async fn a_segment_without_object_side_cars_is_scanned_then_rebuilt() {
+        let (_dir, idx) = index(true).await;
+        let seg_dir = idx.data_dir().join("segments");
+        let mut removed = 0;
+        for entry in std::fs::read_dir(&seg_dir).unwrap() {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            if name.contains(".meta.note.") || name.contains(".meta.tag.") {
+                std::fs::remove_file(&path).unwrap();
+                removed += 1;
+            }
+        }
+        assert!(removed > 0, "no object side-cars were written");
+        idx.fts_reader_cache.clear();
+        let should = json!({"bool": {"should": [
+            {"match": {"meta.note": "apple"}}, {"match": {"title": "zzz"}}
+        ]}});
+        // FAIL-BEFORE (main): the meta.note clause was pruned as a field this
+        // segment "never indexed", and the query found nothing.
+        let (hits, _, scans) = run(&idx, should.clone()).await;
+        assert_eq!(ids(&hits), vec!["d0", "d2", "d3"]);
+        assert!(scans > 0);
+        // A second segment so the merge has two inputs.
+        idx.index_document(
+            Some("d9".into()),
+            json!({"title": "apple", "meta": {"note": "apple"}}),
+        )
+        .await
+        .unwrap();
+        idx.flush().await.unwrap();
+        idx.force_merge(1).await.unwrap();
+        let (hits, fts, scans) = run(&idx, should).await;
+        assert_eq!(ids(&hits), vec!["d0", "d2", "d3", "d9"]);
+        assert!(fts > 0 && scans == 0, "fts={fts} scans={scans}");
+    }
+}
+
+#[cfg(test)]
+#[path = "stored_scan_topk_tests.rs"]
+mod stored_scan_topk_tests;
+
+#[cfg(test)]
+#[path = "get_row_decode_tests.rs"]
+mod get_row_decode_tests;
+
+#[cfg(test)]
+#[path = "bool_flush_parity_tests.rs"]
+mod bool_flush_parity_tests;
+
+#[cfg(test)]
+#[path = "filter_should_fast_path_tests.rs"]
+mod filter_should_fast_path_tests;

@@ -110,8 +110,10 @@ fn temp_sibling(path: &Path) -> std::path::PathBuf {
     path.with_file_name(format!("{file_name}.tmp.{:x}.{nonce}", std::process::id()))
 }
 
-/// Write `bytes` to a temp file beside `path` and sync it, for a later
-/// [`publish_staged`]. Nothing is visible at `path` until then.
+/// Write `bytes` to a temp file beside `path` for a later
+/// [`publish_staged`], which makes it durable before it renames it (on
+/// Linux the sync itself happens there, see [`DEFER_STAGED_SYNC`]). Nothing
+/// is visible at `path` until then.
 pub fn stage_file(path: &Path, bytes: &[u8]) -> std::io::Result<StagedFile> {
     let tmp = temp_sibling(path);
     require_same_directory(&tmp, path)?;
@@ -122,7 +124,7 @@ pub fn stage_file(path: &Path, bytes: &[u8]) -> std::io::Result<StagedFile> {
     };
     let mut f = std::fs::File::create(&staged.tmp)?;
     f.write_all(bytes)?;
-    sync_file_for_batch(&f)?;
+    sync_staged_at_stage(&f)?;
     Ok(staged)
 }
 
@@ -140,8 +142,208 @@ pub fn stage_written_file(
         published: false,
     };
     require_same_directory(&staged.tmp, &staged.dest)?;
-    sync_file_for_batch(file)?;
+    sync_staged_at_stage(file)?;
     Ok(staged)
+}
+
+/// Linux defers each staged file's `fsync` to [`publish_staged`], which
+/// issues them all at once (#3324).
+///
+/// Staging used to `fsync` every temp file the moment it was written. The FTS
+/// writer stages four files per field (postings, FST, meta, norms) one after
+/// another, so a segment paid four sequential journal commits per field, and
+/// the flush finalize held its `flush_finalize_gate` permit through all of
+/// them. On ext4 under I/O pressure a commit took 0.3 s at the median and
+/// 0.9 s at p90 (measured on the shared 32-core box, load average ~70), so
+/// the permit was held for seconds of disk wait, not CPU, and every other
+/// flush in the process queued behind it until `flush_admit_timeout_secs`.
+///
+/// Concurrent `fsync` calls on ext4 join the same journal transaction, so the
+/// batch costs about one commit instead of one per file. The guarantee is
+/// unchanged: every staged file's bytes are synced before the first rename,
+/// and the directory is synced after the last one. Other targets keep the
+/// per-file sync at stage time (Apple pairs it with one `F_FULLFSYNC`).
+const DEFER_STAGED_SYNC: bool = cfg!(target_os = "linux");
+
+/// Upper bound on the threads [`sync_staged_batch`] uses for one batch.
+const STAGED_SYNC_WORKERS: usize = 16;
+
+fn sync_staged_at_stage(file: &std::fs::File) -> std::io::Result<()> {
+    if DEFER_STAGED_SYNC {
+        Ok(())
+    } else {
+        sync_file_for_batch(file)
+    }
+}
+
+/// Open an existing file with the access rights needed to sync it to stable
+/// storage. Unix accepts a read-only descriptor (`fsync(2)` / `F_FULLFSYNC`
+/// writes back the inode's dirty pages whichever descriptor asks); Windows
+/// `FlushFileBuffers` (`File::sync_all`) requires `GENERIC_WRITE` and fails
+/// with `ERROR_ACCESS_DENIED` on a read-only handle.
+fn open_for_sync(path: &Path) -> std::io::Result<std::fs::File> {
+    #[cfg(windows)]
+    {
+        std::fs::OpenOptions::new().write(true).open(path)
+    }
+    #[cfg(not(windows))]
+    {
+        std::fs::File::open(path)
+    }
+}
+
+/// Sync `len` paths returned by `path_at(i)` concurrently across up to
+/// [`STAGED_SYNC_WORKERS`] threads.
+///
+/// The calling thread participates as one worker so a refused helper-thread
+/// spawn (`EAGAIN` under tight `RLIMIT_NPROC`) still completes the batch
+/// without panicking. On Apple targets, each worker issues plain `fsync(2)`
+/// and records one index per distinct filesystem (`st_dev`), and this function
+/// finishes with one `F_FULLFSYNC` ([`sync_file_full`]) per filesystem so
+/// every file's bytes reach stable storage before returning.
+fn sync_paths_with<'a>(
+    len: usize,
+    path_at: impl Fn(usize) -> &'a Path + Sync,
+) -> std::io::Result<()> {
+    if len == 0 {
+        return Ok(());
+    }
+    if len == 1 {
+        return sync_file_full(&open_for_sync(path_at(0))?);
+    }
+
+    #[cfg(target_vendor = "apple")]
+    type WorkerOutcome = std::io::Result<Vec<(u64, usize)>>;
+    #[cfg(not(target_vendor = "apple"))]
+    type WorkerOutcome = std::io::Result<()>;
+
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let failed = std::sync::atomic::AtomicBool::new(false);
+    let run_worker = || -> WorkerOutcome {
+        #[cfg(target_vendor = "apple")]
+        let mut devs: Vec<(u64, usize)> = Vec::new();
+        loop {
+            if failed.load(std::sync::atomic::Ordering::Relaxed) {
+                #[cfg(target_vendor = "apple")]
+                return Ok(devs);
+                #[cfg(not(target_vendor = "apple"))]
+                return Ok(());
+            }
+            let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if i >= len {
+                #[cfg(target_vendor = "apple")]
+                return Ok(devs);
+                #[cfg(not(target_vendor = "apple"))]
+                return Ok(());
+            }
+            let sync_result = open_for_sync(path_at(i)).and_then(|file| {
+                sync_file_for_batch(&file)?;
+                #[cfg(target_vendor = "apple")]
+                {
+                    use std::os::unix::fs::MetadataExt as _;
+                    let dev = file.metadata()?.dev();
+                    if !devs.iter().any(|&(seen, _)| seen == dev) {
+                        devs.push((dev, i));
+                    }
+                }
+                Ok(())
+            });
+            if let Err(error) = sync_result {
+                failed.store(true, std::sync::atomic::Ordering::Relaxed);
+                return Err(error);
+            }
+        }
+    };
+
+    let helper_count = len.min(STAGED_SYNC_WORKERS).saturating_sub(1);
+    #[cfg(target_vendor = "apple")]
+    let mut all_devs: Vec<(u64, usize)> = Vec::new();
+    let mut first_error: Option<std::io::Error> = None;
+
+    std::thread::scope(|scope| {
+        let mut handles = Vec::with_capacity(helper_count);
+        for _ in 0..helper_count {
+            // If the OS refuses a helper thread, the calling thread and any
+            // already-spawned helpers still drain the full batch.
+            if let Ok(handle) = std::thread::Builder::new().spawn_scoped(scope, run_worker) {
+                handles.push(handle);
+            }
+        }
+        let local_outcome = run_worker();
+        match local_outcome {
+            #[cfg(target_vendor = "apple")]
+            Ok(devs) => {
+                for (dev, idx) in devs {
+                    if !all_devs.iter().any(|&(seen, _)| seen == dev) {
+                        all_devs.push((dev, idx));
+                    }
+                }
+            }
+            #[cfg(not(target_vendor = "apple"))]
+            Ok(()) => {}
+            Err(error) => {
+                first_error = Some(error);
+            }
+        }
+        for handle in handles {
+            let outcome = handle
+                .join()
+                .unwrap_or_else(|_| Err(std::io::Error::other("batch-file sync thread panicked")));
+            match outcome {
+                #[cfg(target_vendor = "apple")]
+                Ok(devs) => {
+                    for (dev, idx) in devs {
+                        if !all_devs.iter().any(|&(seen, _)| seen == dev) {
+                            all_devs.push((dev, idx));
+                        }
+                    }
+                }
+                #[cfg(not(target_vendor = "apple"))]
+                Ok(()) => {}
+                Err(error) => {
+                    if first_error.is_none() {
+                        first_error = Some(error);
+                    }
+                }
+            }
+        }
+    });
+
+    if let Some(error) = first_error {
+        return Err(error);
+    }
+    #[cfg(target_vendor = "apple")]
+    {
+        for (_, idx) in all_devs {
+            sync_file_full(&open_for_sync(path_at(idx))?)?;
+        }
+    }
+    Ok(())
+}
+
+/// Sync every file in `paths` to stable storage, issuing per-file syncs
+/// concurrently across up to [`STAGED_SYNC_WORKERS`] threads (#3449).
+///
+/// Use this when a staging phase writes many independent files whose
+/// durability barrier is a later manifest write or directory rename:
+///
+/// - On Linux, concurrent `fsync` calls join one ext4 journal commit instead
+///   of paying one commit per file (the #3324 pattern).
+/// - On Apple targets, workers issue `fsync(2)` concurrently and one
+///   `F_FULLFSYNC` ([`sync_file_full`]) per filesystem drains the drive write
+///   cache for the whole batch before returning.
+/// - On Windows and other targets, workers issue [`sync_file_full`]
+///   concurrently.
+///
+/// Returns `Ok(())` only after every file in `paths` has been synced; on any
+/// error, stops scheduling new files and returns the first error.
+pub fn sync_paths_batch<P: AsRef<Path> + Sync>(paths: &[P]) -> std::io::Result<()> {
+    sync_paths_with(paths.len(), |i| paths[i].as_ref())
+}
+
+/// `fsync` every staged temp file, concurrently, before any rename.
+fn sync_staged_batch(files: &[StagedFile]) -> std::io::Result<()> {
+    sync_paths_with(files.len(), |i| files[i].tmp.as_path())
 }
 
 /// Move every staged file in `dir` into place, durably, with the same
@@ -149,8 +351,9 @@ pub fn stage_written_file(
 ///
 /// 1. every staged file's bytes reach stable storage before any rename (on
 ///    Apple targets, one `F_FULLFSYNC`, which drains the device cache for
-///    every earlier `fsync`; elsewhere each file was already fully synced
-///    when it was staged);
+///    every earlier `fsync`; on Linux all staged files are `fsync`ed here,
+///    concurrently, see [`DEFER_STAGED_SYNC`]; elsewhere each file was
+///    already fully synced when it was staged);
 /// 2. each file replaces its target (rename on Unix, write-through
 ///    `MoveFileExW` on Windows);
 /// 3. one parent-directory fsync makes every rename durable (Unix).
@@ -186,6 +389,9 @@ pub fn publish_staged(dir: &Path, files: Vec<StagedFile>) -> std::io::Result<()>
     // hashes the common pairs before they reach here; this is the backstop
     // for a pair the layout still stores as two literals (`µ`/`μ`, `ς`/`σ`).
     reject_case_folded_duplicate_destinations(&files)?;
+    if DEFER_STAGED_SYNC {
+        sync_staged_batch(&files)?;
+    }
     #[cfg(target_vendor = "apple")]
     sync_file_full(&std::fs::File::open(dir)?)?;
     let mut published_dests = Vec::with_capacity(files.len());
@@ -646,6 +852,39 @@ mod tests {
             .contains(".tmp.")));
     }
 
+    /// #3324: a wide batch (more files than sync workers) publishes every
+    /// file, and on Linux, where the per-file sync moved from staging to the
+    /// publish, a temp that cannot be synced fails the batch before any
+    /// rename, so no destination appears.
+    #[test]
+    fn a_wide_staged_batch_syncs_every_file_before_any_rename() {
+        let dir = tempfile::tempdir().unwrap();
+        let n = STAGED_SYNC_WORKERS * 3 + 1;
+        let paths: Vec<_> = (0..n)
+            .map(|i| dir.path().join(format!("f{i}.post")))
+            .collect();
+        let staged: Vec<_> = paths
+            .iter()
+            .enumerate()
+            .map(|(i, p)| stage_file(p, format!("v{i}").as_bytes()).unwrap())
+            .collect();
+        publish_staged(dir.path(), staged).unwrap();
+        for (i, p) in paths.iter().enumerate() {
+            assert_eq!(std::fs::read(p).unwrap(), format!("v{i}").as_bytes());
+        }
+
+        if DEFER_STAGED_SYNC {
+            let other = tempfile::tempdir().unwrap();
+            let a = other.path().join("a.post");
+            let b = other.path().join("b.post");
+            let staged = vec![stage_file(&a, b"a").unwrap(), stage_file(&b, b"b").unwrap()];
+            std::fs::remove_file(&staged[1].tmp).unwrap();
+            assert!(publish_staged(other.path(), staged).is_err());
+            assert!(!a.exists(), "no rename may run before every temp is synced");
+            assert!(!b.exists());
+        }
+    }
+
     #[test]
     fn an_unpublished_stage_removes_its_temp_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -805,5 +1044,50 @@ mod tests {
             "the OS code must be visible, got {message}"
         );
         assert!(source.exists(), "a failed replace must keep the temp");
+    }
+
+    /// #3449: `sync_paths_batch` handles empty, single, and wide batches
+    /// (wider than the worker pool across subdirectories), and fails cleanly
+    /// if any path cannot be opened/synced.
+    #[test]
+    fn sync_paths_batch_handles_empty_single_wide_and_missing_paths() {
+        let empty: [&Path; 0] = [];
+        sync_paths_batch(&empty).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let single = dir.path().join("only.ndjson");
+        std::fs::write(&single, b"single-payload\n").unwrap();
+        sync_paths_batch(&[single.as_path()]).unwrap();
+        assert_eq!(std::fs::read(&single).unwrap(), b"single-payload\n");
+
+        let blobs = dir.path().join("blobs");
+        let prepared = dir.path().join("prepared");
+        std::fs::create_dir_all(&blobs).unwrap();
+        std::fs::create_dir_all(&prepared).unwrap();
+        let n = STAGED_SYNC_WORKERS * 3 + 1;
+        let mut paths = Vec::with_capacity(n);
+        for i in 0..n {
+            let p = if i % 2 == 0 {
+                prepared.join(format!("{i:08}.ndjson"))
+            } else {
+                blobs.join(format!("{i:08}"))
+            };
+            std::fs::write(&p, format!("payload-{i}\n")).unwrap();
+            paths.push(p);
+        }
+        sync_paths_batch(&paths).unwrap();
+        for (i, p) in paths.iter().enumerate() {
+            assert_eq!(
+                std::fs::read(p).unwrap(),
+                format!("payload-{i}\n").as_bytes()
+            );
+        }
+
+        // Remove one file beyond the first worker wave and confirm the batch
+        // fails with NotFound rather than succeeding silently.
+        let missing_idx = STAGED_SYNC_WORKERS + 2;
+        std::fs::remove_file(&paths[missing_idx]).unwrap();
+        let error = sync_paths_batch(&paths).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::NotFound, "{error}");
     }
 }

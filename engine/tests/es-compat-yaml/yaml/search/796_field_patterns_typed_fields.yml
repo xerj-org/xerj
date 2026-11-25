@@ -1,0 +1,91 @@
+setup:
+  - do:
+      indices.create:
+          index: test_pattern_types
+          body:
+              mappings:
+                  properties:
+                      title:
+                          type: text
+                      n:
+                          type: long
+                      x:
+                          type: double
+                      ok:
+                          type: boolean
+                      d:
+                          type: date
+                      addr:
+                          type: ip
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "test_pattern_types", "_id": "1"}}'
+              - '{"title": "hello world", "n": 42, "x": 2.5, "ok": true, "d": "2024-01-15T10:00:00Z", "addr": "10.0.0.1"}'
+              - '{"index": {"_index": "test_pattern_types", "_id": "2"}}'
+              - '{"title": "forty two", "n": 7, "x": 42.0, "ok": false, "d": "2023-06-01", "addr": "192.168.1.9"}'
+              - '{"index": {"_index": "test_pattern_types", "_id": "3"}}'
+              - '{"title": "story 42", "n": 1, "x": 1.0, "ok": false, "d": "2020-01-01", "addr": "::1"}'
+
+---
+"multi_match on * matches a number in long and double fields as well as in text (#3463)":
+  - do:
+      count:
+          index: test_pattern_types
+          body: { query: { multi_match: { query: "42", fields: ["*"] } } }
+  - match: { count: 3 }
+
+---
+"multi_match on * matches a boolean field (#3463)":
+  - do:
+      search:
+          index: test_pattern_types
+          body: { query: { multi_match: { query: "true", fields: ["*"] } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+---
+"multi_match on * matches an ip field, CIDR included (#3463)":
+  - do:
+      search:
+          index: test_pattern_types
+          body: { query: { multi_match: { query: "10.0.0.0/8", fields: ["*"] } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+---
+"multi_match on * matches a date field over the whole day (#3463)":
+  - do:
+      search:
+          index: test_pattern_types
+          body: { query: { multi_match: { query: "2024-01-15", fields: ["*"] } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+---
+"multi_match on * skips typed fields a value does not parse for, with no error (#3463)":
+  - do:
+      search:
+          index: test_pattern_types
+          body: { query: { multi_match: { query: "hello", fields: ["*"] } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+---
+"a fractional number matches double fields only (#3463)":
+  - do:
+      search:
+          index: test_pattern_types
+          body: { query: { multi_match: { query: "2.5", fields: ["*"] } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+---
+"query_string with no default_field matches a long field (#3463)":
+  - do:
+      search:
+          index: test_pattern_types
+          body: { query: { query_string: { query: "7" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "2" }

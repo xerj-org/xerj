@@ -1,0 +1,2164 @@
+{
+ "label": "base",
+ "binary_sha256": "6ea9e6573170a36011d56e0624e8c5eddf178576183e98b63e16e2509676b80c",
+ "pack_sha256": "54f0419e6d944635eeaf9199923064278c36fd578213db60ca77cc85d2a69e3d",
+ "records": 2051,
+ "repeats": 3,
+ "trials": [
+  {
+   "load": [
+    "68.30",
+    "71.63",
+    "62.19"
+   ],
+   "pinned_ms": 324.1,
+   "pinned_by_kind": {
+    "canonical": [
+     15,
+     15
+    ],
+    "alias": [
+     15,
+     15
+    ],
+    "missing": [
+     10,
+     10
+    ],
+    "text": [
+     8,
+     8
+    ],
+    "duplicate": [
+     1,
+     1
+    ],
+    "invalid": [
+     1,
+     1
+    ]
+   },
+   "idq_ms": 123.6,
+   "idq_hit1": {
+    "bare": [
+     0,
+     30
+    ],
+    "sent": [
+     0,
+     30
+    ]
+   },
+   "idq_misses": [
+    {
+     "query": "RUSTSEC-2021-0003",
+     "expected": [
+      "RUSTSEC-2021-0003"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2025-0044"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2021-0003 affect",
+     "expected": [
+      "RUSTSEC-2021-0003"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2019-0012",
+     "expected": [
+      "RUSTSEC-2019-0012"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2019-0012 affect",
+     "expected": [
+      "RUSTSEC-2019-0012"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2022-0013",
+     "expected": [
+      "RUSTSEC-2022-0013"
+     ],
+     "top3": [
+      "RUSTSEC-2022-0090",
+      "RUSTSEC-2020-0055",
+      "GHSA-725g-w329-g7qr"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2022-0013 affect",
+     "expected": [
+      "RUSTSEC-2022-0013"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-725g-w329-g7qr"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2020-0071",
+     "expected": [
+      "RUSTSEC-2020-0071"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0165",
+      "RUSTSEC-2021-0144",
+      "RUSTSEC-2020-0055"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2020-0071 affect",
+     "expected": [
+      "RUSTSEC-2020-0071"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-794x-2rpg-rfgr"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2020-0019",
+     "expected": [
+      "RUSTSEC-2020-0019"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0165",
+      "RUSTSEC-2021-0144",
+      "RUSTSEC-2020-0055"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2020-0019 affect",
+     "expected": [
+      "RUSTSEC-2020-0019"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-794x-2rpg-rfgr"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2018-0018",
+     "expected": [
+      "RUSTSEC-2018-0018"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2018-0018 affect",
+     "expected": [
+      "RUSTSEC-2018-0018"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2019-0031",
+     "expected": [
+      "RUSTSEC-2019-0031"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2019-0031 affect",
+     "expected": [
+      "RUSTSEC-2019-0031"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2023-0005",
+     "expected": [
+      "RUSTSEC-2023-0005"
+     ],
+     "top3": [
+      "RUSTSEC-2024-0366",
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2023-0005 affect",
+     "expected": [
+      "RUSTSEC-2023-0005"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2024-0346",
+     "expected": [
+      "RUSTSEC-2024-0346"
+     ],
+     "top3": [
+      "RUSTSEC-2024-0361",
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2024-0346 affect",
+     "expected": [
+      "RUSTSEC-2024-0346"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-9gqx-53gp-c8g3",
+     "expected": [
+      "GHSA-9gqx-53gp-c8g3"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-9gqx-53gp-c8g3 affect",
+     "expected": [
+      "GHSA-9gqx-53gp-c8g3"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "GHSA-794x-2rpg-rfgr",
+     "expected": [
+      "GHSA-794x-2rpg-rfgr"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-794x-2rpg-rfgr affect",
+     "expected": [
+      "GHSA-794x-2rpg-rfgr"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2025-0152",
+     "expected": [
+      "RUSTSEC-2025-0152"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2025-0152 affect",
+     "expected": [
+      "RUSTSEC-2025-0152"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-794x-2rpg-rfgr"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2026-0028",
+     "expected": [
+      "RUSTSEC-2026-0028"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2026-0028 affect",
+     "expected": [
+      "RUSTSEC-2026-0028"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "GHSA-52h2-m2cf-9jh6",
+     "expected": [
+      "GHSA-52h2-m2cf-9jh6"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-52h2-m2cf-9jh6 affect",
+     "expected": [
+      "GHSA-52h2-m2cf-9jh6"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2024-0448",
+     "expected": [
+      "RUSTSEC-2024-0448"
+     ],
+     "top3": [
+      "RUSTSEC-2024-0361",
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2024-0448 affect",
+     "expected": [
+      "RUSTSEC-2024-0448"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "CVE-2022-23523",
+     "expected": [
+      "GHSA-52h2-m2cf-9jh6"
+     ],
+     "top3": [
+      "RUSTSEC-2022-0090",
+      "GHSA-725g-w329-g7qr",
+      "RUSTSEC-2025-0028"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2022-23523 affect",
+     "expected": [
+      "GHSA-52h2-m2cf-9jh6"
+     ],
+     "top3": [
+      "GHSA-725g-w329-g7qr",
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr"
+     ]
+    },
+    {
+     "query": "GHSA-6v2j-vr4h-f632",
+     "expected": [
+      "RUSTSEC-2025-0152"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-6v2j-vr4h-f632 affect",
+     "expected": [
+      "RUSTSEC-2025-0152"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2021-28031",
+     "expected": [
+      "RUSTSEC-2021-0030"
+     ],
+     "top3": [
+      "RUSTSEC-2022-0051",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2021-28031 affect",
+     "expected": [
+      "RUSTSEC-2021-0030"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-3qm2-rfqw-fmrw",
+     "expected": [
+      "RUSTSEC-2021-0030"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-3qm2-rfqw-fmrw affect",
+     "expected": [
+      "RUSTSEC-2021-0030"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2021-28307",
+     "expected": [
+      "RUSTSEC-2021-0038"
+     ],
+     "top3": [
+      "RUSTSEC-2022-0051",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2021-28307 affect",
+     "expected": [
+      "RUSTSEC-2021-0038"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-7qcc-g2m9-8533",
+     "expected": [
+      "RUSTSEC-2021-0038"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-7qcc-g2m9-8533 affect",
+     "expected": [
+      "RUSTSEC-2021-0038"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2026-75857",
+     "expected": [
+      "GHSA-g29h-pfmp-qp9r"
+     ],
+     "top3": [
+      "GHSA-7587-4wv6-m68m",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2026-75857 affect",
+     "expected": [
+      "GHSA-g29h-pfmp-qp9r"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-x958-rvg6-956w",
+     "expected": [
+      "RUSTSEC-2025-0041"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-x958-rvg6-956w affect",
+     "expected": [
+      "RUSTSEC-2025-0041"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2026-35373",
+     "expected": [
+      "GHSA-jcjr-rh8q-7xqf"
+     ],
+     "top3": [
+      "GHSA-7587-4wv6-m68m",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2026-35373 affect",
+     "expected": [
+      "GHSA-jcjr-rh8q-7xqf"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-5wjr-9356-4wc8",
+     "expected": [
+      "RUSTSEC-2026-0384"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-5wjr-9356-4wc8 affect",
+     "expected": [
+      "RUSTSEC-2026-0384"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2024-36400",
+     "expected": [
+      "RUSTSEC-2024-0343"
+     ],
+     "top3": [
+      "RUSTSEC-2024-0361",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2024-36400 affect",
+     "expected": [
+      "RUSTSEC-2024-0343"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-9hc7-6w9r-wj94",
+     "expected": [
+      "RUSTSEC-2024-0343"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-9hc7-6w9r-wj94 affect",
+     "expected": [
+      "RUSTSEC-2024-0343"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2019-16140",
+     "expected": [
+      "RUSTSEC-2019-0016"
+     ],
+     "top3": [
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090",
+      "RUSTSEC-2023-0051"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2019-16140 affect",
+     "expected": [
+      "RUSTSEC-2019-0016"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-xg7c-246g-6qpv",
+     "expected": [
+      "RUSTSEC-2026-0219"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-xg7c-246g-6qpv affect",
+     "expected": [
+      "RUSTSEC-2026-0219"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2026-35364",
+     "expected": [
+      "GHSA-m976-87wm-48fm"
+     ],
+     "top3": [
+      "GHSA-7587-4wv6-m68m",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2026-35364 affect",
+     "expected": [
+      "GHSA-m976-87wm-48fm"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    }
+   ]
+  },
+  {
+   "load": [
+    "68.30",
+    "71.63",
+    "62.19"
+   ],
+   "pinned_ms": 302.9,
+   "pinned_by_kind": {
+    "canonical": [
+     15,
+     15
+    ],
+    "alias": [
+     15,
+     15
+    ],
+    "missing": [
+     10,
+     10
+    ],
+    "text": [
+     8,
+     8
+    ],
+    "duplicate": [
+     1,
+     1
+    ],
+    "invalid": [
+     1,
+     1
+    ]
+   },
+   "idq_ms": 115.0,
+   "idq_hit1": {
+    "bare": [
+     0,
+     30
+    ],
+    "sent": [
+     0,
+     30
+    ]
+   },
+   "idq_misses": [
+    {
+     "query": "RUSTSEC-2021-0003",
+     "expected": [
+      "RUSTSEC-2021-0003"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2025-0044"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2021-0003 affect",
+     "expected": [
+      "RUSTSEC-2021-0003"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2019-0012",
+     "expected": [
+      "RUSTSEC-2019-0012"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2019-0012 affect",
+     "expected": [
+      "RUSTSEC-2019-0012"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2022-0013",
+     "expected": [
+      "RUSTSEC-2022-0013"
+     ],
+     "top3": [
+      "RUSTSEC-2022-0090",
+      "RUSTSEC-2020-0055",
+      "GHSA-725g-w329-g7qr"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2022-0013 affect",
+     "expected": [
+      "RUSTSEC-2022-0013"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-725g-w329-g7qr"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2020-0071",
+     "expected": [
+      "RUSTSEC-2020-0071"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0165",
+      "RUSTSEC-2021-0144",
+      "RUSTSEC-2020-0055"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2020-0071 affect",
+     "expected": [
+      "RUSTSEC-2020-0071"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-794x-2rpg-rfgr"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2020-0019",
+     "expected": [
+      "RUSTSEC-2020-0019"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0165",
+      "RUSTSEC-2021-0144",
+      "RUSTSEC-2020-0055"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2020-0019 affect",
+     "expected": [
+      "RUSTSEC-2020-0019"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-794x-2rpg-rfgr"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2018-0018",
+     "expected": [
+      "RUSTSEC-2018-0018"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2018-0018 affect",
+     "expected": [
+      "RUSTSEC-2018-0018"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2019-0031",
+     "expected": [
+      "RUSTSEC-2019-0031"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2019-0031 affect",
+     "expected": [
+      "RUSTSEC-2019-0031"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2023-0005",
+     "expected": [
+      "RUSTSEC-2023-0005"
+     ],
+     "top3": [
+      "RUSTSEC-2024-0366",
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2023-0005 affect",
+     "expected": [
+      "RUSTSEC-2023-0005"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2024-0346",
+     "expected": [
+      "RUSTSEC-2024-0346"
+     ],
+     "top3": [
+      "RUSTSEC-2024-0361",
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2024-0346 affect",
+     "expected": [
+      "RUSTSEC-2024-0346"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-9gqx-53gp-c8g3",
+     "expected": [
+      "GHSA-9gqx-53gp-c8g3"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-9gqx-53gp-c8g3 affect",
+     "expected": [
+      "GHSA-9gqx-53gp-c8g3"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "GHSA-794x-2rpg-rfgr",
+     "expected": [
+      "GHSA-794x-2rpg-rfgr"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-794x-2rpg-rfgr affect",
+     "expected": [
+      "GHSA-794x-2rpg-rfgr"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2025-0152",
+     "expected": [
+      "RUSTSEC-2025-0152"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2025-0152 affect",
+     "expected": [
+      "RUSTSEC-2025-0152"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-794x-2rpg-rfgr"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2026-0028",
+     "expected": [
+      "RUSTSEC-2026-0028"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2026-0028 affect",
+     "expected": [
+      "RUSTSEC-2026-0028"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "GHSA-52h2-m2cf-9jh6",
+     "expected": [
+      "GHSA-52h2-m2cf-9jh6"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-52h2-m2cf-9jh6 affect",
+     "expected": [
+      "GHSA-52h2-m2cf-9jh6"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2024-0448",
+     "expected": [
+      "RUSTSEC-2024-0448"
+     ],
+     "top3": [
+      "RUSTSEC-2024-0361",
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2024-0448 affect",
+     "expected": [
+      "RUSTSEC-2024-0448"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "CVE-2022-23523",
+     "expected": [
+      "GHSA-52h2-m2cf-9jh6"
+     ],
+     "top3": [
+      "RUSTSEC-2022-0090",
+      "GHSA-725g-w329-g7qr",
+      "RUSTSEC-2025-0028"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2022-23523 affect",
+     "expected": [
+      "GHSA-52h2-m2cf-9jh6"
+     ],
+     "top3": [
+      "GHSA-725g-w329-g7qr",
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr"
+     ]
+    },
+    {
+     "query": "GHSA-6v2j-vr4h-f632",
+     "expected": [
+      "RUSTSEC-2025-0152"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-6v2j-vr4h-f632 affect",
+     "expected": [
+      "RUSTSEC-2025-0152"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2021-28031",
+     "expected": [
+      "RUSTSEC-2021-0030"
+     ],
+     "top3": [
+      "RUSTSEC-2022-0051",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2021-28031 affect",
+     "expected": [
+      "RUSTSEC-2021-0030"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-3qm2-rfqw-fmrw",
+     "expected": [
+      "RUSTSEC-2021-0030"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-3qm2-rfqw-fmrw affect",
+     "expected": [
+      "RUSTSEC-2021-0030"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2021-28307",
+     "expected": [
+      "RUSTSEC-2021-0038"
+     ],
+     "top3": [
+      "RUSTSEC-2022-0051",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2021-28307 affect",
+     "expected": [
+      "RUSTSEC-2021-0038"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-7qcc-g2m9-8533",
+     "expected": [
+      "RUSTSEC-2021-0038"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-7qcc-g2m9-8533 affect",
+     "expected": [
+      "RUSTSEC-2021-0038"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2026-75857",
+     "expected": [
+      "GHSA-g29h-pfmp-qp9r"
+     ],
+     "top3": [
+      "GHSA-7587-4wv6-m68m",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2026-75857 affect",
+     "expected": [
+      "GHSA-g29h-pfmp-qp9r"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-x958-rvg6-956w",
+     "expected": [
+      "RUSTSEC-2025-0041"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-x958-rvg6-956w affect",
+     "expected": [
+      "RUSTSEC-2025-0041"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2026-35373",
+     "expected": [
+      "GHSA-jcjr-rh8q-7xqf"
+     ],
+     "top3": [
+      "GHSA-7587-4wv6-m68m",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2026-35373 affect",
+     "expected": [
+      "GHSA-jcjr-rh8q-7xqf"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-5wjr-9356-4wc8",
+     "expected": [
+      "RUSTSEC-2026-0384"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-5wjr-9356-4wc8 affect",
+     "expected": [
+      "RUSTSEC-2026-0384"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2024-36400",
+     "expected": [
+      "RUSTSEC-2024-0343"
+     ],
+     "top3": [
+      "RUSTSEC-2024-0361",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2024-36400 affect",
+     "expected": [
+      "RUSTSEC-2024-0343"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-9hc7-6w9r-wj94",
+     "expected": [
+      "RUSTSEC-2024-0343"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-9hc7-6w9r-wj94 affect",
+     "expected": [
+      "RUSTSEC-2024-0343"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2019-16140",
+     "expected": [
+      "RUSTSEC-2019-0016"
+     ],
+     "top3": [
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090",
+      "RUSTSEC-2023-0051"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2019-16140 affect",
+     "expected": [
+      "RUSTSEC-2019-0016"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-xg7c-246g-6qpv",
+     "expected": [
+      "RUSTSEC-2026-0219"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-xg7c-246g-6qpv affect",
+     "expected": [
+      "RUSTSEC-2026-0219"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2026-35364",
+     "expected": [
+      "GHSA-m976-87wm-48fm"
+     ],
+     "top3": [
+      "GHSA-7587-4wv6-m68m",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2026-35364 affect",
+     "expected": [
+      "GHSA-m976-87wm-48fm"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    }
+   ]
+  },
+  {
+   "load": [
+    "68.30",
+    "71.63",
+    "62.19"
+   ],
+   "pinned_ms": 313.0,
+   "pinned_by_kind": {
+    "canonical": [
+     15,
+     15
+    ],
+    "alias": [
+     15,
+     15
+    ],
+    "missing": [
+     10,
+     10
+    ],
+    "text": [
+     8,
+     8
+    ],
+    "duplicate": [
+     1,
+     1
+    ],
+    "invalid": [
+     1,
+     1
+    ]
+   },
+   "idq_ms": 113.5,
+   "idq_hit1": {
+    "bare": [
+     0,
+     30
+    ],
+    "sent": [
+     0,
+     30
+    ]
+   },
+   "idq_misses": [
+    {
+     "query": "RUSTSEC-2021-0003",
+     "expected": [
+      "RUSTSEC-2021-0003"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2025-0044"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2021-0003 affect",
+     "expected": [
+      "RUSTSEC-2021-0003"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2019-0012",
+     "expected": [
+      "RUSTSEC-2019-0012"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2019-0012 affect",
+     "expected": [
+      "RUSTSEC-2019-0012"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2022-0013",
+     "expected": [
+      "RUSTSEC-2022-0013"
+     ],
+     "top3": [
+      "RUSTSEC-2022-0090",
+      "RUSTSEC-2020-0055",
+      "GHSA-725g-w329-g7qr"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2022-0013 affect",
+     "expected": [
+      "RUSTSEC-2022-0013"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-725g-w329-g7qr"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2020-0071",
+     "expected": [
+      "RUSTSEC-2020-0071"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0165",
+      "RUSTSEC-2021-0144",
+      "RUSTSEC-2020-0055"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2020-0071 affect",
+     "expected": [
+      "RUSTSEC-2020-0071"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-794x-2rpg-rfgr"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2020-0019",
+     "expected": [
+      "RUSTSEC-2020-0019"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0165",
+      "RUSTSEC-2021-0144",
+      "RUSTSEC-2020-0055"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2020-0019 affect",
+     "expected": [
+      "RUSTSEC-2020-0019"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-794x-2rpg-rfgr"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2018-0018",
+     "expected": [
+      "RUSTSEC-2018-0018"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2018-0018 affect",
+     "expected": [
+      "RUSTSEC-2018-0018"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2019-0031",
+     "expected": [
+      "RUSTSEC-2019-0031"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2019-0031 affect",
+     "expected": [
+      "RUSTSEC-2019-0031"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2023-0005",
+     "expected": [
+      "RUSTSEC-2023-0005"
+     ],
+     "top3": [
+      "RUSTSEC-2024-0366",
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2023-0005 affect",
+     "expected": [
+      "RUSTSEC-2023-0005"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2024-0346",
+     "expected": [
+      "RUSTSEC-2024-0346"
+     ],
+     "top3": [
+      "RUSTSEC-2024-0361",
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2024-0346 affect",
+     "expected": [
+      "RUSTSEC-2024-0346"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-9gqx-53gp-c8g3",
+     "expected": [
+      "GHSA-9gqx-53gp-c8g3"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-9gqx-53gp-c8g3 affect",
+     "expected": [
+      "GHSA-9gqx-53gp-c8g3"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "GHSA-794x-2rpg-rfgr",
+     "expected": [
+      "GHSA-794x-2rpg-rfgr"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-794x-2rpg-rfgr affect",
+     "expected": [
+      "GHSA-794x-2rpg-rfgr"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2025-0152",
+     "expected": [
+      "RUSTSEC-2025-0152"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2025-0152 affect",
+     "expected": [
+      "RUSTSEC-2025-0152"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-794x-2rpg-rfgr"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2026-0028",
+     "expected": [
+      "RUSTSEC-2026-0028"
+     ],
+     "top3": [
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2026-0028 affect",
+     "expected": [
+      "RUSTSEC-2026-0028"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "GHSA-6w86-wgwq-rgq8"
+     ]
+    },
+    {
+     "query": "GHSA-52h2-m2cf-9jh6",
+     "expected": [
+      "GHSA-52h2-m2cf-9jh6"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-52h2-m2cf-9jh6 affect",
+     "expected": [
+      "GHSA-52h2-m2cf-9jh6"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "RUSTSEC-2024-0448",
+     "expected": [
+      "RUSTSEC-2024-0448"
+     ],
+     "top3": [
+      "RUSTSEC-2024-0361",
+      "RUSTSEC-2020-0055",
+      "RUSTSEC-2026-0038"
+     ]
+    },
+    {
+     "query": "what does advisory RUSTSEC-2024-0448 affect",
+     "expected": [
+      "RUSTSEC-2024-0448"
+     ],
+     "top3": [
+      "RUSTSEC-2026-0038",
+      "RUSTSEC-2020-0051",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "CVE-2022-23523",
+     "expected": [
+      "GHSA-52h2-m2cf-9jh6"
+     ],
+     "top3": [
+      "RUSTSEC-2022-0090",
+      "GHSA-725g-w329-g7qr",
+      "RUSTSEC-2025-0028"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2022-23523 affect",
+     "expected": [
+      "GHSA-52h2-m2cf-9jh6"
+     ],
+     "top3": [
+      "GHSA-725g-w329-g7qr",
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr"
+     ]
+    },
+    {
+     "query": "GHSA-6v2j-vr4h-f632",
+     "expected": [
+      "RUSTSEC-2025-0152"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-6v2j-vr4h-f632 affect",
+     "expected": [
+      "RUSTSEC-2025-0152"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2021-28031",
+     "expected": [
+      "RUSTSEC-2021-0030"
+     ],
+     "top3": [
+      "RUSTSEC-2022-0051",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2021-28031 affect",
+     "expected": [
+      "RUSTSEC-2021-0030"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-3qm2-rfqw-fmrw",
+     "expected": [
+      "RUSTSEC-2021-0030"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-3qm2-rfqw-fmrw affect",
+     "expected": [
+      "RUSTSEC-2021-0030"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2021-28307",
+     "expected": [
+      "RUSTSEC-2021-0038"
+     ],
+     "top3": [
+      "RUSTSEC-2022-0051",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2021-28307 affect",
+     "expected": [
+      "RUSTSEC-2021-0038"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-7qcc-g2m9-8533",
+     "expected": [
+      "RUSTSEC-2021-0038"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-7qcc-g2m9-8533 affect",
+     "expected": [
+      "RUSTSEC-2021-0038"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2026-75857",
+     "expected": [
+      "GHSA-g29h-pfmp-qp9r"
+     ],
+     "top3": [
+      "GHSA-7587-4wv6-m68m",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2026-75857 affect",
+     "expected": [
+      "GHSA-g29h-pfmp-qp9r"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-x958-rvg6-956w",
+     "expected": [
+      "RUSTSEC-2025-0041"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-x958-rvg6-956w affect",
+     "expected": [
+      "RUSTSEC-2025-0041"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2026-35373",
+     "expected": [
+      "GHSA-jcjr-rh8q-7xqf"
+     ],
+     "top3": [
+      "GHSA-7587-4wv6-m68m",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2026-35373 affect",
+     "expected": [
+      "GHSA-jcjr-rh8q-7xqf"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-5wjr-9356-4wc8",
+     "expected": [
+      "RUSTSEC-2026-0384"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-5wjr-9356-4wc8 affect",
+     "expected": [
+      "RUSTSEC-2026-0384"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2024-36400",
+     "expected": [
+      "RUSTSEC-2024-0343"
+     ],
+     "top3": [
+      "RUSTSEC-2024-0361",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2024-36400 affect",
+     "expected": [
+      "RUSTSEC-2024-0343"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-9hc7-6w9r-wj94",
+     "expected": [
+      "RUSTSEC-2024-0343"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-9hc7-6w9r-wj94 affect",
+     "expected": [
+      "RUSTSEC-2024-0343"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2019-16140",
+     "expected": [
+      "RUSTSEC-2019-0016"
+     ],
+     "top3": [
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090",
+      "RUSTSEC-2023-0051"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2019-16140 affect",
+     "expected": [
+      "RUSTSEC-2019-0016"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    },
+    {
+     "query": "GHSA-xg7c-246g-6qpv",
+     "expected": [
+      "RUSTSEC-2026-0219"
+     ],
+     "top3": [
+      "GHSA-2gg5-7c4v-6xx2",
+      "GHSA-5w4j-f78p-4wh9",
+      "RUSTSEC-2021-0110"
+     ]
+    },
+    {
+     "query": "what does advisory GHSA-xg7c-246g-6qpv affect",
+     "expected": [
+      "RUSTSEC-2026-0219"
+     ],
+     "top3": [
+      "GHSA-5w4j-f78p-4wh9",
+      "GHSA-r45x-ghr2-qjxc",
+      "RUSTSEC-2023-0003"
+     ]
+    },
+    {
+     "query": "CVE-2026-35364",
+     "expected": [
+      "GHSA-m976-87wm-48fm"
+     ],
+     "top3": [
+      "GHSA-7587-4wv6-m68m",
+      "RUSTSEC-2025-0028",
+      "RUSTSEC-2022-0090"
+     ]
+    },
+    {
+     "query": "what does advisory CVE-2026-35364 affect",
+     "expected": [
+      "GHSA-m976-87wm-48fm"
+     ],
+     "top3": [
+      "RUSTSEC-2023-0003",
+      "GHSA-794x-2rpg-rfgr",
+      "RUSTSEC-2024-0364"
+     ]
+    }
+   ]
+  }
+ ],
+ "summary": {
+  "pinned_correct": "50/50",
+  "pinned_by_kind": {
+   "canonical": [
+    15,
+    15
+   ],
+   "alias": [
+    15,
+    15
+   ],
+   "missing": [
+    10,
+    10
+   ],
+   "text": [
+    8,
+    8
+   ],
+   "duplicate": [
+    1,
+    1
+   ],
+   "invalid": [
+    1,
+    1
+   ]
+  },
+  "idq_bare_hit1": "0/30",
+  "idq_sentence_hit1": "0/30",
+  "pinned_ms_median": 313.0,
+  "idq_ms_median": 115.0,
+  "stable_across_repeats": true
+ }
+}

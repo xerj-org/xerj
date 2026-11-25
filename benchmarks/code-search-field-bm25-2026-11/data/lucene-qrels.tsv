@@ -1,0 +1,9 @@
+query-id	corpus-id	score
+q1_hnsw_maxconn	lucene/core/src/java/org/apache/lucene/util/hnsw/HnswGraphBuilder.java	1
+q2_bm25_idf	lucene/core/src/java/org/apache/lucene/search/similarities/BM25Similarity.java	1
+q3_max_term_len	lucene/core/src/java/org/apache/lucene/index/IndexWriter.java	1
+q4_ram_buffer	lucene/core/src/java/org/apache/lucene/index/IndexWriterConfig.java	1
+q5_fsdir_choice	lucene/core/src/java/org/apache/lucene/store/FSDirectory.java	1
+q6_maxclause_locality	lucene/core/src/java/org/apache/lucene/search/IndexSearcher.java	1
+q8_deletes_pct	lucene/core/src/java/org/apache/lucene/index/TieredMergePolicy.java	1
+q9_min_java	gradle/libs.versions.toml	1

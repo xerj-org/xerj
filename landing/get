@@ -45,19 +45,68 @@ info() { printf '%s==>%s %s\n' "$YEL" "$RST" "$*"; }
 ok()   { printf '%s ok %s %s\n' "$GRN" "$RST" "$*"; }
 die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
 
-need() { command -v "$1" >/dev/null 2>&1 || die "'$1' is required but not found in PATH"; }
-need uname; need tar
+# --- precheck: every tool this script calls, named at once (#3278) -----------
+# A minimal PATH (NixOS, a bare container, `env -i`) used to fail one tool at
+# a time, mid-install. Exit 2 (not 1) so a caller can tell "this host lacks
+# tools" from "the download or checksum failed". Nothing is downloaded yet.
+missing=''
+for t in uname tar gzip sed awk tr cut head mktemp; do
+  command -v "$t" >/dev/null 2>&1 || missing="${missing} ${t}"
+done
+command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || missing="${missing} curl-or-wget"
+if [ -n "$missing" ]; then
+  printf '%serror:%s missing required tools:%s. NixOS: nix-shell -p gnutar gzip gnused gawk curl; Alpine: apk add tar gzip sed curl; Debian/Ubuntu: apt-get install tar gzip sed curl. Nothing was installed.\n' "$RED" "$RST" "$missing" >&2
+  exit 2
+fi
 
 # --- pick a downloader ------------------------------------------------------
+# DL leaves the HTTP status of its download in $dl_status ("" when the server
+# never answered), so a refusal can be named instead of guessed at (#2460).
+dl_status=''
 if command -v curl >/dev/null 2>&1; then
-  DL() { curl -fsSL "$1" -o "$2"; }
-  DLS() { curl -fsSL "$1"; }
+  DL() {
+    dl_status=$(curl -fsSL -w '%{http_code}' "$1" -o "$2") && return 0
+    [ "$dl_status" = "000" ] && dl_status=''
+    return 1
+  }
+  fetch_cmd='curl -fsSLO'   # the same downloader, for the by-hand recipe below
 elif command -v wget >/dev/null 2>&1; then
-  DL() { wget -qO "$2" "$1"; }
-  DLS() { wget -qO - "$1"; }
+  DL() {
+    dl_status=''
+    dl_hdr=$(wget -S -qO "$2" "$1" 2>&1) && return 0
+    dl_status=$(printf '%s\n' "$dl_hdr" | sed -n 's|^ *HTTP/[0-9.]* \([0-9][0-9][0-9]\).*|\1|p' | sed -n '$p')
+    return 1
+  }
+  fetch_cmd='wget -q'
 else
   die "need curl or wget"
 fi
+
+# DL_RESUME: the large-download variant (#3278, the ~460 MiB model bundle).
+# A field report saw the bundle stall at 0 bytes and needed 25 ranged retries
+# by hand. Each attempt resumes from the bytes already on disk (HTTP Range)
+# and gives up on a connection that moves no byte for 30 s; the SHA-256 check
+# after it is what proves the reassembled file.
+DL_RESUME_TRIES="${XERJ_DL_TRIES:-40}"
+DL_RESUME() {
+  if command -v curl >/dev/null 2>&1; then
+    n=1
+    while :; do
+      dl_status=$(curl -fsSL -C - --connect-timeout 30 --speed-limit 1 --speed-time 30 \
+        -w '%{http_code}' "$1" -o "$2") && return 0
+      [ "$dl_status" = "000" ] && dl_status=''
+      case "$dl_status" in 404|410|401|403) return 1 ;; 416) return 0 ;; esac
+      [ "$n" -ge "$DL_RESUME_TRIES" ] && return 1
+      have=$(wc -c < "$2" 2>/dev/null | tr -d ' ' || echo 0)
+      printf '   download interrupted at %s bytes; resuming (attempt %s of %s)\n' "${have:-0}" "$((n + 1))" "$DL_RESUME_TRIES" >&2
+      n=$((n + 1))
+      sleep "$([ "$n" -lt 8 ] && echo "$n" || echo 8)"
+    done
+  else
+    dl_status=''
+    wget -q -c -T 30 -t "$DL_RESUME_TRIES" --waitretry=8 -O "$2" "$1"
+  fi
+}
 
 # --- detect target triple ---------------------------------------------------
 # Supported matrix (8 release targets):
@@ -118,18 +167,35 @@ if [ "${XERJ_VERSION:-}" = "" ]; then
   info "resolving latest release of ${REPO}…"
   # Prefer github.com /releases/latest redirect (no api.github.com rate limit).
   # curl -w '%{url_effective}' follows redirects and prints the final .../tag/vX.Y.Z URL.
-  tag=""
+  # Both lookups keep their HTTP status, so a refusal is named (#2460).
+  tag=""; latest_why="not tried (no curl)"; api_why=""
   if command -v curl >/dev/null 2>&1; then
-    tag=$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
-      "https://github.com/${REPO}/releases/latest" 2>/dev/null \
-      | sed -n 's|.*/tag/\([^/]*\)$|\1|p' | head -n1)
+    latest_out=$(curl -fsSLI -o /dev/null -w '%{http_code} %{url_effective}' \
+      "https://github.com/${REPO}/releases/latest" 2>/dev/null) || true
+    tag=$(printf '%s\n' "${latest_out#* }" | sed -n 's|.*/tag/\([^/]*\)$|\1|p' | head -n1)
+    case "${latest_out%% *}" in ''|000) latest_why="no HTTP response" ;; *) latest_why="HTTP ${latest_out%% *}" ;; esac
   fi
   # Fall back to the REST endpoint when the redirect path yields nothing.
   if [ -z "$tag" ]; then
-    tag=$(DLS "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null \
-          | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)
+    api_json=$(mktemp 2>/dev/null || mktemp "${TMPDIR:-/tmp}/xerj.XXXXXX")
+    if DL "https://api.github.com/repos/${REPO}/releases/latest" "$api_json" 2>/dev/null; then
+      tag=$(sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' "$api_json" | head -n1)
+      api_why="HTTP ${dl_status:-200}, no tag_name"
+    elif [ -n "$dl_status" ]; then api_why="HTTP ${dl_status}"
+    else api_why="no HTTP response"; fi
+    rm -f "$api_json"
   fi
-  [ -n "$tag" ] || die "could not resolve latest release — set XERJ_VERSION=vX.Y.Z (see https://github.com/${REPO}/releases)"
+  if [ -z "$tag" ]; then
+    case "${latest_why} ${api_why}" in
+      *"HTTP 4"*) hint="A 4xx means the server refused this client (proxy, firewall, bot check or rate limit; api.github.com allows 60 anonymous requests an hour)." ;;
+      *) hint="" ;;
+    esac
+    die "could not resolve the latest release of ${REPO} (github.com/${REPO}/releases/latest: ${latest_why}; api.github.com: ${api_why})
+       ${hint}
+       Pick a tag from https://github.com/${REPO}/releases and rerun the installer with it set:
+         XERJ_VERSION=vX.Y.Z   (e.g. curl -fsSL https://xerj.org/get | XERJ_VERSION=vX.Y.Z sh)
+       With the GitHub CLI signed in, the latest tag is:  gh release view -R ${REPO} --json tagName -q .tagName"
+  fi
 else
   tag="$XERJ_VERSION"
   # Release tags are v-prefixed; accept XERJ_VERSION=1.0.0 too.
@@ -146,9 +212,45 @@ base="https://github.com/${REPO}/releases/download/${tag}"
 tmp=$(mktemp -d 2>/dev/null || mktemp -d "${TMPDIR:-/tmp}/xerj.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT INT TERM
 
+# A refused download is not the end of the install: agents behind a proxy,
+# a WAF challenge or GitHub's anonymous rate limit get a 4xx here and cannot
+# pass a challenge, so say what the server answered and print the same install
+# by hand as one fail-closed command chain (#2460). Verification and install
+# stay in one chain: a bad digest stops it before anything is extracted.
+if [ "$os" = "Darwin" ]; then sha_cmd="shasum -a 256"; else sha_cmd="sha256sum"; fi
+if [ "$ext" = "zip" ]; then unpack='unzip -q "$a"'; else unpack='tar -xzf "$a"'; fi
+# The recipe installs where this run would: XERJ_INSTALL_DIR when set (made
+# absolute, since the recipe cd's into a scratch dir), else ~/.local/bin.
+if [ -n "${XERJ_INSTALL_DIR:-}" ]; then
+  case "$XERJ_INSTALL_DIR" in /*) d_abs="$XERJ_INSTALL_DIR" ;; *) d_abs="$(pwd)/$XERJ_INSTALL_DIR" ;; esac
+  d_assign="d='$(printf '%s' "$d_abs" | sed "s/'/'\\\\''/g")'"
+else
+  d_assign='d=~/.local/bin'
+fi
+download_failed() {  # $1 = what failed, $2 = its URL
+  if [ -n "$dl_status" ]; then why="HTTP ${dl_status}"; else why="no HTTP response"; fi
+  case "$dl_status" in
+    404|410) die "$1 failed (${why}): $2
+       This release has no such file. Available assets: https://github.com/${REPO}/releases/tag/${tag}" ;;
+    4??) hint="The server refused this client (proxy, firewall, bot check or rate limit); the release itself is there." ;;
+    *)   hint="If this keeps failing, the release can still be installed by hand." ;;
+  esac
+  die "$1 failed (${why}): $2
+       ${hint}
+       Install the same release by hand; the chain stops at the first failure, so a bad digest installs nothing:
+         base=${base} a=${asset} ${d_assign}
+         cd \"\$(mktemp -d)\" && ${fetch_cmd} \"\$base/\$a\" && ${fetch_cmd} \"\$base/\$a.sha256\" \\
+           && [ \"\$(${sha_cmd} \"\$a\" | cut -d' ' -f1)\" = \"\$(cut -d' ' -f1 \"\$a.sha256\")\" ] \\
+           && ${unpack} && mkdir -p \"\$d\" && cp ${stage}/${bin} \"\$d/\" && \"\$d/${bin}\" --version
+       With the GitHub CLI signed in (not subject to anonymous rate limits), fetch the two files with:
+         gh release download ${tag} -R ${REPO} -p ${asset} -p ${asset}.sha256
+       From a mirror: every asset's digest is also in one file, ${base}/SHA256SUMS
+         (check with: ${sha_cmd} -c SHA256SUMS --ignore-missing)"
+}
+
 info "downloading ${asset}…"
 DL "${base}/${asset}" "${tmp}/${asset}" \
-  || die "download failed for ${target}. Available assets: https://github.com/${REPO}/releases/tag/${tag}"
+  || download_failed "download of ${asset} for ${target}" "${base}/${asset}"
 
 # --- verify checksum (fail closed — every release publishes the .sha256) ----
 #
@@ -160,7 +262,7 @@ DL "${base}/${asset}" "${tmp}/${asset}" \
 # first would skip the fetch on some machines and silently destroy the only
 # install metric this project has.
 DL "${base}/${asset}.sha256" "${tmp}/${asset}.sha256" 2>/dev/null \
-  || die "could not download checksum ${asset}.sha256 — refusing to install an unverified binary"
+  || download_failed "download of checksum ${asset}.sha256 (refusing to install an unverified binary)" "${base}/${asset}.sha256"
 want=$(awk '{print $1}' "${tmp}/${asset}.sha256" | tr 'A-F' 'a-f')
 [ "${#want}" -eq 64 ] || die "malformed ${asset}.sha256 (expected 64 hex chars) — refusing to install an unverified binary"
 case "$want" in *[!0-9a-f]*) die "malformed ${asset}.sha256 (not hex) — refusing to install an unverified binary" ;; esac
@@ -250,10 +352,35 @@ mkdir -p "$dir" 2>/dev/null || die "cannot create install dir: $dir"
 # copy that Ctrl-C or ENOSPC could otherwise tear mid-write).
 dest="${dir}/${bin}"
 tmpdest="${dir}/.${bin}.tmp.$$"
-if cp "$src" "$tmpdest" && mv -f "$tmpdest" "$dest"; then
+# On Git Bash / MSYS / Cygwin an MCP client keeps `xerj mcp` running, and
+# Windows refuses to overwrite a running xerj.exe; it does allow renaming it
+# (#3379). A replace that failed that way left xerj.exe.old-* files; remove
+# the ones nothing holds any more.
+if [ "$bin" = "xerj.exe" ]; then
+  for old in "${dir}/${bin}".old-*; do
+    if [ -e "$old" ]; then rm -f "$old" 2>/dev/null || true; fi
+  done
+fi
+if [ -f "$dest" ] && cmp -s "$src" "$dest"; then
+  ok "already up to date: ${BOLD}${dest}${RST} is the verified ${tag} binary, nothing to replace"
+elif cp "$src" "$tmpdest" && mv -f "$tmpdest" "$dest" 2>/dev/null; then
   ok "installed ${BOLD}${dest}${RST}"
+elif [ "$bin" = "xerj.exe" ] && [ -f "$tmpdest" ] && [ -f "$dest" ] \
+  && aside="${dest}.old-$$" && mv -f "$dest" "$aside" 2>/dev/null; then
+  if mv -f "$tmpdest" "$dest"; then
+    ok "installed ${BOLD}${dest}${RST}"
+    say "  xerj.exe was running (an MCP client keeps 'xerj mcp' alive). It keeps the old version until it exits:"
+    say "  restart your MCP client (or the running xerj) to use ${tag}. The old file is removed on the next install run."
+  else
+    mv -f "$aside" "$dest" 2>/dev/null
+    rm -f "$tmpdest"
+    die "failed to install to $dest"
+  fi
 else
   rm -f "$tmpdest"
+  if [ "$bin" = "xerj.exe" ]; then
+    die "failed to install to $dest — if xerj is running, stop it (taskkill //IM xerj.exe //F) and re-run this installer"
+  fi
   die "failed to install to $dest"
 fi
 
@@ -287,10 +414,10 @@ if [ "$WITH_MODEL" = "1" ]; then
   model_asset="xerj-model-bundle-v1-${tag}.tar.gz"
   say ""
   info "downloading model bundle ${model_asset}… (about 460 MiB)"
-  DL "${base}/${model_asset}" "${tmp}/${model_asset}" \
-    || die "model download failed. Assets: https://github.com/${REPO}/releases/tag/${tag}"
+  DL_RESUME "${base}/${model_asset}" "${tmp}/${model_asset}" \
+    || die "model download failed (${dl_status:+HTTP }${dl_status:-no HTTP response}): ${base}/${model_asset}. Assets: https://github.com/${REPO}/releases/tag/${tag}"
   DL "${base}/${model_asset}.sha256" "${tmp}/${model_asset}.sha256" 2>/dev/null \
-    || die "could not download checksum ${model_asset}.sha256 — refusing to install an unverified model bundle"
+    || die "could not download checksum ${model_asset}.sha256 (${dl_status:+HTTP }${dl_status:-no HTTP response}) — refusing to install an unverified model bundle"
   mwant=$(awk '{print $1}' "${tmp}/${model_asset}.sha256" | tr 'A-F' 'a-f')
   [ "${#mwant}" -eq 64 ] || die "malformed ${model_asset}.sha256 (expected 64 hex chars) — refusing to install an unverified model bundle"
   case "$mwant" in *[!0-9a-f]*) die "malformed ${model_asset}.sha256 (not hex) — refusing to install an unverified model bundle" ;; esac

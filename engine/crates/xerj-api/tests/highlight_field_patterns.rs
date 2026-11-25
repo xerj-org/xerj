@@ -156,6 +156,16 @@ async fn star_follows_the_fields_the_query_targets() {
             json!({"query_string": {"query": "timeout"}}),
             vec!["host", "message", "obj.inner", "title"],
         ),
+        // A text + keyword field list is a `dis_max` after the keyword split;
+        // native `q` (`multi_match` on `*`, #3413) is the same shape.
+        (
+            json!({"multi_match": {"query": "timeout", "fields": ["message", "host"]}}),
+            vec!["host", "message"],
+        ),
+        (
+            json!({"multi_match": {"query": "timeout", "fields": ["*"]}}),
+            vec!["host", "message", "obj.inner", "title"],
+        ),
         (json!({"term": {"host": "timeout"}}), vec!["host"]),
     ] {
         let names = highlighted(

@@ -50,6 +50,7 @@ pub mod code_query;
 pub mod config;
 pub mod corpus_feedback;
 pub mod cyber_scope;
+pub mod disk_hint;
 pub mod document_limit;
 pub mod error;
 pub mod feedback;
@@ -60,15 +61,20 @@ pub mod home;
 pub mod hub;
 pub mod hub_evidence;
 pub mod localauth;
+pub mod localnode;
 pub mod loopback_test;
+pub mod mapping_dynamic;
 pub mod metrics;
 pub mod net;
 pub mod nodedir;
+pub mod normalizer;
 pub mod packed_f32;
 pub mod resource;
 pub mod schema;
+pub mod service;
 pub mod thread_spawn;
 pub mod types;
+pub mod writing_review;
 pub mod xccode;
 
 // Convenience re-exports at the crate root

@@ -172,7 +172,113 @@ fn extract_setup_indices(steps: &[YamlValue]) -> Vec<String> {
     indices
 }
 
-fn cleanup_indices(client: &reqwest::blocking::Client, base_url: &str) {
+/// How long the between-case wipe keeps retrying before it gives up and
+/// says so. It only runs this long when the server is slow, and a case that
+/// starts on a dirty cluster is the bug being avoided.
+const WIPE_DEADLINE: std::time::Duration = std::time::Duration::from_secs(120);
+
+/// What a between-case wipe left behind.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+struct Wipe {
+    /// Index names still listed after the deadline (empty when clean).
+    leftover: Vec<String>,
+    /// `DELETE /_all` attempts made.
+    attempts: u32,
+}
+
+/// Delete every index and confirm that none is left.
+///
+/// The wipe used to be fire-and-forget: one `DELETE /_all` whose result was
+/// dropped. When that delete outlasted the client's request timeout or
+/// answered an error, the indices stayed and the next case's setup ran
+/// against them: its `indices.create` got a 400 the runner tolerates, and a
+/// later setup step tripped over the stale mapping or documents. Each leaked
+/// index also stayed open for the rest of the run. Now the wipe lists what is
+/// left and retries until the cluster is empty or [`WIPE_DEADLINE`] passes,
+/// and the caller fails a case that would start on a dirty cluster instead of
+/// running it.
+fn cleanup_indices(client: &reqwest::blocking::Client, base_url: &str) -> Wipe {
+    cleanup_indices_until(client, base_url, WIPE_DEADLINE)
+}
+
+fn cleanup_indices_until(
+    client: &reqwest::blocking::Client,
+    base_url: &str,
+    deadline: std::time::Duration,
+) -> Wipe {
+    let started = std::time::Instant::now();
+    let mut wipe = Wipe::default();
+    loop {
+        wipe.attempts += 1;
+        delete_all_indices(client, base_url);
+        match list_indices(client, base_url) {
+            Some(names) if names.is_empty() => {
+                wipe.leftover.clear();
+                return wipe;
+            }
+            Some(names) => wipe.leftover = names,
+            // A listing that did not answer proves nothing either way.
+            None => wipe.leftover = vec!["<_cat/indices did not answer>".into()],
+        }
+        if started.elapsed() >= deadline {
+            return wipe;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
+}
+
+/// Every index the cluster still lists, open or closed; `None` when the
+/// listing itself failed. The default expansion is the set `DELETE /_all`
+/// covers: it lists closed indices and leaves out the hidden system ones
+/// (`.xerj_*`), which the wipe must not touch.
+fn list_indices(client: &reqwest::blocking::Client, base_url: &str) -> Option<Vec<String>> {
+    let resp = client
+        .get(format!("{base_url}/_cat/indices?format=json&h=index"))
+        .send()
+        .ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    let body: Value = resp.json().ok()?;
+    Some(index_names(&body))
+}
+
+/// Index names from a `_cat/indices?format=json` body.
+fn index_names(body: &Value) -> Vec<String> {
+    let mut names: Vec<String> = body
+        .as_array()
+        .map(|rows| {
+            rows.iter()
+                .filter_map(|row| row.get("index").and_then(Value::as_str))
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    names
+}
+
+/// The case-result line for a wipe that did not finish, or `None` when the
+/// cluster is clean.
+fn wipe_failure(wipe: &Wipe) -> Option<String> {
+    if wipe.leftover.is_empty() {
+        return None;
+    }
+    let shown: Vec<&str> = wipe.leftover.iter().take(5).map(String::as_str).collect();
+    let more = if wipe.leftover.len() > shown.len() {
+        ", ..."
+    } else {
+        ""
+    };
+    Some(format!(
+        "cluster not clean before the case: {} index(es) left after {} DELETE /_all attempt(s) ({}{more})",
+        wipe.leftover.len(),
+        wipe.attempts,
+        shown.join(", "),
+    ))
+}
+
+fn delete_all_indices(client: &reqwest::blocking::Client, base_url: &str) {
     // XERJ defaults `action.destructive_requires_name` to true, matching ES 8,
     // so a bare `DELETE /_all` is a 400 and would leak indices into the next
     // file. The suite wipe is an explicit opt-out: turn the guard off, delete,
@@ -193,6 +299,48 @@ fn cleanup_indices(client: &reqwest::blocking::Client, base_url: &str) {
         .send();
 }
 
+/// Delete every template between tests, as ES's `ESRestTestCase#wipeCluster`
+/// does unless a suite opts out with `preserveTemplatesUponCompletion`. Without
+/// it a template one case creates is still there in the next, so a later
+/// `create: true` PUT of the same name is (correctly) refused. Composable
+/// templates go first because ES refuses to drop a component template one of
+/// them still uses. The wildcard is only read, never deleted: names are
+/// deleted one at a time. Errors are ignored, as in [`cleanup_indices`].
+fn cleanup_templates(client: &reqwest::blocking::Client, base_url: &str) {
+    let names = |kind: &str| -> Vec<String> {
+        let Ok(resp) = client.get(format!("{base_url}/{kind}/*")).send() else {
+            return Vec::new();
+        };
+        let Ok(body) = resp.json::<Value>() else {
+            return Vec::new();
+        };
+        let listed = match kind {
+            "_index_template" => body.get("index_templates"),
+            "_component_template" => body.get("component_templates"),
+            _ => {
+                return body
+                    .as_object()
+                    .map(|m| m.keys().cloned().collect())
+                    .unwrap_or_default()
+            }
+        };
+        listed
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|t| t.get("name").and_then(Value::as_str).map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    for kind in ["_index_template", "_component_template", "_template"] {
+        for name in names(kind) {
+            let _ = client.delete(format!("{base_url}/{kind}/{name}")).send();
+        }
+    }
+}
+
 fn run_file(
     client: &reqwest::blocking::Client,
     base_url: &str,
@@ -200,7 +348,9 @@ fn run_file(
     verbose: bool,
     stats: &mut Stats,
 ) {
-    cleanup_indices(client, base_url);
+    // Checked per case below, where a dirty cluster fails the case.
+    let _ = cleanup_indices(client, base_url);
+    cleanup_templates(client, base_url);
 
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
@@ -262,10 +412,23 @@ fn run_file(
     }
 
     for (name, steps) in &tests {
-        cleanup_indices(client, base_url);
+        let wipe = cleanup_indices(client, base_url);
+        cleanup_templates(client, base_url);
         let key = catch_lenient::key(path, name);
         stats.ran.insert(key.clone());
         catch_lenient::enter(key);
+
+        if let Some(reason) = wipe_failure(&wipe) {
+            println!(
+                "  {} {} · {} — {}",
+                "FAIL".red().bold(),
+                short_name,
+                name,
+                reason
+            );
+            stats.failed += 1;
+            continue;
+        }
 
         let mut setup_ok = true;
         let mut setup_response: Value = Value::Null;
@@ -274,16 +437,30 @@ fn run_file(
             if let Err(e) =
                 execute_step(client, base_url, step, &mut setup_response, &mut setup_vars)
             {
-                if verbose {
-                    println!(
-                        "  {} {} · {} — setup: {}",
-                        "SKIP".yellow(),
-                        short_name,
-                        name,
-                        e
-                    );
+                match setup_outcome(&e) {
+                    SetupOutcome::Skip => {
+                        if verbose {
+                            println!(
+                                "  {} {} · {} — setup: {}",
+                                "SKIP".yellow(),
+                                short_name,
+                                name,
+                                e
+                            );
+                        }
+                        stats.skipped += 1;
+                    }
+                    SetupOutcome::Fail => {
+                        println!(
+                            "  {} {} · {} — setup: {}",
+                            "FAIL".red().bold(),
+                            short_name,
+                            name,
+                            e
+                        );
+                        stats.failed += 1;
+                    }
                 }
-                stats.skipped += 1;
                 setup_ok = false;
                 break;
             }
@@ -359,6 +536,28 @@ fn run_teardown(
                 );
             }
         }
+    }
+}
+
+/// What a setup step that returned an error means for its case.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SetupOutcome {
+    /// A `skip:` directive in the setup block: the file asked not to run here.
+    Skip,
+    /// Anything else: an HTTP error, a 5xx, a refresh that timed out, an
+    /// assertion. ES's own runner fails the case when its setup fails.
+    Fail,
+}
+
+/// Only a `skip:` directive skips a case from setup. Every other setup error
+/// used to be counted as a skip and printed only under `--verbose`, so a
+/// setup request that failed on a loaded box lowered the pass count without
+/// a line of output and without failing the gate.
+fn setup_outcome(error: &str) -> SetupOutcome {
+    if error.starts_with("skip directive") {
+        SetupOutcome::Skip
+    } else {
+        SetupOutcome::Fail
     }
 }
 
@@ -977,6 +1176,31 @@ mod catch_lenient {
     }
 }
 
+/// Java's regex reads `\<` and `\>` as the literal characters (ES YAML
+/// patterns escape `>` in paths like `the_terms\>x`); Rust's `regex` reads
+/// them as word-boundary assertions, so such a pattern could never match.
+/// Rewrite those two escapes to their literal; everything else passes
+/// through, an escaped backslash included.
+fn java_regex_to_rust(pat: &str) -> String {
+    let mut out = String::with_capacity(pat.len());
+    let mut chars = pat.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some(n @ ('<' | '>')) => out.push(n),
+            Some(n) => {
+                out.push('\\');
+                out.push(n);
+            }
+            None => out.push('\\'),
+        }
+    }
+    out
+}
+
 /// Does a response satisfy a YAML `catch:` expectation? `None` when it does,
 /// otherwise the reason it does not. Semantics follow the ES REST test spec:
 /// a named catch pins the status code, `/regex/` requires an error status
@@ -1002,7 +1226,7 @@ fn catch_mismatch(catch: &str, code: u16, body: &str) -> Option<String> {
         return Some("expected an error status".into());
     }
     if let Some(pat) = catch.strip_prefix('/').and_then(|s| s.strip_suffix('/')) {
-        return match regex::Regex::new(&format!("(?s){}", pat.trim())) {
+        return match regex::Regex::new(&format!("(?s){}", java_regex_to_rust(pat.trim()))) {
             Ok(re) if re.is_match(body) => None,
             Ok(_) => Some("error body does not match".into()),
             Err(e) => Some(format!("bad catch regex: {e}")),
@@ -1124,7 +1348,8 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         }
         "indices.put_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("PUT".into(), format!("/_template/{}", name), body)
+            let path = format!("/_template/{}{}", name, create_query(params));
+            ("PUT".into(), path, body)
         }
         "indices.get_mapping" => {
             let path = if index.is_empty() {
@@ -1182,23 +1407,28 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         }
         "indices.put_index_template" | "indices.put_index_template.json" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("PUT".into(), format!("/_index_template/{}", name), body)
+            let path = format!("/_index_template/{}{}", name, create_query(params));
+            ("PUT".into(), path, body)
         }
         "indices.get_index_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("GET".into(), format!("/_index_template/{}", name), None)
+            ("GET".into(), template_path("/_index_template", &name), None)
         }
         "indices.delete_index_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("DELETE".into(), format!("/_index_template/{}", name), None)
+            (
+                "DELETE".into(),
+                template_path("/_index_template", &name),
+                None,
+            )
         }
         "indices.get_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("GET".into(), format!("/_template/{}", name), None)
+            ("GET".into(), template_path("/_template", &name), None)
         }
         "indices.delete_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("DELETE".into(), format!("/_template/{}", name), None)
+            ("DELETE".into(), template_path("/_template", &name), None)
         }
 
         // Document operations
@@ -1261,6 +1491,9 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
             let mut qp = Vec::new();
             if let Some(v) = get_param_str(params, "rest_total_hits_as_int") {
                 qp.push(format!("rest_total_hits_as_int={}", v));
+            }
+            if let Some(v) = get_param_str(params, "terminate_after") {
+                qp.push(format!("terminate_after={}", v));
             }
             if let Some(v) = get_param_str(params, "track_total_hits") {
                 qp.push(format!("track_total_hits={}", v));
@@ -1683,6 +1916,15 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
     }
 }
 
+/// `?create=<v>` when the step sets `create`, else nothing. The template
+/// PUTs refuse a taken name only when this reaches the server; without it a
+/// `create: true` step silently became a plain replace.
+fn create_query(params: &serde_yaml::Mapping) -> String {
+    get_param_str(params, "create")
+        .map(|v| format!("?create={v}"))
+        .unwrap_or_default()
+}
+
 fn get_param_str(params: &serde_yaml::Mapping, key: &str) -> Option<String> {
     params.get(YamlValue::String(key.into())).map(|v| {
         match v {
@@ -1911,5 +2153,158 @@ fn values_match(actual: &Value, expected: &Value) -> bool {
             .iter()
             .all(|(k, v)| a.get(k).is_some_and(|av| values_match(av, v))),
         _ => actual == expected,
+    }
+}
+
+/// `{base}/{name}`, or just `{base}` when the case gave no name: the
+/// no-name GET is its own route (`GET /_template`), not `GET /_template/`.
+fn template_path(base: &str, name: &str) -> String {
+    if name.is_empty() {
+        base.to_string()
+    } else {
+        format!("{base}/{name}")
+    }
+}
+
+#[cfg(test)]
+mod catch_regex_tests {
+    use super::*;
+
+    /// FAIL-BEFORE: `\>` compiled to an end-of-word assertion, so the
+    /// pipeline.yml "incorrect name" pattern never matched ES's message.
+    #[test]
+    fn java_escaped_angle_brackets_match_literally() {
+        let pat = r"/No aggregation \[unknown_aggregation\] found for path \[the_terms\>unknown_aggregation\]\;/";
+        let body = "Validation Failed: 1: No aggregation [unknown_aggregation] found for path \
+                    [the_terms>unknown_aggregation];";
+        assert_eq!(catch_mismatch(pat, 400, body), None);
+        assert_eq!(java_regex_to_rust(r"a\\>b \<c"), r"a\\>b <c");
+    }
+}
+
+#[cfg(test)]
+mod hygiene_tests {
+    use super::*;
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    /// FAIL-BEFORE: every setup error was a skip, so a refresh that timed out
+    /// in setup lowered the pass count silently instead of failing the gate.
+    #[test]
+    fn only_a_skip_directive_skips_a_case_from_setup() {
+        assert_eq!(setup_outcome("skip directive"), SetupOutcome::Skip);
+        assert_eq!(
+            setup_outcome("skip directive (awaits_fix)"),
+            SetupOutcome::Skip
+        );
+        assert_eq!(
+            setup_outcome("HTTP error: error sending request: operation timed out"),
+            SetupOutcome::Fail
+        );
+        assert_eq!(
+            setup_outcome("POST /test/_refresh → 500 Internal Server Error flush timed out"),
+            SetupOutcome::Fail
+        );
+    }
+
+    #[test]
+    fn index_names_reads_the_cat_listing() {
+        let body = serde_json::json!([{ "index": "b" }, { "index": "a" }, { "health": "x" }]);
+        assert_eq!(index_names(&body), vec!["a".to_string(), "b".to_string()]);
+        assert!(index_names(&serde_json::json!([])).is_empty());
+        assert!(index_names(&serde_json::json!({ "error": "x" })).is_empty());
+    }
+
+    #[test]
+    fn a_dirty_wipe_is_a_reported_failure_and_a_clean_one_is_not() {
+        assert_eq!(wipe_failure(&Wipe::default()), None);
+        let wipe = Wipe {
+            leftover: (0..7).map(|i| format!("idx-{i}")).collect(),
+            attempts: 3,
+        };
+        let msg = wipe_failure(&wipe).expect("dirty");
+        assert!(msg.contains("7 index(es)"), "{msg}");
+        assert!(msg.contains("3 DELETE /_all attempt(s)"), "{msg}");
+        assert!(
+            msg.contains("idx-0, idx-1, idx-2, idx-3, idx-4, ..."),
+            "{msg}"
+        );
+    }
+
+    /// A one-request-per-connection HTTP stub. `GET /_cat/indices` lists one
+    /// index until `DELETE /_all` has been called `deletes_needed` times.
+    fn stub(deletes_needed: usize) -> (String, Arc<AtomicUsize>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let deletes = Arc::new(AtomicUsize::new(0));
+        let seen = Arc::clone(&deletes);
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { return };
+                let mut reader = BufReader::new(stream.try_clone().unwrap());
+                let mut request = String::new();
+                if reader.read_line(&mut request).is_err() {
+                    continue;
+                }
+                let mut len = 0usize;
+                loop {
+                    let mut header = String::new();
+                    if reader.read_line(&mut header).unwrap_or(0) == 0 || header == "\r\n" {
+                        break;
+                    }
+                    let lower = header.to_ascii_lowercase();
+                    if let Some(v) = lower.strip_prefix("content-length:") {
+                        len = v.trim().parse().unwrap_or(0);
+                    }
+                }
+                let mut body = vec![0u8; len];
+                let _ = reader.read_exact(&mut body);
+                let reply = if request.starts_with("DELETE /_all") {
+                    seen.fetch_add(1, Ordering::SeqCst);
+                    r#"{"acknowledged":true}"#
+                } else if request.starts_with("GET /_cat/indices") {
+                    if seen.load(Ordering::SeqCst) >= deletes_needed {
+                        "[]"
+                    } else {
+                        r#"[{"index":"stuck"}]"#
+                    }
+                } else {
+                    "{}"
+                };
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{reply}",
+                    reply.len()
+                );
+            }
+        });
+        (url, deletes)
+    }
+
+    /// FAIL-BEFORE: the wipe sent one DELETE and returned, whatever was left.
+    #[test]
+    fn the_wipe_retries_until_the_listing_is_empty() {
+        let client = reqwest::blocking::Client::new();
+        let (url, deletes) = stub(3);
+        let wipe = cleanup_indices_until(&client, &url, std::time::Duration::from_secs(30));
+        assert_eq!(
+            wipe,
+            Wipe {
+                leftover: vec![],
+                attempts: 3
+            }
+        );
+        assert_eq!(deletes.load(Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    fn a_wipe_that_cannot_finish_reports_what_is_left() {
+        let client = reqwest::blocking::Client::new();
+        let (url, _) = stub(usize::MAX);
+        let wipe = cleanup_indices_until(&client, &url, std::time::Duration::from_millis(600));
+        assert_eq!(wipe.leftover, vec!["stuck".to_string()]);
+        assert!(wipe.attempts >= 2, "{wipe:?}");
+        assert!(wipe_failure(&wipe).is_some());
     }
 }

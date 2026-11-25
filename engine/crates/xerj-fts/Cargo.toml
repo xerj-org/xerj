@@ -22,6 +22,7 @@ tracing.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 rayon.workspace = true
+rustc-hash.workspace = true
 memmap2 = { workspace = true }
 lz4_flex = { workspace = true }
 zstd = { workspace = true }

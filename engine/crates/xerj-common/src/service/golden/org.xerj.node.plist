@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Written by `xerj service install`. Remove it with `xerj service uninstall`. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.xerj.node</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/xerj</string>
+		<string>--insecure</string>
+		<string>--data-dir</string>
+		<string>/Users/u/R&amp;D &lt;data&gt;</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>/Users/u/R&amp;D &lt;data&gt;</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>StandardOutPath</key>
+	<string>/Users/u/R&amp;D &lt;data&gt;/node.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/u/R&amp;D &lt;data&gt;/node.log</string>
+</dict>
+</plist>

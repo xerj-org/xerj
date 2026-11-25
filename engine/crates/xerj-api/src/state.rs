@@ -145,6 +145,7 @@ impl TaskEntry {
 /// a no-op (the entry has already moved to the completed store).
 pub struct TaskHandle {
     inner: Arc<DashMap<String, TaskEntry>>,
+    changes: Arc<tokio::sync::watch::Sender<u64>>,
     key: String,
     pub cancelled: Arc<AtomicBool>,
 }
@@ -161,7 +162,9 @@ impl TaskHandle {
 
 impl Drop for TaskHandle {
     fn drop(&mut self) {
-        self.inner.remove(&self.key);
+        if self.inner.remove(&self.key).is_some() {
+            self.changes.send_modify(|changes| *changes += 1);
+        }
     }
 }
 
@@ -183,6 +186,8 @@ pub struct CompletedTask {
 pub struct TaskRegistry {
     inner: Arc<DashMap<String, TaskEntry>>,
     completed: Arc<DashMap<String, CompletedTask>>,
+    /// Bumped when a task leaves the in-flight registry, completed or not.
+    changes: Arc<tokio::sync::watch::Sender<u64>>,
     next_id: Arc<AtomicU64>,
     node_id: Arc<String>,
 }
@@ -192,6 +197,7 @@ impl TaskRegistry {
         Self {
             inner: Arc::new(DashMap::new()),
             completed: Arc::new(DashMap::new()),
+            changes: Arc::new(tokio::sync::watch::Sender::new(0)),
             next_id: Arc::new(AtomicU64::new(1)),
             node_id,
         }
@@ -212,6 +218,7 @@ impl TaskRegistry {
         self.inner.insert(key.clone(), entry);
         TaskHandle {
             inner: self.inner.clone(),
+            changes: self.changes.clone(),
             key,
             cancelled,
         }
@@ -235,17 +242,42 @@ impl TaskRegistry {
     /// store, freezing its running time and attaching the final `response`.
     /// A no-op if `key` isn't currently in-flight (e.g. already completed,
     /// or never registered).
+    ///
+    /// The result is stored before the in-flight entry is removed, so a
+    /// reader never sees the task in neither place.
     pub fn complete(&self, key: &str, response: serde_json::Value) {
-        if let Some((_, entry)) = self.inner.remove(key) {
-            let running_nanos = entry.running_nanos();
-            self.completed.insert(
-                key.to_string(),
-                CompletedTask {
-                    entry,
-                    running_nanos,
-                    response,
-                },
-            );
+        let Some(entry) = self.inner.get(key).map(|e| e.value().clone()) else {
+            return;
+        };
+        let running_nanos = entry.running_nanos();
+        self.completed.insert(
+            key.to_string(),
+            CompletedTask {
+                entry,
+                running_nanos,
+                response,
+            },
+        );
+        self.inner.remove(key);
+        self.changes.send_modify(|changes| *changes += 1);
+    }
+    /// Wait until task `id` is no longer in flight. Returns its stored
+    /// result, or `None` if it is unknown or ended without one.
+    ///
+    /// Wakes when a task completes or leaves the registry; there is no
+    /// timer. Callers that need a bound wrap it themselves.
+    pub async fn wait_finished(&self, id: &str) -> Option<CompletedTask> {
+        let mut changes = self.changes.subscribe();
+        loop {
+            changes.borrow_and_update();
+            if let Some(done) = self.get_completed(id) {
+                return Some(done);
+            }
+            // Neither stored nor in flight: unknown, or dropped unfinished.
+            self.get(id)?;
+            if changes.changed().await.is_err() {
+                return self.get_completed(id);
+            }
         }
     }
     pub fn get_completed(&self, id: &str) -> Option<CompletedTask> {
@@ -678,5 +710,49 @@ impl AppState {
 impl std::fmt::Debug for AppState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AppState").finish_non_exhaustive()
+    }
+}
+
+#[cfg(test)]
+mod task_registry_tests {
+    use super::*;
+
+    /// #3496: a waiter wakes when the task completes, and gets its result.
+    #[tokio::test]
+    async fn wait_finished_returns_the_stored_result_on_completion() {
+        let tasks = TaskRegistry::new(Arc::new("n1".to_string()));
+        let handle = tasks.register("indices:data/write/update/byquery");
+        let key = handle.key().to_string();
+        let waiter = {
+            let tasks = tasks.clone();
+            let key = key.clone();
+            tokio::spawn(async move { tasks.wait_finished(&key).await })
+        };
+        tokio::task::yield_now().await;
+        assert!(!waiter.is_finished(), "the task is still in flight");
+        tasks.complete(&key, serde_json::json!({ "updated": 2 }));
+        drop(handle);
+        let done = waiter.await.unwrap().expect("stored result");
+        assert_eq!(done.response["updated"], 2);
+        assert!(tasks.get(&key).is_none());
+        assert!(tasks.wait_finished(&key).await.is_some());
+    }
+
+    /// A task that leaves the registry without a result, and an unknown
+    /// id, end the wait with `None` instead of hanging it.
+    #[tokio::test]
+    async fn wait_finished_ends_when_a_task_is_dropped_without_a_result() {
+        let tasks = TaskRegistry::new(Arc::new("n1".to_string()));
+        assert!(tasks.wait_finished("n1:999").await.is_none());
+        let handle = tasks.register("indices:data/write/reindex");
+        let key = handle.key().to_string();
+        let waiter = {
+            let tasks = tasks.clone();
+            let key = key.clone();
+            tokio::spawn(async move { tasks.wait_finished(&key).await })
+        };
+        tokio::task::yield_now().await;
+        drop(handle);
+        assert!(waiter.await.unwrap().is_none());
     }
 }

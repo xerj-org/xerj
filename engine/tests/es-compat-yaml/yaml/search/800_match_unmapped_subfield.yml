@@ -1,0 +1,168 @@
+# #3515: a full-text query on a dotted sub-field that is not mapped
+# (`title.raw`, where `title` is a dynamic `text` field whose only
+# multi-field is `.keyword`) matches nothing, before and after `_flush`.
+# The field does not exist, so ES 8.x returns 0 hits. Pre-fix the memtable
+# answered [] and the flushed segment ran the query against the analysed
+# parent `title` (`match title.raw "fruit"` -> [1, 2]); `constant_score`
+# took the parent on both sides. `um_mem` is never flushed (memtable),
+# `um_seg` is flushed (segment); both get the same documents, the same
+# queries and the same answers. Mapped `title` / `title.keyword` are the
+# controls.
+setup:
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "um_mem", "_id": "1"}}'
+          - '{"title": "Fruit"}'
+          - '{"index": {"_index": "um_mem", "_id": "2"}}'
+          - '{"title": "fruit salad"}'
+          - '{"index": {"_index": "um_mem", "_id": "3"}}'
+          - '{"title": "FRUiT"}'
+          - '{"index": {"_index": "um_seg", "_id": "1"}}'
+          - '{"title": "Fruit"}'
+          - '{"index": {"_index": "um_seg", "_id": "2"}}'
+          - '{"title": "fruit salad"}'
+          - '{"index": {"_index": "um_seg", "_id": "3"}}'
+          - '{"title": "FRUiT"}'
+  - do:
+      indices.flush:
+        index: um_seg
+
+---
+"match on an unmapped sub-field: memtable":
+  - do:
+      search:
+        index: um_mem
+        body: { query: { match: { title.raw: fruit } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_mem
+        body: { query: { match: { title.raw: "Fruit Salad" } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      count:
+        index: um_mem
+        body: { query: { match: { title.raw: fruit } } }
+  - match: { count: 0 }
+
+---
+"match on an unmapped sub-field: segment":
+  - do:
+      search:
+        index: um_seg
+        body: { query: { match: { title.raw: fruit } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_seg
+        body: { query: { match: { title.raw: "Fruit Salad" } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      count:
+        index: um_seg
+        body: { query: { match: { title.raw: fruit } } }
+  - match: { count: 0 }
+
+---
+"constant_score and bool filter on an unmapped sub-field: memtable":
+  - do:
+      search:
+        index: um_mem
+        body: { query: { constant_score: { filter: { match: { title.raw: fRuIt } } } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_mem
+        body: { query: { bool: { must: [ { match: { title: fruit } } ], filter: [ { match: { title.raw: fruit } } ] } } }
+  - match: { hits.total.value: 0 }
+
+---
+"constant_score and bool filter on an unmapped sub-field: segment":
+  - do:
+      search:
+        index: um_seg
+        body: { query: { constant_score: { filter: { match: { title.raw: fRuIt } } } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_seg
+        body: { query: { bool: { must: [ { match: { title: fruit } } ], filter: [ { match: { title.raw: fruit } } ] } } }
+  - match: { hits.total.value: 0 }
+
+---
+"phrase and multi_match on an unmapped sub-field: memtable":
+  - do:
+      search:
+        index: um_mem
+        body: { query: { match_phrase: { title.raw: "fruit salad" } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_mem
+        body: { query: { multi_match: { query: fruit, fields: [ title.raw ] } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_mem
+        body: { query: { multi_match: { query: salad, fields: [ title.raw, title ] } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "2" }
+
+---
+"phrase and multi_match on an unmapped sub-field: segment":
+  - do:
+      search:
+        index: um_seg
+        body: { query: { match_phrase: { title.raw: "fruit salad" } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_seg
+        body: { query: { multi_match: { query: fruit, fields: [ title.raw ] } } }
+  - match: { hits.total.value: 0 }
+  - do:
+      search:
+        index: um_seg
+        body: { query: { multi_match: { query: salad, fields: [ title.raw, title ] } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "2" }
+
+---
+"mapped parent and keyword multi-field are unchanged: memtable":
+  - do:
+      search:
+        index: um_mem
+        body: { query: { match: { title: fruit } } }
+  - match: { hits.total.value: 3 }
+  - do:
+      search:
+        index: um_mem
+        body: { query: { match: { title.keyword: Fruit } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+  - do:
+      search:
+        index: um_mem
+        body: { query: { match: { title.keyword: fruit } } }
+  - match: { hits.total.value: 0 }
+
+---
+"mapped parent and keyword multi-field are unchanged: segment":
+  - do:
+      search:
+        index: um_seg
+        body: { query: { match: { title: fruit } } }
+  - match: { hits.total.value: 3 }
+  - do:
+      search:
+        index: um_seg
+        body: { query: { match: { title.keyword: Fruit } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+  - do:
+      search:
+        index: um_seg
+        body: { query: { match: { title.keyword: fruit } } }
+  - match: { hits.total.value: 0 }

@@ -41,6 +41,9 @@ axum.workspace = true
 # and cross-compile friendly.
 axum-server = { version = "0.7", default-features = false, features = ["tls-rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
+# The "starting" responder owns its connections so the hand-over can close
+# them (#2575 follow-up). Same version and features axum-server already uses.
+hyper-util = { version = "0.1.20", features = ["server-auto", "service", "tokio"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 serde.workspace = true

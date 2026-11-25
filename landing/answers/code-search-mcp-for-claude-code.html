@@ -164,7 +164,7 @@
       "name": "Are the OpenAI and Anthropic tool schema files up to date?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "No. Both list 6 tools, while on main the binary serves 23 (checked 2026-10-28). Read tools/list from a live server, or the generated mcp-tools.json, rather than copying either file."
+        "text": "No. Both list 6 tools, while on main the binary serves 25 (checked 2026-11-21). Read tools/list from a live server, or the generated mcp-tools.json, rather than copying either file."
       }
     }
   ]
@@ -315,7 +315,7 @@ none of postgres/qdrant/redis/weaviate/milvus/chroma/elasticsearch/opensearch/ol
   <p>Two caps bound the extractor: a 2 MB file cap and 5,000 symbols per file. A parse failure is never fatal, because XERJ still indexes the file body as plain text.</p>
   <h2>One thing that will trip you up</h2>
   <p>Install the latest XERJ before you write any host configuration, so that the <code class="inline">xerj mcp</code> subcommand is present.</p>
-  <p>The published <code class="inline">openai-tools.json</code> and <code class="inline">anthropic-tools.json</code> still list 6 tools, while on main the binary serves 23 (checked 2026-10-28). The 17 missing names include the 4 <code class="inline">xerj_brain_*</code> tools, <code class="inline">xerj_code_search</code> and the 3 <code class="inline">xerj_hub_*</code> tools. Read <code class="inline">tools/list</code> from a live server, or the generated <code class="inline">mcp-tools.json</code>, instead of copying either file.</p>
+  <p>The published <code class="inline">openai-tools.json</code> and <code class="inline">anthropic-tools.json</code> still list 6 tools, while on main the binary serves 25 (checked 2026-11-21). The 19 missing names include the 4 <code class="inline">xerj_brain_*</code> tools, <code class="inline">xerj_code_search</code> and the 3 <code class="inline">xerj_hub_*</code> tools. Read <code class="inline">tools/list</code> from a live server, or the generated <code class="inline">mcp-tools.json</code>, instead of copying either file.</p>
   <h2>What the capture was</h2>
   <p>One single-node XERJ process and a generated 2-file code tree in Rust and Python. This run measured no large repository, and the binary was a <code class="inline">ci-test</code> build, so no timing from it is a performance figure.</p>
   <p>When the symbol is absent, the same citation path can exit 1 instead of inventing a hit: <a href="/answers/retrieval-that-says-not-found-with-file-line-citations">retrieval that says not found</a>.</p>
@@ -333,7 +333,7 @@ none of postgres/qdrant/redis/weaviate/milvus/chroma/elasticsearch/opensearch/ol
   <h3>Can XERJ tell the agent who calls a function?</h3>
   <p>No. Extraction is definitions only, with no call graph, no import graph and no cross-file reference resolution. A <code class="inline">defs</code> hit names the declaration site.</p>
   <h3>Are the OpenAI and Anthropic tool schema files up to date?</h3>
-  <p>No. Both list 6 tools, while on main the binary serves 23 (checked 2026-10-28). Read <code class="inline">tools/list</code> from a live server, or the generated <code class="inline">mcp-tools.json</code>, rather than copying either file.</p>
+  <p>No. Both list 6 tools, while on main the binary serves 25 (checked 2026-11-21). Read <code class="inline">tools/list</code> from a live server, or the generated <code class="inline">mcp-tools.json</code>, rather than copying either file.</p>
   <h2>Related</h2>
   <ul>
     <li><a href="/answers/index-monorepo-for-agent">How do I stop my agent from reading the whole repo into context?</a></li>

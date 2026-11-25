@@ -5835,9 +5835,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.52.0"
+version = "1.53.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a91135f59b1cbf38c91e73cf3386fca9bb77915c45ce2771460c9d92f0f3d776"
+checksum = "e95f91fcc7a621e8b030f6aa23c71fe9838ae2fb4d8118b75602a328f5144044"
 dependencies = [
  "bytes",
  "libc",
@@ -7425,7 +7425,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-ai"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "candle-core",
@@ -7448,7 +7448,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-api"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "argon2",
@@ -7487,7 +7487,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-autoindex"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "aws-sdk-s3",
@@ -7559,6 +7559,7 @@ dependencies = [
  "tree-sitter-swift",
  "tree-sitter-typescript",
  "tree-sitter-zig",
+ "unicode-width 0.2.2",
  "uuid",
  "walkdir",
  "xerj-ai",
@@ -7571,7 +7572,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-cluster"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7596,7 +7597,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-common"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -7612,13 +7613,14 @@ dependencies = [
  "thiserror 2.0.18",
  "toml",
  "tracing",
+ "unicode-normalization",
  "url",
  "uuid",
 ]
 
 [[package]]
 name = "xerj-compress"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "byteorder",
  "bytes",
@@ -7631,7 +7633,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-console-api"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -7667,7 +7669,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-engine"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -7723,7 +7725,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-fts"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "bitpacking",
@@ -7736,6 +7738,7 @@ dependencies = [
  "regex",
  "roaring",
  "rust-stemmers",
+ "rustc-hash",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -7750,7 +7753,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-hub"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "axum",
@@ -7774,7 +7777,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-logs"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -7792,7 +7795,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-mcp"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "axum",
@@ -7813,7 +7816,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-query"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -7829,7 +7832,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-rerank"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "reqwest",
  "serde",
@@ -7844,7 +7847,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-server"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "axum",
@@ -7852,6 +7855,7 @@ dependencies = [
  "chrono",
  "flate2",
  "h2",
+ "hyper-util",
  "jemalloc_pprof",
  "libc",
  "memchr",
@@ -7898,7 +7902,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-sources"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7915,7 +7919,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-storage"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -7951,7 +7955,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-vector"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -7969,7 +7973,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-wasm"
-version = "1.0.0-rc.102"
+version = "1.0.0-rc.105"
 dependencies = [
  "anyhow",
  "bytes",

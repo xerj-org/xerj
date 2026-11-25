@@ -314,7 +314,18 @@
   "sort": [ { "@timestamp": "desc" } ]
 }</pre>
 
-  <p class="source-note">Source · engine/crates/xerj-api/src/native.rs · engine/crates/xerj-api/src/router.rs</p>
+  <h2>Per-field score breakdown — "explain": true</h2>
+  <p>Add <code>"explain": true</code> to a search body to see how much of each hit's <code>_score</code> came from each field. For every field the query scores on, the engine runs the query again with only that field's clauses, limited to the returned hits. Each number is the engine's own score for that field.</p>
+<pre class="code">// should: [ match title "bone density" (boost 2), match body "vitamin" ]
+"_score": 3.6435528,
+"_score_breakdown": {
+  "fields": [ { "field": "title", "score": 3.1769588 }, { "field": "body", "score": 0.4665940 } ],
+  "combine": "sum",
+  "unattributed": 0.0
+}</pre>
+  <p><code>combine: "sum"</code> means the query adds its field scores (<code>bool</code>, <code>match</code>, <code>most_fields</code>), so <code>_score</code> = the sum of <code>fields</code> + <code>unattributed</code>. <code>combine: "other"</code> means the scores combine another way: the max (<code>best_fields</code>, <code>dis_max</code>), a product (<code>function_score</code>), or one clause over all fields (a field-less query). In that case the per-field numbers do not add up to <code>_score</code>. Each scored field adds one search, up to 64 fields. The ES-compatible <code>explain</code> on <code>_search</code> and <code>_explain</code> are unchanged.</p>
+
+  <p class="source-note">Source · engine/crates/xerj-api/src/native.rs · engine/crates/xerj-api/src/field_explain.rs · engine/crates/xerj-api/src/router.rs</p>
   
 
 <div class="next">
@@ -324,7 +335,7 @@
 
   <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
   <div class="print-footer" style="display:none;">
-    <span>XERJ.AI · V1.0.0-RC.102 · 2026-08-11</span>
+    <span>XERJ.AI · V1.0.0-RC.105 · 2026-08-11</span>
     <a href="https://xerj.org/docs/">https://xerj.org/docs/</a>
     <span>Native REST API</span>
   </div>

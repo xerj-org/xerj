@@ -1,0 +1,5 @@
+index=nf-nfcorpus queries=323 load=['28.14', '50.62', '50.63']
+plain    nDCG@10=0.3016  R@1=0.4365  p50=2.6ms p95=6.6ms
+default  nDCG@10=0.2980  R@1=0.4180  p50=25.5ms p95=42.5ms
+tiered   nDCG@10=0.2963  R@1=0.4118  p50=25.7ms p95=44.8ms
+tiered: queries that needed the any-term fill = 197/323

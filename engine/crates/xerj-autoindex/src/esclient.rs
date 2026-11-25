@@ -64,6 +64,78 @@ pub struct Es {
     notices: Arc<Mutex<Vec<String>>>,
 }
 
+/// Set once this process has printed the `?savings` fallback warning (#3273).
+static SAVINGS_FALLBACK_WARNED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// Whether a 400 body is the server refusing the `savings` query parameter,
+/// not the search body.
+fn refuses_savings_param(body: &Value) -> bool {
+    let text = body.to_string().to_ascii_lowercase();
+    text.contains("savings")
+        && (text.contains("unrecognized parameter")
+            || text.contains("unknown parameter")
+            || text.contains("illegal_argument"))
+}
+
+/// What the `?savings` fallback prints, from `GET /` and `GET /v1/health`.
+///
+/// `GET /` reports the Elasticsearch-compatible version, not XERJ's, so a
+/// XERJ node is recognised by its `xerj-cluster-` uuid and its own version is
+/// read from `/v1/health` when that endpoint answers.
+pub(crate) fn savings_fallback_text(
+    url: &str,
+    banner: Option<&Value>,
+    health: Option<&Value>,
+) -> String {
+    let client = env!("CARGO_PKG_VERSION");
+    let compat = banner
+        .and_then(|b| b.pointer("/version/number"))
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let is_xerj = banner
+        .and_then(|b| b.get("cluster_uuid"))
+        .and_then(Value::as_str)
+        .is_some_and(|uuid| uuid.starts_with("xerj-cluster-"));
+    let xerj_version = health
+        .and_then(|h| h.pointer("/data/version"))
+        .and_then(Value::as_str);
+    if is_xerj || xerj_version.is_some() {
+        let version = xerj_version.unwrap_or("an older release");
+        format!(
+            "warning: the XERJ node at {url} reports version {version} (GET / version {compat}; \
+             this CLI is {client}). It does not accept ?savings=false, so this search ran \
+             without it. Upgrade the node to {client}."
+        )
+    } else {
+        let product = banner
+            .and_then(|b| b.pointer("/version/distribution"))
+            .and_then(Value::as_str)
+            .unwrap_or("an Elasticsearch-compatible server");
+        format!(
+            "warning: the server at {url} is not a XERJ node (GET / reports {product} version \
+             {compat}; this CLI is {client}). This search ran without ?savings=false; \
+             XERJ-only commands such as `xerj def` and the autoindex catalog need a XERJ node."
+        )
+    }
+}
+
+/// A service answered the readiness request without identifying as XERJ.
+#[derive(Debug)]
+pub(crate) struct UnexpectedNode(reqwest::StatusCode);
+
+impl std::fmt::Display for UnexpectedNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "GET / returned HTTP {} without a XERJ node identity",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for UnexpectedNode {}
+
 /// The message latched when the node stops accepting connections.
 struct NodeDownLatch {
     message: Mutex<Option<String>>,
@@ -1389,15 +1461,40 @@ impl Es {
     }
 
     pub fn ping(&self) -> Result<Value> {
+        Ok(self
+            .ping_response(Duration::from_secs(300))?
+            .json()
+            .unwrap_or(Value::Null))
+    }
+
+    /// One bounded readiness check before using XERJ's autoindex catalog.
+    /// Its root identity is independent of the advertised ES/OpenSearch version.
+    pub(crate) fn ping_xerj(&self) -> Result<()> {
+        let resp = self.ping_response(Duration::from_secs(5))?;
+        let status = resp.status();
+        if status.is_success()
+            && resp.json::<Value>().is_ok_and(|info| {
+                info["cluster_uuid"]
+                    .as_str()
+                    .is_some_and(|uuid| uuid.starts_with("xerj-cluster-"))
+            })
+        {
+            return Ok(());
+        }
+        Err(UnexpectedNode(status).into())
+    }
+
+    fn ping_response(&self, timeout: Duration) -> Result<reqwest::blocking::Response> {
         let resp = self
             .req(reqwest::Method::GET, "/")
+            .timeout(timeout)
             .send()
             .with_context(|| format!("endpoint unreachable: {}", self.base))?;
         let status = resp.status();
         if status.as_u16() == 401 || status.as_u16() == 403 {
             anyhow::bail!(self.auth_help(status.as_u16()));
         }
-        Ok(resp.json().unwrap_or(Value::Null))
+        Ok(resp)
     }
 
     /// The recovery message for a server that wants credentials we do not have.
@@ -2400,12 +2497,36 @@ impl Es {
     /// needs the whole stored document, so asking for it forces the node to
     /// decode every column of every hit even when the body names the few
     /// fields it prints (#2422/#2423).
+    ///
+    /// #3273: a node that predates `?savings=`, or a non-XERJ server on the
+    /// same URL, refuses the parameter with HTTP 400 `unrecognized parameter
+    /// [savings]`. That 400 is retried once without the parameter, and the
+    /// process prints one warning naming what the node reports on `GET /`.
+    /// A current node is asked exactly once, as before.
     pub fn search_without_savings(&self, index: &str, body: &Value) -> Result<Value> {
         let (status, v) = self.search_raw_at(index, "?savings=false", body)?;
+        if status == reqwest::StatusCode::BAD_REQUEST && refuses_savings_param(&v) {
+            let (status, v) = self.search_raw(index, body)?;
+            if !SAVINGS_FALLBACK_WARNED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+                eprintln!("{}", self.savings_fallback_warning());
+            }
+            if !status.is_success() {
+                return Err(anyhow!("search /{index} HTTP {status}: {v}"));
+            }
+            return Ok(v);
+        }
         if !status.is_success() {
             return Err(anyhow!("search /{index} HTTP {status}: {v}"));
         }
         Ok(v)
+    }
+
+    /// The one-line warning for [`Self::search_without_savings`]'s fallback.
+    /// Read only after a refusal, so a current node pays no extra request.
+    fn savings_fallback_warning(&self) -> String {
+        let banner = self.get_json("/").ok();
+        let health = self.get_json("/v1/health").ok();
+        savings_fallback_text(&self.base, banner.as_ref(), health.as_ref())
     }
 
     /// `POST /{index}/_mget` with the `{"ids":[...]}` short form.
@@ -2818,7 +2939,9 @@ impl Count {
 
 #[cfg(test)]
 mod tests {
-    use super::{bulk_item_ranges, select_bulk_items, Es};
+    use super::{
+        bulk_item_ranges, refuses_savings_param, savings_fallback_text, select_bulk_items, Es,
+    };
     use std::io::Read;
     use std::io::Write;
     use std::net::TcpListener;
@@ -3041,6 +3164,94 @@ mod tests {
             }
         }
         request
+    }
+
+    /// #3273: a server that refuses `?savings=` with HTTP 400 still answers
+    /// the search. The request is retried once without the parameter, and the
+    /// warning reads `GET /` and `/v1/health` only after that refusal.
+    #[test]
+    fn a_server_that_refuses_savings_still_returns_hits() {
+        let listener = crate::test_loopback::bind();
+        let address = listener.local_addr().unwrap();
+        // Targets go out over a channel and the server is never joined: the
+        // warning's two GETs happen only once per process.
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            for _ in 0..4 {
+                let Ok((mut stream, _)) = listener.accept() else {
+                    return;
+                };
+                let request = read_request(&mut stream);
+                let text = String::from_utf8_lossy(&request).to_string();
+                let target = text.split_whitespace().nth(1).unwrap_or("").to_string();
+                let _ = tx.send(target.clone());
+                if target.contains("savings") {
+                    respond_status(
+                        &mut stream,
+                        "400 Bad Request",
+                        br#"{"error":{"type":"illegal_argument_exception","reason":"request [/ax-*/_search] contains unrecognized parameter: [savings]"},"status":400}"#,
+                    );
+                } else if target.ends_with("/_search") {
+                    respond_json(
+                        &mut stream,
+                        br#"{"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_id":"1","_source":{"ax_path":"a.rs"}}]}}"#,
+                    );
+                } else if target == "/" {
+                    respond_json(
+                        &mut stream,
+                        br#"{"cluster_uuid":"abc","version":{"number":"8.11.0"}}"#,
+                    );
+                } else {
+                    respond_status(&mut stream, "404 Not Found", br#"{"error":"no"}"#);
+                }
+            }
+        });
+        let es = Es::new(&format!("http://{address}"), None).unwrap();
+        let v = es
+            .search_without_savings("ax-*", &serde_json::json!({"query": {"match_all": {}}}))
+            .unwrap();
+        assert_eq!(v.pointer("/hits/total/value").unwrap(), 1, "{v}");
+        let first = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let second = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert_eq!(first, "/ax-*/_search?savings=false");
+        assert_eq!(second, "/ax-*/_search");
+    }
+
+    /// A current node's 400 about the query body is not a `savings` refusal.
+    #[test]
+    fn only_a_savings_refusal_is_retried() {
+        assert!(refuses_savings_param(&serde_json::json!({
+            "error": {"reason": "request [/x/_search] contains unrecognized parameter: [savings]"}
+        })));
+        assert!(!refuses_savings_param(&serde_json::json!({
+            "error": {"type": "parsing_exception", "reason": "unknown query [mtch]"}
+        })));
+    }
+
+    #[test]
+    fn the_savings_warning_names_the_node_and_its_version() {
+        let xerj = savings_fallback_text(
+            "http://n:9200",
+            Some(
+                &serde_json::json!({"cluster_uuid":"xerj-cluster-0000","version":{"number":"8.13.0"}}),
+            ),
+            Some(&serde_json::json!({"data":{"version":"1.0.0-rc.80"}})),
+        );
+        assert!(
+            xerj.contains("XERJ node at http://n:9200 reports version 1.0.0-rc.80"),
+            "{xerj}"
+        );
+        assert!(xerj.contains(env!("CARGO_PKG_VERSION")), "{xerj}");
+        assert!(xerj.contains("Upgrade the node"), "{xerj}");
+        let other = savings_fallback_text(
+            "http://n:9200",
+            Some(
+                &serde_json::json!({"cluster_uuid":"abc","version":{"number":"2.11.0","distribution":"opensearch"}}),
+            ),
+            None,
+        );
+        assert!(other.contains("is not a XERJ node"), "{other}");
+        assert!(other.contains("opensearch version 2.11.0"), "{other}");
     }
 
     fn success(stream: &mut std::net::TcpStream) {

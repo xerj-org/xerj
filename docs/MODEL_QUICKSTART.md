@@ -1,5 +1,13 @@
 # Get the XERJ Query-1 model and serve it
 
+> **Release binaries only, not in the public build.** `/_facts`, `--facts-model-dir`
+> and the `xerj_facts_ask` MCP tool are in the published release binaries (rc.101
+> and later), which are built from a private tree that adds the proprietary model
+> crates (`xerj-infer`, `xerj-serve`, `xerj-exec`). This repository's source does
+> not contain them: a node built from `main` has no `/_facts` route, no
+> `--facts-model-dir` flag and no `xerj_facts_ask` tool. Everything below describes
+> the release binaries.
+
 What the model can do, with a verified example per capability: the
 capabilities overview, [XERJ_QUERY_1.md](./XERJ_QUERY_1.md).
 

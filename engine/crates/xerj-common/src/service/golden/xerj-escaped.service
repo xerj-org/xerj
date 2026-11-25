@@ -1,0 +1,16 @@
+# Written by `xerj service install`. Re-run it to change the flags;
+# remove it with `xerj service uninstall`.
+# xerj-data-dir=/home/u/My Data 100%
+[Unit]
+Description=XERJ search node
+
+[Service]
+Type=simple
+ExecStart="/opt/my apps/xerj" --config "/etc/x$$y.toml" --data-dir "/home/u/My Data 100%%"
+WorkingDirectory=/home/u/My Data 100%%
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target

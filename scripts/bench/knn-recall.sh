@@ -25,6 +25,8 @@
 #   bash scripts/bench/knn-recall.sh
 # Knobs: VECS=50000 DIMS=128 PROBES=100 K=10 CANDIDATES=100 PORT=<free 93xx port>
 #         XERJ_BIN=<binary> KEEP=1
+#         ANN_WAIT_S=120 (seconds to wait for GET /_cat/ann to report a covering,
+#         non-stale graph; the run refuses to score recall if it never does)
 # Requires: node >= 18, curl, a built server binary.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -38,6 +40,7 @@ DIMS="${DIMS:-128}"
 PROBES="${PROBES:-100}"
 K="${K:-10}"
 CANDIDATES="${CANDIDATES:-100}"
+ANN_WAIT_S="${ANN_WAIT_S:-120}"
 
 repro_find_binary
 repro_free_port 9334
@@ -64,14 +67,14 @@ curl -sf -XPUT "$BASE/$IDX" -H 'content-type: application/json' --data-binary @-
 } } }
 JSON
 
-node - "$BASE" "$IDX" "$VECS" "$DIMS" "$PROBES" "$K" "$CANDIDATES" "$RESULT_FILE" <<'NODE'
+node - "$BASE" "$IDX" "$VECS" "$DIMS" "$PROBES" "$K" "$CANDIDATES" "$RESULT_FILE" "$ANN_WAIT_S" <<'NODE'
 // Same generator, corpus shape and query shape as demo/playbooks/bench-matrix.mjs
 // knnBench(): mulberry32(0xC0FFEE) uniforms mapped to [-1,1), explicit _ids so
 // engine hits map back to generated vectors, cosine similarity, k=10,
 // num_candidates=100. Extended from 1 probe to PROBES so the "100-probe mean"
 // half of the claim is measured, not extrapolated from one draw.
 const http = require('node:http');
-const [base, idx, M, DIMS, PROBES, K, CAND, outFile] = [process.argv[2], process.argv[3], +process.argv[4], +process.argv[5], +process.argv[6], +process.argv[7], +process.argv[8], process.argv[9]];
+const [base, idx, M, DIMS, PROBES, K, CAND, outFile, ANN_WAIT_S] = [process.argv[2], process.argv[3], +process.argv[4], +process.argv[5], +process.argv[6], +process.argv[7], +process.argv[8], process.argv[9], +process.argv[10]];
 const port = +base.split(':')[2];
 const agent = new http.Agent({ keepAlive: true, maxSockets: 256 });
 
@@ -130,13 +133,28 @@ function cosine(a, b) {
   await req('POST', `/${idx}/_refresh`);
 
   // wait for the HNSW graph to cover the corpus (a stale/under-covered graph
-  // silently degrades kNN to the exact scan — this is the check)
-  let ann = null;
-  for (let i = 0; i < 120; i++) {
+  // silently degrades kNN to the exact scan — this is the check). If it never
+  // gets there, stop: probes sent now would measure the exact-scan fallback
+  // and print it as HNSW recall (#2075 item 12).
+  // `coverage` is a COUNT of graphed docs (not a fraction), so "coverage >= 1"
+  // passed as soon as one vector was in the graph. Ready means the node's own
+  // `covered` verdict (graphed == vector-bearing docs, not stale), or, on a
+  // build without that column, coverage reaching vector_docs; never while stale
+  // or rebuilding.
+  const yes = (v) => /^true$/i.test(String(v));
+  const annReady = (a) => !yes(a.stale) && !yes(a.rebuilding) && (a.covered !== undefined
+    ? yes(a.covered)
+    : Number(a.vector_docs) > 0 && Number(a.coverage) >= Number(a.vector_docs));
+  let ann = {};
+  for (let i = 0; i < ANN_WAIT_S; i++) {
     const rows = await req('GET', `/_cat/ann/${idx}?format=json`);
-    ann = rows[0] || {};
-    if (Number(ann.coverage) >= 1 && !String(ann.stale).match(/true/i)) break;
+    ann = (Array.isArray(rows) && rows[0]) || {};
+    if (annReady(ann)) break;
     await new Promise((r) => setTimeout(r, 1000));
+  }
+  if (!annReady(ann)) {
+    throw new Error(`ANN not ready after ${ANN_WAIT_S}s (GET /_cat/ann/${idx}: ${JSON.stringify(ann)}): ` +
+      'kNN would be served by the exact-scan fallback, so recall is not measured');
   }
 
   const recalls = []; let maxScoreDelta = 0; const lat = [];

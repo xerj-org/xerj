@@ -27,6 +27,7 @@ pub mod engine;
 pub mod governor;
 pub mod index;
 pub mod index_guard;
+pub mod index_trash;
 pub mod ingest_memory;
 pub mod lifecycle;
 pub mod memtable;
@@ -56,7 +57,7 @@ pub use cluster_apply::{EngineMetadataApplier, ReplicatedIndexSpec};
 pub use cluster_state::{ClusterStateBlockKind, ClusterStateBootStatus};
 pub use engine::{EmbeddingExecutionIdentity, Engine, HealthStatus, IndexInfo};
 pub use index::{
-    detect_log_format, filter_object, resolve_date_math, resolve_field_alias,
+    detect_log_format, filter_object, json_len_sampled, resolve_date_math, resolve_field_alias,
     storage_mode_from_config, EnrichTable, FieldEncodingInfo, Index, IndexResponse, IndexStats,
     LogFormat,
 };
@@ -239,7 +240,7 @@ pub(crate) fn merge_pool() -> pools::PoolCall {
     pools::PoolCall::new(&MERGE_POOL, "xerj-merge", || pools::sizing().merge, build)
 }
 
-/// Global bound on how many shard flushes may run their (CPU-heavy,
+/// Bound on how many shard flushes of one data dir may run their (CPU-heavy,
 /// ~600 ms) segment finalize concurrently.
 ///
 /// Under sustained ingest all 16 memtable shards cross their per-shard
@@ -263,9 +264,32 @@ pub(crate) fn merge_pool() -> pools::PoolCall {
 /// N comes from `engine.flush_workers`, which defaults to the maintenance
 /// share of the machine, `max(2, ncores/8)` (=4 on the 32-core bench, matching
 /// the measured optimum); `XERJ_FIN_CONC` still overrides it for one run.
-pub(crate) fn flush_finalize_gate() -> &'static tokio::sync::Semaphore {
-    static GATE: std::sync::OnceLock<tokio::sync::Semaphore> = std::sync::OnceLock::new();
-    GATE.get_or_init(|| tokio::sync::Semaphore::new(crate::pools::sizing().flush_finalize))
+///
+/// #3324: the gate is per data dir, not per process. A server runs one
+/// `Engine` on one data dir, so it gets exactly one gate of N permits, as
+/// before. A test binary builds one `Engine` per test, each on its own temp
+/// dir; with one process-wide gate, every test's flushes queued behind every
+/// other test's finalizes (32 engines refreshing at once: refresh max
+/// 11-20 s, 120 s admission timeouts reported under ext4 fsync load). Each
+/// data dir now behaves like its own node; memory stays bounded process-wide
+/// by the governor's flush reservation and `flush_pressure_gate`.
+pub(crate) fn flush_finalize_gate_for(data_dir: &std::path::Path) -> Arc<tokio::sync::Semaphore> {
+    type Gates =
+        std::collections::HashMap<std::path::PathBuf, std::sync::Weak<tokio::sync::Semaphore>>;
+    static GATES: std::sync::OnceLock<std::sync::Mutex<Gates>> = std::sync::OnceLock::new();
+    let mut gates = GATES
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some(gate) = gates.get(data_dir).and_then(std::sync::Weak::upgrade) {
+        return gate;
+    }
+    gates.retain(|_, gate| gate.strong_count() > 0);
+    let gate = Arc::new(tokio::sync::Semaphore::new(
+        crate::pools::sizing().flush_finalize,
+    ));
+    gates.insert(data_dir.to_path_buf(), Arc::downgrade(&gate));
+    gate
 }
 
 /// One permit: while the parent RSS breaker is engaged, flush finalizes

@@ -102,6 +102,10 @@ data_dir = "{data}"
         .arg("--config")
         .arg(&config_path)
         .arg("--insecure")
+        // #3006: 1,600 x 16-dim vectors fit the exact-scan budget, which
+        // would serve every kNN here exactly. This test is about the order
+        // the HNSW graph returns ties in, so keep the graph path on.
+        .env("XERJ_KNN_EXACT_SCAN_MAX_KB", "0")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()

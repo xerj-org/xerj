@@ -31,8 +31,11 @@
 
 </div>
 
+<p align="center">An AI-native search engine in one Rust binary.</p>
+
 <p align="center">
-  <a href="https://xerj.org/xerj-query-1"><img src="docs/media/xerj-query-1-hero.png" alt="XERJ Query-1: a model that turns a question into a small program over facts you have written; the engine runs the program and shows the facts it used. On our 160-question test: 1 wrong answer where RAG with Opus 5.5 gave 9 to 15, $42 of CPU per million questions, and 17 minutes to build a search index of 10 GB of English Wikipedia." width="100%"/></a>
+  <a href="https://xerj.org/xerj-query-1"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/cards/card-1-dark.png"><img src="docs/media/cards/card-1-light.png" width="400" alt="XERJ Query-1, AI model and AI search. Answers over facts you wrote, and shows the facts it used. Runs offline, no embeddings, no GPU. Wrong answers on 160 questions: 1, versus 9 to 15 for RAG with Opus 5.5. 220 ms p50 on CPU. $42 of CPU per million questions. AI search: BM25, vector and hybrid in one query, one binary. Link: xerj.org/xerj-query-1"></picture></a>
+  <a href="#the-engine-underneath"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/cards/card-2-dark.png"><img src="docs/media/cards/card-2-light.png" width="400" alt="Why XERJ, built for agents: search, memory and a familiar API in one Rust binary. Reference coding: 2.7 times fewer output tokens than a grep-driven agent, same 16 of 16 solved. Agent memory and MCP: /_memory, works with Claude Code, Cursor and any MCP client. Elasticsearch replacement: 0 failed on ES-YAML conformance (1448 of 1458), same API, no JVM. Link: the engine underneath"></picture></a>
 </p>
 
 <p align="center"><b>The search engine for AI, now with XERJ Query-1: a model that turns your question into a small program over facts you have written.</b></p>
@@ -69,6 +72,11 @@ and no GPU.
 
 Retrieval quality (R@k, nDCG@k) on BEIR, on SearchTome and on our 160-question test, the latency split and every data
 set: [benchmarks/query-1-2026-11](./benchmarks/query-1-2026-11/README.md).
+
+**Release binaries only, not in the public build.** XERJ Query-1, `/_facts`, `--facts-model-dir` and the
+`xerj_facts_ask` MCP tool are in the published release binaries (rc.101 and later), which are built from a private tree
+that adds the proprietary model crates. This repository's source does not contain them: a node built from `main` has no
+`/_facts` route, no `--facts-model-dir` flag and no `xerj_facts_ask` tool.
 
 The model is off by default; without the flag there is no `/_facts` route and the MCP tool list is unchanged. rc.101
 upgrades the data directory to format 4 on first write, and rc.100 cannot open it again. What it does not do yet,
@@ -405,8 +413,10 @@ Measurements and how to reproduce them:
 
 ## Ask over your own facts
 
-XERJ ships **XERJ Query-1**, a model that answers questions over facts you give it.
-It is off by default; start a node with `--facts-model-dir <DIR>` to turn it on.
+XERJ release binaries ship **XERJ Query-1**, a model that answers questions over facts you give it.
+It is not in the public build: a node built from this repository's source has no `/_facts`
+route (the model crates are proprietary and ship only in release binaries). It is off
+by default; start a node with `--facts-model-dir <DIR>` to turn it on.
 Write documents and facts to a namespace, then ask in plain language. The engine
 returns a checked answer: lookups carry the facts they used and the program that
 produced them; counts carry a program hash and a second-model agreement check, but
@@ -629,7 +639,7 @@ the other direction: it hosts an MCP endpoint other agents connect to, and its s
 their servers from the harness underneath. Grok Bot has no documented local stdio registration; the
 Grok CLI does, which is the `grok` row above.
 
-On main, 24 tools are exposed when Hub tools are enabled (25 with `--facts-model-dir`, which adds `xerj_facts_ask`); the rc.101 release has 23 and 24, because `xerj_sources` arrives in rc.102. Twelve are thin proxies over an endpoint XERJ already serves:
+On main, 25 tools are exposed when Hub tools are enabled, and 22 in a build with no hub key; in a release binary, `--facts-model-dir` adds `xerj_facts_ask` (a build from this source has no such flag or tool). The rc.104 release serves 24, because `xerj_references` arrived after it; the rc.101 release has 23 and 24, because `xerj_sources` arrives in rc.102. Twelve are thin proxies over an endpoint XERJ already serves:
 
 | Tool | What it does |
 |---|---|
@@ -674,6 +684,11 @@ As in the CLI, kind/language filters are ignored when no target index maps the f
 or any target index maps it as numeric. Ranking is lexical. This tool queries the configured node;
 `xerj_hub_def` instead looks up definitions in a named Hub pack.
 
+`xerj_references` (on main, after rc.104) takes the identifier `xerj_def` found and returns
+every indexed line that names it, with the definitions listed apart: `{"symbol":"Cache","prefix":"project"}`.
+It is lexical, not a call graph: comments and strings count, and a call through an alias does not.
+Contract and measured precision/recall: [endpoint contract](https://xerj.org/docs/agents/endpoints#references).
+
 Two more are not plain proxies: `xerj_map` returns the per-index field map from the autoindex
 catalog (trimmed to a byte cap, otherwise verbatim), and `xerj_code_search` runs the `xerj code`
 reference-coding pipeline ([`tools/xerj-code/`](tools/xerj-code/)) and returns its rendered text.
@@ -694,6 +709,24 @@ tool schemas are published at
 generated from a live `tools/list`, never hand-written, and gated in CI
 (`scripts/mcp-schema-check.sh`) plus a unit test, so the published list cannot drift from the
 served one.
+
+Cloud agents and URL-only clients cannot start a local process. For them, `xerj mcp --http`
+(on main, after rc.104) serves the same tools over MCP Streamable HTTP at
+`http://127.0.0.1:9330/mcp`. Over HTTP only the 15 read tools are listed (14 with no hub key)
+unless you pass `--allow-writes`. A non-loopback bind refuses to start without a bearer token
+(`XERJ_MCP_TOKEN` or `--token-file`, at least 16 characters). Set the token before you put a
+tunnel in front of it. Verify:
+
+```sh
+export XERJ_MCP_TOKEN="$(openssl rand -hex 32)"
+xerj mcp --http &
+curl -s http://127.0.0.1:9330/mcp -H "Authorization: Bearer $XERJ_MCP_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+  | jq '.result.tools | length'     # 15
+```
+
+Tunnels, Origin rules and client shapes (`claude mcp add --transport http …`) are in
+[Remote MCP](https://xerj.org/docs/agents/endpoints#remote-mcp).
 
 ## Why it exists
 
@@ -773,6 +806,10 @@ editing a handful of files does work proportional to what changed, not to the wh
 common edit-and-rerun / CI case, typically over 95% unchanged. The full content hash still runs
 to detect changes, so total re-index time is floored by hashing, not parsing.
 
+If an edit makes a file identical to another indexed file, the next incremental
+or watch pass keeps the existing content group and records both paths in
+`ax_paths`. The superseded content group is removed; a fresh index is not needed.
+
 ## Build from source
 
 You need a stable Rust toolchain.
@@ -834,10 +871,10 @@ limits each one does not lift:
   when an operator configures them; the page lists every outbound connection a node can
   open), it needs an operator-configured provider key, and
   its ranking quality with the real model is not verified.
-- [The `/_facts` API](./docs/FACTS_API.md) — request/response for writing facts
-  and asking questions: the raw-versus-verified split (`final_status`/
-  `final_answer`), the counting cascade, the revision/phase note, and the error
-  set.
+- [The `/_facts` API](./docs/FACTS_API.md) (release binaries only, not in the
+  public build) — request/response for writing facts and asking questions: the
+  raw-versus-verified split (`final_status`/`final_answer`), the counting cascade,
+  the revision/phase note, and the error set.
 - [Get the model and serve it](./docs/MODEL_QUICKSTART.md) — install, obtain the
   bundle, start the node with `--facts-model-dir`, write a fact, ask, and verify,
   one step at a time.

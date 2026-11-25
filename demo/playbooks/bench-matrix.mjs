@@ -585,7 +585,8 @@ async function mixedBench(base, log) {
   // flush/merge actually occurs during measurement and (b) p99 rests on enough
   // tail samples to be trustworthy (index floor(0.99*3000)=2970 → ~30 tail obs).
   for (const [label, body] of MIXED_OPS) {
-    out[label] = await safeTimed(base, S, body, { iters: 3000, warmup: 20, rate: 300 });
+    out[label] = await meterXerjCache(base, `mixed: ${label}`,
+      () => safeTimed(base, S, body, { iters: 3000, warmup: 20, rate: 300 }));
     log(`     mixed ${label}: p99 ${f3(statVal(out[label], 'p99'))}ms max ${f3(statVal(out[label], 'max'))}ms (achieved ${out[label] && out[label].achievedRate != null ? out[label].achievedRate : '—'}/s, under write load)`);
   }
   // stop the writer and measure achieved background throughput
@@ -665,7 +666,8 @@ async function knnBench(base, log, dims = 128, M = 50000) {
   const ids = (one.j?.hits?.hits || []).map((h) => parseInt(h._id, 10));
   const recall = ids.length ? ids.filter((id) => exact.has(id)).length / 10 : null;
   // >=2000 samples so kNN p99/max aren't dominated by 1-2 tail observations.
-  const t = await safeTimed(base, '/perfvec/_search?request_cache=false', body, { iters: 2000, warmup: 15, rate: 200 });
+  const t = await meterXerjCache(base, 'kNN k=10',
+    () => safeTimed(base, '/perfvec/_search?request_cache=false', body, { iters: 2000, warmup: 15, rate: 200 }));
   return { ...t, recall };
 }
 
@@ -769,6 +771,33 @@ function scoreRow(dim, xv, ev, higherBetter, fmt, xraw, eraw, tieBandMs = null) 
 }
 
 // ────────────────────────────── main ──────────────────────────────
+// XERJ answers a repeated identical _search from its whole-response cache unless
+// it was started with XERJ_DISABLE_QUERY_CACHE=1 (#3020: 0.70 ms cached against
+// 7.80 ms executed), and `request_cache=false` does not switch that cache off.
+// `xerj_query_cache_hits` on /v1/metrics is NOT a process-lifetime counter: it is
+// the sum of per-index counters over the indexes open at scrape time, so it drops
+// when an index is deleted (this harness DELETEs /perf before each ingest, the
+// read seed and the mixed load, and /perfvec before kNN). The counter is read
+// right before and right after each timed section, after its setup and before
+// any later DELETE, and the per-section differences are added. A missing reading
+// or a negative difference marks the section "not measured", never 0.
+// null = the counter could not be read.
+async function xerjQueryCacheHits(base) {
+  const r = await req(base, 'GET', '/v1/metrics');
+  const m = /^xerj_query_cache_hits\s+(\d+)/m.exec(r.txt || '');
+  return m ? Number(m[1]) : null;
+}
+const XERJ_CACHE = { base: null, hits: 0, measured: [], unmeasured: [] };
+async function meterXerjCache(base, section, fn) {
+  if (!XERJ_CACHE.base || base !== XERJ_CACHE.base) return fn();
+  const before = await xerjQueryCacheHits(base);
+  const out = await fn();
+  const after = await xerjQueryCacheHits(base);
+  if (before == null || after == null || after < before) XERJ_CACHE.unmeasured.push(section);
+  else { XERJ_CACHE.hits += after - before; XERJ_CACHE.measured.push(section); }
+  return out;
+}
+
 async function main() {
   const A = parseArgs(process.argv);
   const log = (s) => process.stderr.write(s + '\n');
@@ -793,6 +822,8 @@ async function main() {
     try { const v = await req(e.url, 'GET', '/'); alive[e.name] = v.status < 500; log(`   ${e.name} (${e.url}) — ${v.j?.version?.number || 'reachable'}`); }
     catch (err) { alive[e.name] = false; log(`   ${e.name} (${e.url}) — UNREACHABLE: ${err.message}`); }
   }
+
+  XERJ_CACHE.base = A.xerj;
 
   const R = { ingest: {}, reads: {}, mixed: {}, knn: {}, disk: {} };
 
@@ -855,7 +886,8 @@ async function main() {
         // families with per-engine setup (e.g. search_after sort-value capture)
         // build their body against THIS engine right before timing.
         const body = fam.makeBody ? await fam.makeBody(e.url) : fam.body;
-        out[e.name] = await safeTimed(e.url, path, body, { iters: 1200, warmup: 60, ndjson: !!fam.ndjson });
+        out[e.name] = await meterXerjCache(e.url, `read: ${fam.label}`,
+          () => safeTimed(e.url, path, body, { iters: 1200, warmup: 60, ndjson: !!fam.ndjson }));
       }
       return out;
     };
@@ -1004,6 +1036,10 @@ async function main() {
   rows.push(scoreRow('index on-disk size', R.disk.XERJ ?? null, R.disk.ES ?? null, false, mb));
 
   const loses = rows.filter((r) => r.verdict === 'LOSE');
+  const qc = XERJ_CACHE;
+  if (qc.hits > 0) log(`   WARNING: XERJ served ${qc.hits} responses from its query cache in the timed sections — start it with XERJ_DISABLE_QUERY_CACHE=1`);
+  if (qc.unmeasured.length) log(`   query cache: not measured for ${qc.unmeasured.length} timed section(s): ${qc.unmeasured.join('; ')}`);
+  if (qc.measured.length && qc.hits === 0) log(`   query cache: 0 XERJ responses served from cache in ${qc.measured.length} measured timed section(s)`);
 
   let md = `# XERJ vs Elasticsearch — Scorecard\n\n`;
   md += `Generated by \`demo/playbooks/bench-matrix.mjs\`. Identical workload, same machine (localhost), single node, security off. `;
@@ -1025,6 +1061,20 @@ async function main() {
   md += `\`XERJ_DISABLE_QUERY_CACHE=1\`, so BOTH engines EXECUTE every query on every iteration (no whole-result cache clone). Query bodies are `;
   md += `never mutated per-iteration; lower-level filter/OS caches stay on for both. Read rows show p50 (verdict) with p99 alongside. `;
   md += `Latency rows within a noise band (\`|Δ| ≤ max(0.30ms, 20%)\`) score **TIE** (does not fail CI); only **LOSE** fails CI.\n\n`;
+  if (qc.hits > 0) {
+    md += `> **WARNING — query cache was ON.** XERJ served **${qc.hits.toLocaleString()}** responses from its whole-response cache in the `;
+    md += `timed sections of this run (\`xerj_query_cache_hits\` on \`/v1/metrics\`, read before and after each section), so its read `;
+    md += `latencies partly time the cache, not search. Restart XERJ with \`XERJ_DISABLE_QUERY_CACHE=1\` and run again.\n\n`;
+  }
+  if (qc.unmeasured.length) {
+    md += `> **Query cache check: not measured** for ${qc.unmeasured.length} timed section(s) (${qc.unmeasured.join('; ')}): the `;
+    md += `\`xerj_query_cache_hits\` counter could not be read or went down during the section, so these sections cannot show that `;
+    md += `XERJ was started with \`XERJ_DISABLE_QUERY_CACHE=1\`.\n\n`;
+  }
+  if (qc.measured.length && qc.hits === 0) {
+    md += `> Query cache check: XERJ served 0 responses from its whole-response cache in the ${qc.measured.length} measured timed section(s) `;
+    md += `(\`xerj_query_cache_hits\` on \`/v1/metrics\`, read before and after each section, warm-ups included).\n\n`;
+  }
   if (A.mixed && (R.mixed.XERJ?.__bg || R.mixed.ES?.__bg)) {
     md += `> **Methodology — mixed read-under-write (iso-load).** The background writer is OPEN-LOOP: one \`BATCH\`=10k \`_bulk\` `;
     md += `launched every 250ms on an absolute-deadline schedule (offered **40,000 docs/s**), byte-identical for both engines, `;

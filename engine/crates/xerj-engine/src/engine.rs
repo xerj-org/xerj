@@ -42,6 +42,130 @@ use crate::{EngineError, Result};
 /// reads) without the drain worker competing with ingest for every tick.
 const MEMORY_DRAIN_MIN_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
 
+/// RSS, in percent of the memory watermark, from which the sampler returns
+/// freed allocator pages to the OS on its own (#2427). See
+/// [`pressure_purge_due`].
+const PRESSURE_PURGE_RSS_PCT: u64 = 80;
+
+/// Minimum spacing between two sampler purges (#2427).
+const PRESSURE_PURGE_MIN_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// Whether this sampler tick should purge freed allocator pages (#2427).
+///
+/// jemalloc keeps freed pages resident for `dirty_decay_ms` and hands them
+/// back gradually over that window. On the 1 GB gate at a 3,072 MB cap a
+/// query dropped ~800 MB of decoded segment data, the next request
+/// allocated on other arenas before those pages decayed, and jemalloc's
+/// resident bytes reached 3,409 MB while only 2,177 MB was allocated: the
+/// gap alone carried RssAnon past the cap. The breaker drain purges too, but
+/// only at the watermark and at most every 2 s; a burst crosses the last
+/// 5% of the cap in well under that. From [`PRESSURE_PURGE_RSS_PCT`] of the
+/// watermark the sampler purges itself, at most every
+/// [`PRESSURE_PURGE_MIN_INTERVAL`]. A purge only releases pages that are
+/// already free, so it costs no live data.
+fn pressure_purge_due(
+    rss: u64,
+    watermark: u64,
+    last_purge_at: &mut Option<std::time::Instant>,
+    now: std::time::Instant,
+) -> bool {
+    if watermark == 0 || rss.saturating_mul(100) < watermark.saturating_mul(PRESSURE_PURGE_RSS_PCT)
+    {
+        return false;
+    }
+    let due = last_purge_at
+        .is_none_or(|at| now.saturating_duration_since(at) >= PRESSURE_PURGE_MIN_INTERVAL);
+    if due {
+        *last_purge_at = Some(now);
+    }
+    due
+}
+
+/// Runs the sampler's pressure purge on a thread of its own (#2427).
+///
+/// A purge hands every freed allocator page back to the kernel, and the
+/// call takes about as long as the bytes it returns, roughly 125-200 ms per
+/// GiB: about three quarters of it is `madvise(MADV_DONTNEED)` over many
+/// small extents (median 16-32 KiB, ~2,300 calls per purge), and the stats
+/// epoch is ~5%. Skipping calls with nothing to free would save little:
+/// such a call costs ~2 ms. Run on the sampler thread, each call held back
+/// the next RSS sample, so the breaker read an RSS figure up to 389 ms old
+/// (1,722 ms once) during exactly the bursts the purge is there for. The
+/// sampler now only asks. The channel is a rendezvous channel, so a
+/// request lands only when the worker is idle; one that arrives mid-purge
+/// is dropped and the next due tick asks again. Same
+/// shape as ClickHouse's `MemoryWorker`, whose RSS thread flags a separate
+/// purge thread (`src/Common/MemoryWorker.cpp:924-962`, `:1154-1230`,
+/// Apache-2.0), written fresh here. Without a worker (the spawn failed)
+/// the purge runs inline, as before.
+struct PressurePurgeWorker {
+    purge: Arc<dyn Fn() + Send + Sync + 'static>,
+    tx: Option<std::sync::mpsc::SyncSender<()>>,
+}
+
+impl PressurePurgeWorker {
+    fn spawn(purge: Arc<dyn Fn() + Send + Sync + 'static>) -> Self {
+        Self::spawn_named("xerj-mem-purge", 0, purge)
+    }
+
+    /// `queued` is how many requests may wait while a purge runs: `0` drops
+    /// every request that arrives mid-purge (the sampler asks again on its
+    /// next due tick), `1` keeps one, so pages freed after a running purge
+    /// passed their arena still get a purge of their own.
+    fn spawn_named(
+        name: &str,
+        queued: usize,
+        purge: Arc<dyn Fn() + Send + Sync + 'static>,
+    ) -> Self {
+        let (tx, rx) = std::sync::mpsc::sync_channel::<()>(queued);
+        let worker = Arc::clone(&purge);
+        let running = spawn_governor_thread(name, move || {
+            while let Ok(()) = rx.recv() {
+                worker();
+            }
+        });
+        Self {
+            purge,
+            tx: running.then_some(tx),
+        }
+    }
+
+    /// Ask for a purge without waiting for it. Returns whether one was
+    /// started: `false` means the worker is still on the previous one.
+    fn request(&self) -> bool {
+        match &self.tx {
+            Some(tx) => tx.try_send(()).is_ok(),
+            None => {
+                (self.purge)();
+                true
+            }
+        }
+    }
+}
+
+/// Ask for the purge that follows a flush build (#2427), without waiting
+/// for it.
+///
+/// A finished build frees several hundred MB at once, and from 70% of the
+/// watermark `release_flush_build` hands those pages back. Run inline, that
+/// purge held the finalizer's blocking-pool thread until it was done, so
+/// every flush near the watermark (and every shard of a serial pressure
+/// drain) waited for it: 238 calls, p50 77.8 ms, p99 281.9 ms on the #3481
+/// A/B. It now goes to a governor thread of its own, `xerj-flush-purge`,
+/// separate from the sampler's `xerj-mem-purge` so a flush never takes the
+/// sampler's slot. One request may wait while a purge runs, and the rest
+/// fold into it: a single purge returns every arena's free pages, so
+/// back-to-back builds need one purge after the last of them, not one each.
+/// Without a worker (the spawn failed) the purge runs inline, as before.
+pub(crate) fn request_flush_build_purge() -> bool {
+    static WORKER: std::sync::OnceLock<PressurePurgeWorker> = std::sync::OnceLock::new();
+    WORKER
+        .get_or_init(|| {
+            PressurePurgeWorker::spawn_named("xerj-flush-purge", 1, Arc::new(purge_allocator_pages))
+        })
+        .request()
+}
+
 /// Whether this sampler tick should ask the drain worker to run on the fixed
 /// window (#948, #2238).
 ///
@@ -288,6 +412,132 @@ mod pressure_cache_release_gate_tests {
         }
         assert!(gate.should_release(t0 + Duration::from_secs(30)));
         assert!(!gate.should_release(t0 + Duration::from_secs(31)));
+    }
+
+    /// #2427: the sampler purges from 80% of the watermark, at most every
+    /// 250 ms, and never without a watermark.
+    #[test]
+    fn pressure_purge_runs_near_the_watermark_and_is_spaced() {
+        use super::{pressure_purge_due, PRESSURE_PURGE_MIN_INTERVAL};
+        let t0 = Instant::now();
+        let mut last = None;
+        assert!(!pressure_purge_due(79, 100, &mut last, t0));
+        assert!(last.is_none());
+        assert!(pressure_purge_due(80, 100, &mut last, t0));
+        assert!(!pressure_purge_due(
+            99,
+            100,
+            &mut last,
+            t0 + Duration::from_millis(100)
+        ));
+        assert!(pressure_purge_due(
+            150,
+            100,
+            &mut last,
+            t0 + PRESSURE_PURGE_MIN_INTERVAL
+        ));
+        let mut never = None;
+        assert!(!pressure_purge_due(u64::MAX, 0, &mut never, t0));
+    }
+
+    /// #2427: asking for a pressure purge never waits for it. A purge that
+    /// is still running drops the next request instead of queueing it, and
+    /// the worker takes requests again once it is done.
+    #[test]
+    fn a_pressure_purge_request_does_not_wait_for_the_purge() {
+        use super::PressurePurgeWorker;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+        let runs = Arc::new(AtomicUsize::new(0));
+        let (started_tx, started_rx) = std::sync::mpsc::channel::<()>();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let started_tx = std::sync::Mutex::new(started_tx);
+        let release_rx = std::sync::Mutex::new(release_rx);
+        let counted = Arc::clone(&runs);
+        let worker = PressurePurgeWorker::spawn(Arc::new(move || {
+            started_tx.lock().unwrap().send(()).unwrap();
+            release_rx.lock().unwrap().recv().unwrap();
+            counted.fetch_add(1, Ordering::SeqCst);
+        }));
+        let wait_until = |what: &str, mut f: Box<dyn FnMut() -> bool + '_>| {
+            let by = Instant::now() + Duration::from_secs(10);
+            while !f() {
+                assert!(Instant::now() < by, "{what}");
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        };
+        wait_until("the worker never went idle", Box::new(|| worker.request()));
+        started_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the purge must start on the worker");
+        let t = Instant::now();
+        assert!(!worker.request(), "a busy worker must drop the request");
+        assert!(
+            t.elapsed() < Duration::from_secs(1),
+            "a request must not block"
+        );
+        assert_eq!(runs.load(Ordering::SeqCst), 0);
+        release_tx.send(()).unwrap();
+        wait_until(
+            "the worker never took a request again",
+            Box::new(|| worker.request()),
+        );
+        started_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        release_tx.send(()).unwrap();
+        wait_until(
+            "the second purge never finished",
+            Box::new(|| runs.load(Ordering::SeqCst) == 2),
+        );
+    }
+
+    /// #2427: the flush-build purge worker keeps one request that arrives
+    /// mid-purge and folds the rest into it, and the caller never waits.
+    #[test]
+    fn a_flush_purge_request_queues_one_follow_up_without_waiting() {
+        use super::PressurePurgeWorker;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+        let runs = Arc::new(AtomicUsize::new(0));
+        let (started_tx, started_rx) = std::sync::mpsc::channel::<()>();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let started_tx = std::sync::Mutex::new(started_tx);
+        let release_rx = std::sync::Mutex::new(release_rx);
+        let counted = Arc::clone(&runs);
+        let worker = PressurePurgeWorker::spawn_named(
+            "test-flush-purge",
+            1,
+            Arc::new(move || {
+                started_tx.lock().unwrap().send(()).unwrap();
+                release_rx.lock().unwrap().recv().unwrap();
+                counted.fetch_add(1, Ordering::SeqCst);
+            }),
+        );
+        assert!(worker.request(), "an idle worker takes the request");
+        started_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the purge must start on the worker");
+        let t = Instant::now();
+        assert!(worker.request(), "one request waits behind a running purge");
+        assert!(!worker.request(), "a second one folds into the first");
+        assert!(
+            t.elapsed() < Duration::from_secs(1),
+            "a request must not block"
+        );
+        assert_eq!(runs.load(Ordering::SeqCst), 0);
+        release_tx.send(()).unwrap();
+        started_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the queued request must run after the first purge");
+        release_tx.send(()).unwrap();
+        let by = Instant::now() + Duration::from_secs(10);
+        while runs.load(Ordering::SeqCst) != 2 {
+            assert!(Instant::now() < by, "the queued purge never finished");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(
+            started_rx.recv_timeout(Duration::from_millis(100)).is_err(),
+            "the folded request must not run a third purge"
+        );
     }
 
     #[test]
@@ -994,9 +1244,9 @@ pub struct Engine {
     /// routing decision resolves to "this node" — so the write path is
     /// 100 % backward compatible with single-node deployments.
     pub node_id: Arc<String>,
-    /// Shard router shared across all indices. For single-node clusters
-    /// this has `num_shards = 1` and always routes to `node_id`, which
-    /// is a no-op. In multi-node mode, populated via
+    /// Shard router shared across all indices. Each planned index routes
+    /// with its own shard count. For single-node clusters there is no plan,
+    /// so every write stays on `node_id`. In multi-node mode, populated via
     /// `ShardRouter::update_from_metadata` whenever the Raft log
     /// commits a new shard assignment.
     pub shard_router: Arc<parking_lot::RwLock<xerj_cluster::router::ShardRouter>>,
@@ -1072,6 +1322,20 @@ pub struct Engine {
     /// cluster transport is up. Single-node boots leave this empty and every
     /// index create/delete/mapping/settings path stays local.
     cluster: Arc<parking_lot::Mutex<Option<xerj_cluster::ClusterHandle>>>,
+
+    /// Names deleted while this process runs (#3274). A delete that timed
+    /// out waiting for a straggling flush or merge can see that straggler
+    /// recreate `<data_dir>/<name>/segments` after the rename; a create of
+    /// the same name moves such a leftover into the trash instead of
+    /// building the new index on top of it.
+    deleted_names: Arc<DashMap<String, ()>>,
+
+    /// Names whose delete is between unregistering the index and freeing
+    /// its directory (#3274) — the bounded wait for other handles sits in
+    /// that window. A create of the name answers "already exists" until the
+    /// delete finishes, instead of building a new index in the directory
+    /// the delete is about to move away.
+    deleting_names: Arc<DashMap<String, ()>>,
 }
 
 impl Engine {
@@ -1229,6 +1493,8 @@ impl Engine {
             cluster_state_write: Arc::new(parking_lot::Mutex::new(())),
             cluster_state_boot: Arc::new(cluster_state_status),
             cluster: Arc::new(parking_lot::Mutex::new(None)),
+            deleted_names: Arc::new(DashMap::new()),
+            deleting_names: Arc::new(DashMap::new()),
         };
 
         // A rejected cluster-state document means this binary cannot know the
@@ -1237,6 +1503,9 @@ impl Engine {
         // includes `.xerj_*` system indices; treating them as harmless was the
         // exact path that mutated `.xerj_dashboards` during the causal A/B.
         if storage_available {
+            // #3274: finish deletes whose bytes could not be removed last
+            // run. Nothing is open yet, so nothing in the trash is mapped.
+            crate::index_trash::sweep(&data_dir);
             // Scan data_dir for existing index directories.
             if let Ok(read_dir) = std::fs::read_dir(&data_dir) {
                 for entry in read_dir.flatten() {
@@ -1597,8 +1866,12 @@ impl Engine {
                     } else {
                         xerj_ai::local::DEFAULT_DIMS
                     };
-                    let fc =
-                        field_from_template_property(field_name, field_def, semantic_dimensions);
+                    let fc = field_from_template_property(
+                        field_name,
+                        field_def,
+                        semantic_dimensions,
+                        xerj_common::normalizer::analysis_block(&tmpl.settings),
+                    );
                     if let Some(embedding) = fc.embedding.as_ref() {
                         new_semantic_targets.push(
                             embedding
@@ -1753,6 +2026,28 @@ impl Engine {
             ));
         }
 
+        if self.deleting_names.contains_key(name) {
+            return Err(EngineError::Common(
+                xerj_common::XerjError::index_already_exists(name),
+            ));
+        }
+
+        // #3274: a straggler of a deleted index of this name may have
+        // recreated part of its directory after the delete renamed it away.
+        // Only a directory is ours: anything else at the path is not a
+        // straggler's doing, and the create reports it as before.
+        if self.deleted_names.remove(name).is_some() {
+            let leftover = self.data_dir.join(name);
+            if leftover.is_dir() {
+                warn!(
+                    name,
+                    "moving a leftover of the deleted index aside before re-create"
+                );
+                crate::index_trash::retire_dir(&self.data_dir, &leftover, name)
+                    .map_err(EngineError::Io)?;
+            }
+        }
+
         let idx = Index::create_with_settings(
             index_name,
             schema,
@@ -1815,9 +2110,18 @@ impl Engine {
     /// default-format ingest validation (explicit `format` — those are
     /// validated against their own format by the bulk path — or
     /// `ignore_malformed`).
+    ///
+    /// The root `dynamic` setting rides along (#3514): `false` stops the
+    /// engine mapping new fields, `strict` too (the write paths refuse the
+    /// document before it gets here).
     pub(crate) fn apply_date_mapping_flags(idx: &crate::index::Index, mapping: &Value) {
         idx.set_date_detection(Self::mapping_date_detection(mapping));
         idx.set_date_format_exclusions(Self::mapping_date_exclusions(mapping));
+        idx.set_es_dynamic(
+            xerj_common::mapping_dynamic::root_dynamic(mapping)
+                .map(xerj_common::mapping_dynamic::DynamicSetting::engine_mode),
+            xerj_common::mapping_dynamic::MappingCoverage::of(mapping),
+        );
     }
 
     /// Read the `date_detection` toggle out of a raw mapping blob
@@ -3153,6 +3457,42 @@ impl Engine {
         Ok(())
     }
 
+    /// Insert into a persisted map only when `name` is free, and durably
+    /// record the result. `Ok(false)` means the name was taken and nothing
+    /// changed (the caller answers 400); an `Err` means the insert did not
+    /// reach disk and was undone.
+    ///
+    /// The check and the insert happen under the map's entry lock, so two
+    /// concurrent creates of one name cannot both succeed, which a lookup
+    /// followed by [`Self::persisted_insert`] would allow. The lock is released
+    /// before the flush, because the flush reads every map.
+    ///
+    /// The rollback shares [`Self::persisted_insert`]'s limit: if a plain PUT
+    /// replaces the value between this insert and a failed flush, the
+    /// `remove` drops that PUT's value from memory too. Closing it means
+    /// holding the cluster-state write lock across insert, flush and rollback
+    /// for both helpers, a change to the existing path that this one leaves
+    /// alone.
+    fn persisted_insert_new<V: Clone>(
+        &self,
+        map: &DashMap<String, V>,
+        name: String,
+        value: V,
+    ) -> Result<bool> {
+        self.ensure_cluster_state_writable()?;
+        match map.entry(name.clone()) {
+            dashmap::mapref::entry::Entry::Occupied(_) => return Ok(false),
+            dashmap::mapref::entry::Entry::Vacant(slot) => {
+                slot.insert(value);
+            }
+        }
+        if let Err(e) = self.flush_cluster_state() {
+            map.remove(&name);
+            return Err(e);
+        }
+        Ok(true)
+    }
+
     /// Remove from a persisted map and durably record the result. Returns
     /// `false` when there was nothing to remove (the caller answers 404);
     /// an `Err` means the removal did not reach disk and was undone.
@@ -3176,6 +3516,12 @@ impl Engine {
         self.persisted_insert(&self.templates, name, template)
     }
 
+    /// Create a v2 index template only when `name` is free
+    /// (`PUT /_index_template/{name}?create=true`); `false` when it is taken.
+    pub fn create_index_template(&self, name: String, template: IndexTemplate) -> Result<bool> {
+        self.persisted_insert_new(&self.templates, name, template)
+    }
+
     /// Delete a v2 index template; `false` when it did not exist.
     pub fn delete_index_template(&self, name: &str) -> Result<bool> {
         self.persisted_remove(&self.templates, name)
@@ -3184,6 +3530,12 @@ impl Engine {
     /// Create or replace a legacy v1 template (`PUT /_template/{name}`).
     pub fn put_legacy_template(&self, name: String, body: Value) -> Result<()> {
         self.persisted_insert(&self.legacy_templates, name, body)
+    }
+
+    /// Create a legacy v1 template only when `name` is free
+    /// (`PUT /_template/{name}?create=true`); `false` when it is taken.
+    pub fn create_legacy_template(&self, name: String, body: Value) -> Result<bool> {
+        self.persisted_insert_new(&self.legacy_templates, name, body)
     }
 
     /// Delete a legacy v1 template; `false` when it did not exist.
@@ -3196,9 +3548,108 @@ impl Engine {
         self.persisted_insert(&self.component_templates, name, body)
     }
 
+    /// Create a component template only when `name` is free
+    /// (`PUT /_component_template/{name}?create=true`); `false` when it is
+    /// taken.
+    pub fn create_component_template(&self, name: String, body: Value) -> Result<bool> {
+        self.persisted_insert_new(&self.component_templates, name, body)
+    }
+
     /// Delete a component template; `false` when it did not exist.
     pub fn delete_component_template(&self, name: &str) -> Result<bool> {
         self.persisted_remove(&self.component_templates, name)
+    }
+
+    /// `DELETE /_index_template/{name}`, where `name` may be a pattern or a
+    /// comma list of exact names (ES `innerRemoveIndexTemplateV2`).
+    pub fn delete_index_templates(&self, expr: &str) -> Result<TemplateRemoval> {
+        self.persisted_remove_matching(&self.templates, expr, true)
+    }
+
+    /// `DELETE /_template/{name}`, where `name` may be a pattern. A comma is
+    /// part of the name here, as in ES `removeTemplates`.
+    pub fn delete_legacy_templates(&self, expr: &str) -> Result<TemplateRemoval> {
+        self.persisted_remove_matching(&self.legacy_templates, expr, false)
+    }
+
+    /// `DELETE /_component_template/{name}`, where `name` may be a pattern or
+    /// a comma list of exact names (ES `innerRemoveComponentTemplate`).
+    pub fn delete_component_templates(&self, expr: &str) -> Result<TemplateRemoval> {
+        self.persisted_remove_matching(&self.component_templates, expr, true)
+    }
+
+    /// Remove every template `expr` selects with one cluster-state flush, so
+    /// a pattern delete lands whole or not at all, as ES's single cluster
+    /// state update does.
+    ///
+    /// - With `list` and a comma in `expr`: exact names, all of which must
+    ///   exist; a pattern inside a list is just a name that does not exist.
+    /// - A name containing `*`: every match. No match is `Missing`, except for
+    ///   `*` itself, which is `NothingToRemove` (ES: "if its a match all
+    ///   pattern, and no templates are found (we have none), don't fail").
+    /// - Anything else: that one name.
+    ///
+    /// `_all` is not a pattern here: ES reads it as a literal name on DELETE,
+    /// and a delete is the wrong place to widen it.
+    ///
+    /// A failed flush puts back what this call removed. Like
+    /// `persisted_remove`, that restore can overwrite a PUT of the same name
+    /// that landed in between.
+    fn persisted_remove_matching<V: Clone>(
+        &self,
+        map: &DashMap<String, V>,
+        expr: &str,
+        list: bool,
+    ) -> Result<TemplateRemoval> {
+        self.ensure_cluster_state_writable()?;
+        let names: Vec<String> = if list && expr.contains(',') {
+            let mut wanted: Vec<String> = expr
+                .split(',')
+                .filter(|n| !n.is_empty())
+                .map(str::to_string)
+                .collect();
+            wanted.sort();
+            wanted.dedup();
+            let missing: Vec<&str> = wanted
+                .iter()
+                .filter(|n| !map.contains_key(n.as_str()))
+                .map(String::as_str)
+                .collect();
+            if !missing.is_empty() {
+                return Ok(TemplateRemoval::Missing(missing.join(",")));
+            }
+            wanted
+        } else if expr.contains('*') {
+            let matched: Vec<String> = map
+                .iter()
+                .map(|e| e.key().clone())
+                .filter(|k| template_name_matches(expr, k))
+                .collect();
+            if matched.is_empty() {
+                return Ok(if expr == "*" {
+                    TemplateRemoval::NothingToRemove
+                } else {
+                    TemplateRemoval::Missing(expr.to_string())
+                });
+            }
+            matched
+        } else {
+            vec![expr.to_string()]
+        };
+
+        let removed: Vec<(String, V)> = names.iter().filter_map(|n| map.remove(n)).collect();
+        if removed.is_empty() {
+            return Ok(TemplateRemoval::Missing(expr.to_string()));
+        }
+        if let Err(e) = self.flush_cluster_state() {
+            for (k, v) in removed {
+                map.insert(k, v);
+            }
+            return Err(e);
+        }
+        let mut gone: Vec<String> = removed.into_iter().map(|(k, _)| k).collect();
+        gone.sort();
+        Ok(TemplateRemoval::Removed(gone))
     }
 
     /// Create or replace an ILM policy.
@@ -3506,10 +3957,36 @@ impl Engine {
     /// Does not propose. The cluster applier calls this after the delete has
     /// committed. The single-node [`Engine::delete_index`] falls through here
     /// after the visibility check.
+    ///
+    /// The work runs on its own task (#3274): it now waits for other index
+    /// handles between unregistering the index and freeing its directory, and
+    /// a caller that goes away in that window (a client disconnect drops the
+    /// request future) must not leave the name unregistered with its bytes
+    /// still in place.
     pub(crate) async fn delete_index_local(&self, name: &str) -> Result<()> {
+        let engine = self.clone();
+        let owned = name.to_string();
+        match tokio::spawn(async move { engine.delete_index_local_inner(&owned).await }).await {
+            Ok(result) => result,
+            Err(e) => Err(EngineError::Common(xerj_common::XerjError::storage(
+                format!("index [{name}] delete task failed: {e}"),
+            ))),
+        }
+    }
+
+    async fn delete_index_local_inner(&self, name: &str) -> Result<()> {
         self.ensure_cluster_state_writable()?;
         match self.indices.remove(name).map(|(_, v)| v) {
             Some(idx) => {
+                // #3274: the index is unregistered (new requests get 404).
+                // Stop its merge scheduling and give in-flight readers,
+                // bulks, flushes and merges a bounded window to drop their
+                // handles before the directory goes. A handle that outlives
+                // the window does not block the delete: the directory is
+                // renamed into the trash, and its removal is retried there.
+                self.deleting_names.insert(name.to_string(), ());
+                idx.abort_background_tasks();
+                Self::quiesce_for_delete(name, &idx).await;
                 // The handle is pulled out of the map first so no write can
                 // land in a directory that is being removed — but if the
                 // removal then fails (read-only mount, EACCES, EROFS), the
@@ -3521,7 +3998,10 @@ impl Engine {
                 // levers this module adds can name it. Put the handle back so
                 // a delete that did not happen leaves the index addressable
                 // and the operator can retry it.
-                if let Err(e) = idx.delete_all_data().await {
+                let deleted = idx.delete_all_data().await;
+                self.deleting_names.remove(name);
+                if let Err(e) = deleted {
+                    idx.resume_merge_scheduling();
                     self.indices.insert(name.to_string(), idx);
                     warn!(name, error = %e, "index delete failed; index left in service");
                     return Err(e);
@@ -3547,8 +4027,35 @@ impl Engine {
         }
 
         self.forget_index_metadata(name);
+        self.deleted_names.insert(name.to_string(), ());
         info!(name, "index deleted");
         Ok(())
+    }
+
+    /// Longest a delete waits for other holders of the index handle
+    /// (#3274). Readers and bulk batches finish in milliseconds; this bounds
+    /// the wait when one does not, and the trash covers what is left.
+    const DELETE_QUIESCE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+    /// Wait until `idx` is the last handle and no merge pass is running, or
+    /// until [`Self::DELETE_QUIESCE_TIMEOUT`]. Returns whether it got there.
+    async fn quiesce_for_delete(name: &str, idx: &Arc<Index>) -> bool {
+        let deadline = Instant::now() + Self::DELETE_QUIESCE_TIMEOUT;
+        loop {
+            if Arc::strong_count(idx) == 1 && !idx.is_merge_in_progress() {
+                return true;
+            }
+            if Instant::now() >= deadline {
+                warn!(
+                    index = name,
+                    handles = Arc::strong_count(idx),
+                    merge_running = idx.is_merge_in_progress(),
+                    "index delete proceeding while the index is still held"
+                );
+                return false;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
     }
 
     /// Drop every piece of engine-side metadata that names `index` — aliases
@@ -3624,7 +4131,9 @@ impl Engine {
                 format!("refusing to delete index [{name}] outside data_dir (canonical)"),
             )));
         }
-        std::fs::remove_dir_all(&dir_canon).map_err(EngineError::Io)?;
+        // Through the trash, like the open-index arm (#3274): a failed index
+        // can still have files the filesystem will not let go of yet.
+        crate::index_trash::retire_dir(&root_canon, &dir_canon, name).map_err(EngineError::Io)?;
         Ok(())
     }
 
@@ -3877,29 +4386,38 @@ impl Engine {
 
     /// V4 M5.2 — route a document to the node that owns its shard.
     ///
-    /// Returns `None` when this node should write the document itself:
-    /// there is no shard assignment (single-node mode, and any index that
-    /// was not created through the replicated shard plan), or the assigned
-    /// owner is this node. Returns `Some(node_id)` when a peer owns the
-    /// shard. Callers forward that write; they do not also store it here.
+    /// `Ok(None)` when this node should write the document itself: the
+    /// index has no shard plan (single-node mode, and any index that was
+    /// not created through the replicated shard plan), or the assigned
+    /// owner is this node. `Ok(Some(node_id))` when a peer owns the shard.
+    /// Callers forward that write; they do not also store it here.
+    ///
+    /// `Err` when the index has a plan but the document's shard has no
+    /// primary. That write must be refused, not stored here: a local copy
+    /// sits outside the plan, where reads by id and search never look.
     ///
     /// With no cluster handle the owner comparison uses `"local"`, which
     /// no replicated plan names, and the empty routing table makes every
-    /// call `None`.
-    pub fn route_write(&self, index: &str, doc_id: &str) -> Option<String> {
+    /// call `Ok(None)`.
+    pub fn route_write(
+        &self,
+        index: &str,
+        doc_id: &str,
+    ) -> std::result::Result<Option<String>, xerj_cluster::router::ShardUnassigned> {
+        use xerj_cluster::router::{Route, ShardUnassigned};
         let me = self.routing_node_id();
         let router = self.shard_router.read();
-        match router.route_doc(index, doc_id).1 {
-            None => None,
-            Some(owner) if owner == me => None,
-            Some(owner) => Some(owner.to_string()),
+        match router.route(index, doc_id) {
+            Route::NoPlan { .. } => Ok(None),
+            Route::Owned { node, .. } if node == me => Ok(None),
+            Route::Owned { node, .. } => Ok(Some(node.to_string())),
+            Route::Unowned { shard } => Err(ShardUnassigned { shard }),
         }
     }
 
     /// `true` when a replicated shard plan names this node as the primary
-    /// for `doc_id`. An index with no plan is `false` — that is not the
-    /// same as [`Engine::route_write`] returning `None`, which also covers
-    /// the unassigned case.
+    /// for `doc_id`. An index with no plan is `false`, and so is a planned
+    /// shard with no primary.
     pub fn owns_shard(&self, index: &str, doc_id: &str) -> bool {
         let me = self.routing_node_id();
         let router = self.shard_router.read();
@@ -3923,21 +4441,13 @@ impl Engine {
             .unwrap_or_else(|| self.node_id.to_string())
     }
 
-    /// Replace `index`'s primary assignments and widen the hash width so
-    /// every shard in `plan` is reachable.
+    /// Replace `index`'s primary assignments. The index's hash width becomes
+    /// its own plan width (highest shard + 1); other indices keep theirs.
     pub fn install_shard_plan(&self, index: &str, plan: &[xerj_cluster::ShardAssignment]) {
         if plan.is_empty() {
             return;
         }
         let mut router = self.shard_router.write();
-        let width = plan
-            .iter()
-            .map(|assignment| assignment.shard.saturating_add(1))
-            .max()
-            .unwrap_or(1);
-        if width > router.num_shards() {
-            router.set_num_shards(width);
-        }
         router.clear_index(index);
         for assignment in plan {
             router.assign(index, assignment.shard, &assignment.node_id);
@@ -3949,11 +4459,20 @@ impl Engine {
         }
     }
 
-    /// `(shard, primary node)` for `doc_id`, when the index has a plan.
-    pub fn primary_of(&self, index: &str, doc_id: &str) -> Option<(u32, String)> {
+    /// `(shard, primary node)` for `doc_id`. `Ok(None)` when the index has
+    /// no plan; `Err` when it has one but the shard has no primary.
+    pub fn primary_of(
+        &self,
+        index: &str,
+        doc_id: &str,
+    ) -> std::result::Result<Option<(u32, String)>, xerj_cluster::router::ShardUnassigned> {
+        use xerj_cluster::router::{Route, ShardUnassigned};
         let router = self.shard_router.read();
-        let (shard, owner) = router.route_doc(index, doc_id);
-        owner.map(|owner| (shard, owner.to_string()))
+        match router.route(index, doc_id) {
+            Route::NoPlan { .. } => Ok(None),
+            Route::Owned { shard, node } => Ok(Some((shard, node.to_string()))),
+            Route::Unowned { shard } => Err(ShardUnassigned { shard }),
+        }
     }
 
     /// Primary node id for one shard of `index`, when the plan names one.
@@ -4004,12 +4523,7 @@ impl Engine {
 
     /// Record one primary without dropping the index's other shards.
     pub fn assign_one_shard(&self, index: &str, shard: u32, node_id: &str) {
-        let mut router = self.shard_router.write();
-        let width = shard.saturating_add(1);
-        if width > router.num_shards() {
-            router.set_num_shards(width);
-        }
-        router.assign(index, shard, node_id);
+        self.shard_router.write().assign(index, shard, node_id);
     }
 
     /// Drop `index` from the routing table. Called when a delete commits.
@@ -4791,6 +5305,9 @@ impl Engine {
             let mut rss_drains =
                 crate::governor::MemoryDrainSchedule::new(MEMORY_DRAIN_MIN_INTERVAL);
             let mut last_memtable_drain_at: Option<std::time::Instant> = None;
+            let mut last_pressure_purge_at: Option<std::time::Instant> = None;
+            let pressure_purge = PressurePurgeWorker::spawn(Arc::new(purge_allocator_pages));
+            let mut disk_hint_shown = false;
             loop {
                 std::thread::sleep(period);
                 if weak_a.strong_count() == 0 {
@@ -4807,6 +5324,32 @@ impl Engine {
                 let available_commit = xerj_common::resource::available_commit_bytes();
                 let (disk_pct, disk_avail) = crate::governor::disk_used_pct_and_avail(&data_dir);
                 governor.refresh_memory_observing(observed, disk_pct, disk_avail, available_commit);
+                if pressure_purge_due(
+                    observed,
+                    governor.memory_watermark_bytes(),
+                    &mut last_pressure_purge_at,
+                    std::time::Instant::now(),
+                ) {
+                    pressure_purge.request();
+                }
+                // #3282: name the drive and the `--data-dir` fix once per
+                // engagement (the first sample after startup included), so a
+                // node that starts in flood stage says why every write fails.
+                let flood = governor.disk_flood_admission();
+                if flood.blocked && !disk_hint_shown {
+                    let sizes = crate::governor::disk_stats(&data_dir);
+                    tracing::warn!(
+                        "{}",
+                        xerj_common::disk_hint::flood_stage_hint(
+                            &data_dir,
+                            disk_pct,
+                            flood.flood_pct,
+                            sizes,
+                            "writes are refused until space is freed",
+                        )
+                    );
+                }
+                disk_hint_shown = flood.blocked;
 
                 if sample_drain_due(
                     std::time::Instant::now(),
@@ -5661,6 +6204,49 @@ fn copy_dir_recursive(
     Ok(())
 }
 
+/// What a template DELETE whose name may be a pattern or a list removed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TemplateRemoval {
+    /// These templates were removed, sorted by name.
+    Removed(Vec<String>),
+    /// The name was `*` and there were no templates: ES acknowledges this.
+    NothingToRemove,
+    /// Nothing was removed; this names what was not found.
+    Missing(String),
+}
+
+/// Whether a template GET or DELETE treats `expr` as a pattern: it contains
+/// `*`. ES `Regex.isSimpleMatchPattern`.
+pub fn is_template_pattern(expr: &str) -> bool {
+    expr.contains('*')
+}
+
+/// ES `Regex.simpleMatch` for template names: `*` matches any run of
+/// characters (including none) and every other character is literal. Unlike
+/// [`glob_match`], `?` is not a wildcard.
+pub fn template_name_matches(pattern: &str, name: &str) -> bool {
+    let (p, n): (Vec<char>, Vec<char>) = (pattern.chars().collect(), name.chars().collect());
+    let (mut pi, mut ni) = (0usize, 0usize);
+    // The last `*` seen, and where in `name` it started matching.
+    let mut star: Option<(usize, usize)> = None;
+    while ni < n.len() {
+        if pi < p.len() && p[pi] == '*' {
+            star = Some((pi, ni));
+            pi += 1;
+        } else if pi < p.len() && p[pi] == n[ni] {
+            pi += 1;
+            ni += 1;
+        } else if let Some((sp, sn)) = star {
+            pi = sp + 1;
+            ni = sn + 1;
+            star = Some((sp, sn + 1));
+        } else {
+            return false;
+        }
+    }
+    p[pi..].iter().all(|&c| c == '*')
+}
+
 /// Simple glob pattern matching (supports `*` and `?`).
 pub(crate) fn glob_match(pattern: &str, text: &str) -> bool {
     let pat: Vec<char> = pattern.chars().collect();
@@ -5844,6 +6430,7 @@ fn field_from_template_property(
     name: &str,
     field_def: &Value,
     semantic_dimensions: usize,
+    analysis: Option<&Value>,
 ) -> xerj_common::types::FieldConfig {
     use xerj_common::types::{EmbeddingConfig, FieldConfig, FieldType};
     let es_type = field_def
@@ -5856,6 +6443,29 @@ fn field_from_template_property(
     // `FieldConfig::new` already made a plain `date` millisecond-scaled.
     if native_type == FieldType::Date && es_type == "date_nanos" {
         fc.options.date_precision = Some(xerj_common::types::DatePrecision::Nanos);
+    }
+    if native_type == FieldType::Date {
+        fc.options.date_format = field_def
+            .get("format")
+            .and_then(Value::as_str)
+            .filter(|f| !f.trim().is_empty())
+            .map(str::to_string);
+    }
+    // #3513: a template keyword's normalizer, resolved against the template's
+    // own analysis settings, as `es_properties_to_fields` does for a mapping.
+    if es_type == "keyword" {
+        if let Some(normalizer) = field_def.get("normalizer").and_then(Value::as_str) {
+            match xerj_common::normalizer::KeywordNormalizer::resolve(normalizer, analysis) {
+                Ok(resolved) => fc.options.normalizer = Some(resolved),
+                Err(error) => tracing::warn!(
+                    field = name,
+                    normalizer,
+                    ?error,
+                    "index template field names a normalizer this build cannot resolve; \
+                     the field is indexed unnormalized"
+                ),
+            }
+        }
     }
     if es_type == "semantic_text" {
         // Same default as `es_properties_to_fields`: analyzed text has no
@@ -6497,6 +7107,7 @@ mod index_template_merge_tests {
             "diagnostic_semantic",
             &json!({ "type": "semantic_text" }),
             768, // #2407: a bare semantic_text takes the caller's backend width
+            None,
         );
         assert_eq!(semantic.field_type, FieldType::Text);
         assert!(!semantic.options.doc_values);
@@ -6511,6 +7122,7 @@ mod index_template_merge_tests {
             "diagnostic_template_marker",
             &json!({ "type": "keyword" }),
             xerj_ai::local::DEFAULT_DIMS,
+            None,
         );
         assert_eq!(keyword.field_type, FieldType::Keyword);
         assert!(keyword.embedding.is_none());
@@ -6726,5 +7338,34 @@ mod serial_pressure_flush_tests {
             "a pressure drain must build one shard at a time"
         );
         assert_eq!(count_all(&engine, "serial-drain").await, 400);
+    }
+
+    /// #2929: an explicit refresh drains its non-empty shards concurrently,
+    /// like `flush`, and still returns with every document searchable.
+    /// FAIL-BEFORE: `Index::refresh` awaited one shard's segment build before
+    /// starting the next (peak 1), so a refresh that touched N shards paid N
+    /// serial segment publishes — on Windows ~7 s each for the autoindex
+    /// catalog's wide schema.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn a_refresh_drains_its_shards_concurrently() {
+        let dir = TempDir::new().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_str().unwrap().to_string();
+        let engine = Engine::new(config).expect("engine::new");
+
+        seed(&engine, "parallel-refresh", 400).await;
+        let idx = engine.get_index("parallel-refresh").unwrap();
+        assert!(idx.memtable_bytes() > 0);
+        idx.refresh().await.expect("refresh");
+        assert_eq!(
+            idx.memtable_bytes(),
+            0,
+            "the refresh published the memtable"
+        );
+        assert!(
+            FlushShardProbe::peak("parallel-refresh") > 1,
+            "the refresh ran its shard flushes concurrently"
+        );
+        assert_eq!(count_all(&engine, "parallel-refresh").await, 400);
     }
 }

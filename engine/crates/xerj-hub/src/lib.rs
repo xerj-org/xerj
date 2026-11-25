@@ -28,6 +28,7 @@ pub mod sketch;
 pub mod sync;
 #[cfg(test)]
 mod test_support;
+pub mod trace;
 
 pub use xerj_common::hub::{
     catalogue_format_supported, render, Answer, AnswerMode, AnsweredFrom, Catalogue,

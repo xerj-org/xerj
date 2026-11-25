@@ -31,6 +31,9 @@ OPTIONS:
                     usage error, not a silent default
     --full <CHARS>  max characters of each passage to print (default 600)
     --json          print the raw response instead of formatted passages
+    --all-terms-first
+                    rank passages that contain every query word first, then fill
+                    the page from the usual any-word ranking (opt-in, #3007)
 
 EXAMPLE:
     xerj --insecure -d ./.xerj-data &                 # a node, running
@@ -125,6 +128,105 @@ pub(crate) fn lexical_semantic_note(resp: &Value) -> Option<&'static str> {
     flagged.then_some(
         "xerj search: these hits are lexical; this command does not consult the embedding.",
     )
+}
+
+/// The node endpoint that names the embedder this process runs (#487). It is
+/// the same read `xerj autoindex` makes before a semantic run, and it carries
+/// no model path, URL or key.
+pub const EMBED_IDENTITY_PATH: &str = "/v1/embedding/identity";
+
+/// `_xerj.hints` code for a natural-language query on a lexical node (#2513).
+pub const LEXICAL_EMBEDDER_HINT: &str = "lexical_embedder";
+
+/// The embedder backend out of a `GET /v1/embedding/identity` body
+/// (`lexical`, `neural`, `proxy`, `onnx-experimental`). An error body, an old
+/// node without the endpoint, or a malformed answer is `None`: the caller then
+/// states nothing rather than guessing the default.
+pub fn embed_mode_from_identity(body: &Value) -> Option<String> {
+    let backend = body.pointer("/data/backend")?.as_str()?.trim();
+    let known = !backend.is_empty()
+        && backend.len() <= 32
+        && backend
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_');
+    known.then(|| backend.to_string())
+}
+
+/// Shared with the result-ranking passes in `xerj_common` (#2513).
+pub use xerj_common::code_query::looks_natural_language;
+
+/// The hint reason for `tool` when a natural-language query ran while the
+/// node embeds with lexical feature hashing.
+///
+/// `xerj search` and a plain `xerj_search` send a keyword query whatever the
+/// embedder is; the semantic and hybrid tools embed the query, and on this
+/// node that embedding is also word based. Both cases say what to do next.
+pub fn lexical_embedder_reason(tool: &str) -> String {
+    let what = match tool {
+        "xerj_semantic_search" | "xerj_hybrid_search" => {
+            "This node embeds with lexical feature hashing (embed_mode: lexical, the default), \
+             so the vector leg matched shared words, not meaning."
+        }
+        _ => {
+            "This is a keyword search, and this node's embedder is lexical feature hashing \
+             (embed_mode: lexical, the default), so semantic and hybrid search would also \
+             match words, not meaning."
+        }
+    };
+    format!(
+        "{what} A natural-language question finds the passage only when it shares words with \
+         it: use the words and identifiers the target text uses, or `xerj def <Symbol>` / \
+         xerj_def for a definition. Meaning-based matching needs a node started with \
+         --embed-mode neural and a re-index."
+    )
+}
+
+/// Add `_xerj.embed_mode` to a search response, and one
+/// [`LEXICAL_EMBEDDER_HINT`] entry when `query` reads as natural language and
+/// the node is lexical (#2513). `mode` is `None` when the node did not say;
+/// then nothing is added. A response that is not a JSON object is left alone.
+pub fn attach_embed_mode(resp: &mut Value, mode: Option<&str>, query: Option<&str>, tool: &str) {
+    let Some(mode) = mode else {
+        return;
+    };
+    let Some(obj) = resp.as_object_mut() else {
+        return;
+    };
+    let xerj = obj.entry("_xerj").or_insert_with(|| json!({}));
+    let Some(xerj) = xerj.as_object_mut() else {
+        return;
+    };
+    xerj.insert("embed_mode".into(), json!(mode));
+    if mode != "lexical" || !query.is_some_and(looks_natural_language) {
+        return;
+    }
+    let hints = xerj.entry("hints").or_insert_with(|| json!([]));
+    let Some(hints) = hints.as_array_mut() else {
+        return;
+    };
+    if hints
+        .iter()
+        .any(|h| h.get("code").and_then(Value::as_str) == Some(LEXICAL_EMBEDDER_HINT))
+    {
+        return;
+    }
+    hints.push(json!({
+        "code": LEXICAL_EMBEDDER_HINT,
+        "reason": lexical_embedder_reason(tool),
+    }));
+}
+
+/// The one stderr line `xerj search` prints for the same case.
+pub(crate) fn lexical_embedder_line(resp: &Value) -> Option<&'static str> {
+    let hints = resp.pointer("/_xerj/hints")?.as_array()?;
+    hints
+        .iter()
+        .any(|h| h.get("code").and_then(Value::as_str) == Some(LEXICAL_EMBEDDER_HINT))
+        .then_some(
+            "xerj search: keyword match on a lexical node (embed_mode: lexical). A question \
+             finds a passage only through shared words; use the words or identifiers the code \
+             uses, or `xerj def <Symbol>`.",
+        )
 }
 
 /// Text to print for one hit.
@@ -437,17 +539,322 @@ pub(crate) fn rank_plain_search_hits(
 ) {
     if code_corpus {
         crate::def::penalize_demoted_paths(hits);
+        // README/docs/demo/icon hits behind implementation for a question
+        // (#2513), then the sparse-definition pass. The same entry point
+        // the `xerj_search` MCP tool calls.
+        xerj_common::xccode::render::demote_sparse_definition_hits(hits, query);
+    } else {
+        // A one-word symbol (`type Token`) must not stay ahead of a hit
+        // that covers more terms of a multi-term question (#2327). One-token
+        // lookups are unchanged inside that pass. A prose corpus is all
+        // documentation, so the doc-path penalty does not apply.
+        xerj_common::xccode::render::demote_sparse_definitions(hits, query);
     }
-    // A one-word symbol (`type Token`) must not stay ahead of a hit that
-    // covers more terms of a multi-term question (#2327). One-token lookups
-    // are unchanged inside that pass.
-    xerj_common::xccode::render::demote_sparse_definition_hits(hits, query);
     prefer_citable_line_on_the_same_path(hits);
     let mut ordered = demote_catalog_noise(std::mem::take(hits));
     if code_corpus {
         ordered.truncate(page);
     }
     *hits = ordered;
+}
+
+/// Fill a short all-terms page (#3007) from the plain any-term body.
+///
+/// The first tier keeps its order; fallback hits it already holds are
+/// skipped. `_xerj.all_terms_first` records how many hits came from each
+/// tier, so a `--json` reader can tell the tiers apart.
+fn fill_from_any_term_tier(
+    es: &Es,
+    pattern: &str,
+    body: &Value,
+    resp: &mut Value,
+    code_corpus: bool,
+    k: usize,
+    query: &str,
+) -> anyhow::Result<()> {
+    let first: Vec<Value> = resp
+        .pointer("/hits/hits")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let merged = if first.len() < k {
+        let mut fallback_resp = es.search_without_savings(pattern, body)?;
+        let mut fallback: Vec<Value> = fallback_resp
+            .pointer_mut("/hits/hits")
+            .and_then(Value::as_array_mut)
+            .map(std::mem::take)
+            .unwrap_or_default();
+        rank_plain_search_hits(&mut fallback, code_corpus, k, query);
+        if let (Some(slot), Some(total)) = (
+            resp.pointer_mut("/hits/total"),
+            fallback_resp.pointer("/hits/total"),
+        ) {
+            *slot = total.clone();
+        }
+        xerj_common::code_query::merge_tiered_hits(&first, &fallback, k)
+    } else {
+        first.clone()
+    };
+    let first_count = first.len().min(merged.len());
+    let any_term = merged.len() - first_count;
+    if let Some(slot) = resp.pointer_mut("/hits/hits") {
+        *slot = Value::Array(merged);
+    }
+    if let Some(obj) = resp.as_object_mut() {
+        let xerj = obj.entry("_xerj").or_insert_with(|| json!({}));
+        if let Some(xerj) = xerj.as_object_mut() {
+            xerj.insert(
+                "all_terms_first".into(),
+                json!({ "all_terms": first_count, "any_term": any_term }),
+            );
+        }
+    }
+    Ok(())
+}
+
+/// `ax_locator` of the record that holds a whole code file's text (`body`,
+/// `defs`); its symbols are separate records with `name` and `impl`.
+const FILE_BODY_LOCATOR: &str = "code";
+
+/// Most file-body hits on one page whose symbols are looked up (#3378).
+const CARD_COLLAPSE_MAX_PATHS: usize = 5;
+
+/// Symbol records read back per page, across those paths.
+const CARD_COLLAPSE_SYMBOL_FETCH: usize = 64;
+
+/// Fewest query terms a symbol body must hold to stand in for its file.
+const CARD_COLLAPSE_MIN_TERMS: usize = 2;
+
+fn is_file_body_hit(hit: &Value) -> bool {
+    hit.pointer("/_source/ax_locator").and_then(Value::as_str) == Some(FILE_BODY_LOCATOR)
+}
+
+fn hit_key(hit: &Value) -> (String, String) {
+    let s = |p: &str| hit.get(p).and_then(Value::as_str).unwrap_or("").to_string();
+    (s("_index"), s("_id"))
+}
+
+/// Paths of file-body hits that are not already behind a symbol of the same
+/// file, in page order, at most [`CARD_COLLAPSE_MAX_PATHS`].
+fn file_body_paths_to_collapse(hits: &[Value]) -> Vec<String> {
+    let mut symbol_seen: BTreeSet<String> = BTreeSet::new();
+    let mut out: Vec<String> = Vec::new();
+    for hit in hits {
+        let path = hit_path(hit);
+        if path.is_empty() {
+            continue;
+        }
+        if is_file_body_hit(hit) {
+            if !symbol_seen.contains(&path) && !out.contains(&path) {
+                out.push(path);
+            }
+        } else if hit.pointer("/_source/name").is_some() || hit.pointer("/_source/kind").is_some() {
+            symbol_seen.insert(path);
+        }
+        if out.len() >= CARD_COLLAPSE_MAX_PATHS {
+            break;
+        }
+    }
+    out
+}
+
+/// A best symbol must outscore the next symbol of its file by this factor.
+const CARD_COLLAPSE_MARGIN: f64 = 1.2;
+
+/// A symbol whose body names this many other candidate symbols of its file
+/// is a dispatcher (`main` building a command table), not an answer.
+const CARD_COLLAPSE_HUB_NAMES: usize = 2;
+
+/// One query for the symbol records of `paths`. Each content term is one
+/// clause (a BM25 `match` on the symbol body `impl`, or the exact `name`), and
+/// a symbol must hold [`CARD_COLLAPSE_MIN_TERMS`] of them. `name` and `impl`
+/// are read back for the dispatcher check; `impl` is dropped before display.
+fn symbols_by_term_coverage_body(paths: &[String], terms: &[&str], source: &Value) -> Value {
+    let per_term: Vec<Value> = terms
+        .iter()
+        .map(|term| {
+            json!({ "bool": { "should": [
+                { "match": { "impl": term } },
+                { "term": { "name": { "value": term, "boost": 2.0 } } }
+            ] } })
+        })
+        .collect();
+    let mut fields: Vec<Value> = source.as_array().cloned().unwrap_or_default();
+    for extra in ["name", "impl"] {
+        if !fields.iter().any(|f| f.as_str() == Some(extra)) {
+            fields.push(json!(extra));
+        }
+    }
+    json!({
+        "size": CARD_COLLAPSE_SYMBOL_FETCH,
+        "query": { "bool": {
+            "filter": [
+                { "terms": { "ax_path": paths } },
+                { "exists": { "field": "name" } }
+            ],
+            "should": per_term,
+            "minimum_should_match": CARD_COLLAPSE_MIN_TERMS
+        } },
+        "_source": fields,
+        "fields": ["_passage"]
+    })
+}
+
+fn source_str<'a>(hit: &'a Value, field: &str) -> &'a str {
+    hit.pointer(&format!("/_source/{field}"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+}
+
+/// True when `body` holds `name` as a whole identifier.
+fn names_identifier(body: &str, name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let is_ident = |c: char| c.is_alphanumeric() || c == '_';
+    body.match_indices(name).any(|(at, _)| {
+        let before = body[..at].chars().next_back();
+        let after = body[at + name.len()..].chars().next();
+        !before.is_some_and(is_ident) && !after.is_some_and(is_ident)
+    })
+}
+
+/// Put the best symbol of a file ahead of that file's body hit (#3378).
+///
+/// The file-body record holds every word of the file, so a question whose
+/// words sit in one function ranked the whole file first, and its passage
+/// line pointed at whatever region matched the most words (a field report saw
+/// `repo_list` cited for a question about `cmd_commit`). The symbol records
+/// could not compete: `xerj search` does not name `impl` on a code corpus
+/// (#916, #1705).
+///
+/// `symbols` are the symbol records of those files with the engine's score.
+/// Per path, a symbol whose body names [`CARD_COLLAPSE_HUB_NAMES`] other
+/// candidates is a dispatcher and is skipped. The best remaining symbol is
+/// moved (or inserted) right before the file-body hit when it outscores the
+/// next one by [`CARD_COLLAPSE_MARGIN`]; a closer call leaves the page as the
+/// engine ranked it. The file hit stays, right after its symbol. Returns how
+/// many symbols were placed.
+pub(crate) fn place_best_symbol_before_file_body(
+    hits: &mut Vec<Value>,
+    symbols: &[Value],
+) -> usize {
+    let score = |h: &Value| h.get("_score").and_then(Value::as_f64).unwrap_or(0.0);
+    let mut by_path: std::collections::HashMap<String, Vec<&Value>> =
+        std::collections::HashMap::new();
+    for sym in symbols {
+        let path = hit_path(sym);
+        if !path.is_empty() {
+            by_path.entry(path).or_default().push(sym);
+        }
+    }
+    let mut placed = 0;
+    for path in file_body_paths_to_collapse(hits) {
+        let Some(cands) = by_path.get_mut(&path) else {
+            continue;
+        };
+        cands.sort_by(|a, b| score(b).total_cmp(&score(a)));
+        let names: Vec<&str> = cands.iter().map(|c| source_str(c, "name")).collect();
+        let answers: Vec<&Value> = cands
+            .iter()
+            .copied()
+            .filter(|c| {
+                let own = source_str(c, "name");
+                let body = source_str(c, "impl");
+                let named = names
+                    .iter()
+                    .filter(|n| **n != own && names_identifier(body, n))
+                    .count();
+                named < CARD_COLLAPSE_HUB_NAMES
+            })
+            .collect();
+        let Some(sym) = answers.first().copied() else {
+            continue;
+        };
+        if answers
+            .get(1)
+            .is_some_and(|next| score(sym) < CARD_COLLAPSE_MARGIN * score(next))
+        {
+            continue;
+        }
+        let Some(card_at) = hits
+            .iter()
+            .position(|h| is_file_body_hit(h) && hit_path(h) == path)
+        else {
+            continue;
+        };
+        let key = hit_key(sym);
+        let mut moved = match hits.iter().position(|h| hit_key(h) == key) {
+            Some(at) if at < card_at => continue,
+            Some(at) => hits.remove(at),
+            None => sym.clone(),
+        };
+        // `--json` keeps descending scores: the file hit's score. The body
+        // read for the dispatcher check is not part of the page.
+        if let Some(obj) = moved.as_object_mut() {
+            obj.insert("_score".into(), json!(score(&hits[card_at])));
+            obj.insert(
+                "_xerj_symbol_of_file".into(),
+                json!({ "reason": "best symbol of a matching file (#3378)" }),
+            );
+            if let Some(src) = obj.get_mut("_source").and_then(Value::as_object_mut) {
+                src.remove("impl");
+            }
+        }
+        hits.insert(card_at, moved);
+        placed += 1;
+    }
+    placed
+}
+
+/// Read the symbols of the file-body hits on the page and place each file's
+/// best one ahead of it ([`place_best_symbol_before_file_body`]). A question
+/// of fewer than three content terms is a lookup and is left alone, and so is
+/// a failed read: the page stays as the engine ranked it.
+fn collapse_file_bodies_into_symbols(
+    es: &Es,
+    pattern: &str,
+    body: &Value,
+    hits: &mut Vec<Value>,
+    query: &str,
+    page: usize,
+) {
+    let shaped = xerj_common::code_query::normalize_code_search_query(query);
+    let terms: Vec<&str> = shaped.split_whitespace().collect();
+    if terms.len() < 3 {
+        return;
+    }
+    let paths = file_body_paths_to_collapse(hits);
+    if paths.is_empty() {
+        return;
+    }
+    // Only the indices holding those file records: their symbols live beside
+    // them, and another index under the pattern may not map `impl`.
+    let mut indices: Vec<&str> = hits
+        .iter()
+        .filter(|h| is_file_body_hit(h) && paths.contains(&hit_path(h)))
+        .filter_map(|h| h.get("_index").and_then(Value::as_str))
+        .collect();
+    indices.sort_unstable();
+    indices.dedup();
+    let target = if indices.is_empty() {
+        pattern.to_string()
+    } else {
+        indices.join(",")
+    };
+    let source = body.get("_source").cloned().unwrap_or(Value::Null);
+    let req = symbols_by_term_coverage_body(&paths, &terms, &source);
+    let Ok(resp) = es.search_without_savings(&target, &req) else {
+        return;
+    };
+    let symbols = resp
+        .pointer("/hits/hits")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if place_best_symbol_before_file_body(hits, &symbols) > 0 {
+        hits.truncate(page);
+    }
 }
 
 /// What the node held when a search or def returned no hits.
@@ -490,7 +897,7 @@ pub(crate) fn empty_lookup_report(
     let prefix_absent = matches!(snap.under_prefix, Some(ref names) if names.is_empty());
     let mut lines = Vec::new();
     if prefix_absent {
-        lines.push(missing_prefix_line(&pattern, snap));
+        lines.push(missing_prefix_line(&pattern, prefix, snap));
     } else if command == "def" {
         lines.push(format!("no definition in {pattern} for: {query}"));
         lines.push(format!(
@@ -502,6 +909,12 @@ pub(crate) fn empty_lookup_report(
     if command == "search" && identifier {
         lines.push(format!(
             "(looks like a symbol name — try: xerj def {query})"
+        ));
+    } else if command == "search" && !prefix_absent {
+        // #3269: a sentence that matched nothing gets one concrete retry.
+        lines.push(format!(
+            "({})",
+            crate::zero_hits::no_match_suggestion(query)
         ));
     }
 
@@ -542,7 +955,10 @@ pub(crate) fn empty_lookup_report(
         if !prefix_absent {
             lines.push(format!("prefixes on this node: {}", prefixes.join(", ")));
         }
-        if let Some(other) = prefixes.iter().find(|p| p.as_str() != prefix) {
+        // #3269: the closest prefix, not the first in sort order.
+        let other = crate::zero_hits::closest_prefix(prefix, prefixes)
+            .or_else(|| prefixes.iter().find(|p| p.as_str() != prefix).cloned());
+        if let Some(other) = other {
             lines.push(format!("try: xerj {command} --prefix {other} \"{query}\""));
         }
     } else if let Some(indices) = snap.all_indices.as_ref().filter(|n| !n.is_empty()) {
@@ -566,7 +982,12 @@ pub(crate) fn empty_lookup_report(
 /// Prefixes from the catalog win. Index names are the fallback when the
 /// catalog has none (an autoindex that aborted before writing a run or
 /// dataset document still left `{prefix}-{slug}` indices).
-fn missing_prefix_line(pattern: &str, snap: &CorpusSnapshot) -> String {
+///
+/// #3269: the line also names the closest prefix — a suffix of the real name
+/// (`foo` for `grp-foo`), the same letters with another separator (`ab` for
+/// `a-b`), or a near spelling — and says so when the node holds no index at
+/// all, instead of ending after the headline.
+fn missing_prefix_line(pattern: &str, prefix: &str, snap: &CorpusSnapshot) -> String {
     let mut line = format!("no indices named {pattern} — this is not a search result");
     if let Some(prefixes) = snap.catalog_prefixes.as_ref().filter(|p| !p.is_empty()) {
         line.push_str(&format!("; prefixes on this node: {}", prefixes.join(", ")));
@@ -575,6 +996,15 @@ fn missing_prefix_line(pattern: &str, snap: &CorpusSnapshot) -> String {
             "; indices on this node: {}",
             join_capped(indices, 20)
         ));
+    } else if snap.all_indices.as_ref().is_some_and(|n| n.is_empty()) {
+        line.push_str("; this node holds no indices yet");
+    }
+    let known = crate::zero_hits::node_prefixes(
+        snap.catalog_prefixes.as_deref().unwrap_or_default(),
+        snap.all_indices.as_deref().unwrap_or_default(),
+    );
+    if let Some(closest) = crate::zero_hits::closest_prefix(prefix, &known) {
+        line.push_str(&format!("; closest: {closest}"));
     }
     line
 }
@@ -908,6 +1338,7 @@ struct ParsedSearch {
     k: usize,
     full: usize,
     as_json: bool,
+    all_terms_first: bool,
     query: Option<String>,
 }
 
@@ -930,6 +1361,7 @@ fn parse_search_cli(
     let mut k: usize = 5;
     let mut full: usize = DEFAULT_FULL_CHARS;
     let mut as_json = false;
+    let mut all_terms_first = false;
     let mut query: Option<String> = None;
 
     let mut it = args;
@@ -942,6 +1374,7 @@ fn parse_search_cli(
             "-k" => k = parse_count_arg("-k", it.next())?,
             "--full" => full = parse_count_arg("--full", it.next())?,
             "--json" => as_json = true,
+            "--all-terms-first" => all_terms_first = true,
             // Read by feedback::enabled from the raw argv. Accepted so
             // `xerj search --disable-feedback` is not an unexpected argument.
             "--disable-feedback" => {}
@@ -965,6 +1398,7 @@ fn parse_search_cli(
         k,
         full,
         as_json,
+        all_terms_first,
         query,
     }))
 }
@@ -983,6 +1417,14 @@ pub(crate) fn spawn_staleness_check(
         prefix.to_string(),
     );
     std::thread::spawn(move || staleness::check(&url, api_key.as_deref(), &prefix))
+}
+
+/// #3377: does every index behind `pattern` declare a CJK bigram default
+/// analyzer? An unreadable settings body answers `false`.
+pub(crate) fn cjk_bigram_indices(es: &Es, pattern: &str) -> bool {
+    es.get_json(&format!("/{pattern}/_settings"))
+        .ok()
+        .is_some_and(|settings| xerj_common::code_query::settings_use_cjk_bigrams(&settings))
 }
 
 pub fn run_search_cli() -> i32 {
@@ -1017,6 +1459,7 @@ pub fn run_search_cli() -> i32 {
         k,
         full,
         as_json,
+        all_terms_first,
         query,
     } = parsed;
 
@@ -1040,8 +1483,11 @@ pub fn run_search_cli() -> i32 {
     let prefix = resolved.prefix;
     let pattern = resolved.pattern;
     if url.is_empty() {
-        url = "http://localhost:9200".to_string();
+        // #3267: the local node's recorded port, not a fixed :9200.
+        url = xerj_common::localnode::default_url();
     }
+    // #3267: a stopped loopback node is started (detached) before the query.
+    xerj_common::localnode::ensure_for_cli("xerj search", &url);
     if api_key.is_none() && xerj_common::localauth::url_is_loopback(&url) {
         if let Some(found) =
             xerj_common::localauth::discover_local_admin_key_for_url_with_origin(&url)
@@ -1110,6 +1556,10 @@ pub fn run_search_cli() -> i32 {
     // test/example penalty (#2122).
     let code_corpus = !xerj_common::code_query::code_symbol_fields_absent(mapped.as_ref());
     let mut body = search_query_body_for_mapping(&query, k, mapped.as_ref(), numeric.as_ref());
+    // #3377: an index that analyzes with CJK bigrams needs no run phrases.
+    if !xerj_common::code_query::cjk_runs(&query).is_empty() && cjk_bigram_indices(&es, &pattern) {
+        xerj_common::code_query::drop_cjk_run_phrases(&mut body, &query);
+    }
     if code_corpus && k > 0 {
         body["size"] = json!(search_fetch_size(k));
     }
@@ -1123,7 +1573,14 @@ pub fn run_search_cli() -> i32 {
         let (url, api_key, prefix) = (url.to_string(), api_key.clone(), prefix.to_string());
         std::thread::spawn(move || staleness::fetch_folder_roots(&url, api_key.as_deref(), &prefix))
     };
-    let mut resp = match es.search_without_savings(&pattern, &body) {
+    // #3007 opt-in: the all-terms tier first, ranked on its own, then the
+    // usual body fills what it left of the page.
+    let first_tier = if all_terms_first {
+        xerj_common::code_query::all_terms_first_body(&body, &query)
+    } else {
+        None
+    };
+    let mut resp = match es.search_without_savings(&pattern, first_tier.as_ref().unwrap_or(&body)) {
         Ok(v) => v,
         Err(e) => {
             eprintln!("{}", query_failure_message("search", &url, &pattern, e));
@@ -1136,10 +1593,40 @@ pub fn run_search_cli() -> i32 {
     if let Some(hits) = resp.pointer_mut("/hits/hits").and_then(Value::as_array_mut) {
         rank_plain_search_hits(hits, code_corpus, k, &query);
     }
+    if first_tier.is_some() {
+        if let Err(e) =
+            fill_from_any_term_tier(&es, &pattern, &body, &mut resp, code_corpus, k, &query)
+        {
+            eprintln!("{}", query_failure_message("search", &url, &pattern, e));
+            return 1;
+        }
+    }
+    // #3378: a file's best symbol ahead of the whole-file record. Needs the
+    // symbol fields mapped; autoindex indices are strict (#1601).
+    let symbols_mapped = mapped
+        .as_ref()
+        .is_some_and(|set| set.contains("impl") && set.contains("name"));
+    if code_corpus && symbols_mapped && k > 0 {
+        if let Some(hits) = resp.pointer_mut("/hits/hits").and_then(Value::as_array_mut) {
+            collapse_file_bodies_into_symbols(&es, &pattern, &body, hits, &query, k);
+        }
+    }
     // Same annotation `xerj_search` adds (#2266), so `--json` and the printed
     // header cite the matched line. `xerj code --json` is the raw server
     // body and does not share this hit post-pass.
     xerj_common::xccode::passage::annotate_search_match_lines(&mut resp, &query);
+    // #2513: say which embedder the node runs, so a question that missed is
+    // not read as a semantic miss. An old node or a refused read adds nothing.
+    let embed_mode = es
+        .get_json(EMBED_IDENTITY_PATH)
+        .ok()
+        .and_then(|body| embed_mode_from_identity(&body));
+    attach_embed_mode(
+        &mut resp,
+        embed_mode.as_deref(),
+        Some(&query),
+        "xerj search",
+    );
     let hint = stale.join().ok().flatten();
     if as_json {
         if let Some(hint) = &hint {
@@ -1151,8 +1638,9 @@ pub fn run_search_cli() -> i32 {
         );
         return 0;
     }
-    if let Some(note) = lexical_semantic_note(&resp) {
-        eprintln!("{note}");
+    // One line, not two: the embedder line already says the hits are lexical.
+    if let Some(line) = lexical_embedder_line(&resp).or_else(|| lexical_semantic_note(&resp)) {
+        eprintln!("{line}");
     }
     if let Some(hint) = &hint {
         println!("{}", hint.cli_line());
@@ -1216,6 +1704,145 @@ pub fn run_search_cli() -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn file_body(path: &str, score: f64) -> Value {
+        json!({"_index": "ax-docs", "_id": format!("{path}#code"), "_score": score,
+               "_source": {"ax_path": path, "ax_locator": "code", "start_line": 1}})
+    }
+
+    fn symbol(path: &str, name: &str, line: u64, score: f64) -> Value {
+        symbol_with_body(
+            path,
+            name,
+            line,
+            score,
+            &format!("def {name}(args):\n    pass"),
+        )
+    }
+
+    fn symbol_with_body(path: &str, name: &str, line: u64, score: f64, body: &str) -> Value {
+        json!({"_index": "ax-docs", "_id": format!("{path}#{name}"), "_score": score,
+               "_source": {"ax_path": path, "ax_locator": format!("code:{line}:{name}"),
+                           "kind": "function", "name": name, "impl": body,
+                           "line": line, "start_line": line}})
+    }
+
+    fn ids(hits: &[Value]) -> Vec<String> {
+        hits.iter().map(|h| hit_key(h).1).collect()
+    }
+
+    /// #3378, the field report's shape: one Python file, a question about
+    /// `cmd_commit`. The file body held every word and ranked first. `main`
+    /// scores higher than `cmd_commit` only because it builds the command
+    /// table and so names every command; it is skipped as a dispatcher.
+    /// `cmd_commit` goes right before the file record, which stays.
+    #[test]
+    fn the_best_non_dispatcher_symbol_goes_before_its_file_record() {
+        let mut hits = vec![
+            file_body("gh_api.py", 1004.5),
+            symbol("other.py", "x", 3, 12.0),
+        ];
+        let symbols = vec![
+            symbol_with_body(
+                "gh_api.py",
+                "main",
+                183,
+                13.2,
+                "def main():\n    for name, fn in [(\"commit\", cmd_commit), (\"branch-create\", branch_create)]:",
+            ),
+            symbol("gh_api.py", "cmd_commit", 117, 8.75),
+            symbol("gh_api.py", "branch_create", 138, 4.46),
+        ];
+        assert_eq!(place_best_symbol_before_file_body(&mut hits, &symbols), 1);
+        assert_eq!(
+            ids(&hits),
+            vec!["gh_api.py#cmd_commit", "gh_api.py#code", "other.py#x"]
+        );
+        assert_eq!(
+            hits[0]["_score"],
+            json!(1004.5),
+            "takes the file hit's sort score"
+        );
+        assert!(hits[0]["_xerj_symbol_of_file"].is_object());
+        assert!(
+            hits[0]["_source"].get("impl").is_none(),
+            "the body read for the dispatcher check is not printed"
+        );
+    }
+
+    /// Two symbols within the margin say nothing about which part of the
+    /// file is meant, and a file whose only candidate is a dispatcher has no
+    /// answer: the page is unchanged.
+    #[test]
+    fn a_close_call_or_only_a_dispatcher_leaves_the_page_alone() {
+        let page = vec![file_body("a.py", 2000.0), symbol("b.py", "y", 9, 5.0)];
+        let mut close = page.clone();
+        let symbols = vec![symbol("a.py", "f", 1, 5.0), symbol("a.py", "g", 20, 4.5)];
+        assert_eq!(place_best_symbol_before_file_body(&mut close, &symbols), 0);
+        assert_eq!(ids(&close), ids(&page));
+
+        let mut hub_only = page.clone();
+        let symbols = vec![
+            symbol_with_body("a.py", "main", 30, 9.0, "f(); g()"),
+            symbol("a.py", "f", 1, 2.0),
+            symbol("a.py", "g", 20, 1.9),
+        ];
+        assert_eq!(
+            place_best_symbol_before_file_body(&mut hub_only, &symbols),
+            0
+        );
+        assert_eq!(ids(&hub_only), ids(&page));
+    }
+
+    /// A symbol already ranked above its file is left where it is; one
+    /// ranked below is moved up, not duplicated.
+    #[test]
+    fn a_symbol_already_on_the_page_is_moved_not_duplicated() {
+        let mut above = vec![symbol("a.py", "f", 4, 50.0), file_body("a.py", 40.0)];
+        let symbols = vec![symbol("a.py", "f", 4, 3.0)];
+        assert_eq!(place_best_symbol_before_file_body(&mut above, &symbols), 0);
+        assert_eq!(ids(&above), vec!["a.py#f", "a.py#code"]);
+
+        let mut below = vec![
+            file_body("a.py", 2000.0),
+            symbol("c.py", "z", 2, 30.0),
+            symbol("a.py", "f", 4, 10.0),
+        ];
+        assert_eq!(place_best_symbol_before_file_body(&mut below, &symbols), 1);
+        assert_eq!(ids(&below), vec!["a.py#f", "a.py#code", "c.py#z"]);
+    }
+
+    #[test]
+    fn a_name_counts_only_as_a_whole_identifier() {
+        assert!(names_identifier("(\"commit\", cmd_commit),", "cmd_commit"));
+        assert!(names_identifier("cmd_commit", "cmd_commit"));
+        assert!(!names_identifier("cmd_commit_all()", "cmd_commit"));
+        assert!(!names_identifier("x_cmd_commit", "cmd_commit"));
+        assert!(!names_identifier("anything", ""));
+    }
+
+    /// The symbol read is one bounded query: one clause per content term, at
+    /// least two of them, the page's `_source` list plus `name` and `impl`.
+    #[test]
+    fn the_symbol_read_is_one_clause_per_term_and_keeps_the_source_list() {
+        let source = json!(["ax_path", "kind"]);
+        let body = symbols_by_term_coverage_body(
+            &["gh_api.py".to_string()],
+            &["commit", "blob", "ref"],
+            &source,
+        );
+        assert_eq!(body["query"]["bool"]["should"].as_array().unwrap().len(), 3);
+        assert_eq!(
+            body["query"]["bool"]["minimum_should_match"],
+            json!(CARD_COLLAPSE_MIN_TERMS)
+        );
+        assert_eq!(
+            body["query"]["bool"]["filter"][0]["terms"]["ax_path"],
+            json!(["gh_api.py"])
+        );
+        assert_eq!(body["_source"], json!(["ax_path", "kind", "name", "impl"]));
+        assert_eq!(body["size"], json!(CARD_COLLAPSE_SYMBOL_FETCH));
+    }
 
     /// The folder is printed only when the hits themselves come from two or
     /// more folders: a catalog that also holds `ax-2` must not lengthen the
@@ -1429,6 +2056,76 @@ mod tests {
         assert!(!other.contains("is the prefix right"), "{other}");
     }
 
+    /// #2513: questions are told apart from lookups, in any script.
+    #[test]
+    fn natural_language_queries_are_told_apart_from_lookups() {
+        for nl in [
+            "when is a worktree path allowed",
+            "how is WAL rotation implemented",
+            "getUserInfo user info api",
+            "where does it retry?",
+            "قوانین نام گذاری کلون ها",
+        ] {
+            assert!(looks_natural_language(nl), "{nl}");
+        }
+        for lookup in [
+            "",
+            "parse_config",
+            "IOSIntfLine",
+            "Tree::flush",
+            "rotate keys",
+            "src/lib.rs parse_config Tree::flush",
+            "WAL HNSW BM25",
+        ] {
+            assert!(!looks_natural_language(lookup), "{lookup}");
+        }
+    }
+
+    #[test]
+    fn embed_mode_is_read_from_the_identity_body_and_never_guessed() {
+        let body = json!({"data": {"backend": "lexical", "identity_sha256": "a"}});
+        assert_eq!(embed_mode_from_identity(&body).as_deref(), Some("lexical"));
+        let neural = json!({"data": {"backend": "neural"}});
+        assert_eq!(embed_mode_from_identity(&neural).as_deref(), Some("neural"));
+        for bad in [
+            json!({"error": "not found"}),
+            json!({"data": {"backend": ""}}),
+            json!({"data": {"backend": 7}}),
+            json!({"data": {"backend": "<script>"}}),
+        ] {
+            assert_eq!(embed_mode_from_identity(&bad), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn embed_mode_and_one_hint_are_attached_beside_existing_hints() {
+        let mut resp = json!({"hits": {"hits": []},
+            "_xerj": {"hints": [{"code": "index_stale", "reason": "r"}]}});
+        let q = Some("when is a worktree path allowed");
+        attach_embed_mode(&mut resp, Some("lexical"), q, "xerj search");
+        attach_embed_mode(&mut resp, Some("lexical"), q, "xerj search");
+        assert_eq!(resp["_xerj"]["embed_mode"], "lexical");
+        let hints = resp["_xerj"]["hints"].as_array().unwrap();
+        assert_eq!(hints.len(), 2, "{resp}");
+        assert_eq!(hints[0]["code"], "index_stale");
+        assert_eq!(hints[1]["code"], LEXICAL_EMBEDDER_HINT);
+        assert!(lexical_embedder_line(&resp).is_some());
+
+        let mut neural = json!({"hits": {"hits": []}});
+        attach_embed_mode(&mut neural, Some("neural"), q, "xerj search");
+        assert_eq!(neural["_xerj"]["embed_mode"], "neural");
+        assert!(neural["_xerj"].get("hints").is_none());
+        assert!(lexical_embedder_line(&neural).is_none());
+
+        let mut unknown = json!({"hits": {"hits": []}});
+        attach_embed_mode(&mut unknown, None, q, "xerj search");
+        assert!(unknown.get("_xerj").is_none(), "{unknown}");
+
+        let reason = lexical_embedder_reason("xerj_semantic_search");
+        assert!(reason.contains("vector leg"), "{reason}");
+        assert!(reason.contains("--embed-mode neural"), "{reason}");
+    }
+
     #[test]
     fn search_refuses_a_mode_flag_and_names_the_embedder() {
         for asked in ["semantic", "hybrid", "bm25"] {
@@ -1464,6 +2161,46 @@ mod tests {
                 SearchCli::Refuse => panic!("refusal from {args:?}"),
             }
         }
+    }
+
+    /// #3007: the all-terms tier is opt-in, off by default, and in USAGE.
+    #[test]
+    fn all_terms_first_is_an_opt_in_flag() {
+        let on = parse_search_cli(
+            words(&["--all-terms-first", "heap overflow"]).into_iter(),
+            String::new(),
+            None,
+        );
+        match on {
+            Ok(SearchCli::Query(q)) => assert!(q.all_terms_first),
+            other => panic!("{other:?}"),
+        }
+        match parse_search_cli(words(&["heap overflow"]).into_iter(), String::new(), None) {
+            Ok(SearchCli::Query(q)) => assert!(!q.all_terms_first),
+            other => panic!("{other:?}"),
+        }
+        assert!(USAGE.contains("--all-terms-first"));
+    }
+
+    /// #2513 on the CLI: a code corpus demotes README/docs for a question; a
+    /// prose corpus (all documentation) keeps the engine order.
+    #[test]
+    fn readme_demotion_is_code_corpus_only() {
+        let page = || {
+            vec![
+                hit("ax_path", "README.zh-CN.md", 14.0),
+                hit("ax_path", "engine/src/wal/rotate.rs", 10.0),
+            ]
+        };
+        let mut code = page();
+        rank_plain_search_hits(&mut code, true, 5, "WAL rotation");
+        assert_eq!(code[0]["_source"]["ax_path"], "engine/src/wal/rotate.rs");
+        let mut prose = page();
+        rank_plain_search_hits(&mut prose, false, 5, "WAL rotation");
+        assert_eq!(prose[0]["_source"]["ax_path"], "README.zh-CN.md");
+        let mut lookup = page();
+        rank_plain_search_hits(&mut lookup, true, 5, "rotate");
+        assert_eq!(lookup[0]["_source"]["ax_path"], "README.zh-CN.md");
     }
 
     /// #2458: a guessed flag is refused by name, with the real flag when the
@@ -1999,6 +2736,29 @@ mod tests {
         assert!(!rendered.contains("\"code\""), "{rendered}");
     }
 
+    /// #3007: the 1000-point coverage tiers (#2327) stay on code corpora and
+    /// the historical unread-mapping body, and leave a prose mapping, where
+    /// they ranked "matches half the words" above BM25 (BEIR SciFact nDCG@10
+    /// 0.6229 with them, 0.6550 without).
+    #[test]
+    fn coverage_clauses_only_on_code_corpora() {
+        let question = "microstructural development of newborn white matter";
+        let has_coverage = |body: &Value| body.to_string().contains("constant_score");
+        let prose = names_of(&["title", "text"]);
+        let body = search_query_body_for_mapping(question, 10, Some(&prose), None);
+        assert!(!has_coverage(&body), "{body}");
+        let should = body["query"]["bool"]["should"].as_array().unwrap();
+        assert_eq!(should[0]["multi_match"]["fields"], json!(["title", "text"]));
+        let code = names_of(&["name", "code", "body", "defs", "text"]);
+        assert!(has_coverage(&search_query_body_for_mapping(
+            question,
+            10,
+            Some(&code),
+            None
+        )));
+        assert!(has_coverage(&search_query_body(question, 10)));
+    }
+
     /// A log index whose text lives in `message` still gets a query the
     /// strict mapping will accept.
     #[test]
@@ -2006,12 +2766,12 @@ mod tests {
         let mapped = names_of(&["message", "ts", "host"]);
         let body = search_query_body_for_mapping("SIP 403 Forbidden", 3, Some(&mapped), None);
         let should = body["query"]["bool"]["should"].as_array().unwrap();
-        // Recall multi_match, the exact-phrase leg, then the two coverage
-        // clauses a three-token question adds (#2327).
-        assert_eq!(should.len(), 4, "{body}");
+        // Recall multi_match and the exact-phrase leg. No coverage clauses:
+        // those are for code corpora (#2327), and on prose they cost BEIR
+        // nDCG (#3007).
+        assert_eq!(should.len(), 2, "{body}");
         assert_eq!(should[0]["multi_match"]["fields"], json!(["message"]));
-        assert!(should[2].get("constant_score").is_some(), "{body}");
-        assert!(should[3].get("constant_score").is_some(), "{body}");
+        assert!(!body.to_string().contains("constant_score"), "{body}");
         assert_eq!(phrase_fields(&body), vec!["message"], "{body}");
         let rendered = body["query"].to_string();
         assert!(!rendered.contains("\"code\""), "{rendered}");
@@ -2323,6 +3083,72 @@ mod tests {
         );
         assert!(text.contains("catalog lists no prefixes"), "{text}");
         assert!(!text.contains("xerj autoindex"), "{text}");
+    }
+
+    /// #3269: `--prefix foo` on a node that only holds `grp-foo-*` names
+    /// `grp-foo` as the closest prefix and the retry uses it, not the first
+    /// prefix in sort order. An index-only node (no catalog) derives its
+    /// prefixes from the index names; an empty node says so.
+    #[test]
+    fn a_missing_prefix_names_the_closest_one() {
+        let (lines, exit) = empty_lookup_report(
+            "search",
+            "foo",
+            "q",
+            false,
+            &snap(
+                Some(vec![]),
+                Some(vec!["aaa-docs", "grp-foo-docs"]),
+                Some(vec!["aaa", "grp-foo"]),
+            ),
+        );
+        assert_eq!(exit, 1);
+        assert!(lines[0].contains("closest: grp-foo"), "{lines:?}");
+        let text = lines.join("\n");
+        assert!(
+            text.contains("try: xerj search --prefix grp-foo \"q\""),
+            "{text}"
+        );
+
+        let (lines, _) = empty_lookup_report(
+            "search",
+            "ab",
+            "q",
+            false,
+            &snap(Some(vec![]), Some(vec!["a-b-docs"]), None),
+        );
+        assert!(lines[0].contains("closest: a-b"), "{lines:?}");
+
+        let (lines, _) = empty_lookup_report(
+            "def",
+            "nope",
+            "Db",
+            false,
+            &snap(Some(vec![]), Some(vec![]), Some(vec![])),
+        );
+        assert!(
+            lines[0].contains("this node holds no indices yet"),
+            "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn a_sentence_that_matched_nothing_gets_one_retry_line() {
+        let (lines, exit) = empty_lookup_report(
+            "search",
+            "sled",
+            "how does the tree flush work",
+            false,
+            &snap(
+                Some(vec!["sled-docs"]),
+                Some(vec!["sled-docs"]),
+                Some(vec!["sled"]),
+            ),
+        );
+        assert_eq!(exit, 0);
+        let text = lines.join("\n");
+        assert!(text.contains("no match in sled-*"), "{text}");
+        assert!(text.contains("two or three distinctive words"), "{text}");
     }
 
     #[test]

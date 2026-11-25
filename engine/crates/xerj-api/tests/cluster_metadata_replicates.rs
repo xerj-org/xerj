@@ -93,36 +93,103 @@ async fn send(app: &Router, req: Request<Body>) -> (StatusCode, Value) {
     (status, body)
 }
 
+/// The `ProposeError` reasons that mean "raft did not acknowledge this
+/// change; nothing was reported applied" (`xerj_cluster::propose`). Shutdown
+/// is left out: these tests stop members on purpose.
+const RAFT_NOT_ACKNOWLEDGED: [&str; 3] = [
+    "no elected raft leader",
+    "timed out waiting for the metadata change to commit on a majority",
+    "raft leadership changed before the metadata write committed",
+];
+
+fn raft_not_acknowledged(status: StatusCode, body: &Value) -> bool {
+    status == StatusCode::SERVICE_UNAVAILABLE && {
+        let text = body.to_string();
+        RAFT_NOT_ACKNOWLEDGED
+            .iter()
+            .any(|reason| text.contains(reason))
+    }
+}
+
+/// Upper bound on raft-unacknowledged answers before a write gives up. A
+/// hang guard, not a timing budget: the loop ends when the answer changes.
+const RAFT_RETRY_GUARD: u32 = 500;
+
+/// Send a write; while the answer is a raft-unacknowledged 503, send it again.
+///
+/// #3469: raft elections run on wall-clock timers (150-300 ms election
+/// timeout, 50 ms heartbeat), so on a loaded box a starved runner loses or
+/// never settles leadership, and a metadata change (an index create, or the
+/// in-sync change a replicated write proposes) answers 503 "not
+/// acknowledged". These tests are about what happens once a change commits,
+/// not about elections, so they wait for the commit the way a client does:
+/// send again until raft answers. The wait ends on that answer, not on a
+/// sleep. A change whose unacknowledged attempt committed after all answers
+/// the retry with "already done" (`resource_already_exists_exception` for a
+/// create, 404 for a delete); that is the change succeeding, so it is
+/// returned as 200.
+async fn send_write(app: &Router, make: impl Fn() -> Request<Body>) -> (StatusCode, Value) {
+    let is_delete = make().method() == axum::http::Method::DELETE;
+    let mut unacknowledged = 0u32;
+    loop {
+        let (status, body) = send(app, make()).await;
+        if raft_not_acknowledged(status, &body) {
+            unacknowledged += 1;
+            assert!(
+                unacknowledged < RAFT_RETRY_GUARD,
+                "raft never acknowledged the write: {status} {body}"
+            );
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            continue;
+        }
+        let already_done = if is_delete {
+            status == StatusCode::NOT_FOUND
+        } else {
+            body.pointer("/error/type").and_then(Value::as_str)
+                == Some("resource_already_exists_exception")
+        };
+        if unacknowledged > 0 && already_done {
+            return (StatusCode::OK, body);
+        }
+        return (status, body);
+    }
+}
+
+fn json_request(method: &str, path: &str, content_type: &str, body: &str) -> Request<Body> {
+    Request::builder()
+        .method(method)
+        .uri(path)
+        .header("content-type", content_type)
+        .body(Body::from(body.to_string()))
+        .expect("request")
+}
+
 async fn put_json(app: &Router, path: &str, body: Value) -> (StatusCode, Value) {
+    let body = body.to_string();
+    send_write(app, || json_request("PUT", path, "application/json", &body)).await
+}
+
+/// One PUT, no retry: for asserting the raft-unavailable answer itself.
+async fn put_json_once(app: &Router, path: &str, body: Value) -> (StatusCode, Value) {
     send(
         app,
-        Request::put(path)
-            .header("content-type", "application/json")
-            .body(Body::from(body.to_string()))
-            .expect("request"),
+        json_request("PUT", path, "application/json", &body.to_string()),
     )
     .await
 }
 
 async fn post_json(app: &Router, path: &str, body: Value) -> (StatusCode, Value) {
-    send(
-        app,
-        Request::post(path)
-            .header("content-type", "application/json")
-            .body(Body::from(body.to_string()))
-            .expect("request"),
-    )
+    let body = body.to_string();
+    send_write(app, || {
+        json_request("POST", path, "application/json", &body)
+    })
     .await
 }
 
 async fn post_ndjson(app: &Router, path: &str, body: &str) -> (StatusCode, Value) {
-    send(
-        app,
-        Request::post(path)
-            .header("content-type", "application/x-ndjson")
-            .body(Body::from(body.to_string()))
-            .expect("request"),
-    )
+    send_write(app, || {
+        json_request("POST", path, "application/x-ndjson", body)
+    })
     .await
 }
 
@@ -135,58 +202,189 @@ async fn get(app: &Router, path: &str) -> (StatusCode, Value) {
 }
 
 async fn delete(app: &Router, path: &str) -> (StatusCode, Value) {
-    send(
-        app,
-        Request::delete(path).body(Body::empty()).expect("request"),
-    )
+    send_write(app, || {
+        Request::delete(path).body(Body::empty()).expect("request")
+    })
     .await
 }
 
+/// Hang guard for a raft wait, not a timing budget. The wait ends when the
+/// member applies the index; only a ring that stops making progress gets here.
+const RAFT_HANG_GUARD: Duration = Duration::from_secs(120);
+
+/// Terms a ring may start without settling on one leader before
+/// [`wait_leader`] gives up. A hang guard, not a timing budget: each new
+/// term is an election that ran, so the ring is making progress.
+const ELECTION_GUARD: u64 = 500;
+
+/// Backfill passes a member may finish without reaching the state a wait
+/// wants before it gives up. A hang guard, not a timing budget.
+const BACKFILL_PASS_GUARD: u64 = 500;
+
+/// Wait until exactly one live member reports itself raft leader.
+///
+/// #3496: this used to poll every 20 ms against a 10 s wall-clock deadline,
+/// which a starved runner missed 10 times in 120 at load 53-154. Elections
+/// run on wall-clock timers and have no log index, so the wait wakes on
+/// each role, leader, or term change any live member publishes
+/// (`ClusterHandle::wait_role_change`). It fails when no member publishes
+/// a change for [`RAFT_HANG_GUARD`] (the ring stopped), or after
+/// [`ELECTION_GUARD`] terms with no single leader (elections never settle).
 async fn wait_leader(members: &[Member], dead: &[bool]) -> usize {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let live: Vec<usize> = (0..members.len()).filter(|i| !dead[*i]).collect();
+    let max_term = || {
+        live.iter()
+            .map(|i| members[*i].handle.term())
+            .max()
+            .unwrap_or(0)
+    };
+    let first_term = max_term();
     loop {
-        let leaders: Vec<usize> = members
+        // Read the change counters before the leaders, so a change that
+        // lands between the two still wakes the wait below.
+        let seen: Vec<u64> = live
             .iter()
-            .enumerate()
-            .filter(|(i, member)| !dead[*i] && member.handle.is_leader())
-            .map(|(i, _)| i)
+            .map(|i| members[*i].handle.role_changes())
+            .collect();
+        let leaders: Vec<usize> = live
+            .iter()
+            .copied()
+            .filter(|i| members[*i].handle.is_leader())
             .collect();
         if leaders.len() == 1 {
             return leaders[0];
         }
-        if Instant::now() > deadline {
-            panic!("timed out waiting for one raft leader");
+        let term = max_term();
+        assert!(
+            term - first_term < ELECTION_GUARD,
+            "no single raft leader after {} elections (terms {first_term}..{term}, leaders {leaders:?})",
+            term - first_term
+        );
+        let mut changes = tokio::task::JoinSet::new();
+        for (i, seen) in live.iter().zip(seen) {
+            let handle = members[*i].handle.clone();
+            changes.spawn(async move {
+                let result = handle.wait_role_change(seen).await;
+                (handle.node_id().to_string(), result)
+            });
         }
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        match tokio::time::timeout(RAFT_HANG_GUARD, changes.join_next()).await {
+            Ok(Some(Ok((_, Ok(_))))) => {}
+            Ok(Some(Ok((node, Err(error))))) => {
+                panic!("{node} stopped while waiting for a raft leader: {error}")
+            }
+            Ok(Some(Err(join))) => panic!("role-change wait failed: {join}"),
+            Ok(None) => panic!("wait_leader called with no live member"),
+            Err(_) => panic!(
+                "no live member changed raft role, leader, or term in {RAFT_HANG_GUARD:?} (term {term}, leaders {leaders:?})"
+            ),
+        }
     }
 }
 
-async fn wait_status(app: &Router, path: &str, want: StatusCode) -> Value {
-    let deadline = Instant::now() + Duration::from_secs(5);
-    loop {
-        let (status, body) = get(app, path).await;
-        if status == want {
-            return body;
-        }
-        if Instant::now() > deadline {
-            panic!("GET {path} stayed {status} body={body} (wanted {want})");
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
+/// Wait until `member` finishes a replica-backfill pass after `seen`.
+///
+/// Fails when the member finishes no pass for [`RAFT_HANG_GUARD`]: its
+/// backfill task stopped, not slowed down.
+async fn wait_backfill_pass(member: &Member, seen: u64) {
+    match tokio::time::timeout(RAFT_HANG_GUARD, member.handle.wait_backfill_pass(seen)).await {
+        Ok(Ok(_)) => {}
+        Ok(Err(error)) => panic!(
+            "{} stopped before finishing a backfill pass: {error}",
+            member.handle.node_id()
+        ),
+        Err(_) => panic!(
+            "{} finished no backfill pass in {RAFT_HANG_GUARD:?} (passes {seen})",
+            member.handle.node_id()
+        ),
     }
 }
 
-async fn wait_body_contains(app: &Router, path: &str, needle: &str) -> Value {
-    let deadline = Instant::now() + Duration::from_secs(5);
-    loop {
-        let (status, body) = get(app, path).await;
-        if status.is_success() && body.to_string().contains(needle) {
-            return body;
-        }
-        if Instant::now() > deadline {
-            panic!("GET {path} never contained {needle}: {status} {body}");
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
+/// Wait until async task `task` on `member` has finished, then return the
+/// `GET /_tasks/{task}` body, which must report it completed.
+///
+/// #3496: this used to poll that GET every 20 ms against a 5 s wall-clock
+/// deadline, which a starved box missed 5 times in 120. The wait now ends
+/// when the task registry records the task's result
+/// (`TaskRegistry::wait_finished`). [`RAFT_HANG_GUARD`] is a hang guard.
+async fn wait_task_completed(member: &Member, task: &str) -> Value {
+    match tokio::time::timeout(RAFT_HANG_GUARD, member.state.tasks.wait_finished(task)).await {
+        Ok(Some(_)) => {}
+        Ok(None) => panic!("task {task} ended without storing a result"),
+        Err(_) => panic!("task {task} did not finish in {RAFT_HANG_GUARD:?}"),
     }
+    let (status, body) = get(&member.app, &format!("/_tasks/{task}")).await;
+    assert!(
+        status.is_success() && body.get("completed").and_then(|v| v.as_bool()) == Some(true),
+        "task {task} finished but GET /_tasks does not report it completed: {status} {body}"
+    );
+    body
+}
+
+/// The highest raft log index any of `members` has applied.
+///
+/// A metadata change that answered 200 was applied on the member that
+/// proposed it before its waiter completed (`ClusterHandle::applied_index`),
+/// so this index covers every change acknowledged so far.
+fn applied_target(members: &[Member]) -> u64 {
+    members
+        .iter()
+        .map(|member| member.handle.applied_index())
+        .max()
+        .unwrap_or(0)
+}
+
+/// Wait until `member` has applied every metadata change the ring has
+/// acknowledged so far. Returns the index it waited for.
+///
+/// #3469 follow-up: this used to poll the member's HTTP state against a 5 s
+/// wall-clock deadline, which a starved runner missed 2 times in 40 at load
+/// 38-120. Raft progress is what the member needs; the wait now ends on it.
+async fn wait_applied(members: &[Member], member: &Member) -> u64 {
+    let target = applied_target(members);
+    match tokio::time::timeout(RAFT_HANG_GUARD, member.handle.wait_applied(target)).await {
+        Ok(Ok(_)) => target,
+        Ok(Err(error)) => panic!(
+            "{} stopped before applying raft index {target}: {error}",
+            member.handle.node_id()
+        ),
+        Err(_) => panic!(
+            "{} made no raft progress to index {target} (applied {})",
+            member.handle.node_id(),
+            member.handle.applied_index()
+        ),
+    }
+}
+
+/// GET `path` on `member` once it has applied every acknowledged change, and
+/// require `want`. No retry: a metadata GET reads what raft applied.
+async fn wait_status(members: &[Member], member: &Member, path: &str, want: StatusCode) -> Value {
+    let target = wait_applied(members, member).await;
+    let (status, body) = get(&member.app, path).await;
+    assert_eq!(
+        status,
+        want,
+        "GET {path} on {} after applying raft index {target}: {body}",
+        member.handle.node_id()
+    );
+    body
+}
+
+/// Like [`wait_status`], requiring a success whose body contains `needle`.
+async fn wait_body_contains(
+    members: &[Member],
+    member: &Member,
+    path: &str,
+    needle: &str,
+) -> Value {
+    let target = wait_applied(members, member).await;
+    let (status, body) = get(&member.app, path).await;
+    assert!(
+        status.is_success() && body.to_string().contains(needle),
+        "GET {path} on {} after applying raft index {target} has no {needle}: {status} {body}",
+        member.handle.node_id()
+    );
+    body
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -207,8 +405,8 @@ async fn index_metadata_propagates_and_a_new_leader_still_commits() {
     assert!(status.is_success(), "create from follower: {status} {body}");
 
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
-        let mapping = wait_status(&member.app, "/orders/_mapping", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
+        let mapping = wait_status(&members, member, "/orders/_mapping", StatusCode::OK).await;
         assert!(
             mapping.to_string().contains("title"),
             "mapping did not propagate: {mapping}"
@@ -223,7 +421,7 @@ async fn index_metadata_propagates_and_a_new_leader_still_commits() {
     .await;
     assert!(status.is_success(), "settings: {status} {body}");
     for member in &members {
-        wait_body_contains(&member.app, "/orders/_settings", "number_of_replicas").await;
+        wait_body_contains(&members, member, "/orders/_settings", "number_of_replicas").await;
     }
 
     let (status, body) = put_json(
@@ -249,7 +447,7 @@ async fn index_metadata_propagates_and_a_new_leader_still_commits() {
     let (status, body) = delete(&members[follower].app, "/orders").await;
     assert!(status.is_success(), "delete: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::NOT_FOUND).await;
+        wait_status(&members, member, "/orders", StatusCode::NOT_FOUND).await;
     }
 
     let _ = members[leader].shutdown.send(true);
@@ -266,7 +464,7 @@ async fn index_metadata_propagates_and_a_new_leader_still_commits() {
         if dead[i] {
             continue;
         }
-        wait_status(&member.app, "/tickets", StatusCode::OK).await;
+        wait_status(&members, member, "/tickets", StatusCode::OK).await;
     }
 
     for member in &members {
@@ -277,11 +475,11 @@ async fn index_metadata_propagates_and_a_new_leader_still_commits() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_ring_with_no_leader_does_not_create_the_index() {
     let members = ring(false).await;
-    let (status, body) = put_json(&members[0].app, "/orders", json!({})).await;
+    let (status, body) = put_json_once(&members[0].app, "/orders", json!({})).await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
     let (status, _) = get(&members[0].app, "/orders").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
-    let (status, body) = put_json(
+    let (status, body) = put_json_once(
         &members[0].app,
         "/orders/_doc/1",
         json!({ "title": "no leader" }),
@@ -542,8 +740,9 @@ async fn an_acknowledged_write_is_on_the_replica_and_readable_after_the_primary_
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed = None;
     for n in 0..64 {
@@ -557,6 +756,8 @@ async fn an_acknowledged_write_is_on_the_replica_and_readable_after_the_primary_
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("primary placement");
         let replicas = members[primary].engine.replica_nodes("orders", shard);
         assert_eq!(replicas.len(), 1, "one replica for shard {shard}");
@@ -690,28 +891,108 @@ async fn an_acknowledged_write_is_on_the_replica_and_readable_after_the_primary_
     }
 }
 
+/// Every placed replica of `orders` that is in `members` has its replica
+/// store open, i.e. that member applied the create (#3469).
+///
+/// `GET /orders` answering 200 on a member does not mean every member's
+/// replica stores exist yet. A replicated write that reaches a replica before
+/// then gets `shard_not_ready`; the primary retries that for a wall-clock
+/// `OWNER_READY_WAIT` (2 s), and on a loaded box gives up, marks the replica
+/// stale, and acknowledges with the other copies. A test that then reads the
+/// write off that replica fails. Waiting for the stores is the state those
+/// tests assume. The bound is a hang guard.
+async fn wait_replica_stores(members: &[Member]) {
+    let mut polls = 0u32;
+    loop {
+        let missing: Vec<String> = members
+            .iter()
+            .flat_map(|planner| {
+                members.iter().flat_map(move |owner| {
+                    planner
+                        .engine
+                        .shards_owned_by("orders", owner.handle.node_id())
+                })
+            })
+            .collect::<std::collections::BTreeSet<u32>>()
+            .into_iter()
+            .flat_map(|shard| {
+                members
+                    .iter()
+                    .flat_map(|planner| planner.engine.placed_replica_nodes("orders", shard))
+                    .collect::<std::collections::BTreeSet<String>>()
+                    .into_iter()
+                    .filter_map(move |node| {
+                        let member = members.iter().find(|m| m.handle.node_id() == node)?;
+                        let store = xerj_cluster::replica_index_name("orders", shard)?;
+                        member
+                            .engine
+                            .get_index(&store)
+                            .is_err()
+                            .then(|| format!("{node}:{store}"))
+                    })
+            })
+            .collect();
+        if missing.is_empty() {
+            return;
+        }
+        polls += 1;
+        assert!(polls < 1_500, "replica stores never opened: {missing:?}");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+/// Wait until every member's in-sync set for `shard` is `want`.
+///
+/// A member's in-sync set changes only when its raft runner applies a
+/// `SetShardInSync` entry, so the check re-runs each time any member applies
+/// a new entry, instead of on a 20 ms timer against a 5 s deadline (#3469
+/// follow-up). The applied indexes are read before the check: an entry
+/// applied in between still ends the wait that follows.
 async fn wait_in_sync(members: &[Member], shard: u32, want: &[String]) {
     let mut want = want.to_vec();
     want.sort();
     want.dedup();
-    let deadline = Instant::now() + Duration::from_secs(5);
-    loop {
-        let ready = members.iter().all(|member| {
-            let mut got = member.engine.replica_nodes("orders", shard);
-            got.sort();
-            got == want
-        });
-        if ready {
-            return;
-        }
-        if Instant::now() > deadline {
-            let observed: Vec<Vec<String>> = members
+    let observed = || -> Vec<Vec<String>> {
+        members
+            .iter()
+            .map(|member| member.engine.replica_nodes("orders", shard))
+            .collect()
+    };
+    let converged = tokio::time::timeout(RAFT_HANG_GUARD, async {
+        loop {
+            let seen: Vec<u64> = members
                 .iter()
-                .map(|member| member.engine.replica_nodes("orders", shard))
+                .map(|member| member.handle.applied_index())
                 .collect();
-            panic!("in-sync for shard {shard} stayed {observed:?}, wanted {want:?}");
+            let ready = members.iter().all(|member| {
+                let mut got = member.engine.replica_nodes("orders", shard);
+                got.sort();
+                got == want
+            });
+            if ready {
+                return;
+            }
+            let mut next = tokio::task::JoinSet::new();
+            for (member, applied) in members.iter().zip(seen) {
+                let handle = member.handle.clone();
+                next.spawn(async move { handle.wait_applied(applied + 1).await });
+            }
+            let first = next.join_next().await.expect("one member");
+            if let Ok(Err(error)) = first {
+                panic!(
+                    "a member stopped while in-sync for shard {shard} was {:?} (wanted {want:?}): {error}",
+                    observed()
+                );
+            }
+            next.abort_all();
         }
-        tokio::time::sleep(Duration::from_millis(20)).await;
+    })
+    .await;
+    if converged.is_err() {
+        panic!(
+            "in-sync for shard {shard} stayed {:?}, wanted {want:?}",
+            observed()
+        );
     }
 }
 
@@ -729,8 +1010,9 @@ async fn a_quorum_of_copies_acks_when_one_of_two_replicas_does_not() {
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed = None;
     for n in 0..64 {
@@ -744,6 +1026,8 @@ async fn a_quorum_of_copies_acks_when_one_of_two_replicas_does_not() {
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("primary placement");
         let replicas = members[primary]
             .engine
@@ -790,11 +1074,19 @@ async fn a_quorum_of_copies_acks_when_one_of_two_replicas_does_not() {
         "{body}"
     );
 
+    // Neither replica confirmed a write the primary applied, so both left
+    // the in-sync set before the 503 returned.
+    wait_in_sync(&members, shard, &[]).await;
+
     members[replica_b]
         .handle
         .set_shard_handler(std::sync::Arc::new(ApiShardHandler::new(
             members[replica_b].state.clone(),
         )));
+    // Backfill copies the refused write onto replica_b and publishes it
+    // again. Until then the primary has no in-sync replica to make a quorum.
+    let live_id = members[replica_b].handle.node_id().to_string();
+    wait_in_sync(&members, shard, std::slice::from_ref(&live_id)).await;
 
     let (status, body) = put_json(
         &members[writer].app,
@@ -854,7 +1146,6 @@ async fn a_quorum_of_copies_acks_when_one_of_two_replicas_does_not() {
         "the replica that did not confirm does not have the document: {on_stale:?}"
     );
 
-    let live_id = members[replica_b].handle.node_id().to_string();
     wait_in_sync(&members, shard, &[live_id]).await;
     assert_eq!(
         members[primary]
@@ -915,7 +1206,7 @@ async fn a_document_is_stored_on_its_shard_owner_and_search_sees_it_from_any_mem
     let (status, body) = put_json(&members[0].app, "/orders", json!({})).await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
         let targets = member.engine.shard_search_targets("orders");
         assert_eq!(
             targets.len(),
@@ -1042,6 +1333,27 @@ async fn a_document_is_stored_on_its_shard_owner_and_search_sees_it_from_any_mem
     }
 }
 
+/// Wait for a member's runner task to exit after its shutdown watch was set.
+///
+/// The runner races the shutdown watch against each step
+/// (`ClusterRunner::run`), so the join is the event: it resolves on the
+/// runner's next poll. It was a 5 s wall-clock join (left by #3516), which a
+/// runner starved at load 100+ can miss while still stopping correctly.
+/// [`RAFT_HANG_GUARD`] only catches a runner that never exits.
+async fn join_runner(member: &mut Member) {
+    let Some(task) = member.runner.take() else {
+        return;
+    };
+    match tokio::time::timeout(RAFT_HANG_GUARD, task).await {
+        Ok(Ok(())) => {}
+        Ok(Err(join)) => panic!("{} runner task failed: {join}", member.handle.node_id()),
+        Err(_) => panic!(
+            "{} runner did not exit in {RAFT_HANG_GUARD:?} after shutdown",
+            member.handle.node_id()
+        ),
+    }
+}
+
 /// Stop one member and release its data directory.
 ///
 /// The shard handler is cleared first, so a document write during shutdown
@@ -1051,12 +1363,7 @@ async fn a_document_is_stored_on_its_shard_owner_and_search_sees_it_from_any_mem
 async fn shutdown_member(mut member: Member) -> tempfile::TempDir {
     member.handle.clear_shard_handler();
     let _ = member.shutdown.send(true);
-    if let Some(task) = member.runner.take() {
-        match tokio::time::timeout(Duration::from_secs(5), task).await {
-            Ok(Ok(())) => {}
-            other => panic!("cluster runner did not stop: {other:?}"),
-        }
-    }
+    join_runner(&mut member).await;
     drop(member.app);
     drop(member.state);
     drop(member.engine);
@@ -1068,12 +1375,7 @@ async fn shutdown_and_keep(members: Vec<Member>) -> Vec<tempfile::TempDir> {
     let mut dirs = Vec::with_capacity(members.len());
     for mut member in members {
         let _ = member.shutdown.send(true);
-        if let Some(task) = member.runner.take() {
-            match tokio::time::timeout(Duration::from_secs(5), task).await {
-                Ok(Ok(())) => {}
-                other => panic!("cluster runner did not stop: {other:?}"),
-            }
-        }
+        join_runner(&mut member).await;
         // ApiShardHandler holds AppState, which holds Engine, which holds
         // this handle. The engine's data-dir node.lock stays taken until
         // that cycle breaks, so a later Engine::new on the same directory
@@ -1098,7 +1400,7 @@ async fn durable_ring(dirs: Vec<tempfile::TempDir>) -> Vec<Member> {
         let mut config = xerj_common::config::Config::default();
         config.server.data_dir = dir.path().to_string_lossy().into_owned();
         let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
-        let engine = xerj_engine::Engine::new(config.clone()).expect("engine");
+        let engine = open_engine_when_unlocked(&config).await;
         let state = xerj_api::state::AppState::new(config, engine, metrics);
 
         let peers: Vec<String> = ids
@@ -1151,7 +1453,7 @@ async fn restart_reloads_the_shard_plan_and_still_routes_the_document() {
     let (status, body) = put_json(&members[0].app, "/orders", json!({})).await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
     let (status, body) = put_json(
         &members[0].app,
@@ -1168,7 +1470,12 @@ async fn restart_reloads_the_shard_plan_and_still_routes_the_document() {
     let owner_id = members[owner].handle.node_id().to_string();
     let other = (0..3).find(|i| *i != owner).expect("a non-owner");
     assert_eq!(
-        members[other].engine.route_write("orders", "1").as_deref(),
+        members[other]
+            .engine
+            .route_write("orders", "1")
+            .ok()
+            .flatten()
+            .as_deref(),
         Some(owner_id.as_str()),
         "before restart the non-owner forwards"
     );
@@ -1186,7 +1493,12 @@ async fn restart_reloads_the_shard_plan_and_still_routes_the_document() {
         "replay must put the primary back on {owner_id}"
     );
     assert_eq!(
-        members[other].engine.route_write("orders", "1").as_deref(),
+        members[other]
+            .engine
+            .route_write("orders", "1")
+            .ok()
+            .flatten()
+            .as_deref(),
         Some(owner_id.as_str()),
         "restart must not treat the index as unassigned"
     );
@@ -1217,6 +1529,21 @@ async fn restart_reloads_the_shard_plan_and_still_routes_the_document() {
     }
 }
 
+/// Open the engine once the previous one on this directory has let go of
+/// `node.lock`. A stopped member's aborted backfill task drops its engine
+/// `Arc` at its next await, so a reopen waits for that state, not for a
+/// fixed sleep (#3469). The bound is a hang guard.
+async fn open_engine_when_unlocked(config: &xerj_common::config::Config) -> xerj_engine::Engine {
+    let dir = std::path::Path::new(&config.server.data_dir);
+    let mut polls = 0u32;
+    while xerj_engine::data_dir_lock_held(dir) {
+        polls += 1;
+        assert!(polls < 3_000, "{} kept node.lock", dir.display());
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    xerj_engine::Engine::new(config.clone()).expect("engine")
+}
+
 async fn open_durable_member(
     id: &str,
     ids: &[&str],
@@ -1227,7 +1554,7 @@ async fn open_durable_member(
     let mut config = xerj_common::config::Config::default();
     config.server.data_dir = dir.path().to_string_lossy().into_owned();
     let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
-    let engine = xerj_engine::Engine::new(config.clone()).expect("engine");
+    let engine = open_engine_when_unlocked(&config).await;
     let state = xerj_api::state::AppState::new(config, engine, metrics);
     let peers: Vec<String> = ids
         .iter()
@@ -1265,15 +1592,21 @@ async fn open_durable_member(
     }
 }
 
-async fn wait_compacted(member: &Member) {
-    let deadline = Instant::now() + Duration::from_secs(10);
+/// Wait until `member` has applied every acknowledged change and compacted
+/// its log into a snapshot. Compaction runs in the same apply pass, and the
+/// view shows it at the end of that pass, so after the raft wait the loop
+/// only covers the rest of one pass; the deadline is the hang guard.
+async fn wait_compacted(members: &[Member], member: &Member) {
+    wait_applied(members, member).await;
+    let deadline = Instant::now() + RAFT_HANG_GUARD;
     loop {
         if member.handle.snapshot_index() >= 1 && member.handle.log_len() == 0 {
             return;
         }
         if Instant::now() > deadline {
             panic!(
-                "leader log was not compacted: snapshot={} log_len={}",
+                "{} log was not compacted: snapshot={} log_len={}",
+                member.handle.node_id(),
                 member.handle.snapshot_index(),
                 member.handle.log_len()
             );
@@ -1282,9 +1615,13 @@ async fn wait_compacted(member: &Member) {
     }
 }
 
-/// The create is compacted out of the leader's log before the third member
-/// starts. That member still gets the index, and a document written afterwards
-/// is readable from a member that was already up.
+/// The create is compacted out of both running members' logs before the
+/// third member starts. That member still gets the index, and a document
+/// written afterwards is readable from a member that was already up.
+///
+/// Both, not only the current leader: if leadership moves to a member that
+/// has not compacted yet, it sends the create as log entries and n3 never
+/// needs the snapshot (seen once in 40 runs at load ~60).
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_late_member_installs_a_compacted_create_and_routes_a_later_write() {
     let ids = ["n1", "n2", "n3"];
@@ -1295,7 +1632,7 @@ async fn a_late_member_installs_a_compacted_create_and_routes_a_later_write() {
         members.push(open_durable_member(id, &ids, &bus, dir, 1).await);
     }
     let dead = [false, false];
-    let leader = wait_leader(&members, &dead).await;
+    let _leader = wait_leader(&members, &dead).await;
 
     let (status, body) = put_json(
         &members[0].app,
@@ -1304,34 +1641,29 @@ async fn a_late_member_installs_a_compacted_create_and_routes_a_later_write() {
     )
     .await;
     assert!(status.is_success(), "create: {status} {body}");
-    wait_compacted(&members[leader]).await;
-    assert_eq!(
-        members[leader].handle.log_len(),
-        0,
-        "the create must not still be an AppendEntries payload"
-    );
+    for member in &members {
+        wait_compacted(&members, member).await;
+        assert_eq!(
+            member.handle.log_len(),
+            0,
+            "the create must not still be an AppendEntries payload"
+        );
+    }
 
     let dir = tempfile::tempdir().expect("tempdir");
     members.push(open_durable_member("n3", &ids, &bus, dir, 64).await);
-    let mapping = wait_body_contains(&members[2].app, "/orders/_mapping", "title").await;
+    let mapping = wait_body_contains(&members, &members[2], "/orders/_mapping", "title").await;
     assert!(
         mapping.to_string().contains("title"),
         "n3 must apply the compacted create: {mapping}"
     );
-    let deadline = Instant::now() + Duration::from_secs(10);
-    loop {
-        if members[2].handle.snapshot_index() >= 1 {
-            break;
-        }
-        if Instant::now() > deadline {
-            panic!(
-                "n3 did not install the snapshot: snapshot={} log_len={}",
-                members[2].handle.snapshot_index(),
-                members[2].handle.log_len()
-            );
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
+    // The create is only in the leader's snapshot, and n3 has applied it.
+    assert!(
+        members[2].handle.snapshot_index() >= 1,
+        "n3 did not install the snapshot: snapshot={} log_len={}",
+        members[2].handle.snapshot_index(),
+        members[2].handle.log_len()
+    );
 
     let (status, body) = put_json(
         &members[2].app,
@@ -1344,7 +1676,7 @@ async fn a_late_member_installs_a_compacted_create_and_routes_a_later_write() {
         "mapping after snapshot: {status} {body}"
     );
     for member in &members {
-        wait_body_contains(&member.app, "/orders/_mapping", "note").await;
+        wait_body_contains(&members, member, "/orders/_mapping", "note").await;
     }
 
     let (status, body) = put_json(
@@ -1386,17 +1718,27 @@ async fn replica_title(member: &Member, shard: u32, id: &str) -> Option<String> 
         })
 }
 
+/// Wait until `member`'s replica copy of `id` on `shard` has title `want`.
+///
+/// #3496: the copy arrives by backfill, which runs off the raft step and
+/// has no log index. This used to poll every 20 ms against a 10 s
+/// wall-clock deadline (9 failures in 120 at load 53-154). It now re-reads
+/// after each backfill pass the member finishes, under the pass and hang
+/// guards.
 async fn wait_replica_title(member: &Member, shard: u32, id: &str, want: Option<&str>) {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let first = member.handle.backfill_passes();
     loop {
+        let seen = member.handle.backfill_passes();
         let got = replica_title(member, shard, id).await;
         if got.as_deref() == want {
             return;
         }
-        if Instant::now() > deadline {
-            panic!("replica title of {id} on shard {shard} stayed {got:?}, wanted {want:?}");
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(
+            seen - first < BACKFILL_PASS_GUARD,
+            "replica title of {id} on shard {shard} stayed {got:?} after {} backfill passes, wanted {want:?}",
+            seen - first
+        );
+        wait_backfill_pass(member, seen).await;
     }
 }
 
@@ -1426,14 +1768,16 @@ async fn a_late_member_copies_documents_written_before_it_joined() {
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut keep: Option<(String, u32, String, Vec<String>)> = None;
     let mut gone_id = None;
     for n in 0..256 {
         let id = format!("b{n}");
-        let Some((shard, owner)) = members[0].engine.primary_of("orders", &id) else {
+        let Some((shard, owner)) = members[0].engine.primary_of("orders", &id).ok().flatten()
+        else {
             continue;
         };
         if owner == "n3" {
@@ -1591,8 +1935,9 @@ async fn a_replica_dropped_from_the_in_sync_set_copies_the_missed_write_and_rejo
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed = None;
     for n in 0..64 {
@@ -1606,6 +1951,8 @@ async fn a_replica_dropped_from_the_in_sync_set_copies_the_missed_write_and_rejo
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("placement");
         let replicas = members[primary]
             .engine
@@ -1719,6 +2066,8 @@ async fn primary_shard_sources(primary: &Member, shard: u32) -> BTreeMap<String,
         primary
             .engine
             .primary_of("orders", id)
+            .ok()
+            .flatten()
             .is_some_and(|(doc_shard, _)| doc_shard == shard)
     });
     out
@@ -1737,9 +2086,15 @@ async fn replica_sources(replica: &Member, shard: u32) -> BTreeMap<String, Value
 /// The in-sync bit is read before the stores. Publishing the replica while
 /// its copy still differs fails this wait instead of being papered over by
 /// a later copy.
+///
+/// #3496: refill runs as the replica's backfill pass, off the raft step.
+/// This used to poll every 20 ms against a 15 s wall-clock deadline (5
+/// failures in 120 at load 53-154). It now re-checks after each backfill
+/// pass the replica finishes, under the pass and hang guards.
 async fn wait_refilled(primary: &Member, replica: &Member, shard: u32, replica_id: &str) {
-    let deadline = Instant::now() + Duration::from_secs(15);
+    let first = replica.handle.backfill_passes();
     loop {
+        let seen = replica.handle.backfill_passes();
         let in_sync = primary
             .engine
             .replica_nodes("orders", shard)
@@ -1759,12 +2114,12 @@ async fn wait_refilled(primary: &Member, replica: &Member, shard: u32, replica_i
             );
             return;
         }
-        if Instant::now() > deadline {
-            panic!(
-                "replica {replica_id} shard {shard} was not refilled and published\n in_sync={in_sync}\n primary={want:?}\n replica={got:?}"
-            );
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(
+            seen - first < BACKFILL_PASS_GUARD,
+            "replica {replica_id} shard {shard} was not refilled and published after {} backfill passes\n in_sync={in_sync}\n primary={want:?}\n replica={got:?}",
+            seen - first
+        );
+        wait_backfill_pass(replica, seen).await;
     }
 }
 
@@ -1785,7 +2140,8 @@ fn shard_case(members: &[Member]) -> ShardCase {
     let mut ids = Vec::new();
     for n in 0..512 {
         let id = format!("r{n}");
-        let Some((shard, owner)) = members[0].engine.primary_of("orders", &id) else {
+        let Some((shard, owner)) = members[0].engine.primary_of("orders", &id).ok().flatten()
+        else {
             continue;
         };
         let replicas = members[0].engine.placed_replica_nodes("orders", shard);
@@ -1833,8 +2189,9 @@ async fn create_replicated_orders(members: &[Member]) {
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(members, member, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(members).await;
 }
 
 async fn put_title(app: &Router, id: &str, title: &str) {
@@ -1949,9 +2306,8 @@ async fn refill_after_missed_writes(mut members: Vec<Member>, bus: Option<&InMem
     }
 
     if let Some((bus, dir)) = held {
-        // The aborted backfill task drops its engine Arc at the next await.
-        // Opening the same directory before that releases `node.lock` fails.
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        // `open_durable_member` waits for the stopped engine to release
+        // `node.lock` (its aborted backfill task holds it until its next await).
         members.push(open_durable_member(&case.replica_a, &["n1", "n2", "n3"], bus, dir, 64).await);
     } else {
         restore_handler(&members[position_of(&members, &case.replica_a)]);
@@ -1964,6 +2320,16 @@ async fn refill_after_missed_writes(mut members: Vec<Member>, bus: Option<&InMem
         &members[replica_a_at],
         case.shard,
         &case.replica_a,
+    )
+    .await;
+    // `wait_refilled` reads the primary's in-sync set. A GET on the refilled
+    // replica routes by that node's own copy, which raft applies there later
+    // (`cluster_apply` SetShardInSync); until it lands, the GET below finds
+    // no ready copy and answers 503 shard_not_ready. Wait for every member.
+    wait_in_sync(
+        &members,
+        case.shard,
+        &[case.replica_a.clone(), case.replica_b.clone()],
     )
     .await;
     let on_user = members[replica_a_at]
@@ -2106,8 +2472,9 @@ async fn bulk_and_update_from_a_non_owner_write_the_primary_and_the_replica() {
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed: Vec<(String, usize, usize, u32)> = Vec::new();
     for n in 0..128 {
@@ -2121,6 +2488,8 @@ async fn bulk_and_update_from_a_non_owner_write_the_primary_and_the_replica() {
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("placement");
         let replicas = members[primary].engine.replica_nodes("orders", shard);
         if replicas.len() != 1 {
@@ -2252,6 +2621,8 @@ async fn bulk_and_update_from_a_non_owner_write_the_primary_and_the_replica() {
     let (auto_shard, _) = members[auto_primary]
         .engine
         .primary_of("orders", &auto_id)
+        .ok()
+        .flatten()
         .expect("auto placement");
     let auto_replicas = members[auto_primary]
         .engine
@@ -2437,8 +2808,9 @@ async fn update_by_query_from_a_non_owner_updates_every_primary_and_replica() {
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed: Vec<(String, usize, usize, u32)> = Vec::new();
     for n in 0..128 {
@@ -2452,6 +2824,8 @@ async fn update_by_query_from_a_non_owner_updates_every_primary_and_replica() {
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("placement");
         let replicas = members[primary].engine.replica_nodes("orders", shard);
         if replicas.len() != 1 {
@@ -2691,17 +3065,7 @@ async fn update_by_query_from_a_non_owner_updates_every_primary_and_replica() {
         .and_then(|v| v.as_str())
         .unwrap_or_else(|| panic!("task id: {body}"))
         .to_string();
-    let deadline = Instant::now() + Duration::from_secs(5);
-    let completed = loop {
-        let (status, got) = get(&members[writer].app, &format!("/_tasks/{task}")).await;
-        if status.is_success() && got.get("completed").and_then(|v| v.as_bool()) == Some(true) {
-            break got;
-        }
-        if Instant::now() > deadline {
-            panic!("task {task} did not finish: {status} {got}");
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    };
+    let completed = wait_task_completed(&members[writer], &task).await;
     assert_eq!(
         completed
             .pointer("/response/updated")
@@ -2818,8 +3182,9 @@ async fn delete_by_query_from_a_non_owner_deletes_on_every_primary_and_replica()
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed: Vec<(String, usize, usize, u32)> = Vec::new();
     for n in 0..128 {
@@ -2833,6 +3198,8 @@ async fn delete_by_query_from_a_non_owner_deletes_on_every_primary_and_replica()
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("placement");
         let replicas = members[primary].engine.replica_nodes("orders", shard);
         if replicas.len() != 1 {
@@ -3044,17 +3411,7 @@ async fn delete_by_query_from_a_non_owner_deletes_on_every_primary_and_replica()
         .and_then(|v| v.as_str())
         .unwrap_or_else(|| panic!("task id: {body}"))
         .to_string();
-    let deadline = Instant::now() + Duration::from_secs(5);
-    let completed = loop {
-        let (status, got) = get(&members[writer].app, &format!("/_tasks/{task}")).await;
-        if status.is_success() && got.get("completed").and_then(|v| v.as_bool()) == Some(true) {
-            break got;
-        }
-        if Instant::now() > deadline {
-            panic!("task {task} did not finish: {status} {got}");
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    };
+    let completed = wait_task_completed(&members[writer], &task).await;
     assert_eq!(
         completed
             .pointer("/response/deleted")
@@ -3154,8 +3511,9 @@ async fn native_doc_writes_from_a_non_owner_hit_the_primary_and_the_replica() {
     .await;
     assert!(status.is_success(), "create: {status} {body}");
     for member in &members {
-        wait_status(&member.app, "/orders", StatusCode::OK).await;
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
     }
+    wait_replica_stores(&members).await;
 
     let mut placed: Vec<(String, usize, usize, u32)> = Vec::new();
     for n in 0..128 {
@@ -3169,6 +3527,8 @@ async fn native_doc_writes_from_a_non_owner_hit_the_primary_and_the_replica() {
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("placement");
         let replicas = members[primary].engine.replica_nodes("orders", shard);
         if replicas.len() != 1 {
@@ -3494,4 +3854,147 @@ async fn cluster_disabled_native_doc_stays_on_the_node_that_received_it() {
     );
     let (status, _) = get(&es_a, "/local/_doc/1").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+/// With one replica, a write the replica does not confirm is refused, but the
+/// primary has already applied it. The replica must leave the in-sync set
+/// before the 503 returns, or it is never backfilled and a failover serves
+/// a copy that is missing those documents.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_replica_that_misses_a_refused_write_leaves_the_in_sync_set_and_is_backfilled() {
+    const DOCS: usize = 200;
+    let members = ring(true).await;
+    let _leader = wait_leader(&members, &[false, false, false]).await;
+
+    let (status, body) = put_json(
+        &members[0].app,
+        "/orders",
+        json!({ "settings": { "index": { "number_of_replicas": 1 } } }),
+    )
+    .await;
+    assert!(status.is_success(), "create: {status} {body}");
+    for member in &members {
+        wait_status(&members, member, "/orders", StatusCode::OK).await;
+    }
+    wait_replica_stores(&members).await;
+
+    let mut target = None;
+    for n in 0..64 {
+        let id = format!("s{n}");
+        let Some(primary) = members
+            .iter()
+            .position(|member| member.engine.owns_shard("orders", &id))
+        else {
+            continue;
+        };
+        let (shard, _) = members[primary]
+            .engine
+            .primary_of("orders", &id)
+            .ok()
+            .flatten()
+            .expect("placement");
+        let replicas = members[primary]
+            .engine
+            .placed_replica_nodes("orders", shard);
+        if replicas.len() != 1 {
+            continue;
+        }
+        target = Some((primary, position_of(&members, &replicas[0]), shard));
+        break;
+    }
+    let (primary, replica, shard) = target.expect("a shard with one replica");
+    let other = (0..3)
+        .find(|n| *n != primary && *n != replica)
+        .expect("a third member");
+    let replica_id = members[replica].handle.node_id().to_string();
+
+    let mut ids = Vec::new();
+    let mut n = 0;
+    while ids.len() < DOCS {
+        let id = format!("doc{n}");
+        n += 1;
+        if members[primary]
+            .engine
+            .primary_of("orders", &id)
+            .ok()
+            .flatten()
+            .is_some_and(|(doc_shard, _)| doc_shard == shard)
+        {
+            ids.push(id);
+        }
+    }
+
+    members[replica].handle.clear_shard_handler();
+    for id in &ids {
+        let (status, body) = put_json(
+            &members[primary].app,
+            &format!("/orders/_doc/{id}"),
+            json!({ "title": id }),
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "primary alone is not a quorum of two copies: {status} {body}"
+        );
+        assert_eq!(
+            body.pointer("/error/type").and_then(|v| v.as_str()),
+            Some("replica_not_acknowledged"),
+            "{body}"
+        );
+    }
+    assert_eq!(
+        primary_shard_sources(&members[primary], shard).await.len(),
+        DOCS,
+        "the primary applied every refused write"
+    );
+
+    for at in [primary, replica, other] {
+        let in_sync = members[at].engine.replica_nodes("orders", shard);
+        assert!(
+            !in_sync.iter().any(|id| id == &replica_id),
+            "member {at} still lists {replica_id} in sync for shard {shard} after it missed {DOCS} writes: {in_sync:?}"
+        );
+    }
+    assert!(
+        replica_sources(&members[replica], shard).await.len() < DOCS,
+        "the replica that refused copies does not have them"
+    );
+
+    restore_handler(&members[replica]);
+    wait_refilled(&members[primary], &members[replica], shard, &replica_id).await;
+    assert_eq!(
+        replica_sources(&members[replica], shard).await.len(),
+        DOCS,
+        "backfill copied every document the primary kept"
+    );
+    wait_in_sync(&members, shard, std::slice::from_ref(&replica_id)).await;
+
+    members[primary].handle.clear_shard_handler();
+    let (status, body) = post_json(
+        &members[other].app,
+        "/orders/_search",
+        json!({ "query": { "match_all": {} }, "size": 0 }),
+    )
+    .await;
+    assert!(
+        status.is_success(),
+        "search after the primary stops: {status} {body}"
+    );
+    assert_eq!(
+        body.pointer("/hits/total/value").and_then(|v| v.as_u64()),
+        Some(DOCS as u64),
+        "failover search total: {body}"
+    );
+    for id in &ids {
+        let (status, body) = get(&members[other].app, &format!("/orders/_doc/{id}")).await;
+        assert!(
+            status.is_success(),
+            "GET {id} after the primary stops: {status} {body}"
+        );
+    }
+
+    for member in &members {
+        let _ = member.shutdown.send(true);
+    }
 }

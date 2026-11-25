@@ -1,0 +1,874 @@
+{
+  "corpus_commits": {
+    "lucene": "894d24e9b0c7340e66a47812985a4b16a3d5d672",
+    "ruff": "a1df255cc1d7fbc1233cf4b2c5d5184fb61d7583"
+  },
+  "agent": {
+    "commit": "e7e6fc95517225229416a01d81cfb8cdde0fe642",
+    "dirty": true
+  },
+  "agent_source_sha256": "e5aa97740c4b2cdf22313791bb6905220e91c13e99d7c2fd715daa537251fa9a",
+  "source_sha256": {
+    "expanded_cases.py": "48bc34639b8f83d29eee569fba3cff9e1e2cb1e8cee43d2ba3febf6e644b895b",
+    "run_search_benchmark.py": "db9f5913d280320a3ddfcbf5ba114d972e288c41d6cf7d55ec0fcdf74126e43e",
+    "run_search_ab.py": "10aa83b54fdede6901f1966e4b9c4ced50e22d36d7290c56d911378e187c4a73"
+  },
+  "seed": 1787,
+  "workers": 6,
+  "repeats": 3,
+  "arms": [
+    "baseline",
+    "free_choice",
+    "guided"
+  ],
+  "system_prompt": "You are a read-only coding assistant inspecting the provided repository. Use the available tools to verify the answer against the source. Respond with only the requested JSON object. Use repository-relative paths with forward slashes.",
+  "guided_prompt_suffix": " For a named declaration, start with xerj_def. For an implementation described by behavior, start with xerj_search. Use grep for exact literals, regex, and exhaustive matches. If an indexed result contains enough evidence, use it to answer. Use a targeted file read or grep when the first result leaves a gap.",
+  "xerj_version": "xerj v1.0.0-rc.105",
+  "rg_version": "ripgrep 15.2.0 (rev e89fff89ac)",
+  "cases": [
+    {
+      "id": "hnsw-default-connection",
+      "kind": "definition",
+      "prompt": "Locate the declaration of the DEFAULT_MAX_CONN constant in HnswGraphBuilder. Return a JSON object with one key \"location\" holding the repository-relative path and line as \"path:line\".",
+      "source": [
+        "lucene/core/src/java/org/apache/lucene/util/hnsw/HnswGraphBuilder.java"
+      ],
+      "corpus": "lucene",
+      "expected": {
+        "location": "lucene/core/src/java/org/apache/lucene/util/hnsw/HnswGraphBuilder.java:52"
+      }
+    },
+    {
+      "id": "bm25-class",
+      "kind": "definition",
+      "prompt": "Locate the declaration of the BM25Similarity class. Return a JSON object with one key \"location\" holding the repository-relative path and line as \"path:line\".",
+      "source": [
+        "lucene/core/src/java/org/apache/lucene/search/similarities/BM25Similarity.java"
+      ],
+      "corpus": "lucene",
+      "expected": {
+        "location": "lucene/core/src/java/org/apache/lucene/search/similarities/BM25Similarity.java:32"
+      }
+    },
+    {
+      "id": "byte-block-pool",
+      "kind": "definition",
+      "prompt": "Locate the declaration of the ByteBlockPool class. Return a JSON object with one key \"location\" holding the repository-relative path and line as \"path:line\".",
+      "source": [
+        "lucene/core/src/java/org/apache/lucene/util/ByteBlockPool.java"
+      ],
+      "corpus": "lucene",
+      "expected": {
+        "location": "lucene/core/src/java/org/apache/lucene/util/ByteBlockPool.java:32"
+      }
+    },
+    {
+      "id": "directory-selection",
+      "kind": "behavior",
+      "prompt": "When a filesystem directory is opened without naming a concrete implementation, which runtime flag determines the choice, and which implementation is used when that flag is true and when it is false? Return a JSON object with keys path, flag (without the class prefix), if_true and if_false (simple class names).",
+      "source": [
+        "lucene/core/src/java/org/apache/lucene/store/FSDirectory.java"
+      ],
+      "expected": {
+        "path": "lucene/core/src/java/org/apache/lucene/store/FSDirectory.java",
+        "flag": "JRE_IS_64BIT",
+        "if_true": "MMapDirectory",
+        "if_false": "NIOFSDirectory"
+      },
+      "corpus": "lucene"
+    },
+    {
+      "id": "maximum-term-length",
+      "kind": "behavior",
+      "prompt": "What is the maximum single indexed term length in bytes? Return a JSON object with keys max_bytes (integer), limit_constant and block_constant (simple names), and adjustment (the positive integer subtracted from the block size).",
+      "source": [
+        "lucene/core/src/java/org/apache/lucene/index/IndexWriter.java",
+        "lucene/core/src/java/org/apache/lucene/util/ByteBlockPool.java"
+      ],
+      "expected": {
+        "max_bytes": 32766,
+        "limit_constant": "MAX_TERM_LENGTH",
+        "block_constant": "BYTE_BLOCK_SIZE",
+        "adjustment": 2
+      },
+      "corpus": "lucene"
+    },
+    {
+      "id": "bm25-no-arg-defaults",
+      "kind": "behavior",
+      "prompt": "For default BM25 scoring created without constructor arguments, what numeric term-frequency saturation and length-normalization values are used, and is overlap discounting enabled? Return JSON keys k1, b, discount_overlaps.",
+      "source": [
+        "lucene/core/src/java/org/apache/lucene/search/similarities/BM25Similarity.java"
+      ],
+      "expected": {
+        "k1": 1.2,
+        "b": 0.75,
+        "discount_overlaps": true
+      },
+      "corpus": "lucene"
+    },
+    {
+      "id": "filesystem-base-class-literal",
+      "kind": "literal",
+      "prompt": "List every line in *.java files under 'lucene/core/src/java' containing the exact case-sensitive string 'extends FSDirectory'. Include matches in comments. Return a JSON object with key \"locations\" containing repository-relative \"path:line\" strings, with each matching line listed once.",
+      "oracle": [
+        "extends FSDirectory",
+        "lucene/core/src/java",
+        "*.java"
+      ],
+      "source": [
+        "lucene/core/src/java"
+      ],
+      "corpus": "lucene",
+      "expected": {
+        "locations": [
+          "lucene/core/src/java/org/apache/lucene/store/MMapDirectory.java:87",
+          "lucene/core/src/java/org/apache/lucene/store/NIOFSDirectory.java:48",
+          "lucene/core/src/java/org/apache/lucene/util/CommandLineUtil.java:119",
+          "lucene/core/src/java/org/apache/lucene/util/CommandLineUtil.java:138",
+          "lucene/core/src/java/org/apache/lucene/util/CommandLineUtil.java:141",
+          "lucene/core/src/java/org/apache/lucene/util/CommandLineUtil.java:54",
+          "lucene/core/src/java/org/apache/lucene/util/CommandLineUtil.java:90"
+        ]
+      }
+    },
+    {
+      "id": "hnsw-qualified-constant-literal",
+      "kind": "literal",
+      "prompt": "List every line in *.java files under 'lucene/core/src/java' containing the exact case-sensitive string 'HnswGraphBuilder.DEFAULT_MAX_CONN'. Include matches in comments. Return a JSON object with key \"locations\" containing repository-relative \"path:line\" strings, with each matching line listed once.",
+      "oracle": [
+        "HnswGraphBuilder.DEFAULT_MAX_CONN",
+        "lucene/core/src/java",
+        "*.java"
+      ],
+      "source": [
+        "lucene/core/src/java"
+      ],
+      "corpus": "lucene",
+      "expected": {
+        "locations": [
+          "lucene/core/src/java/org/apache/lucene/codecs/lucene99/Lucene99HnswVectorsFormat.java:105"
+        ]
+      }
+    },
+    {
+      "id": "ram-buffer-constant-literal",
+      "kind": "literal",
+      "prompt": "List every line in *.java files under 'lucene/core/src/java/org/apache/lucene/index' containing the exact case-sensitive string 'DEFAULT_RAM_BUFFER_SIZE_MB'. Include matches in comments. Return a JSON object with key \"locations\" containing repository-relative \"path:line\" strings, with each matching line listed once.",
+      "oracle": [
+        "DEFAULT_RAM_BUFFER_SIZE_MB",
+        "lucene/core/src/java/org/apache/lucene/index",
+        "*.java"
+      ],
+      "source": [
+        "lucene/core/src/java/org/apache/lucene/index"
+      ],
+      "corpus": "lucene",
+      "expected": {
+        "locations": [
+          "lucene/core/src/java/org/apache/lucene/index/IndexWriter.java:130",
+          "lucene/core/src/java/org/apache/lucene/index/IndexWriterConfig.java:83",
+          "lucene/core/src/java/org/apache/lucene/index/LiveIndexWriterConfig.java:129",
+          "lucene/core/src/java/org/apache/lucene/index/LiveIndexWriterConfig.java:183"
+        ]
+      }
+    },
+    {
+      "id": "linter-settings",
+      "kind": "definition",
+      "prompt": "Locate the declaration of the LinterSettings struct. Return a JSON object with one key \"location\" holding the repository-relative path and line as \"path:line\".",
+      "source": [
+        "crates/ruff_linter/src/settings/mod.rs"
+      ],
+      "corpus": "ruff",
+      "expected": {
+        "location": "crates/ruff_linter/src/settings/mod.rs:213"
+      }
+    },
+    {
+      "id": "formatter-settings",
+      "kind": "definition",
+      "prompt": "Locate the declaration of the FormatterSettings struct. Return a JSON object with one key \"location\" holding the repository-relative path and line as \"path:line\".",
+      "source": [
+        "crates/ruff_workspace/src/settings.rs"
+      ],
+      "corpus": "ruff",
+      "expected": {
+        "location": "crates/ruff_workspace/src/settings.rs:185"
+      }
+    },
+    {
+      "id": "rule-selector",
+      "kind": "definition",
+      "prompt": "Locate the declaration of the RuleSelector enum. Return a JSON object with one key \"location\" holding the repository-relative path and line as \"path:line\".",
+      "source": [
+        "crates/ruff_linter/src/rule_selector.rs"
+      ],
+      "corpus": "ruff",
+      "expected": {
+        "location": "crates/ruff_linter/src/rule_selector.rs:152"
+      }
+    },
+    {
+      "id": "configuration-precedence",
+      "kind": "behavior",
+      "prompt": "If Ruff looks for project configuration in one directory and multiple configuration files exist, in what order does it check their names, and does the last candidate need a tool.ruff section? Return JSON keys path (the file implementing the check), order (array), and requires_tool_ruff.",
+      "source": [
+        "crates/ruff_workspace/src/pyproject.rs"
+      ],
+      "expected": {
+        "path": "crates/ruff_workspace/src/pyproject.rs",
+        "order": [
+          ".ruff.toml",
+          "ruff.toml",
+          "pyproject.toml"
+        ],
+        "requires_tool_ruff": true
+      },
+      "corpus": "ruff"
+    },
+    {
+      "id": "python-source-type-default",
+      "kind": "behavior",
+      "prompt": "When Ruff converts a file extension into a Python source type using the conversion that falls back to a default, what simple enum variant does it produce for pyi, ipynb, pyw and an unknown extension? Return JSON keys pyi, ipynb, pyw, unknown.",
+      "source": [
+        "crates/ruff_python_ast/src/lib.rs"
+      ],
+      "expected": {
+        "pyi": "Stub",
+        "ipynb": "Ipynb",
+        "pyw": "Python",
+        "unknown": "Python"
+      },
+      "corpus": "ruff"
+    },
+    {
+      "id": "fixer-nonconvergence",
+      "kind": "behavior",
+      "prompt": "When the regular Python linter's repeated fix loop still produces edits after the maximum number of iterations, what is the maximum and what function does the branch call to report the problem? Return JSON keys max_iterations (integer) and reporting_function (simple function name).",
+      "source": [
+        "crates/ruff_linter/src/linter.rs"
+      ],
+      "expected": {
+        "max_iterations": 100,
+        "reporting_function": "report_failed_to_converge_error"
+      },
+      "corpus": "ruff"
+    },
+    {
+      "id": "fix-iteration-literal",
+      "kind": "literal",
+      "prompt": "List every line in *.rs files under 'crates/ruff_linter/src' containing the exact case-sensitive string 'MAX_ITERATIONS'. Include matches in comments. Return a JSON object with key \"locations\" containing repository-relative \"path:line\" strings, with each matching line listed once.",
+      "oracle": [
+        "MAX_ITERATIONS",
+        "crates/ruff_linter/src",
+        "*.rs"
+      ],
+      "source": [
+        "crates/ruff_linter/src"
+      ],
+      "corpus": "ruff",
+      "expected": {
+        "locations": [
+          "crates/ruff_linter/src/linter.rs:355",
+          "crates/ruff_linter/src/linter.rs:615",
+          "crates/ruff_linter/src/linter.rs:663",
+          "crates/ruff_linter/src/linter.rs:681",
+          "crates/ruff_linter/src/test.rs:231",
+          "crates/ruff_linter/src/test.rs:235",
+          "crates/ruff_linter/src/test.rs:239",
+          "crates/ruff_linter/src/toml.rs:12",
+          "crates/ruff_linter/src/toml.rs:73"
+        ]
+      }
+    },
+    {
+      "id": "settings-call-literal",
+      "kind": "literal",
+      "prompt": "List every line in *.rs files under 'crates/ruff_workspace/src' containing the exact case-sensitive string 'find_settings_toml('. Include matches in comments. Return a JSON object with key \"locations\" containing repository-relative \"path:line\" strings, with each matching line listed once.",
+      "oracle": [
+        "find_settings_toml(",
+        "crates/ruff_workspace/src",
+        "*.rs"
+      ],
+      "source": [
+        "crates/ruff_workspace/src"
+      ],
+      "corpus": "ruff",
+      "expected": {
+        "locations": [
+          "crates/ruff_workspace/src/pyproject.rs:547",
+          "crates/ruff_workspace/src/resolver.rs:1029"
+        ]
+      }
+    },
+    {
+      "id": "required-version-literal",
+      "kind": "literal",
+      "prompt": "List every line in *.rs files under 'crates/ruff_workspace/src' containing the exact case-sensitive string 'required-version'. Include matches in comments. Return a JSON object with key \"locations\" containing repository-relative \"path:line\" strings, with each matching line listed once.",
+      "oracle": [
+        "required-version",
+        "crates/ruff_workspace/src",
+        "*.rs"
+      ],
+      "source": [
+        "crates/ruff_workspace/src"
+      ],
+      "corpus": "ruff",
+      "expected": {
+        "locations": [
+          "crates/ruff_workspace/src/options.rs:179",
+          "crates/ruff_workspace/src/pyproject.rs:131",
+          "crates/ruff_workspace/src/pyproject.rs:145",
+          "crates/ruff_workspace/src/pyproject.rs:48"
+        ]
+      }
+    }
+  ],
+  "jobs": [
+    {
+      "case": "maximum-term-length",
+      "corpus": "lucene",
+      "repeat": 1,
+      "order": [
+        "guided",
+        "baseline",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "fixer-nonconvergence",
+      "corpus": "ruff",
+      "repeat": 3,
+      "order": [
+        "guided",
+        "baseline",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "bm25-class",
+      "corpus": "lucene",
+      "repeat": 2,
+      "order": [
+        "guided",
+        "baseline",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "filesystem-base-class-literal",
+      "corpus": "lucene",
+      "repeat": 1,
+      "order": [
+        "baseline",
+        "guided",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "hnsw-default-connection",
+      "corpus": "lucene",
+      "repeat": 1,
+      "order": [
+        "guided",
+        "free_choice",
+        "baseline"
+      ]
+    },
+    {
+      "case": "fixer-nonconvergence",
+      "corpus": "ruff",
+      "repeat": 2,
+      "order": [
+        "free_choice",
+        "guided",
+        "baseline"
+      ]
+    },
+    {
+      "case": "fix-iteration-literal",
+      "corpus": "ruff",
+      "repeat": 2,
+      "order": [
+        "guided",
+        "baseline",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "hnsw-qualified-constant-literal",
+      "corpus": "lucene",
+      "repeat": 3,
+      "order": [
+        "free_choice",
+        "guided",
+        "baseline"
+      ]
+    },
+    {
+      "case": "required-version-literal",
+      "corpus": "ruff",
+      "repeat": 2,
+      "order": [
+        "guided",
+        "baseline",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "required-version-literal",
+      "corpus": "ruff",
+      "repeat": 3,
+      "order": [
+        "baseline",
+        "free_choice",
+        "guided"
+      ]
+    },
+    {
+      "case": "rule-selector",
+      "corpus": "ruff",
+      "repeat": 2,
+      "order": [
+        "guided",
+        "baseline",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "bm25-no-arg-defaults",
+      "corpus": "lucene",
+      "repeat": 2,
+      "order": [
+        "free_choice",
+        "guided",
+        "baseline"
+      ]
+    },
+    {
+      "case": "configuration-precedence",
+      "corpus": "ruff",
+      "repeat": 3,
+      "order": [
+        "guided",
+        "free_choice",
+        "baseline"
+      ]
+    },
+    {
+      "case": "python-source-type-default",
+      "corpus": "ruff",
+      "repeat": 2,
+      "order": [
+        "baseline",
+        "guided",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "hnsw-qualified-constant-literal",
+      "corpus": "lucene",
+      "repeat": 1,
+      "order": [
+        "guided",
+        "baseline",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "ram-buffer-constant-literal",
+      "corpus": "lucene",
+      "repeat": 3,
+      "order": [
+        "baseline",
+        "guided",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "directory-selection",
+      "corpus": "lucene",
+      "repeat": 1,
+      "order": [
+        "baseline",
+        "free_choice",
+        "guided"
+      ]
+    },
+    {
+      "case": "python-source-type-default",
+      "corpus": "ruff",
+      "repeat": 3,
+      "order": [
+        "guided",
+        "free_choice",
+        "baseline"
+      ]
+    },
+    {
+      "case": "bm25-no-arg-defaults",
+      "corpus": "lucene",
+      "repeat": 3,
+      "order": [
+        "guided",
+        "baseline",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "formatter-settings",
+      "corpus": "ruff",
+      "repeat": 1,
+      "order": [
+        "free_choice",
+        "guided",
+        "baseline"
+      ]
+    },
+    {
+      "case": "ram-buffer-constant-literal",
+      "corpus": "lucene",
+      "repeat": 1,
+      "order": [
+        "guided",
+        "free_choice",
+        "baseline"
+      ]
+    },
+    {
+      "case": "hnsw-default-connection",
+      "corpus": "lucene",
+      "repeat": 2,
+      "order": [
+        "free_choice",
+        "baseline",
+        "guided"
+      ]
+    },
+    {
+      "case": "ram-buffer-constant-literal",
+      "corpus": "lucene",
+      "repeat": 2,
+      "order": [
+        "free_choice",
+        "baseline",
+        "guided"
+      ]
+    },
+    {
+      "case": "byte-block-pool",
+      "corpus": "lucene",
+      "repeat": 2,
+      "order": [
+        "guided",
+        "free_choice",
+        "baseline"
+      ]
+    },
+    {
+      "case": "linter-settings",
+      "corpus": "ruff",
+      "repeat": 3,
+      "order": [
+        "free_choice",
+        "baseline",
+        "guided"
+      ]
+    },
+    {
+      "case": "maximum-term-length",
+      "corpus": "lucene",
+      "repeat": 3,
+      "order": [
+        "free_choice",
+        "guided",
+        "baseline"
+      ]
+    },
+    {
+      "case": "required-version-literal",
+      "corpus": "ruff",
+      "repeat": 1,
+      "order": [
+        "free_choice",
+        "guided",
+        "baseline"
+      ]
+    },
+    {
+      "case": "byte-block-pool",
+      "corpus": "lucene",
+      "repeat": 3,
+      "order": [
+        "free_choice",
+        "baseline",
+        "guided"
+      ]
+    },
+    {
+      "case": "formatter-settings",
+      "corpus": "ruff",
+      "repeat": 2,
+      "order": [
+        "guided",
+        "baseline",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "maximum-term-length",
+      "corpus": "lucene",
+      "repeat": 2,
+      "order": [
+        "baseline",
+        "free_choice",
+        "guided"
+      ]
+    },
+    {
+      "case": "fix-iteration-literal",
+      "corpus": "ruff",
+      "repeat": 3,
+      "order": [
+        "baseline",
+        "free_choice",
+        "guided"
+      ]
+    },
+    {
+      "case": "hnsw-default-connection",
+      "corpus": "lucene",
+      "repeat": 3,
+      "order": [
+        "baseline",
+        "guided",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "directory-selection",
+      "corpus": "lucene",
+      "repeat": 2,
+      "order": [
+        "free_choice",
+        "guided",
+        "baseline"
+      ]
+    },
+    {
+      "case": "linter-settings",
+      "corpus": "ruff",
+      "repeat": 2,
+      "order": [
+        "guided",
+        "free_choice",
+        "baseline"
+      ]
+    },
+    {
+      "case": "settings-call-literal",
+      "corpus": "ruff",
+      "repeat": 3,
+      "order": [
+        "baseline",
+        "guided",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "rule-selector",
+      "corpus": "ruff",
+      "repeat": 3,
+      "order": [
+        "baseline",
+        "free_choice",
+        "guided"
+      ]
+    },
+    {
+      "case": "linter-settings",
+      "corpus": "ruff",
+      "repeat": 1,
+      "order": [
+        "baseline",
+        "guided",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "rule-selector",
+      "corpus": "ruff",
+      "repeat": 1,
+      "order": [
+        "free_choice",
+        "guided",
+        "baseline"
+      ]
+    },
+    {
+      "case": "fixer-nonconvergence",
+      "corpus": "ruff",
+      "repeat": 1,
+      "order": [
+        "baseline",
+        "free_choice",
+        "guided"
+      ]
+    },
+    {
+      "case": "configuration-precedence",
+      "corpus": "ruff",
+      "repeat": 2,
+      "order": [
+        "baseline",
+        "guided",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "configuration-precedence",
+      "corpus": "ruff",
+      "repeat": 1,
+      "order": [
+        "free_choice",
+        "baseline",
+        "guided"
+      ]
+    },
+    {
+      "case": "settings-call-literal",
+      "corpus": "ruff",
+      "repeat": 1,
+      "order": [
+        "guided",
+        "free_choice",
+        "baseline"
+      ]
+    },
+    {
+      "case": "directory-selection",
+      "corpus": "lucene",
+      "repeat": 3,
+      "order": [
+        "guided",
+        "baseline",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "formatter-settings",
+      "corpus": "ruff",
+      "repeat": 3,
+      "order": [
+        "baseline",
+        "free_choice",
+        "guided"
+      ]
+    },
+    {
+      "case": "filesystem-base-class-literal",
+      "corpus": "lucene",
+      "repeat": 3,
+      "order": [
+        "free_choice",
+        "baseline",
+        "guided"
+      ]
+    },
+    {
+      "case": "bm25-no-arg-defaults",
+      "corpus": "lucene",
+      "repeat": 1,
+      "order": [
+        "baseline",
+        "free_choice",
+        "guided"
+      ]
+    },
+    {
+      "case": "bm25-class",
+      "corpus": "lucene",
+      "repeat": 3,
+      "order": [
+        "baseline",
+        "free_choice",
+        "guided"
+      ]
+    },
+    {
+      "case": "settings-call-literal",
+      "corpus": "ruff",
+      "repeat": 2,
+      "order": [
+        "free_choice",
+        "baseline",
+        "guided"
+      ]
+    },
+    {
+      "case": "hnsw-qualified-constant-literal",
+      "corpus": "lucene",
+      "repeat": 2,
+      "order": [
+        "baseline",
+        "free_choice",
+        "guided"
+      ]
+    },
+    {
+      "case": "python-source-type-default",
+      "corpus": "ruff",
+      "repeat": 1,
+      "order": [
+        "free_choice",
+        "baseline",
+        "guided"
+      ]
+    },
+    {
+      "case": "filesystem-base-class-literal",
+      "corpus": "lucene",
+      "repeat": 2,
+      "order": [
+        "guided",
+        "free_choice",
+        "baseline"
+      ]
+    },
+    {
+      "case": "byte-block-pool",
+      "corpus": "lucene",
+      "repeat": 1,
+      "order": [
+        "baseline",
+        "guided",
+        "free_choice"
+      ]
+    },
+    {
+      "case": "fix-iteration-literal",
+      "corpus": "ruff",
+      "repeat": 1,
+      "order": [
+        "free_choice",
+        "guided",
+        "baseline"
+      ]
+    },
+    {
+      "case": "bm25-class",
+      "corpus": "lucene",
+      "repeat": 1,
+      "order": [
+        "free_choice",
+        "guided",
+        "baseline"
+      ]
+    }
+  ],
+  "model": "deepseek/deepseek-flash",
+  "normal_model_options": {
+    "max_output_tokens": 131072
+  }
+}

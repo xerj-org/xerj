@@ -193,23 +193,51 @@ thread_local! {
     /// installed for and is invisible to a concurrent aggregation elsewhere.
     static FILTER_SCHEMA: std::cell::RefCell<Option<Schema>> =
         const { std::cell::RefCell::new(None) };
+    /// The keyword normalizers of the schema [`run_aggs_with_schema`]
+    /// installed (#3513), `None` when it declares none. A normalized keyword
+    /// field's bucket keys and metric inputs are its normalized values, as its
+    /// doc-values column (the fast-path source) holds them.
+    static AGG_NORMALIZERS: std::cell::RefCell<
+        Option<std::sync::Arc<xerj_common::normalizer::KeywordNormalizers>>,
+    > = const { std::cell::RefCell::new(None) };
 }
 
 /// Restores the previous value on drop, so nested calls compose.
-struct FilterSchemaScope(Option<Schema>);
+struct FilterSchemaScope(
+    Option<Schema>,
+    Option<std::sync::Arc<xerj_common::normalizer::KeywordNormalizers>>,
+);
 
 impl FilterSchemaScope {
     fn install(schema: Option<&Schema>) -> Self {
         let previous =
             FILTER_SCHEMA.with(|cell| std::mem::replace(&mut *cell.borrow_mut(), schema.cloned()));
-        Self(previous)
+        let normalizers = schema
+            .map(xerj_common::normalizer::KeywordNormalizers::from_schema)
+            .filter(|n| !n.is_empty())
+            .map(std::sync::Arc::new);
+        let previous_normalizers =
+            AGG_NORMALIZERS.with(|cell| std::mem::replace(&mut *cell.borrow_mut(), normalizers));
+        Self(previous, previous_normalizers)
     }
 }
 
 impl Drop for FilterSchemaScope {
     fn drop(&mut self) {
         FILTER_SCHEMA.with(|cell| *cell.borrow_mut() = self.0.take());
+        AGG_NORMALIZERS.with(|cell| *cell.borrow_mut() = self.1.take());
     }
+}
+
+/// Normalize `values` of `field` when it is a normalized keyword field of the
+/// installed schema (#3513).
+fn normalize_agg_values(field: &str, values: Vec<String>) -> Vec<String> {
+    AGG_NORMALIZERS.with(
+        |cell| match cell.borrow().as_ref().and_then(|n| n.get(field)) {
+            Some(n) => values.iter().map(|v| n.normalize(v)).collect(),
+            None => values,
+        },
+    )
 }
 
 /// [`run_aggs_with_all`] with the index's mapping available to `filter` and
@@ -257,10 +285,15 @@ fn clause_targets_only_text(node: &QueryNode, schema: &Schema) -> bool {
     match node {
         QueryNode::Match { field, .. }
         | QueryNode::MatchPhrase { field, .. }
-        | QueryNode::MatchPhrasePrefix { field, .. }
-        | QueryNode::Term { field, .. }
-        | QueryNode::Terms { field, .. } => crate::index::declared_field(schema, field)
-            .is_some_and(|f| matches!(f.field_type, FieldType::Text)),
+        | QueryNode::MatchPhrasePrefix { field, .. } => {
+            crate::index::declared_field(schema, field)
+                .is_some_and(|f| matches!(f.field_type, FieldType::Text))
+                || crate::index::is_unmapped_leaf_subfield(schema, field)
+        }
+        QueryNode::Term { field, .. } | QueryNode::Terms { field, .. } => {
+            crate::index::declared_field(schema, field)
+                .is_some_and(|f| matches!(f.field_type, FieldType::Text))
+        }
         QueryNode::Bool {
             must,
             should,
@@ -283,16 +316,15 @@ fn clause_targets_only_text(node: &QueryNode, schema: &Schema) -> bool {
 
 // ── Aggregation bucket cap ────────────────────────────────────────────────────
 //
-// Hard cap on how many distinct buckets a single aggregation may materialise.
-// Mirrors Elasticsearch's `search.max_buckets` cluster setting (default 65536).
-// Without this guard, a `terms` agg over a high-cardinality field (e.g. 50M
-// unique user IDs) allocates one HashMap entry per unique value before any
-// `size`/`shard_size` cap can drop them — easy OOM. Per-bucket-allocator
-// loops in this module read `max_buckets()` ONCE, hoisted above the loop,
-// and compare against it on each insert; when exceeded the accumulator stops
-// adding new keys (existing keys still increment). The read used to sit
-// inside the loop; hoisting it is what lets the cap be a per-call value
-// without paying for the lookup per document.
+// Hard cap on how many buckets a single aggregation may return. Mirrors
+// Elasticsearch's `search.max_buckets` cluster setting (default 65536), which
+// `PUT _cluster/settings` changes at runtime through `set_max_buckets`.
+// Histogram-family loops materialise every bucket they return, so they stop
+// with too_many_buckets as soon as they pass it. `terms` counts every distinct
+// key and checks only the buckets left after its `size` cut (#3362), as ES's
+// final reduce does. Loops read `max_buckets()` ONCE, hoisted above the loop:
+// that is what lets the cap be a per-call value without paying for the lookup
+// per document.
 //
 // The node-wide default is set once at Engine construction via
 // `set_max_buckets`; it defaults to the same 65 536 ES uses if never set.
@@ -318,9 +350,10 @@ thread_local! {
         const { std::cell::Cell::new(None) };
 }
 
-/// Set the node-wide default per-aggregation bucket cap. Called once at
-/// Engine startup with `config.limits.max_buckets`. Subsequent calls
-/// overwrite the previous value.
+/// Set the node-wide default per-aggregation bucket cap. Called at Engine
+/// startup with `config.limits.max_buckets`, and by `PUT _cluster/settings`
+/// when `search.max_buckets` is set or cleared. Each call overwrites the
+/// previous value.
 ///
 /// This is deliberately *not* the way to express a limit for a single
 /// aggregation — use [`run_aggs_with_limits`] for that.
@@ -356,6 +389,19 @@ pub fn max_buckets() -> usize {
 #[inline]
 pub(crate) fn max_buckets_i64() -> i64 {
     max_buckets().min(i64::MAX as usize) as i64
+}
+
+/// The embedded `too_many_buckets` failure an aggregation returns in its slot
+/// once it would create more than `cap` buckets. The `_search` handler turns
+/// it into ES's HTTP 400 `too_many_buckets_exception`.
+fn too_many_buckets_error(cap: usize) -> Value {
+    json!({
+        "error": format!(
+            "Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",
+            cap
+        ),
+        "__error_status__": 400u32,
+    })
 }
 
 /// Diagnostic counter: aggregation requests answered by the columnar fast
@@ -3266,7 +3312,7 @@ pub(crate) fn extract_field_values(doc: &Value, field: &str) -> Vec<String> {
         // paths resolve without a dedicated nested walker.
         out = extract_array_path_values(doc, field);
     }
-    out
+    normalize_agg_values(field, out)
 }
 
 /// Walk a dotted path against arrays transparently: when a segment
@@ -3650,6 +3696,13 @@ fn run_terms(
         Value::Bool(b) => Some(b.to_string()),
         _ => None,
     });
+    // #3362: every distinct key is counted. `search.max_buckets` limits the
+    // buckets this agg RETURNS (checked after the size cut below), as ES's
+    // final reduce does: a top-10 over 100k distinct user IDs is a 200 with
+    // exact counts. Capping the map instead either dropped keys silently
+    // (wrong top-N and `sum_other_doc_count`) or, after #3383, refused every
+    // top-N over a field with more than 65,536 distinct values. The map is
+    // bounded by `docs`, which this evaluator already holds in memory.
     let mut counts: HashMap<String, u64> = HashMap::new();
     let bucket_cap = max_buckets();
     for doc in docs {
@@ -3657,19 +3710,12 @@ fn run_terms(
         let vals = terms_agg_bucket_keys(&field_or_script, doc);
         if vals.is_empty() {
             if let Some(ph) = &missing_placeholder {
-                // Bucket cap: skip new keys past the limit, but always
-                // accumulate into existing keys so the cap doesn't bias
-                // counts of buckets that were already seen.
-                if counts.contains_key(ph) || counts.len() < bucket_cap {
-                    *counts.entry(ph.clone()).or_insert(0) += weight;
-                }
+                *counts.entry(ph.clone()).or_insert(0) += weight;
             }
             continue;
         }
         for term in vals {
-            if counts.contains_key(&term) || counts.len() < bucket_cap {
-                *counts.entry(term).or_insert(0) += weight;
-            }
+            *counts.entry(term).or_insert(0) += weight;
         }
     }
 
@@ -3684,9 +3730,7 @@ fn run_terms(
     if min_doc_count_preview == 0 {
         for doc in all_docs {
             for term in terms_agg_bucket_keys(&field_or_script, doc) {
-                if counts.contains_key(&term) || counts.len() < bucket_cap {
-                    counts.entry(term).or_insert(0);
-                }
+                counts.entry(term).or_insert(0);
             }
         }
     }
@@ -3884,34 +3928,24 @@ fn run_terms(
         .map(|v| v as usize);
     let (sorted, sum_other_doc_count) =
         apply_terms_size_pipeline(sorted, |r| r.1, cap, shard_size_param, min_doc_count);
+    // `search.max_buckets` counts the buckets that survive the size cut,
+    // never the keys seen: `size` (or `size: 0`) keeping more than the cap
+    // is a 400 too_many_buckets, and nothing is dropped silently.
+    if sorted.len() > bucket_cap {
+        return too_many_buckets_error(bucket_cap);
+    }
 
     let buckets: Vec<Value> = sorted
         .into_iter()
         .map(|(key, count, sub_res)| {
-            let is_missing_bucket = missing_placeholder
-                .as_deref()
-                .map(|ph| ph == key.as_str())
-                .unwrap_or(false);
-            let bucket_docs: Vec<Value> = docs
-                .iter()
-                .filter(|doc| {
-                    let vals = terms_agg_bucket_keys(&field_or_script, doc);
-                    if is_missing_bucket {
-                        vals.is_empty()
-                    } else {
-                        vals.contains(&key)
-                    }
-                })
-                .cloned()
-                .collect();
-            let _ = &bucket_docs; // silence unused when neither sub nor `count` needs it
             let (key, count, precomputed_sub) = (key, count, sub_res);
 
             let (typed_key, key_as_string) = typed_term_key(&key, source_is_string);
 
             let mut bucket = json!({
                 "key": typed_key,
-                "doc_count": count
+                "doc_count": count,
+                "__xy_terms_key__": key
             });
             if let Some(kas) = key_as_string {
                 bucket["key_as_string"] = json!(kas);
@@ -3919,8 +3953,14 @@ fn run_terms(
 
             // Reuse the precomputed sub-agg result when we had to build it
             // for ordering; otherwise compute it now (no-op if no sub_aggs).
+            // The bucket's docs are gathered only when a sub-agg reads them:
+            // a full scan per returned bucket made a leaf `size: N` cost
+            // O(N x docs) for nothing.
             let sub_result = precomputed_sub.or_else(|| {
-                sub_aggs.map(|sa| run_aggs_in_bucket(sa, &bucket_docs, all_docs, count))
+                sub_aggs.map(|sa| {
+                    let bucket_docs = compute_bucket_docs(&key);
+                    run_aggs_in_bucket(sa, &bucket_docs, all_docs, count)
+                })
             });
             if let Some(Value::Object(sub_obj)) = sub_result {
                 if let Some(bucket_obj) = bucket.as_object_mut() {
@@ -6662,7 +6702,7 @@ fn run_date_histogram(
 fn run_value_count<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCache<'d>) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
-        None => return json!({"value": 0}),
+        None => return json!({"value": 0, "__xy_agg__": "value_count"}),
     };
 
     // Count the *number of values* (not docs): a multi-valued field with
@@ -6679,7 +6719,7 @@ fn run_value_count<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCach
             count += v.len();
         }
     }
-    json!({ "value": count })
+    json!({ "value": count, "__xy_agg__": "value_count" })
 }
 
 fn get_missing_value(params: &Value) -> Option<f64> {
@@ -6718,10 +6758,12 @@ fn run_avg<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
 /// `sum(weights) == 0` and an empty bucket both yield `value: null`, as ES
 /// does.
 ///
-/// ES rejects a multi-valued *weight* field with a 400 ("Multi weight field
-/// not allowed"). The aggregation evaluator has no error channel, so such a
-/// document is skipped here; the case stays in
-/// `tests/es-compat-yaml/catch-lenient.txt` until that channel exists.
+/// A document with a value and more than one weight fails the aggregation,
+/// as ES's `WeightedAvgAggregator#collect` does: there is no single weight to
+/// pair the value with. The failure is embedded in this slot of the result
+/// (`{"error", "__error_status__"}`), which the API turns into the 400 ES
+/// answers. ES only reads the weights of a document that has a value, so a
+/// multi-weight document without one (and no `value.missing`) is skipped.
 /// The API layer still rejects a `weighted_avg` that has no `field`, a
 /// non-numeric `missing`, or a `script` (see `find_invalid_agg_params`).
 fn run_weighted_avg<'d>(params: &Value, cache: &mut FieldCache<'d>) -> Value {
@@ -6745,10 +6787,15 @@ fn run_weighted_avg<'d>(params: &Value, cache: &mut FieldCache<'d>) -> Value {
     let mut weighted_sum = 0.0f64;
     let mut weight_sum = 0.0f64;
     for (values, weights) in values_per_doc.iter().zip(weights_per_doc) {
-        // A multi-valued weight is an error in ES (see the doc comment); skip
-        // the document rather than pairing every value with every weight.
         if weights.len() > 1 {
-            continue;
+            if values.is_empty() && value_missing.is_none() {
+                continue;
+            }
+            return json!({
+                "error": "Encountered more than one weight for a single document. Use a \
+                          script to combine multiple weights-per-doc into a single value.",
+                "__error_status__": 400u32,
+            });
         }
         let value_placeholder: [f64; 1];
         let values: &[f64] = if values.is_empty() {
@@ -7308,6 +7355,14 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "match" | "match_phrase" => {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, expected) in field_map {
+                        let unmapped_subfield = FILTER_SCHEMA.with(|cell| {
+                            cell.borrow()
+                                .as_ref()
+                                .is_some_and(|s| crate::index::is_unmapped_leaf_subfield(s, field))
+                        });
+                        if unmapped_subfield {
+                            return false;
+                        }
                         let actual_values = extract_field_values(doc, field);
                         let expected_str = match expected {
                             Value::Object(o) => {
@@ -9013,9 +9068,29 @@ fn run_composite(
                 }
             }
 
+            // Keep a canonical, typed identity for cross-index reduction.
+            // Formatted date keys may be non-monotone or even lossy; the HTTP
+            // layer removes this internal field before returning the result.
+            let raw_key: Vec<Value> = source_defs
+                .iter()
+                .enumerate()
+                .map(|(i, (_, src_type, _, _))| {
+                    let val = &key[i];
+                    if val == "__null__" {
+                        Value::Null
+                    } else if src_type == "date_histogram" || src_type == "histogram" {
+                        composite_typed_key_value(CompositeKeyKind::Heuristic, val)
+                    } else if src_type == "terms" {
+                        composite_typed_key_value(kinds[i], val)
+                    } else {
+                        Value::String(val.clone())
+                    }
+                })
+                .collect();
             let mut bucket = json!({
                 "key": Value::Object(key_obj),
-                "doc_count": doc_count
+                "doc_count": doc_count,
+                "__xy_composite_key__": raw_key
             });
 
             if let Some(sub) = sub_aggs {
@@ -11153,10 +11228,9 @@ fn run_geotile_grid(
             let n = 2i64.pow(precision);
             let max = n - 1;
             let key = format!("{}/{}/{}", precision, x.clamp(0, max), y.clamp(0, max));
-            // Bucket cap: skip new keys past the limit; existing keys still grow.
-            if bucket_map.contains_key(&key) || bucket_map.len() < bucket_cap {
-                bucket_map.entry(key).or_default().push(i);
-            }
+            // Every tile counts toward the top-N: the bucket cap applies to the
+            // buckets returned after the `size` cut, below.
+            bucket_map.entry(key).or_default().push(i);
         }
     }
 
@@ -11172,6 +11246,13 @@ fn run_geotile_grid(
     if n > 0 && n < sorted.len() {
         sorted.select_nth_unstable_by(n, cmp);
         sorted.truncate(n);
+    }
+    // `search.max_buckets` counts the buckets returned after the `size` cut,
+    // as ES's final geogrid reduce does. A `shard_size` below `size` is raised
+    // to `size`, so one index returns min(size, cells). Past the cap this is a
+    // 400 too_many_buckets, never silent truncation.
+    if sorted.len() > bucket_cap {
+        return too_many_buckets_error(bucket_cap);
     }
     sorted.sort_by(cmp);
 
@@ -11284,9 +11365,7 @@ fn run_geohash_grid(
                 continue;
             }
             let hash = encode_geohash(lat, lon, precision);
-            if bucket_map.contains_key(&hash) || bucket_map.len() < bucket_cap {
-                bucket_map.entry(hash).or_default().push(i);
-            }
+            bucket_map.entry(hash).or_default().push(i);
         }
     }
 
@@ -11303,6 +11382,13 @@ fn run_geohash_grid(
     if n > 0 && n < sorted.len() {
         sorted.select_nth_unstable_by(n, cmp);
         sorted.truncate(n);
+    }
+    // `search.max_buckets` counts the buckets returned after the `size` cut,
+    // as ES's final geogrid reduce does. A `shard_size` below `size` is raised
+    // to `size`, so one index returns min(size, cells). Past the cap this is a
+    // 400 too_many_buckets, never silent truncation.
+    if sorted.len() > bucket_cap {
+        return too_many_buckets_error(bucket_cap);
     }
     sorted.sort_by(cmp);
 
@@ -12105,11 +12191,12 @@ pub fn run_agg_fast_filtered(
 /// `extended_stats` — same as `stats` plus `std_deviation`, `variance`,
 /// `std_deviation_bounds` (upper/lower), and `sum_of_squares`.
 fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCache<'d>) -> Value {
+    let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => {
             return json!({
-                "count": 0, "min": Value::Null, "max": Value::Null,
+                "__xy_sigma__": sigma, "count": 0, "min": Value::Null, "max": Value::Null,
                 "avg": Value::Null, "sum": 0.0, "sum_of_squares": 0.0,
                 "variance": Value::Null, "std_deviation": Value::Null,
                 "std_deviation_bounds": { "upper": Value::Null, "lower": Value::Null }
@@ -12128,7 +12215,7 @@ fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldC
         // order moment as null when there are no values to compute it
         // from. Note: sum_of_squares is null, not 0, per ES.
         return json!({
-            "count": 0, "min": Value::Null, "max": Value::Null,
+            "__xy_sigma__": sigma, "count": 0, "min": Value::Null, "max": Value::Null,
             "avg": Value::Null, "sum": 0.0, "sum_of_squares": Value::Null,
             "variance": Value::Null, "variance_population": Value::Null,
             "variance_sampling": Value::Null,
@@ -12161,9 +12248,8 @@ fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldC
     };
     let std_deviation = variance_pop.max(0.0).sqrt();
     let std_deviation_samp = variance_samp.max(0.0).sqrt();
-    let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
-
     json!({
+        "__xy_sigma__": sigma,
         "count": count,
         "min": min,
         "max": max,
@@ -12585,6 +12671,11 @@ fn run_date_range(
     // RFC3339/ISO-ish strings, so formats like `dd-MM-yyyy` need
     // format-aware parsing to yield a valid ms timestamp.
     let parse_with_fmt = |val: &Value| -> Option<i64> {
+        // `now-30d/d` is date math, which parse_date_ms doesn't read.
+        if let Some(math) = val.as_str().filter(|s| s.trim_start().starts_with("now")) {
+            let resolved = xerj_query::dates::resolve_date_bound_str(math, false, None).ok()??;
+            return parse_date_ms(&Value::String(resolved));
+        }
         // Epoch formats interpret raw numbers as seconds / milliseconds.
         // parse_date_ms would otherwise return the number as-is (always
         // treating it as millis), which for `format: epoch_second` is
@@ -14546,6 +14637,34 @@ mod tests {
         assert_eq!(empty["w"]["value"], Value::Null, "{empty}");
     }
 
+    /// FAIL-BEFORE: the document carrying several weights was skipped and
+    /// the aggregation answered 10 (from the one single-weight document).
+    #[test]
+    fn weighted_avg_refuses_a_multi_valued_weight() {
+        let wa = |value: Value, docs: &[Value]| {
+            run_aggs(
+                &json!({"w": {"weighted_avg": {"value": value, "weight": {"field": "w"}}}}),
+                docs,
+            )
+        };
+        let reason = "Encountered more than one weight for a single document. Use a script \
+                      to combine multiple weights-per-doc into a single value.";
+
+        let docs = [json!({"n": 1, "w": [1, 2]}), json!({"n": 10, "w": 3})];
+        let r = wa(json!({"field": "n"}), &docs);
+        assert_eq!(r["w"]["error"], reason, "{r}");
+        assert_eq!(r["w"]["__error_status__"], json!(400), "{r}");
+
+        // ES only reads the weights of a document that has a value, so one
+        // without a value is skipped as before ...
+        let docs = [json!({"w": [1, 2]}), json!({"n": 10, "w": 3})];
+        let r = wa(json!({"field": "n"}), &docs);
+        assert_eq!(r["w"]["value"].as_f64(), Some(10.0), "{r}");
+        // ... unless `value.missing` gives it one.
+        let r = wa(json!({"field": "n", "missing": 5}), &docs);
+        assert_eq!(r["w"]["error"], reason, "{r}");
+    }
+
     #[test]
     fn missing_agg_counts_empty_and_null_arrays() {
         // ES `missing` agg counts docs with NO value: absent, null, [] and
@@ -15574,7 +15693,45 @@ mod tests {
         assert_eq!(result["t"]["sum_other_doc_count"], 6);
     }
 
+    #[test]
+    fn multi_index_metric_primitives_survive_slow_execution() {
+        let docs = [json!({"n": 1.0}), json!({"n": 2.0})];
+        for docs in [&docs[..], &[][..]] {
+            let result = run_aggs(
+                &json!({
+                    "e": {"extended_stats": {"field": "n", "sigma": 3.0}},
+                    "v": {"value_count": {"field": "n"}},
+                    "missing": {"value_count": {"field": "absent"}}
+                }),
+                docs,
+            );
+            assert_eq!(result["e"]["__xy_sigma__"], 3.0);
+            assert_eq!(result["v"]["__xy_agg__"], "value_count");
+            assert_eq!(result["v"]["value"], docs.len());
+            assert_eq!(result["missing"]["__xy_agg__"], "value_count");
+            assert_eq!(result["missing"]["value"], 0);
+        }
+    }
+
     // ── RC4-W2 item 7: composite key typing from the field mapping ──────
+
+    #[test]
+    fn composite_canonical_keys_preserve_formatted_date_identity() {
+        let docs = vec![
+            json!({"ts":"2024-01-02T00:00:00Z"}),
+            json!({"ts":"2023-12-31T00:00:00Z"}),
+        ];
+        let result = run_aggs(
+            &json!({"c":{"composite":{"sources":[{"d":{"date_histogram":{"field":"ts","calendar_interval":"1d","format":"dd-MM-yyyy"}}}]}}}),
+            &docs,
+        );
+        let buckets = result["c"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 2);
+        assert_eq!(buckets[0]["key"]["d"], "31-12-2023");
+        assert_eq!(buckets[0]["__xy_composite_key__"][0], 1703980800000i64);
+        assert_eq!(buckets[1]["key"]["d"], "02-01-2024");
+        assert_eq!(buckets[1]["__xy_composite_key__"][0], 1704153600000i64);
+    }
 
     #[test]
     fn composite_missing_order_is_absolute_and_pages_match_full_result() {
@@ -15914,6 +16071,215 @@ mod tests {
             Some(5),
             "a span exactly at the cap must still be served, got {ok}"
         );
+    }
+
+    /// geotile_grid and geohash_grid apply `max_buckets` to the buckets they
+    /// return after the `size` cut, like terms (#3389). Before, the map stopped
+    /// taking new cells at the cap and dropped the rest without a word: a
+    /// default-size request over more cells than the cap came back as a 200
+    /// holding the first `cap` cells in doc order.
+    #[test]
+    fn geogrid_bucket_cap_counts_returned_buckets_not_cells() {
+        let mut docs: Vec<Value> = (0..100)
+            .map(|_| json!({ "g": { "lat": 10.0, "lon": 10.0 } }))
+            .collect();
+        docs.extend((0..20).map(|i| {
+            json!({ "g": { "lat": -80.0 + f64::from(i) * 8.0, "lon": -170.0 + f64::from(i) * 17.0 } })
+        }));
+        docs.rotate_left(50);
+        for (kind, precision) in [("geotile_grid", 8), ("geohash_grid", 5)] {
+            let agg = |size: Option<u64>| {
+                let mut p = json!({ "field": "g", "precision": precision });
+                if let Some(size) = size {
+                    p["size"] = json!(size);
+                }
+                json!({ "t": { kind: p } })
+            };
+            let run = |size: Option<u64>, cap: usize| {
+                run_aggs_with_limits(&agg(size), &docs, &docs, AggLimits { max_buckets: cap })
+            };
+            let assert_cap_error = |r: &Value, cap: usize, label: &str| {
+                assert!(r["t"].get("buckets").is_none(), "{kind} {label}: {r}");
+                assert_eq!(
+                    r["t"]["__error_status__"],
+                    json!(400),
+                    "{kind} {label}: {r}"
+                );
+                let err = r["t"]["error"].as_str().unwrap_or_default();
+                assert!(
+                    err.contains("Trying to create too many buckets")
+                        && err.contains(&format!("[{cap}]")),
+                    "{kind} {label}: expected too_many_buckets naming [{cap}], got {r}"
+                );
+            };
+
+            for cap in [3, 10, 21] {
+                let r = run(Some(3), cap);
+                let rows = r["t"]["buckets"].as_array().cloned().unwrap_or_default();
+                assert_eq!(rows.len(), 3, "{kind} size 3 cap {cap}: {r}");
+                assert_eq!(rows[0]["doc_count"], 100, "{kind} cap {cap}: {r}");
+                assert!(rows[1..].iter().all(|b| b["doc_count"] == 1), "{kind}: {r}");
+            }
+
+            assert_cap_error(&run(None, 20), 20, "default size, 21 cells, cap 20");
+            assert_cap_error(&run(Some(15), 10), 10, "size 15, cap 10");
+            let r = run(None, 21);
+            assert_eq!(
+                r["t"]["buckets"].as_array().map(Vec::len),
+                Some(21),
+                "{kind}: all 21 cells at cap 21: {r}"
+            );
+            let total: u64 = r["t"]["buckets"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|b| b["doc_count"].as_u64())
+                .sum();
+            assert_eq!(
+                total, 120,
+                "{kind}: every doc lands in a returned cell: {r}"
+            );
+        }
+    }
+
+    /// #3362: `max_buckets` limits the buckets a terms agg RETURNS, not the
+    /// distinct keys it counts (ES applies it in the final reduce). A small
+    /// top-N over more keys than the cap is a 200 with exact counts (#3383
+    /// refused it with a 400); a `size` that keeps more buckets than the cap is
+    /// a 400. Before #3383 the map kept the first `cap` keys in doc order, so
+    /// the hot-key shape below returned a `sum_other_doc_count` short by every
+    /// dropped key's docs.
+    #[test]
+    fn terms_bucket_cap_counts_returned_buckets_not_distinct_keys() {
+        let mut docs: Vec<Value> = (0..100).map(|_| json!({ "u": "hot" })).collect();
+        docs.extend((0..20).map(|i| json!({ "u": format!("k{i}") })));
+        // Half the hot docs come after the uniques, so a doc-order cap would
+        // miss part of them.
+        docs.rotate_left(50);
+        let agg = json!({ "t": { "terms": { "field": "u", "size": 3 } } });
+        let assert_cap_error = |r: &Value, cap: usize, label: &str| {
+            assert!(r["t"].get("buckets").is_none(), "{label}: {r}");
+            assert_eq!(r["t"]["__error_status__"], json!(400), "{label}: {r}");
+            let err = r["t"]["error"].as_str().unwrap_or_default();
+            assert!(
+                err.contains("Trying to create too many buckets")
+                    && err.contains(&format!("[{cap}]")),
+                "{label}: expected too_many_buckets naming [{cap}], got {r}"
+            );
+        };
+
+        // Top-3 over 21 distinct keys at caps 3..21: served, counts exact.
+        for cap in [3, 10, 21] {
+            let ok = run_aggs_with_limits(&agg, &docs, &docs, AggLimits { max_buckets: cap });
+            let buckets = ok["t"]["buckets"]
+                .as_array()
+                .expect("buckets under the cap");
+            assert_eq!(buckets.len(), 3, "cap {cap}: {ok}");
+            assert_eq!(buckets[0]["key"], json!("hot"), "cap {cap}: {ok}");
+            assert_eq!(buckets[0]["doc_count"], json!(100), "cap {cap}: {ok}");
+            assert_eq!(
+                ok["t"]["sum_other_doc_count"],
+                json!(120 - 102),
+                "cap {cap}: {ok}"
+            );
+            assert_eq!(
+                ok["t"]["doc_count_error_upper_bound"],
+                json!(0),
+                "cap {cap}"
+            );
+        }
+
+        // `size` keeping more buckets than the cap is refused...
+        let wide = json!({ "t": { "terms": { "field": "u", "size": 15 } } });
+        let capped = run_aggs_with_limits(&wide, &docs, &docs, AggLimits { max_buckets: 10 });
+        assert_cap_error(&capped, 10, "size 15 over 21 keys, cap 10");
+        let ok = run_aggs_with_limits(&wide, &docs, &docs, AggLimits { max_buckets: 15 });
+        assert_eq!(
+            ok["t"]["buckets"].as_array().map(Vec::len),
+            Some(15),
+            "{ok}"
+        );
+        // ...and so is `size: 0` (every key) past the cap.
+        let all = json!({ "t": { "terms": { "field": "u", "size": 0 } } });
+        let capped = run_aggs_with_limits(&all, &docs, &docs, AggLimits { max_buckets: 20 });
+        assert_cap_error(&capped, 20, "size 0 over 21 keys, cap 20");
+        let ok = run_aggs_with_limits(&all, &docs, &docs, AggLimits { max_buckets: 21 });
+        assert_eq!(
+            ok["t"]["buckets"].as_array().map(Vec::len),
+            Some(21),
+            "{ok}"
+        );
+
+        // A nested terms agg is limited by the buckets each level returns.
+        let nested = json!({ "t": { "terms": { "field": "u", "size": 2 },
+            "aggs": { "s": { "terms": { "field": "u", "size": 1 } } } } });
+        let ok = run_aggs_with_limits(&nested, &docs, &docs, AggLimits { max_buckets: 2 });
+        let buckets = ok["t"]["buckets"].as_array().expect("nested buckets");
+        assert_eq!(buckets.len(), 2, "{ok}");
+        assert_eq!(
+            buckets[0]["s"]["buckets"][0]["doc_count"],
+            json!(100),
+            "{ok}"
+        );
+
+        // A `missing` placeholder bucket is a returned bucket like any other.
+        let with_missing = vec![json!({ "u": "a" }), json!({ "u": "b" }), json!({})];
+        let agg_missing = json!({ "t": { "terms": { "field": "u", "missing": "N/A" } } });
+        let capped = run_aggs_with_limits(
+            &agg_missing,
+            &with_missing,
+            &with_missing,
+            AggLimits { max_buckets: 2 },
+        );
+        assert_cap_error(&capped, 2, "missing placeholder past the cap");
+
+        // `min_doc_count: 0` background buckets are returned buckets too.
+        let matched = vec![json!({ "u": "a" })];
+        let background = vec![
+            json!({ "u": "a" }),
+            json!({ "u": "b" }),
+            json!({ "u": "c" }),
+        ];
+        let agg_zero = json!({ "t": { "terms": { "field": "u", "min_doc_count": 0 } } });
+        let capped = run_aggs_with_limits(
+            &agg_zero,
+            &matched,
+            &background,
+            AggLimits { max_buckets: 2 },
+        );
+        assert_cap_error(&capped, 2, "min_doc_count 0 background past the cap");
+        let ok = run_aggs_with_limits(
+            &agg_zero,
+            &matched,
+            &background,
+            AggLimits { max_buckets: 3 },
+        );
+        assert_eq!(ok["t"]["buckets"].as_array().map(Vec::len), Some(3), "{ok}");
+    }
+}
+
+#[cfg(test)]
+mod date_range_math_tests {
+    use super::run_date_range;
+    use serde_json::json;
+
+    #[test]
+    fn date_math_bounds_split_the_documents() {
+        let now = chrono::Utc::now();
+        let old = (now - chrono::Duration::days(40)).to_rfc3339();
+        let recent = (now - chrono::Duration::days(2)).to_rfc3339();
+        let docs = vec![json!({"ts": old}), json!({"ts": recent})];
+        let params = json!({"field": "ts", "ranges": [{"to": "now-30d/d"}, {"from": "now-30d/d"}]});
+
+        let out = run_date_range(&params, None, &docs, &docs);
+
+        let counts: Vec<i64> = out["buckets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| b["doc_count"].as_i64().unwrap())
+            .collect();
+        assert_eq!(counts, vec![1, 1]);
     }
 }
 

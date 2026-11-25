@@ -106,7 +106,12 @@ pub fn cores() -> usize {
 /// in a server log is a fair price for never losing the message.
 fn warn_once(message: &str) {
     tracing::warn!("{message}");
-    eprintln!("xerj: {message}");
+    // Fallible: a node whose stderr cannot be written must not abort over a
+    // warning (#3276).
+    let _ = std::io::Write::write_all(
+        &mut std::io::stderr(),
+        format!("xerj: {message}\n").as_bytes(),
+    );
 }
 
 /// Pure core-count resolution — the tested half of [`cores`].

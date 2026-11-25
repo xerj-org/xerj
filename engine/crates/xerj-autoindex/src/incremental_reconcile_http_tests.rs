@@ -41,6 +41,10 @@ struct HttpState {
     /// #1971: answer semantic `exists` read-backs with no matches while
     /// retaining the published records and catalog for refusal/resume checks.
     hide_semantic_matches: bool,
+    /// #2669: answer the finalize-verify record windows (an `ax_file` terms
+    /// aggregation with no `exists` filter) with no buckets, so the record
+    /// count reads as zero while the published records stay in place.
+    hide_record_counts: bool,
     stop: bool,
     embedding_identity_sha256: String,
     saw_dataset_mapping_update: bool,
@@ -280,7 +284,9 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
         .requests
         .push((method.to_owned(), path.to_owned()));
 
-    let (status, response) = if method == "GET" && path == "/v1/embedding/identity" {
+    let (status, response) = if method == "GET" && path == "/" {
+        (200, crate::test_loopback::xerj_root())
+    } else if method == "GET" && path == "/v1/embedding/identity" {
         let locked = state.lock().unwrap();
         if locked.fail_embedding_identity {
             (
@@ -1126,6 +1132,10 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
         .and_then(Value::as_object)
         .map(|aggs| {
             let mut body = serde_json::Map::new();
+            let semantic_window = query
+                .pointer("/query/bool/filter")
+                .and_then(Value::as_array)
+                .is_some_and(|filter| filter.iter().any(|clause| clause.get("exists").is_some()));
             for (name, spec) in aggs {
                 let Some(field) = spec
                     .get("terms")
@@ -1134,6 +1144,10 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
                 else {
                     continue;
                 };
+                if locked.hide_record_counts && field == "ax_file" && !semantic_window {
+                    body.insert(name.clone(), json!({"buckets": []}));
+                    continue;
+                }
                 let mut counts: std::collections::BTreeMap<&str, u64> =
                     std::collections::BTreeMap::new();
                 for (_, doc) in &matching {
@@ -1184,6 +1198,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, semantic: bool) -> IndexCfg {
         root: root.to_owned(),
         endpoint_url: None,
         stub_globs: Vec::new(),
+        default_stubs: true,
         url: url.to_owned(),
         api_key: None,
         api_key_file: None,
@@ -1710,6 +1725,11 @@ fn dataset_read_back_bounds_time_by_sort_and_no_materialising_agg() {
     );
     for body in &sorted {
         assert_eq!(body.get("size"), Some(&json!(1)), "size-1 query: {body}");
+        assert_eq!(
+            body.pointer("/sort/0/cloned_at/unmapped_type"),
+            Some(&json!("date")),
+            "bound query carries unmapped_type: date so dotted time fields never abort finalize-catalog: {body}"
+        );
         assert!(
             body.pointer("/query/bool/filter").is_some(),
             "bound query keeps the dataset filter: {body}"
@@ -2392,6 +2412,53 @@ fn semantic_count_mismatch_reports_counts_and_datasets_and_resumes() {
     assert_eq!(run_index(config).unwrap(), 0);
     assert_eq!(endpoint.data_docs(), published);
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+}
+
+#[test]
+fn record_count_mismatch_names_the_remove_that_rebuilds_the_folder() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("report.txt"),
+        "Quarterly report discusses durable subscription revenue and operating income.",
+    )
+    .unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().hide_record_counts = true;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let error = run_index(config.clone()).expect_err("record read-back must refuse the run");
+    let message = format!("{error:#}");
+    assert!(
+        message.contains("live record count disagrees with desired group"),
+        "{message}"
+    );
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
+    // The advice must name this folder exactly as the run identified it, and
+    // carry the non-default URL and the explicit state dir, or `remove`
+    // selects nothing and the next resume stops at the same check (#2669).
+    let root = corpus.path().canonicalize().unwrap();
+    let command = message
+        .split("To rebuild them, run `")
+        .nth(1)
+        .and_then(|rest| rest.split('`').next())
+        .unwrap_or_else(|| panic!("no repair command: {message}"));
+    assert!(
+        message.ends_with(&format!("`{command}`, then rerun this command")),
+        "{message}"
+    );
+    let argv = shell_words(command);
+    assert_eq!(argv[..3], ["xerj", "autoindex", "remove"]);
+    let remove = match cli::parse(argv[2..].to_vec()).expect("the repair command must parse") {
+        cli::Cmd::Remove(remove) => remove,
+        other => panic!("expected autoindex remove, got {other:?}"),
+    };
+    assert_eq!(remove.prefix, config.prefix);
+    assert_eq!(remove.root.as_deref(), Some(root.to_str().unwrap()));
+    assert_eq!(remove.url, endpoint.url);
+    assert_eq!(remove.state_dir.as_deref(), Some(state_dir.path()));
+    assert!(remove.yes);
 }
 
 #[test]
@@ -3254,6 +3321,54 @@ fn a_file_shared_with_another_corpus_on_the_same_node_is_not_a_fatal_condition()
 /// a caller can actually observe: the documents that reach the endpoint carry
 /// their AST fields, and the run document and terminal line carry coverage
 /// counters that a wholly-junked corpus could not fake.
+/// #2439 on the generated route: a lockfile is published as one name card
+/// (title, size, path, content id) and none of its fields, while
+/// `--no-default-stubs` still indexes its content. Before the fix the plan
+/// said `stub` and durable preparation re-sniffed the blob as JSON, so the
+/// lockfile's packages reached the index either way.
+#[test]
+fn a_lockfile_is_published_as_a_name_card_unless_opted_out() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let lock = r#"{"name":"web","lockfileVersion":3,"packages":{"node_modules/left-pad":{"version":"1.3.0","resolved":"https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz"}}}"#;
+    for default_stubs in [true, false] {
+        let corpus = tempfile::tempdir().unwrap();
+        let state_dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(corpus.path().join("web")).unwrap();
+        fs::write(corpus.path().join("web/package-lock.json"), lock).unwrap();
+        fs::write(
+            corpus.path().join("notes.md"),
+            "# Notes\n\nThe web folder holds a lockfile and nothing else.\n",
+        )
+        .unwrap();
+        let endpoint = HttpEndpoint::start();
+        let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+        config.default_stubs = default_stubs;
+        run_index_report(config).unwrap();
+        let docs = endpoint.data_docs();
+        let lock_docs: Vec<&Value> = docs
+            .iter()
+            .filter(|doc| doc["ax_path"] == "web/package-lock.json")
+            .collect();
+        let flat = serde_json::to_string(&lock_docs).unwrap();
+        if default_stubs {
+            assert_eq!(lock_docs.len(), 1, "one name card: {docs:?}");
+            let card = lock_docs[0];
+            assert_eq!(card["title"], "package-lock.json", "{card}");
+            assert_eq!(card["bytes"], lock.len() as u64, "{card}");
+            assert!(card["ax_file"].as_str().is_some_and(|id| !id.is_empty()));
+            assert!(!flat.contains("left-pad"), "contents stay out: {flat}");
+        } else {
+            assert!(
+                flat.contains("left-pad"),
+                "opt-out indexes contents: {flat}"
+            );
+        }
+    }
+}
+
 #[test]
 fn code_files_index_with_ast_fields_and_the_run_reports_code_coverage() {
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
@@ -5396,6 +5511,10 @@ fn the_generated_path_reports_indexing_as_indexing_not_as_a_stalled_scan() {
             // behind the finished `finalize-catalog` ticker — a line that only
             // climbed `since_progress_s`, i.e. looked exactly like a hang.
             "finalize-catalog-readback",
+            // #2929: the bulk, refresh and counts after the read-back are a
+            // phase of their own, so a slow one is not a 100% read-back
+            // reported as stalled.
+            "finalize-catalog-commit",
             "finalize-refresh",
             "finalize-verify"
         ],
@@ -5970,6 +6089,65 @@ impl Rng {
     fn below(&mut self, n: u64) -> u64 {
         self.next() % n
     }
+}
+
+#[test]
+fn a_watch_edit_can_join_an_existing_content_group() {
+    watch_edit_joins_existing_content(false);
+}
+
+#[test]
+fn joining_an_existing_content_group_resumes_after_a_publish_failure() {
+    watch_edit_joins_existing_content(true);
+}
+
+fn watch_edit_joins_existing_content(fail_publish: bool) {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::write(root.join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    fs::write(root.join("b.csv"), "id,value\n2,beta\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full())
+        .0
+        .unwrap();
+
+    fs::copy(root.join("b.csv"), root.join("a.csv")).unwrap();
+    endpoint.state.lock().unwrap().fail_next_data_bulk = fail_publish;
+    let burst = crate::watch::ChangeSet::from_paths(&[root.join("a.csv")]);
+    let (outcome, _) = crate::watch::one_pass(&config, &root, &mut carry, &burst);
+    if fail_publish {
+        assert!(
+            outcome.is_err(),
+            "the injected publish failure must be observed"
+        );
+        let mut restarted = crate::watch::Carry::default();
+        assert_eq!(
+            crate::watch::one_pass(
+                &config,
+                &root,
+                &mut restarted,
+                &crate::watch::ChangeSet::full(),
+            )
+            .0
+            .unwrap()
+            .0,
+            0
+        );
+    } else {
+        assert_eq!(outcome.unwrap().0, 0);
+    }
+    let docs = endpoint.data_docs();
+    assert_eq!(docs.len(), 1, "converged content must have one data record");
+    assert_eq!(docs[0]["value"], "beta");
+    assert_eq!(paths(&docs), vec!["a.csv"]);
+    assert_eq!(docs[0]["ax_paths"], serde_json::json!(["a.csv", "b.csv"]));
+    let (reference, _reference_state) = fresh_full_index(&root);
+    assert_eq!(published(&endpoint), published(&reference));
+    a_rerun_changes_nothing(&config, &endpoint, "edit joining existing content");
 }
 
 #[test]
@@ -7830,4 +8008,152 @@ fn a_record_too_large_once_vectors_are_added_is_set_aside_before_sealing() {
     let docs = serde_json::to_string(&endpoint.data_docs()).unwrap();
     assert!(docs.contains("beta"), "the edit is indexed");
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
+}
+
+/// #3279 on the incremental (`--no-graph`) path: an edit that leaves one
+/// dataset with 0 live documents is an ordinary generation. The rerun must
+/// not fail verification or ask for `--fresh`, the emptied rows are gone, and
+/// the sibling dataset is untouched.
+#[test]
+fn an_edit_that_empties_a_dataset_reconciles_without_fresh() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    for (label, emptied) in [("header only", "id,value\n"), ("empty file", "")] {
+        let corpus = tempfile::tempdir().unwrap();
+        let state_dir = tempfile::tempdir().unwrap();
+        fs::write(
+            corpus.path().join("people.csv"),
+            "name,age,city\nann,31,oslo\nbob,42,rome\n",
+        )
+        .unwrap();
+        fs::write(
+            corpus.path().join("notes.csv"),
+            "id,value\n1,before\n2,also\n",
+        )
+        .unwrap();
+        let endpoint = HttpEndpoint::start();
+        let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+        assert_eq!(run_index(config.clone()).unwrap(), 0, "{label}: first run");
+        assert_eq!(endpoint.data_docs().len(), 4, "{label}: four rows live");
+
+        fs::write(corpus.path().join("notes.csv"), emptied).unwrap();
+        let (code, _) = run_index_report(config.clone()).unwrap_or_else(|error| {
+            panic!("{label}: an edit that empties a dataset must not fail verify: {error:#}")
+        });
+        assert_ne!(code, 1, "{label}");
+        let live = endpoint.data_docs();
+        assert!(
+            live.iter().all(|doc| doc.get("value").is_none()),
+            "{label}: the emptied rows are gone: {live:?}"
+        );
+        assert_eq!(
+            live.iter().filter(|doc| doc.get("name").is_some()).count(),
+            2,
+            "{label}: the other dataset is untouched: {live:?}"
+        );
+        let (code, _) = run_index_report(config)
+            .unwrap_or_else(|error| panic!("{label}: second rerun after emptying: {error:#}"));
+        assert_ne!(code, 1, "{label}: second rerun");
+    }
+}
+
+/// #3449 end-to-end durability & convergence test:
+/// - fresh `--no-graph` multi-file run with windowed workers (`workers = 4`)
+///   commits cleanly with every document searchable;
+/// - simulating power loss that drops the trailing unsynced `Committed` lines
+///   from `journal.ndjson` on an interrupted run still converges cleanly on
+///   resume with zero duplicate or missing documents;
+/// - incremental rerun (edit + add + delete) reuses unchanged snapshot files
+///   and reflects exact live state.
+#[test]
+fn no_graph_batch_synced_snapshot_and_unsynced_committed_converge_end_to_end() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    const FILES: usize = 16;
+    for i in 0..FILES {
+        fs::write(
+            corpus.path().join(format!("note-{i:02}.md")),
+            format!("# Note {i}\n\n## Section {i}\n\nalpha beta gamma body for note {i}\n"),
+        )
+        .unwrap();
+    }
+
+    // 1. Interrupt mid-run so some operations reach Committed and others stay
+    //    Started/unstarted.
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().data_bulk_delay_ms = 20;
+    endpoint.state.lock().unwrap().fail_data_bulk_number = Some(7);
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    config.workers = 4;
+    config.scan_workers = 2;
+    run_index(config.clone()).expect_err("7th bulk intentionally fails");
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
+    assert!(
+        journal_events_of_state(state_dir.path(), "committed") >= 1,
+        "at least one operation must have been recorded Committed before stop"
+    );
+
+    // 2. Simulate power loss dropping the trailing unsynced `Committed` line
+    //    (leaving a torn tail mid-line) from `journal.ndjson`.
+    let jpath = state_dir.path().join("journal.ndjson");
+    let raw = fs::read_to_string(&jpath).unwrap();
+    let last_committed_offset = raw
+        .rfind("\"state\":\"committed\"")
+        .expect("journal must contain at least one committed operation");
+    let line_start = raw[..last_committed_offset]
+        .rfind('\n')
+        .map_or(0, |pos| pos + 1);
+    let torn_len = (line_start + 15).min(raw.len());
+    let file = fs::OpenOptions::new().write(true).open(&jpath).unwrap();
+    file.set_len(torn_len as u64).unwrap();
+    file.sync_data().unwrap();
+    drop(file);
+
+    // 3. Resume must repair the torn tail, convergently redo the dropped
+    //    operation (still `Started`), and commit generation 1 cleanly.
+    endpoint.state.lock().unwrap().data_bulk_delay_ms = 0;
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    started_precedes_committed(state_dir.path());
+    let docs = endpoint.data_docs();
+    assert_eq!(
+        paths(&docs).len(),
+        FILES,
+        "all {FILES} files must be indexed exactly once after torn-Committed resume"
+    );
+
+    // 4. Incremental generation 2: edit 1 file, add 1 file, delete 1 file
+    //    (exercises batch sync with partial hardlink reuse + new files).
+    fs::write(
+        corpus.path().join("note-00.md"),
+        "# Note 0 Revised\n\nupdated content for note 0\n",
+    )
+    .unwrap();
+    fs::write(
+        corpus.path().join("note-new.md"),
+        "# Note New\n\nfresh file added in gen 2\n",
+    )
+    .unwrap();
+    fs::remove_file(corpus.path().join("note-15.md")).unwrap();
+
+    assert_eq!(run_index(config).unwrap(), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
+    let docs_g2 = endpoint.data_docs();
+    let live_paths = paths(&docs_g2);
+    assert_eq!(live_paths.len(), FILES);
+    assert!(live_paths.iter().any(|p| p == "note-new.md"));
+    assert!(!live_paths.iter().any(|p| p == "note-15.md"));
+    assert!(
+        docs_g2.iter().any(|doc| {
+            doc.get("ax_path").and_then(Value::as_str) == Some("note-00.md")
+                && doc
+                    .get("body")
+                    .and_then(Value::as_str)
+                    .is_some_and(|b| b.contains("updated content for note 0"))
+        }),
+        "edited file content must be live in gen 2"
+    );
 }

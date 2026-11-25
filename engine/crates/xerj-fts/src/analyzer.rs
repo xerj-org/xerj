@@ -859,7 +859,11 @@ impl Tokenizer for CjkTokenizer {
             } else if c.is_whitespace() {
                 i += 1;
             } else {
-                // ASCII / Latin run — collect until whitespace or CJK boundary.
+                // Non-CJK run — collect until whitespace or CJK boundary,
+                // then split it on Unicode word boundaries like the standard
+                // tokenizer (#3377). Punctuation is dropped: `revenue,` is
+                // `revenue`, and the full-width `，` `《` `》` between two
+                // Han runs are not tokens that every document shares.
                 let run_start_byte = byte_start;
                 while i < chars.len() && !chars[i].1.is_whitespace() && !is_cjk(chars[i].1) {
                     i += 1;
@@ -869,13 +873,15 @@ impl Tokenizer for CjkTokenizer {
                 } else {
                     input.len()
                 };
-                if let Some(word) = input.get(run_start_byte..run_end_byte) {
-                    if !word.is_empty() {
+                if let Some(run) = input.get(run_start_byte..run_end_byte) {
+                    for word in run.unicode_words() {
+                        let start =
+                            run_start_byte + (word.as_ptr() as usize - run.as_ptr() as usize);
                         tokens.push(Token::new(
                             word.to_lowercase(),
                             position,
-                            run_start_byte as u32,
-                            run_end_byte as u32,
+                            start as u32,
+                            (start + word.len()) as u32,
                         ));
                         position += 1;
                     }
@@ -884,6 +890,49 @@ impl Tokenizer for CjkTokenizer {
         }
 
         tokens
+    }
+}
+
+/// Name of the analyzer that bigrams CJK text and folds Traditional Han to
+/// Simplified (#3377).
+pub const XERJ_CJK_ANALYZER: &str = "xerj_cjk";
+
+/// The Simplified form of a Traditional Han character, or the character
+/// itself. Table: [`crate::t2s_table::T2S_PAIRS`] (Unihan
+/// `kSimplifiedVariant`, U+4E00..=U+9FFF, one character to one character).
+pub fn fold_traditional_han(c: char) -> char {
+    use std::sync::OnceLock;
+    static TABLE: OnceLock<Vec<(char, char)>> = OnceLock::new();
+    let table = TABLE.get_or_init(|| {
+        let chars: Vec<char> = crate::t2s_table::T2S_PAIRS.chars().collect();
+        chars.chunks_exact(2).map(|p| (p[0], p[1])).collect()
+    });
+    if !is_cjk(c) {
+        return c;
+    }
+    match table.binary_search_by_key(&c, |(t, _)| *t) {
+        Ok(i) => table[i].1,
+        Err(_) => c,
+    }
+}
+
+/// Folds Traditional Han characters to Simplified, one character to one
+/// character, so `經濟` and `经济` index and query as the same bigram.
+/// Offsets and positions are unchanged (the mapping keeps the character
+/// count, and highlighting reads the source text).
+pub struct TraditionalToSimplifiedFilter;
+
+impl TokenFilter for TraditionalToSimplifiedFilter {
+    fn filter(&self, tokens: Vec<Token>) -> Vec<Token> {
+        tokens
+            .into_iter()
+            .map(|mut t| {
+                if t.text.chars().any(is_cjk) {
+                    t.text = t.text.chars().map(fold_traditional_han).collect();
+                }
+                t
+            })
+            .collect()
     }
 }
 
@@ -1167,6 +1216,22 @@ impl AnalyzerRegistry {
                 vec![],
                 Arc::new(CjkTokenizer),
                 vec![Arc::new(LowercaseFilter) as Arc<dyn TokenFilter>],
+            ),
+        );
+
+        // "xerj_cjk" — the `cjk` bigrams with Traditional Han folded to
+        // Simplified (#3377). XERJ-native: `xerj autoindex` elects it for
+        // Chinese-dominant text; an explicit `cjk` mapping keeps ES's
+        // unfolded behaviour.
+        self.register(
+            XERJ_CJK_ANALYZER,
+            AnalyzerPipeline::new(
+                vec![],
+                Arc::new(CjkTokenizer),
+                vec![
+                    Arc::new(LowercaseFilter) as Arc<dyn TokenFilter>,
+                    Arc::new(TraditionalToSimplifiedFilter),
+                ],
             ),
         );
 
@@ -1529,7 +1594,8 @@ impl AnalyzerRegistry {
     ///    unregistered so fields naming it silently got `standard`;
     /// 5. `char_filter` — declared at either level and never built by
     ///    `apply_settings`, so the stripping/mapping never happens;
-    /// 6. `normalizer` — accepted by ES for `keyword` fields, never built here;
+    /// 6. a `normalizer` this build cannot apply (anything but chains of
+    ///    `lowercase`/`uppercase`/`asciifolding`/`trim`, #3513);
     /// 7. an analyzer whose `filter` is not an array or whose `tokenizer` is
     ///    not a string: `apply_settings` drops the value shape-first and falls
     ///    back to "no filters" / `standard`;
@@ -1721,18 +1787,12 @@ impl AnalyzerRegistry {
                     .to_string(),
             );
         }
-        // `normalizer` is the keyword-field analogue and is equally unbuilt.
-        if analysis
-            .pointer("/normalizer")
-            .and_then(|v| v.as_object())
-            .is_some_and(|m| !m.is_empty())
-        {
-            problems.push(
-                "normalizers are not supported (analysis.normalizer is declared but never \
-                 built, so keyword fields naming one are indexed unchanged)"
-                    .to_string(),
-            );
-        }
+        // `normalizer` is the keyword-field analogue (#3513). The ones this
+        // build can apply (lowercase/uppercase/asciifolding/trim chains) are
+        // resolved per field at mapping time; anything else is reported here.
+        problems.extend(xerj_common::normalizer::unsupported_declared_normalizers(
+            analysis,
+        ));
 
         if let Some(analyzer_map) = analysis.pointer("/analyzer").and_then(|v| v.as_object()) {
             for (analyzer_name, analyzer_def) in analyzer_map {
@@ -3358,14 +3418,26 @@ mod unsupported_analysis_tests {
     }
 
     #[test]
-    fn normalizers_are_reported_because_they_are_never_built() {
+    fn only_normalizers_this_build_cannot_apply_are_reported() {
+        // #3513: lowercase/uppercase/asciifolding/trim chains are applied.
         let problems = AnalyzerRegistry::unsupported_analysis(&json!({
             "analysis": {
-                "normalizer": { "lower": { "type": "custom", "filter": ["lowercase"] } }
+                "normalizer": {
+                    "lower": { "type": "custom", "filter": ["lowercase", "asciifolding"] }
+                }
+            }
+        }));
+        assert!(problems.is_empty(), "{problems:?}");
+        let problems = AnalyzerRegistry::unsupported_analysis(&json!({
+            "analysis": {
+                "normalizer": { "stem": { "type": "custom", "filter": ["stemmer"] } }
             }
         }));
         assert_eq!(problems.len(), 1, "{problems:?}");
-        assert!(problems[0].contains("normalizer"), "{problems:?}");
+        assert!(
+            problems[0].contains("may not use filter [stemmer]"),
+            "{problems:?}"
+        );
     }
 
     /// `apply_settings` reads `filter` with `as_array()`, so a bare string is
@@ -3391,5 +3463,70 @@ mod unsupported_analysis_tests {
             problems.iter().any(|p| p.contains("`tokenizer` must be")),
             "{problems:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod cjk_3377_tests {
+    use super::*;
+
+    fn texts(analyzer: &str, input: &str) -> Vec<String> {
+        AnalyzerRegistry::default()
+            .get_analyzer(analyzer)
+            .expect("built-in analyzer")
+            .analyze(input)
+            .into_iter()
+            .map(|t| t.text)
+            .collect()
+    }
+
+    /// #3377: punctuation between Han runs is not a token, and a Latin word
+    /// is split like the standard tokenizer (no trailing comma).
+    #[test]
+    fn cjk_drops_punctuation_and_splits_latin_words() {
+        assert_eq!(
+            texts("cjk", "《公司法》第四十七条，Revenue, 2025 (FY)"),
+            vec![
+                "公司", "司法", "第四", "四十", "十七", "七条", "revenue", "2025", "fy"
+            ]
+        );
+        assert_eq!(texts("cjk", "東京都"), vec!["東京", "京都"]);
+        let input = "北京，Beijing!";
+        let tokens = AnalyzerRegistry::default()
+            .get_analyzer("cjk")
+            .unwrap()
+            .analyze(input);
+        let latin = tokens.iter().find(|t| t.text == "beijing").unwrap();
+        assert_eq!(
+            &input[latin.start_offset as usize..latin.end_offset as usize],
+            "Beijing"
+        );
+        assert_eq!(latin.position, 1);
+    }
+
+    /// `xerj_cjk` folds Traditional to Simplified; `cjk` does not.
+    #[test]
+    fn xerj_cjk_folds_traditional_han_and_cjk_does_not() {
+        assert_eq!(texts("xerj_cjk", "經濟發展"), texts("xerj_cjk", "经济发展"));
+        assert_eq!(texts("xerj_cjk", "經濟"), vec!["经济"]);
+        assert_eq!(texts("cjk", "經濟"), vec!["經濟"]);
+        // A character that is also a Simplified form is left alone.
+        assert_eq!(fold_traditional_han('乾'), '乾');
+        assert_eq!(fold_traditional_han('a'), 'a');
+        assert_eq!(texts("xerj_cjk", "Net Income"), vec!["net", "income"]);
+    }
+
+    /// The table is sorted, one-to-one, and inside the bigram range.
+    #[test]
+    fn traditional_table_is_sorted_and_in_range() {
+        let chars: Vec<char> = crate::t2s_table::T2S_PAIRS.chars().collect();
+        assert_eq!(chars.len() % 2, 0);
+        let pairs: Vec<(char, char)> = chars.chunks_exact(2).map(|p| (p[0], p[1])).collect();
+        assert!(pairs.len() > 2_000);
+        assert!(pairs.windows(2).all(|w| w[0].0 < w[1].0));
+        assert!(pairs
+            .iter()
+            .all(|(t, s)| is_cjk(*t) && is_cjk(*s) && t != s));
+        assert!(pairs.iter().all(|(_, s)| fold_traditional_han(*s) == *s));
     }
 }

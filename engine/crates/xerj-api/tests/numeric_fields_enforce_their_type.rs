@@ -549,12 +549,29 @@ async fn a_query_in_the_pre_coercion_spelling_still_matches_the_coerced_document
     for query in [
         json!({ "terms": { "b": ["false"] } }),
         json!({ "term": { "b": false } }),
-        json!({ "terms": { "b": ["yes"] } }),
         json!({ "terms": { "i": ["6"] } }),
     ] {
         let body = search(&app, "t", query.clone()).await;
         assert_eq!(hit_count(&body), 0, "{query} must not match: {body}");
     }
+
+    // #3511: a spelling a boolean field cannot read is a query ES cannot
+    // build, not an empty result.
+    let (status, body) = json_req(
+        &app,
+        "POST",
+        "/t/_search",
+        json!({ "query": { "terms": { "b": ["yes"] } } }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(
+        body["error"]["root_cause"][0]["reason"],
+        json!(
+            "failed to create query: Can't parse boolean value [yes], expected [true] or [false]"
+        ),
+        "{body}"
+    );
 }
 
 /// An index that spans the upgrade holds BOTH representations of the same

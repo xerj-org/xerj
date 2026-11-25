@@ -1,0 +1,274 @@
+---
+setup:
+  - do:
+      indices.create:
+        index: leaf-terms-a
+        body:
+          mappings:
+            properties:
+              k: { type: keyword }
+  - do:
+      indices.create:
+        index: leaf-terms-b
+        body:
+          mappings:
+            properties:
+              k: { type: keyword }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - index: { _index: leaf-terms-a, _id: "1" }
+          - { k: a }
+          - index: { _index: leaf-terms-a, _id: "2" }
+          - { k: a }
+          - index: { _index: leaf-terms-a, _id: "3" }
+          - { k: winner }
+          - index: { _index: leaf-terms-b, _id: "1" }
+          - { k: b }
+          - index: { _index: leaf-terms-b, _id: "2" }
+          - { k: b }
+          - index: { _index: leaf-terms-b, _id: "3" }
+          - { k: winner }
+          - index: { _index: leaf-terms-b, _id: "4" }
+          - { k: winner }
+---
+"global winner survives local size one":
+  - do:
+      search:
+        index: leaf-terms-a,leaf-terms-b
+        body:
+          size: 0
+          aggs:
+            t:
+              terms: { field: k, size: 1 }
+  - length: { aggregations.t.buckets: 1 }
+  - match: { aggregations.t.buckets.0.key: winner }
+  - match: { aggregations.t.buckets.0.doc_count: 3 }
+  - match: { aggregations.t.sum_other_doc_count: 4 }
+---
+"minimum count applies after global merge":
+  - do:
+      search:
+        index: leaf-terms-b,leaf-terms-a
+        body:
+          size: 0
+          aggs:
+            t:
+              terms: { field: k, size: 1, min_doc_count: 3 }
+  - length: { aggregations.t.buckets: 1 }
+  - match: { aggregations.t.buckets.0.key: winner }
+  - match: { aggregations.t.buckets.0.doc_count: 3 }
+  - match: { aggregations.t.sum_other_doc_count: 0 }
+---
+"explicit key descending is global":
+  - do:
+      search:
+        index: leaf-terms-a,leaf-terms-b
+        body:
+          size: 0
+          aggs:
+            t:
+              terms: { field: k, size: 2, order: { _key: desc } }
+  - length: { aggregations.t.buckets: 2 }
+  - match: { aggregations.t.buckets.0.key: winner }
+  - match: { aggregations.t.buckets.1.key: b }
+  - match: { aggregations.t.sum_other_doc_count: 2 }
+---
+"raw date-like keyword spellings remain distinct and private tracking is removed":
+  - do:
+      indices.create:
+        index: leaf-date-a
+        body:
+          mappings:
+            properties:
+              k: { type: keyword }
+  - do:
+      indices.create:
+        index: leaf-date-b
+        body:
+          mappings:
+            properties:
+              k: { type: keyword }
+  - do:
+      index:
+        index: leaf-date-a
+        id: "1"
+        refresh: true
+        body: { k: "2024-01-01T00:00:00Z" }
+  - do:
+      index:
+        index: leaf-date-b
+        id: "1"
+        refresh: true
+        body: { k: "2024-01-01T01:00:00+01:00" }
+  - do:
+      search:
+        index: leaf-date-a,leaf-date-b
+        body:
+          size: 0
+          aggs:
+            t:
+              terms: { field: k, size: 0, order: { _key: asc } }
+  - length: { aggregations.t.buckets: 2 }
+  - match: { aggregations.t.buckets.0.doc_count: 1 }
+  - match: { aggregations.t.buckets.1.doc_count: 1 }
+  - is_false: aggregations.t.buckets.0.__xy_terms_key__
+  - is_false: aggregations.t.buckets.1.__xy_terms_key__
+---
+"single index strips private raw term tracking":
+  - do:
+      search:
+        index: leaf-terms-a
+        body:
+          size: 0
+          aggs:
+            t:
+              terms: { field: k, size: 1 }
+  - length: { aggregations.t.buckets: 1 }
+  - match: { aggregations.t.buckets.0.key: a }
+  - is_false: aggregations.t.buckets.0.__xy_terms_key__
+---
+"issue 2935 fixture: global 18-count winner and global key order across indices":
+  - do:
+      indices.create:
+        index: issue2935-top-a
+        body:
+          mappings:
+            properties:
+              tag: { type: keyword }
+  - do:
+      indices.create:
+        index: issue2935-top-b
+        body:
+          mappings:
+            properties:
+              tag: { type: keyword }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - index: { _index: issue2935-top-a, _id: "0" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "1" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "2" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "3" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "4" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "5" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "6" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "7" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "8" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "9" }
+          - { tag: "1" }
+          - index: { _index: issue2935-top-a, _id: "10" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "11" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "12" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "13" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "14" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "15" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "16" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "17" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-a, _id: "18" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b0" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b1" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b2" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b3" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b4" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b5" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b6" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b7" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b8" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b9" }
+          - { tag: "2" }
+          - index: { _index: issue2935-top-b, _id: "b10" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b11" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b12" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b13" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b14" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b15" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b16" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b17" }
+          - { tag: "3" }
+          - index: { _index: issue2935-top-b, _id: "b18" }
+          - { tag: "3" }
+  - do:
+      search:
+        index: issue2935-top-a,issue2935-top-b
+        body:
+          size: 0
+          aggs:
+            top:
+              terms: { field: tag, size: 1 }
+            key_desc:
+              terms: { field: tag, size: 10, order: { _key: desc } }
+  - length: { aggregations.top.buckets: 1 }
+  - match: { aggregations.top.buckets.0.key: "3" }
+  - match: { aggregations.top.buckets.0.doc_count: 18 }
+  - match: { aggregations.top.sum_other_doc_count: 20 }
+  - match: { aggregations.top.doc_count_error_upper_bound: 0 }
+  - length: { aggregations.key_desc.buckets: 3 }
+  - match: { aggregations.key_desc.buckets.0.key: "3" }
+  - match: { aggregations.key_desc.buckets.0.doc_count: 18 }
+  - match: { aggregations.key_desc.buckets.1.key: "2" }
+  - match: { aggregations.key_desc.buckets.1.doc_count: 10 }
+  - match: { aggregations.key_desc.buckets.2.key: "1" }
+  - match: { aggregations.key_desc.buckets.2.doc_count: 10 }
+  - match: { aggregations.key_desc.sum_other_doc_count: 0 }
+  - is_false: aggregations.top.buckets.0.__xy_terms_key__
+  - do:
+      search:
+        index: issue2935-top-b,issue2935-top-a
+        body:
+          size: 0
+          aggs:
+            top:
+              terms: { field: tag, size: 1 }
+            key_desc:
+              terms: { field: tag, size: 10, order: { _key: desc } }
+  - length: { aggregations.top.buckets: 1 }
+  - match: { aggregations.top.buckets.0.key: "3" }
+  - match: { aggregations.top.buckets.0.doc_count: 18 }
+  - match: { aggregations.top.sum_other_doc_count: 20 }
+  - match: { aggregations.top.doc_count_error_upper_bound: 0 }
+  - length: { aggregations.key_desc.buckets: 3 }
+  - match: { aggregations.key_desc.buckets.0.key: "3" }
+  - match: { aggregations.key_desc.buckets.0.doc_count: 18 }
+  - match: { aggregations.key_desc.buckets.1.key: "2" }
+  - match: { aggregations.key_desc.buckets.1.doc_count: 10 }
+  - match: { aggregations.key_desc.buckets.2.key: "1" }
+  - match: { aggregations.key_desc.buckets.2.doc_count: 10 }
+  - match: { aggregations.key_desc.sum_other_doc_count: 0 }
+  - is_false: aggregations.top.buckets.0.__xy_terms_key__

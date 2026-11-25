@@ -226,7 +226,8 @@ async fn analyze_refuses_what_it_cannot_honour() {
         ),
         (
             "/_analyze",
-            json!({ "normalizer": "lowercase", "text": "x" }),
+            // #3529: `lowercase` is built now; an unknown one is refused.
+            json!({ "normalizer": "nope", "text": "x" }),
         ),
     ] {
         let (st, _, resp) = analyze(&app, path, body.clone()).await;

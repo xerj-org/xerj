@@ -15,7 +15,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XERJ.ai · Docs · Analyzers</title>
-<meta name="description" content="How XERJ turns raw text into a token stream: the four built-in analyzers, what each one is correct for, and how default_analyzer picks between them.">
+<meta name="description" content="How XERJ turns raw text into a token stream: the built-in analyzers, why the default does not stem, and how to turn on English stemming for better BM25 relevance.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -27,7 +27,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="article">
 <meta property="og:title" content="XERJ.ai · Docs · Analyzers">
-<meta property="og:description" content="How XERJ turns raw text into a token stream: the four built-in analyzers, what each one is correct for, and how default_analyzer picks between them.">
+<meta property="og:description" content="How XERJ turns raw text into a token stream: the built-in analyzers, why the default does not stem, and how to turn on English stemming for better BM25 relevance.">
 <meta property="og:url" content="https://xerj.org/docs/analyzers">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -36,7 +36,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="XERJ.ai · Docs · Analyzers">
-<meta name="twitter:description" content="How XERJ turns raw text into a token stream: the four built-in analyzers, what each one is correct for, and how default_analyzer picks between them.">
+<meta name="twitter:description" content="How XERJ turns raw text into a token stream: the built-in analyzers, why the default does not stem, and how to turn on English stemming for better BM25 relevance.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -72,7 +72,7 @@
   "@context": "https://schema.org",
   "@type": "TechArticle",
   "headline": "XERJ.ai · Docs · Analyzers",
-  "description": "How XERJ turns raw text into a token stream: the four built-in analyzers, what each one is correct for, and how default_analyzer picks between them.",
+  "description": "How XERJ turns raw text into a token stream: the built-in analyzers, why the default does not stem, and how to turn on English stemming for better BM25 relevance.",
   "url": "https://xerj.org/docs/analyzers",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
@@ -236,28 +236,41 @@
   <h1>Analyzers</h1>
 
 
-  <p>An analyzer turns raw text into a token stream. Every text field has exactly one analyzer chosen at index-create time. XERJ ships four built-ins. A field without an analyzer of its own uses the index's <code class="inline">analysis.analyzer.default</code> when the index declares one, and <code class="inline">standard</code> otherwise. (<code class="inline">[fts] default_analyzer</code> in the node config is accepted but not wired in this build; setting it logs a warning at startup.)</p>
+  <p>An analyzer turns raw text into a token stream. The analyzer is chosen at index-create time. Text fields use the index's <code class="inline">analysis.analyzer.default</code> when the index declares one, and <code class="inline">standard</code> otherwise. (<code class="inline">[fts] default_analyzer</code> in the node config is accepted but not wired in this build; setting it logs a warning at startup.)</p>
 
   <h2>standard</h2>
-  <p>The default. Unicode-aware segmentation, lowercasing, stop-word list for English. Correct for most log and document workloads. Equivalent to ES's <code class="inline">standard</code> analyzer.</p>
-<pre class="code">"message": { "type": "text", "analyzer": "standard" }</pre>
+  <p>The default. Unicode-aware segmentation and lowercasing. No stop words and <strong>no stemming</strong>: "running", "runs" and "run" are three different terms, so a query for one does not find the others. Correct for logs, identifiers and code. Equivalent to ES's <code class="inline">standard</code> analyzer.</p>
 
   <h2>whitespace</h2>
   <p>Splits on whitespace only. No lowercasing, no stop words. Use when you want exact token matching on multi-word identifiers or code.</p>
 
-  <h2>simple</h2>
-  <p>Splits on any non-letter. Lowercases. Good for mixed-punctuation inputs where you don't want the standard analyzer's tokenizer rules.</p>
-
   <h2>english</h2>
-  <p>Standard + English stemming (Porter2) + a slightly larger stop-word list. Use when you want "running" and "runs" to match. Disable with <code class="inline">[indexing] turbo_fast_analyzer = true</code> to trade recall for ingest speed — the turbo path skips stemming for documents classified as log-shaped.</p>
+  <p>Standard + English stop words + English stemming (Snowball, Porter2). "running" and "runs" both index as "run", so a query for either finds both. Disable with <code class="inline">[indexing] turbo_fast_analyzer = true</code> to trade recall for ingest speed — the turbo path skips stemming for documents classified as log-shaped.</p>
 
-  <h2>Per-field override</h2>
-<pre class="code">{
-  "fields": {
-    "message": { "type": "text", "analyzer": "english" },
-    "raw":     { "type": "text", "analyzer": "whitespace" }
-  }
-}</pre>
+  <h2>stemmer</h2>
+  <p>Standard + English stemming, without the stop-word list. Use it when you want stemming but short words such as "not" or "it" still matter.</p>
+
+  <h2 id="stemming">Turn on stemming for English prose</h2>
+  <p>The default analyzer does not stem, and that costs BM25 relevance on English prose. On the BEIR NFCorpus test set, XERJ BM25 scores nDCG@10 <strong>0.3016</strong> with the default analyzer and <strong>0.3195</strong> with the <code class="inline">stemmer</code> analyzer (<a href="https://github.com/xerj-org/xerj/blob/main/benchmarks/query-1-2026-11/README.md">Query-1 benchmark, 2026-11-06</a>). For articles, docs, tickets or chat, set an English analyzer as the index default when you create the index:</p>
+<pre class="code">$ curl -sX PUT http://localhost:9200/articles \
+    -H 'Content-Type: application/json' \
+    -d '{
+      "settings": { "analysis": { "analyzer": { "default": { "type": "english" } } } },
+      "mappings": { "properties": {
+        "title": { "type": "text" },
+        "body":  { "type": "text" }
+      } }
+    }'</pre>
+  <p>Use <code class="inline">"type": "stemmer"</code> instead of <code class="inline">"english"</code> to stem without dropping stop words. The analyzer is fixed when the index is created: to change it, create a new index with the setting and reindex into it.</p>
+  <p>Check the analyzer a field is indexed with:</p>
+<pre class="code">$ curl -s http://localhost:9200/articles/_analyze \
+    -H 'Content-Type: application/json' \
+    -d '{ "field": "body", "text": "The running dogs" }'
+# expected tokens with english: "run", "dog"
+# with the default (standard): "the", "running", "dogs"</pre>
+
+  <h2>Per-field analyzers</h2>
+  <p>An <code class="inline">"analyzer"</code> on one <code class="inline">text</code> field in the mapping is accepted and shown by <code class="inline">GET /&lt;index&gt;/_mapping</code>, but this build does not apply it: every text field is analyzed with the index default. To stem, set the index default as shown above, and use the <code class="inline">_analyze</code> check to see the analyzer actually in use.</p>
 
   <p class="source-note">Source · engine/crates/xerj-fts/src/analyzer.rs</p>
   
@@ -269,7 +282,7 @@
 
   <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
   <div class="print-footer" style="display:none;">
-    <span>XERJ.AI · V1.0.0-RC.102 · 2026-08-11</span>
+    <span>XERJ.AI · V1.0.0-RC.105 · 2026-08-11</span>
     <a href="https://xerj.org/docs/">https://xerj.org/docs/</a>
     <span>Analyzers</span>
   </div>

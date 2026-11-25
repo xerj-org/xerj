@@ -200,7 +200,9 @@
     (ARITHMETIC at list prices).
   </p>
   <p class="lead">
-    It is off by default. A node becomes a XERJ Query-1 node when you start it
+    It is in the release binaries only, not in the public build: a node built
+    from the repository's source has no <code>/_facts</code> route. In a release
+    binary it is off by default. A node becomes a XERJ Query-1 node when you start it
     with <code>xerj --facts-model-dir &lt;DIR&gt;</code>. Without the flag,
     rc.101 serves no <code>/_facts</code> route and the same MCP tools as rc.100,
     but its storage format changed: the first write moves a data folder to
@@ -240,7 +242,7 @@
     </a>
     <a class="q1-card" role="listitem" href="#c6">
       <div class="pair"><span class="ours">1 binary</span><span class="vs">vs</span><span class="theirs">3 services</span></div>
-      <div class="cap">facts, memory and brains over 24 MCP tools vs vector DB + graph DB + cache</div>
+      <div class="cap">facts, memory and brains over 25 MCP tools vs vector DB + graph DB + cache</div>
       <div class="t">Memory and brains beside it.</div>
       <div class="s">Agent memory, linked knowledge and facts together; no separate vector DB, graph DB or cache service.</div>
     </a>
@@ -459,7 +461,7 @@ DELETE /_facts/hr/f9                                   → a withdrawn fact; CON
     <div>
       <span class="q1-num">06 · CAPABILITY</span>
       <h2 class="q1-h">Memory and brains beside it.</h2>
-      <div class="q1-metric"><div class="pair"><span class="ours">1 binary</span><span class="vs">vs</span><span class="theirs">3 services</span></div><div class="cap">facts, memory and brains over 24 MCP tools vs vector DB + graph DB + cache</div></div>
+      <div class="q1-metric"><div class="pair"><span class="ours">1 binary</span><span class="vs">vs</span><span class="theirs">3 services</span></div><div class="cap">facts, memory and brains over 25 MCP tools vs vector DB + graph DB + cache</div></div>
       <p class="lead">
         Agent memory (store, recall, forget; lexical ranking today) and
         brains (link, unlink, ego with evidence, overview) are separate
@@ -489,7 +491,7 @@ GET /_graph/agent1/ego?node=person:ana-bel&amp;hops=1  → the edges, with evide
       <p class="q1-ex-label">The same surfaces as MCP tools</p>
 <pre>xerj_memory_store · xerj_memory_recall
 xerj_brain_link · xerj_brain_unlink · xerj_brain_ego · xerj_brain_overview
-xerj_facts_ask (listed only when the node runs the model: 24 tools on, 23 off in rc.101; main adds xerj_sources, so rc.102 will list 25 and 24)</pre>
+xerj_facts_ask (listed only when the node runs the model; in rc.101 that was 24 tools with it and 23 without)</pre>
     </div>
   </div>
 </section>

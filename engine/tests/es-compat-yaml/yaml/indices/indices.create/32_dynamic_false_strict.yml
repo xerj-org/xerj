@@ -1,0 +1,342 @@
+---
+# #3514: the root `dynamic` setting. `false` keeps a new field in `_source`
+# only: not in the mapping, not searchable, not aggregatable. `strict` refuses
+# the document with `strict_dynamic_mapping_exception`. Every search is run
+# twice, against the memtable and after `indices.flush`, because the two
+# answer from different structures. XERJ-authored case (ES semantics: docs
+# `dynamic.html`, `DynamicMappingTests` in the ES test suite for the message).
+"dynamic false keeps new fields out of the mapping and the index":
+  - do:
+      indices.create:
+        index: dynf
+        body:
+          mappings:
+            dynamic: false
+            properties:
+              title:
+                type: text
+              o2:
+                properties:
+                  a:
+                    type: long
+
+  - do:
+      bulk:
+        index: dynf
+        refresh: true
+        body:
+          - '{"index":{"_id":"1"}}'
+          - '{"title":"t1","r":1,"z":"word1","obj":{"r":1},"o2":{"a":1,"b":1}}'
+          - '{"index":{"_id":"2"}}'
+          - '{"title":"t2","r":2,"z":"word2","obj":{"r":2},"o2":{"a":2,"b":2}}'
+          - '{"index":{"_id":"3"}}'
+          - '{"title":"t3","r":3,"z":"word3","obj":{"r":3},"o2":{"a":3,"b":3}}'
+  - match: { errors: false }
+
+  - do:
+      index:
+        index: dynf
+        id: "4"
+        refresh: true
+        body: { "title": "t4", "r": 4, "z": "word4", "obj": { "r": 4 }, "o2": { "a": 4, "b": 4 } }
+
+  - do:
+      indices.get_mapping:
+        index: dynf
+  - is_true: dynf.mappings.properties.title
+  - is_true: dynf.mappings.properties.o2.properties.a
+  - is_false: dynf.mappings.properties.r
+  - is_false: dynf.mappings.properties.z
+  - is_false: dynf.mappings.properties.obj
+  - is_false: dynf.mappings.properties.o2.properties.b
+
+  # ── memtable ──
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "term": { "r": 3 } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "range": { "obj.r": { "gte": 2 } } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "match": { "z": "word2" } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "exists": { "field": "r" } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "range": { "o2.b": { "gte": 2 } } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "range": { "o2.a": { "gte": 2 } } } }
+  - match: { hits.total.value: 3 }
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "bool": { "should": [ { "term": { "r": 3 } }, { "match": { "title": "t1" } } ] } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "bool": { "must_not": [ { "term": { "r": 3 } } ] } } }
+  - match: { hits.total.value: 4 }
+
+  - do:
+      search:
+        index: dynf
+        body:
+          size: 0
+          aggs:
+            by_r: { terms: { field: r } }
+            avg_obj: { avg: { field: obj.r } }
+            max_b: { max: { field: o2.b } }
+            max_a: { max: { field: o2.a } }
+            no_r: { missing: { field: r } }
+  - length: { aggregations.by_r.buckets: 0 }
+  - match: { aggregations.avg_obj.value: null }
+  - match: { aggregations.max_b.value: null }
+  - match: { aggregations.max_a.value: 4.0 }
+  - match: { aggregations.no_r.doc_count: 4 }
+
+  - do:
+      get:
+        index: dynf
+        id: "3"
+  - match: { _source.r: 3 }
+  - match: { _source.obj.r: 3 }
+  - match: { _source.o2.b: 3 }
+
+  # ── after flush ──
+  - do:
+      indices.flush:
+        index: dynf
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "term": { "r": 3 } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "range": { "obj.r": { "gte": 2 } } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "match": { "z": "word2" } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "exists": { "field": "r" } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "range": { "o2.b": { "gte": 2 } } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: dynf
+        body: { "query": { "range": { "o2.a": { "gte": 2 } } } }
+  - match: { hits.total.value: 3 }
+
+  - do:
+      count:
+        index: dynf
+        body: { "query": { "term": { "r": 3 } } }
+  - match: { count: 0 }
+
+  - do:
+      search:
+        index: dynf
+        body:
+          size: 0
+          aggs:
+            by_r: { terms: { field: r } }
+            avg_obj: { avg: { field: obj.r } }
+            max_b: { max: { field: o2.b } }
+            max_a: { max: { field: o2.a } }
+            no_r: { missing: { field: r } }
+  - length: { aggregations.by_r.buckets: 0 }
+  - match: { aggregations.avg_obj.value: null }
+  - match: { aggregations.max_b.value: null }
+  - match: { aggregations.max_a.value: 4.0 }
+  - match: { aggregations.no_r.doc_count: 4 }
+
+  - do:
+      get:
+        index: dynf
+        id: "3"
+  - match: { _source.r: 3 }
+
+---
+"dynamic false set by put_mapping stops mapping new fields":
+  - do:
+      indices.create:
+        index: dynf_put
+        body:
+          mappings:
+            properties:
+              title:
+                type: text
+
+  - do:
+      indices.put_mapping:
+        index: dynf_put
+        body:
+          dynamic: false
+
+  - do:
+      index:
+        index: dynf_put
+        id: "1"
+        refresh: true
+        body: { "title": "t1", "late": 7 }
+
+  - do:
+      indices.get_mapping:
+        index: dynf_put
+  - is_false: dynf_put.mappings.properties.late
+
+  - do:
+      search:
+        index: dynf_put
+        body: { "query": { "term": { "late": 7 } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      indices.flush:
+        index: dynf_put
+
+  - do:
+      search:
+        index: dynf_put
+        body: { "query": { "term": { "late": 7 } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: dynf_put
+        body: { "query": { "match": { "title": "t1" } } }
+  - match: { hits.total.value: 1 }
+
+---
+"dynamic strict refuses a document that introduces a field":
+  - do:
+      indices.create:
+        index: dyns
+        body:
+          mappings:
+            dynamic: strict
+            properties:
+              title:
+                type: text
+              inner:
+                properties:
+                  a:
+                    type: long
+              open:
+                type: object
+                dynamic: true
+
+  - do:
+      catch: /strict_dynamic_mapping_exception/
+      index:
+        index: dyns
+        id: "1"
+        body: { "title": "a", "z": 1 }
+
+  - do:
+      catch: /mapping set to strict, dynamic introduction of \[b\] within \[inner\] is not allowed/
+      index:
+        index: dyns
+        id: "1"
+        body: { "title": "a", "inner": { "b": 1 } }
+
+  - do:
+      catch: /strict_dynamic_mapping_exception/
+      index:
+        index: dyns
+        id: "1"
+        body: { "title": "a", "z": null }
+
+  - do:
+      index:
+        index: dyns
+        id: "2"
+        body: { "title": "b", "inner": { "a": 2 }, "open": { "anything": 1 } }
+  - match: { result: created }
+
+  - do:
+      bulk:
+        index: dyns
+        refresh: true
+        body:
+          - '{"index":{"_id":"3"}}'
+          - '{"title":"c","z":3}'
+          - '{"index":{"_id":"4"}}'
+          - '{"title":"d"}'
+          - '{"create":{"_id":"5"}}'
+          - '{"title":"e","inner":{"q":1}}'
+  - match: { errors: true }
+  - match: { items.0.index.status: 400 }
+  - match: { items.0.index.error.type: strict_dynamic_mapping_exception }
+  - match: { items.0.index.error.reason: "mapping set to strict, dynamic introduction of [z] within [_doc] is not allowed" }
+  - match: { items.1.index.status: 201 }
+  - match: { items.2.create.status: 400 }
+  - match: { items.2.create.error.type: strict_dynamic_mapping_exception }
+
+  - do:
+      catch: /strict_dynamic_mapping_exception/
+      update:
+        index: dyns
+        id: "2"
+        body: { "doc": { "z": 1 } }
+
+  - do:
+      count:
+        index: dyns
+  - match: { count: 2 }
+
+  - do:
+      indices.get_mapping:
+        index: dyns
+  - is_false: dyns.mappings.properties.z
+  - is_false: dyns.mappings.properties.inner.properties.b
+
+  - do:
+      indices.flush:
+        index: dyns
+
+  - do:
+      search:
+        index: dyns
+        body: { "query": { "match": { "title": "d" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "4" }

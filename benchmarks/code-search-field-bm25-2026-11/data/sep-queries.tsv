@@ -1,0 +1,300 @@
+A000	self entry carries roles
+A001	frozen plan lists a refused dataset twice, or both refuses and publishes one
+A002	same version as this client
+A003	only keys owned by the caller
+A004	unrelated key must not wait
+A005	legacy state records no build
+A006	short bound must bail
+A007	first boot must mint a link
+A008	a watch with no condition
+A009	only survivors are sent to the judge
+A010	search is always real
+A011	credentials were not provided
+A012	an emptied slug directory is dropped too
+A013	key came from plan.files
+A014	an ordinary corpus with nothing stranded says nothing
+A015	key must be stable across boots
+A016	must remain searchable after a successful refresh
+A017	Discover which hub corpora can answer a question. Returns candidate corpora
+A018	new doc should be created by create action
+A019	the attempt loop returns on its final iteration
+A020	a freshly opened index must hold no WAL descriptors
+A021	partial must never broaden
+A022	is not a bare type name
+A023	no header row means no row is consumed
+A024	keep the caller's existing window
+A025	a multipart ETag must not force a re-download
+A026	the data directory must be gone
+A027	age should be included
+A028	the prose line is body text of some record
+A029	AND all tokens present
+A030	public without a catalogue must be refused at boot
+A031	urgent wire transfer from an unknown prince, act now
+A032	a graph left unpruned becomes densely clustered near the entry node
+A033	the live document must have moved on once the node loaded cleanly
+A034	nothing has been charged yet
+A035	security.html still says the key is printed
+A036	segment should persist after reopen
+A037	the program that replaced the node must not be SIGKILLed
+A038	CPU-time probe support changed within one process
+A039	predates embedding identity pinning
+A040	should plan at least one move
+A041	first put is within budget
+A042	Must find payment-service errors
+A043	the ledger is written
+A044	Cumulative internal query-result cache hits across all indices
+A045	all quarry blast events
+A046	remote alias can drift
+A047	field source must be dropped
+A048	attachments are not replies
+A049	restore the removed file
+A050	a dry run emits nothing
+A051	restart must recover exactly once
+A052	HMAC accepts keys of any length
+A053	the log says the port was taken
+A054	obj must be included
+A055	cannot decode stored section
+A056	mid-file-corrupt generation must be frozen, not appended to
+A057	re-indexed doc must have the correct id
+A058	profile document not found
+A059	Fanning out search to remote node
+A060	generated run summary query has no hits
+A061	deleted rows must leave their bucket
+A062	the replayed document landed
+A063	both pages saved bytes
+A064	a crash mid-burst must not lose or duplicate documents
+A065	per-hit attribution is what lets the API layer re-sum over the page it really emits
+A066	bundle object not found
+A067	term score must be positive
+A068	is on main and ships
+A069	both bulk docs must be immediately searchable
+A070	kiwi AND lime OR plum
+A071	snapshot source byte overflow
+A072	not supported, denormalize the relationship
+A073	no segments exist pre-flush
+A074	storage snapshot entry under root
+A075	ghosted rows must leave the filtered total
+A076	plan alias projection disagrees with manifest groups
+A077	split the expression into smaller statements
+A078	snapshot.json must be in the bucket the moment the flush returns
+A079	a clean definition replays
+A080	refund money back request
+A081	stored column exceeds declared row count
+A082	hash live malformed state
+A083	and nothing was fetched
+A084	no second generation may be committed by the refused cross-path re-run
+A085	cluster auth secret rejected
+A086	source snapshot footprint does not match its sealed artifacts
+A087	post-publication maintenance is deferred, not a flush error
+A088	how does chlorophyll drive photosynthesis in a chloroplast
+A089	the same query at two page sizes must not report two different shapes
+A090	desired generation index identity disagrees with its frozen mappings
+A091	reversed phrase should not match
+A092	script source is required
+A093	Sort must contain at least one field.
+A094	no doc left un-incremented
+A095	every record landed once the node accepted the re-send
+A096	the line directly above
+A097	a second opener must not pass the held preflight lock
+A098	async replication send failed
+A099	dead optional clause dropped
+B100	get rollup job
+B101	charged params read
+B102	run reverse nested
+B103	without a workbook part worksheets are read in numeric order
+B104	published schemas match the server exactly
+B105	prefix keyword case is flush invariant
+B106	batch limits split the stream instead of dropping it
+B107	write one frame recovered
+B108	hash all field names recurses into array elements
+B109	hybrid keeps lexical only indices in the bm25 leg
+B110	live and deleted
+B111	is public path
+B112	aggregate bytes matches full recount after every mutator
+B113	decode unique durable json
+B114	is takeout root
+B115	read search fields
+B116	swift var is static not const
+B117	encode block freqs
+B118	index documents batched
+B119	string param cannot inject query structure
+B120	free port search skips a busy triple
+B121	by query matches anything
+B122	for this os
+B123	local directory is adopted into an empty bucket
+B124	durable dataset stats
+B125	the operator tier is owner and admin
+B126	bootstrap replay accepts only exact empty genesis
+B127	hubpack state carries source pin and licence and pins the build
+B128	prune drops only the clauses a segment cannot serve
+B129	sweep expired async searches
+B130	worker stack actually exceeds the 2mib default
+B131	object store read path hydrates the whole family
+B132	run matrix stats
+B133	the auto id and create endpoints enforce the same rules
+B134	detection watch body
+B135	query workbench datasources is an honest empty list not 404
+B136	run ip range
+B137	re escalating the same question keeps one cached answer
+B138	a miss on a real prefix stays exit zero and lists the others
+B139	a per item 429 on a data bulk is resent and the run completes
+B140	build sort shadow
+B141	auto date pick interval
+B142	the identity probe still blames the capability for a non auth failure
+B143	lexical passage never uses a field the query did not target
+B144	qs resolve bound
+B145	run multi terms
+B146	unfiltered exact scan never parses stored documents
+B147	empty finish produces no bytes
+B148	single should bool
+B149	week and ordinal dates resolve to the right instant
+B150	cat pending tasks
+B151	scores are descending
+B152	error policy split matches the documented rule
+B153	instruction wording does not change the answer
+B154	multivalued numeric metric aggs use all values
+B155	collect array values
+B156	a slash ending an unquoted attribute value does not read as self closing
+B157	grok nginx combined
+B158	exec auto date histogram
+B159	threshold can be updated
+B160	a semantic clause that never reached the vector is still flagged
+B161	tls listener exposes the real peer not the header
+B162	parse span term
+B163	chunk vectors are per passage and pool consistently
+B164	unlink recovery markers
+B165	exponential call tree is bounded not a hang
+B166	the guest script never parses document text as markup
+B167	glob matches star and exact
+B168	parse and expr
+B169	invalid mcp json is left alone
+B170	a rare term outweighs a term every document shares
+B171	querying a field with no postings and no doc values is rejected
+B172	separator lines from real writers are recognised
+B173	xerj console auth module is bundled
+B174	mode is how for prose and flags force the rest
+B175	elastic caller gets no empty warning header
+B176	run median absolute deviation
+B177	isotonic interpolates and clamps
+B178	seg with cols
+B179	this endpoint and a legacy journal keep the old words
+B180	provenance contract changes only upsert ax run
+B181	empty bucket is refused with the shape to type
+B182	count tries env defaults are the scripts values
+B183	describe field diff
+B184	a request that exhausts its retries reports all of them
+B185	status empty hub says no packs
+B186	watch baselines at max seq no existing docs do not fire
+B187	xferlog lines parse to fields
+B188	an empty catalog keeps the autoindex hint
+B189	every old pin of the slug goes once the new one has restored
+B190	new segment id
+B191	residual filter still excludes nonmatching docs
+B192	c const and file scope
+B193	a two field projection reads differently from withholding source
+B194	admin allows all on all indices
+B195	apply get doc source filter
+B196	run scripted metric
+B197	inject bbq rescore defaults
+B198	pack build pull def roundtrip
+B199	decode raw payload
+C200	get_rollup_job
+C201	charged_params_read
+C202	run_reverse_nested
+C203	without_a_workbook_part_worksheets_are_read_in_numeric_order
+C204	published_schemas_match_the_server_exactly
+C205	prefix_keyword_case_is_flush_invariant
+C206	batch_limits_split_the_stream_instead_of_dropping_it
+C207	write_one_frame_recovered
+C208	hash_all_field_names_recurses_into_array_elements
+C209	hybrid_keeps_lexical_only_indices_in_the_bm25_leg
+C210	live_and_deleted
+C211	is_public_path
+C212	aggregate_bytes_matches_full_recount_after_every_mutator
+C213	decode_unique_durable_json
+C214	is_takeout_root
+C215	read_search_fields
+C216	swift_var_is_static_not_const
+C217	encode_block_freqs
+C218	index_documents_batched
+C219	string_param_cannot_inject_query_structure
+C220	free_port_search_skips_a_busy_triple
+C221	by_query_matches_anything
+C222	for_this_os
+C223	local_directory_is_adopted_into_an_empty_bucket
+C224	durable_dataset_stats
+C225	the_operator_tier_is_owner_and_admin
+C226	bootstrap_replay_accepts_only_exact_empty_genesis
+C227	hubpack_state_carries_source_pin_and_licence_and_pins_the_build
+C228	prune_drops_only_the_clauses_a_segment_cannot_serve
+C229	sweep_expired_async_searches
+C230	worker_stack_actually_exceeds_the_2mib_default
+C231	object_store_read_path_hydrates_the_whole_family
+C232	run_matrix_stats
+C233	the_auto_id_and_create_endpoints_enforce_the_same_rules
+C234	detection_watch_body
+C235	query_workbench_datasources_is_an_honest_empty_list_not_404
+C236	run_ip_range
+C237	re_escalating_the_same_question_keeps_one_cached_answer
+C238	a_miss_on_a_real_prefix_stays_exit_zero_and_lists_the_others
+C239	a_per_item_429_on_a_data_bulk_is_resent_and_the_run_completes
+C240	build_sort_shadow
+C241	auto_date_pick_interval
+C242	the_identity_probe_still_blames_the_capability_for_a_non_auth_failure
+C243	lexical_passage_never_uses_a_field_the_query_did_not_target
+C244	qs_resolve_bound
+C245	run_multi_terms
+C246	unfiltered_exact_scan_never_parses_stored_documents
+C247	empty_finish_produces_no_bytes
+C248	single_should_bool
+C249	week_and_ordinal_dates_resolve_to_the_right_instant
+C250	cat_pending_tasks
+C251	scores_are_descending
+C252	error_policy_split_matches_the_documented_rule
+C253	instruction_wording_does_not_change_the_answer
+C254	multivalued_numeric_metric_aggs_use_all_values
+C255	collect_array_values
+C256	a_slash_ending_an_unquoted_attribute_value_does_not_read_as_self_closing
+C257	grok_nginx_combined
+C258	exec_auto_date_histogram
+C259	threshold_can_be_updated
+C260	a_semantic_clause_that_never_reached_the_vector_is_still_flagged
+C261	tls_listener_exposes_the_real_peer_not_the_header
+C262	parse_span_term
+C263	chunk_vectors_are_per_passage_and_pool_consistently
+C264	unlink_recovery_markers
+C265	exponential_call_tree_is_bounded_not_a_hang
+C266	the_guest_script_never_parses_document_text_as_markup
+C267	glob_matches_star_and_exact
+C268	parse_and_expr
+C269	invalid_mcp_json_is_left_alone
+C270	a_rare_term_outweighs_a_term_every_document_shares
+C271	querying_a_field_with_no_postings_and_no_doc_values_is_rejected
+C272	separator_lines_from_real_writers_are_recognised
+C273	xerj_console_auth_module_is_bundled
+C274	mode_is_how_for_prose_and_flags_force_the_rest
+C275	elastic_caller_gets_no_empty_warning_header
+C276	run_median_absolute_deviation
+C277	isotonic_interpolates_and_clamps
+C278	seg_with_cols
+C279	this_endpoint_and_a_legacy_journal_keep_the_old_words
+C280	provenance_contract_changes_only_upsert_ax_run
+C281	empty_bucket_is_refused_with_the_shape_to_type
+C282	count_tries_env_defaults_are_the_scripts_values
+C283	describe_field_diff
+C284	a_request_that_exhausts_its_retries_reports_all_of_them
+C285	status_empty_hub_says_no_packs
+C286	watch_baselines_at_max_seq_no_existing_docs_do_not_fire
+C287	xferlog_lines_parse_to_fields
+C288	an_empty_catalog_keeps_the_autoindex_hint
+C289	every_old_pin_of_the_slug_goes_once_the_new_one_has_restored
+C290	new_segment_id
+C291	residual_filter_still_excludes_nonmatching_docs
+C292	c_const_and_file_scope
+C293	a_two_field_projection_reads_differently_from_withholding_source
+C294	admin_allows_all_on_all_indices
+C295	apply_get_doc_source_filter
+C296	run_scripted_metric
+C297	inject_bbq_rescore_defaults
+C298	pack_build_pull_def_roundtrip
+C299	decode_raw_payload

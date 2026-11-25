@@ -12,21 +12,6 @@ aggregations/bucket_script.yml · bad script
 aggregations/bucket_selector.yml · bad script
 aggregations/composite.yml · Composite aggregation with invalid format
 aggregations/composite.yml · Composite aggregation with lossy format
-aggregations/extended_stats_metric.yml · Bad sigma test
-aggregations/matrix_stats_multi_value_field.yml · With script
-aggregations/matrix_stats_multi_value_field.yml · With script params
-aggregations/matrix_stats_single_value_field.yml · With script
-aggregations/matrix_stats_single_value_field.yml · With script params
-aggregations/max_buckets.yml · Max bucket
-aggregations/nested.yml · Illegal reverse nested aggregation to a child nested object
-aggregations/percentiles_hdr_metric.yml · Invalid params test
-aggregations/percentiles_tdigest_metric.yml · Invalid params test
-aggregations/pipeline.yml · Max pipeline on percentiles hdr agg without specifying percent
-aggregations/pipeline.yml · Max pipeline on percentiles tdigest agg without specifying percent
-aggregations/pipeline.yml · Max pipeline on percentiles with incorrect name
-aggregations/pipeline.yml · Max pipeline on terms agg
-aggregations/pipeline.yml · Max pipeline through terms agg
-aggregations/rare_terms.yml · IP test
 aggregations/scripted_metric_allow_list.yml · allowed inline scripts do not affect allowed stored scripts
 aggregations/scripted_metric_allow_list.yml · allowed stored scripts do not affect allowed inline scripts
 aggregations/scripted_metric_allow_list.yml · disallow all for empty allow lists
@@ -38,37 +23,9 @@ aggregations/scripted_metric_allow_list.yml · stored combine_script must be all
 aggregations/scripted_metric_allow_list.yml · stored init_script must be allowed
 aggregations/scripted_metric_allow_list.yml · stored map_script must be allowed
 aggregations/scripted_metric_allow_list.yml · stored reduce_script must be allowed
-aggregations/sig_terms.yml · IP test
 aggregations/sig_terms.yml · Misspelled fields get "did you mean"
 aggregations/stats_metric_fail_formatting.yml · fail formatting
-aggregations/terms.yml · IP test
 aggregations/top_hits.yml · having
-aggregations/weighted_avg.yml · Multi weight field not allowed
-indices/indices.put_template/10_basic.yml · Put template create
-scroll/11_clear.yml · Body params with array param override query string
-scroll/11_clear.yml · Body params with string param scroll id override query string
-scroll/11_clear.yml · Clear scroll
 search/110_field_collapsing.yml · field collapsing and scroll
-search/110_field_collapsing.yml · field collapsing and search_after with invalid sort
-search/110_field_collapsing.yml · Test collapse with inner_hits and missing name fails
-search/115_multiple_field_collapsing.yml · two levels fields collapsing
-search/120_batch_reduce_size.yml · batched_reduce_size lower limit
-search/140_pre_filter_search_shards.yml · pre_filter_shard_size with invalid parameter
 search/150_rewrite_on_coordinator.yml · Ensure that we fetch the document only once
-search/160_exists_query.yml · Test exists query on _source field
-search/220_total_hits_object.yml · hits.total as an object
-search/260_parameter_validation.yml · test negative size throws IAE
-search/260_parameter_validation.yml · test negative terminate_after throws IAE
-search/320_disallow_queries.yml · Test disallow expensive queries
-search/330_fetch_fields.yml · error for flattened includes whole path
-search/330_fetch_fields.yml · error includes field name
-search/330_fetch_fields.yml · error includes glob pattern
-search/330_fetch_fields.yml · Test date formatting
-search/350_point_in_time.yml · delete invalid PIT returns error
-search/350_point_in_time.yml · msearch
-search/390_lookup_fields.yml · Fails to query or aggregate on lookup fields
-search/40_indices_boost.yml · Indices boost for nonexistent index/alias
-search/40_indices_boost.yml · Remote expressions not supported in indices boost
-search/500_date_range.yml · test bad dates in range - future
-search/500_date_range.yml · test bad dates in range - past
 search/90_search_after.yml · Format sort values

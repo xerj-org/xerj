@@ -50,6 +50,13 @@ pub enum DateResolveError {
     /// The range query's `time_zone` is not a zone id or offset ES accepts.
     /// Carries the value as given.
     UnknownTimeZone(String),
+    /// The value parsed, but its instant does not fit a long count of epoch
+    /// milliseconds (`date_optional_time` + `522000000`, the year 522000000).
+    /// Carries the instant as Java's `Instant` prints it and whether it lies
+    /// after 1970 (for an instant this far out, the same as ES's "after
+    /// now"), for ES's `date[...] is too far in the future|past to be
+    /// represented in a long milliseconds variable`.
+    OutOfRange { instant: String, future: bool },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -262,7 +269,14 @@ pub enum DateFmt {
     EpochSecond,
     /// `strict_date_optional_time` / `date_optional_time` / `iso8601` — the
     /// partial ISO parser (also the default when no `format` is given).
-    IsoOptionalTime,
+    /// `strict` is false only for the non-strict `date_optional_time` names,
+    /// whose year ES reads with up to nine digits; `strict: true` means a
+    /// four-digit year, so `iso8601` and `rfc3339_lenient` carry it too.
+    /// Parsing is the same for both, the flag only matters for
+    /// [`out_of_range_year`].
+    IsoOptionalTime {
+        strict: bool,
+    },
     /// A compiled Java-style pattern (`dd/MM/yyyy`, `uuuu`, `basic_date`, …).
     Pattern(Vec<PatTok>),
 }
@@ -656,13 +670,14 @@ fn compile_one_format(name: &str) -> Result<DateFmt, DateResolveError> {
     match name {
         "epoch_millis" => return Ok(DateFmt::EpochMillis),
         "epoch_second" => return Ok(DateFmt::EpochSecond),
+        "date_optional_time" | "date_optional_time_nanos" => {
+            return Ok(DateFmt::IsoOptionalTime { strict: false })
+        }
         "strict_date_optional_time"
-        | "date_optional_time"
         | "strict_date_optional_time_nanos"
-        | "date_optional_time_nanos"
         | "iso8601"
         | "rfc3339"
-        | "rfc3339_lenient" => return Ok(DateFmt::IsoOptionalTime),
+        | "rfc3339_lenient" => return Ok(DateFmt::IsoOptionalTime { strict: true }),
         _ => {}
     }
     if let Some(pattern) = builtin_format_pattern(name) {
@@ -842,7 +857,7 @@ fn parse_with_format_in(
             let v: i64 = value.parse().ok()?;
             v.checked_mul(1000)
         }
-        DateFmt::IsoOptionalTime => parse_iso_partial(value)?.to_epoch_ms_in(round_up, tz),
+        DateFmt::IsoOptionalTime { .. } => parse_iso_partial(value)?.to_epoch_ms_in(round_up, tz),
         DateFmt::Pattern(toks) => parse_pattern(toks, value)?.to_epoch_ms_in(round_up, tz),
     }
 }
@@ -924,6 +939,58 @@ fn parse_iso_partial(s: &str) -> Option<DateParts> {
         return None;
     }
     Some(parts)
+}
+
+/// A bare year that the non-strict `date_optional_time` reads but whose
+/// instant does not fit a long count of epoch milliseconds.
+///
+/// ES's non-strict year takes one to nine digits, so `522000000` is the year
+/// 522000000, and ES 8.18 answers it with `illegal_argument_exception`
+/// (`date[...] is too far in the future to be represented in a long
+/// milliseconds variable`), not a parse error.  [`parse_iso_partial`] reads
+/// four year digits only, so this check runs in the format's own slot of a
+/// format list, after that parse fails.  A five-to-nine digit year that does
+/// fit a long, and every other format (strict ones included), returns `None`
+/// and keeps the parse error.
+fn out_of_range_year(fmt: &DateFmt, value: &str, round_up: bool) -> Option<DateResolveError> {
+    if !matches!(fmt, DateFmt::IsoOptionalTime { strict: false }) {
+        return None;
+    }
+    let digits = value.strip_prefix('-').unwrap_or(value);
+    if !(5..=9).contains(&digits.len()) || !digits.bytes().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let year: i64 = value.parse().ok()?;
+    // Fill as `DateParts::to_epoch_ms_in` does: 1 January, then midnight or,
+    // rounding up, 23:59:59.999.  i128 so the sum itself cannot overflow.
+    let fill_ms: i128 = if round_up { 86_399_999 } else { 0 };
+    let ms = epoch_day_of_jan1(year) * 86_400_000 + fill_ms;
+    if i64::try_from(ms).is_ok() {
+        return None;
+    }
+    // Java's `Instant` text: a `+` on years past 9999, nanosecond fill.
+    let sign = if year > 0 { "+" } else { "" };
+    let time = if round_up {
+        "23:59:59.999999999"
+    } else {
+        "00:00:00"
+    };
+    Some(DateResolveError::OutOfRange {
+        instant: format!("{sign}{year}-01-01T{time}Z"),
+        future: ms > 0,
+    })
+}
+
+/// Days from 1970-01-01 to 1 January of `year` (proleptic Gregorian, year 0
+/// exists), for any `i64` year.
+fn epoch_day_of_jan1(year: i64) -> i128 {
+    // Count from 1 March of the year before, so the leap day ends a year.
+    let y = i128::from(year) - 1;
+    let era = y.div_euclid(400);
+    let year_of_era = y - era * 400;
+    // 1 January is day 306 of a year that starts on 1 March.
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + 306;
+    era * 146_097 + day_of_era - 719_468
 }
 
 /// How `MMM`/`E` text fields are matched.
@@ -1455,7 +1522,7 @@ pub fn resolve_date_bound_str_in(
     // round-up; verified live against ES 8.13.4), then math applies with
     // per-operator rounding.
     if let Some((anchor, math)) = v.split_once("||") {
-        let anchor_ms = parse_anchor_min(anchor, formats, tz);
+        let anchor_ms = parse_anchor_min(anchor, formats, tz)?;
         let Some(anchor_ms) = anchor_ms else {
             // A `||` value is unambiguously date math — unparseable anchors
             // are hard errors (ES: failed to parse date field), even under
@@ -1473,6 +1540,9 @@ pub fn resolve_date_bound_str_in(
                 if let Some(ms) = parse_with_format_in(f, v, round_up, tz) {
                     return Ok(ms_to_iso(ms));
                 }
+                if let Some(e) = out_of_range_year(f, v, round_up) {
+                    return Err(e);
+                }
             }
             Err(DateResolveError::UnparseableValue(v.to_string()))
         }
@@ -1489,21 +1559,31 @@ pub fn resolve_date_bound_str_in(
 }
 
 /// Parse a date-math anchor with min fill under `formats` (or the default).
+/// `Ok(None)` when no format parses it; `Err` when a format reads it as a
+/// year too large for epoch millis (see [`out_of_range_year`]).
 fn parse_anchor_min(
     anchor: &str,
     formats: Option<&[DateFmt]>,
     tz: Option<&TimeZone>,
-) -> Option<i64> {
+) -> Result<Option<i64>, DateResolveError> {
     match formats {
-        Some(fmts) => fmts
-            .iter()
-            .find_map(|f| parse_with_format_in(f, anchor, false, tz)),
+        Some(fmts) => {
+            for f in fmts {
+                if let Some(ms) = parse_with_format_in(f, anchor, false, tz) {
+                    return Ok(Some(ms));
+                }
+                if let Some(e) = out_of_range_year(f, anchor, false) {
+                    return Err(e);
+                }
+            }
+            Ok(None)
+        }
         None => {
             // Default `strict_date_optional_time||epoch_millis`.
             if let Some(p) = parse_iso_partial(anchor) {
-                return p.to_epoch_ms_in(false, tz);
+                return Ok(p.to_epoch_ms_in(false, tz));
             }
-            anchor.parse::<i64>().ok()
+            Ok(anchor.parse::<i64>().ok())
         }
     }
 }
@@ -1546,6 +1626,9 @@ pub fn resolve_date_bound_num_in(
                 let s = value.to_string();
                 if let Some(ms) = parse_with_format_in(other, &s, round_up, tz) {
                     return Ok(ms_to_iso(ms));
+                }
+                if let Some(e) = out_of_range_year(other, &s, round_up) {
+                    return Err(e);
                 }
             }
         }
@@ -2756,5 +2839,150 @@ mod range_time_zone_tests {
         for tz in ["utc", "Mars/Base", "+25:00", "+05:60", "+5:30", ""] {
             assert!(TimeZone::parse(tz).is_err(), "{tz} should be rejected");
         }
+    }
+}
+
+/// Years too large for epoch millis under non-strict `date_optional_time`.
+#[cfg(test)]
+mod out_of_range_year_tests {
+    use super::*;
+
+    fn out_of_range(instant: &str, future: bool) -> DateResolveError {
+        DateResolveError::OutOfRange {
+            instant: instant.into(),
+            future,
+        }
+    }
+
+    #[test]
+    fn jan1_epoch_days_match_chrono() {
+        for year in [-4000, -1, 0, 1, 1900, 1970, 2000, 2024, 9999] {
+            let jan1 = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
+            let epoch = NaiveDate::from_ymd_opt(1970, 1, 1).unwrap();
+            assert_eq!(
+                epoch_day_of_jan1(i64::from(year)),
+                i128::from((jan1 - epoch).num_days()),
+                "{year}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_year_past_epoch_millis_is_out_of_range() {
+        let fmts = compile_formats("date_optional_time").unwrap();
+        assert_eq!(
+            resolve_date_bound_str("522000000", true, Some(&fmts)),
+            Err(out_of_range("+522000000-01-01T23:59:59.999999999Z", true))
+        );
+        assert_eq!(
+            resolve_date_bound_str("-522000000", false, Some(&fmts)),
+            Err(out_of_range("-522000000-01-01T00:00:00Z", false))
+        );
+        let n = serde_json::Number::from(522000000);
+        assert_eq!(
+            resolve_date_bound_num(&n, false, &fmts),
+            Err(out_of_range("+522000000-01-01T00:00:00Z", true))
+        );
+        let fmts = compile_formats("date_optional_time_nanos").unwrap();
+        assert!(matches!(
+            resolve_date_bound_str("999999999", false, Some(&fmts)),
+            Err(DateResolveError::OutOfRange { future: true, .. })
+        ));
+    }
+
+    #[test]
+    fn the_out_of_range_boundary_is_exact() {
+        // i64::MAX ms is 292278994-08-17T07:12:55.807Z and i64::MIN ms is
+        // -292275055-05-16T16:47:04.192Z: 1 January of the first year fits
+        // either way, of the second it does not.  (A year that fits is still
+        // unread here, a separate gap; only "not out of range" is checked.)
+        let fmts = compile_formats("date_optional_time").unwrap();
+        let fits = |v: &str| {
+            !matches!(
+                resolve_date_bound_str(v, false, Some(&fmts)),
+                Err(DateResolveError::OutOfRange { .. })
+            ) && !matches!(
+                resolve_date_bound_str(v, true, Some(&fmts)),
+                Err(DateResolveError::OutOfRange { .. })
+            )
+        };
+        assert!(fits("292278994"));
+        assert!(fits("-292275054"));
+        for up in [false, true] {
+            assert!(matches!(
+                resolve_date_bound_str("292278995", up, Some(&fmts)),
+                Err(DateResolveError::OutOfRange { future: true, .. })
+            ));
+            assert!(matches!(
+                resolve_date_bound_str("-292275055", up, Some(&fmts)),
+                Err(DateResolveError::OutOfRange { future: false, .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn strict_and_other_formats_keep_the_parse_error() {
+        // Formats whose year ES reads with four digits only.  (A `uuuu`
+        // pattern reads wider years in ES, so it is not pinned here.)
+        for format in ["strict_date_optional_time", "iso8601"] {
+            let fmts = compile_formats(format).unwrap();
+            assert_eq!(
+                resolve_date_bound_str("522000000", true, Some(&fmts)),
+                Err(DateResolveError::UnparseableValue("522000000".into())),
+                "{format}"
+            );
+        }
+        // Values that are no year at all.  (A wide year followed by a month,
+        // `522000000-01-01`, is a separate gap and not pinned here.)
+        let fmts = compile_formats("date_optional_time").unwrap();
+        for v in ["bogus", "1234567890"] {
+            assert_eq!(
+                resolve_date_bound_str(v, true, Some(&fmts)),
+                Err(DateResolveError::UnparseableValue(v.into())),
+                "{v}"
+            );
+        }
+        assert_eq!(resolve_date_bound_str("522000000", true, None), Ok(None));
+    }
+
+    #[test]
+    fn out_of_range_is_checked_in_its_formats_slot() {
+        // date_optional_time first: the year reading wins, as in ES.
+        let fmts = compile_formats("date_optional_time||epoch_millis").unwrap();
+        assert!(matches!(
+            resolve_date_bound_str("522000000", false, Some(&fmts)),
+            Err(DateResolveError::OutOfRange { .. })
+        ));
+        // epoch_millis first: the value is a 1970 instant.
+        let fmts = compile_formats("epoch_millis||date_optional_time").unwrap();
+        assert_eq!(
+            resolve_date_bound_str("522000000", false, Some(&fmts)),
+            Ok(Some("1970-01-07T01:00:00.000Z".into()))
+        );
+    }
+
+    #[test]
+    fn a_date_math_anchor_past_epoch_millis_is_out_of_range() {
+        // The check reads the anchor, before the math; only the error kind is
+        // pinned, not the instant text.
+        let fmts = compile_formats("date_optional_time").unwrap();
+        assert!(matches!(
+            resolve_date_bound_str("522000000||+1d", true, Some(&fmts)),
+            Err(DateResolveError::OutOfRange { future: true, .. })
+        ));
+    }
+
+    #[test]
+    fn ingest_validation_of_big_years_is_unchanged() {
+        // The ingest check never read such years; it still does not.
+        let fmts = compile_formats("date_optional_time").unwrap();
+        assert!(!date_value_matches_formats(
+            &serde_json::json!("522000000"),
+            &fmts
+        ));
+        assert!(date_value_matches_formats(
+            &serde_json::json!("2024-01-01"),
+            &fmts
+        ));
     }
 }

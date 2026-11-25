@@ -765,6 +765,13 @@ generated article does not move on regeneration: its date is `updated:`.
 The sitemap is not committed, so no build round is needed for it — `--check`
 validates the derivation and the deploy writes the file.
 
+Git dates normally share one history walk per `DateSource`, plus one cached
+configuration query. If the effective Git setting `log.follow=true` is enabled,
+the existing per-path Git commands are used instead, for both first/last dates
+and content-aware dates: the shared changed-path list cannot follow a file's
+renames. An unreadable setting also keeps the per-path behavior. Configuration
+is read once per instance; create a new `DateSource` after changing it.
+
 The stderr warning `WARNING: <lastmod> fell back to filesystem mtime` means a
 URL had no in-file date and no usable git history. It is expected for a
 brand-new untracked page, and is a bug in CI for a page that is already

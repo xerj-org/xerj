@@ -43,8 +43,10 @@
 //!   with resident ghosts is admitted for ONE provably row-exact plan — a
 //!   top-level filter plus a single plain `terms` agg — where every number
 //!   comes from the fused row pass (ghosted rows skipped) and the
-//!   live-filtered memtable walks, never from a delete-blind O(1) stat;
-//!   every other plan still bails on the first dirty bitmap.
+//!   live-filtered memtable walks, never from a delete-blind O(1) stat.
+//!   Since #3444 every other plan reads a dirty segment through a live-row
+//!   copy of the columns it references (`live_row_view`), priced against
+//!   `limits.max_query_memory_mb`; it bails only if those copies exceed it.
 //! * Every non-empty segment must have a decodable `.dv` sidecar.
 //!
 //! Known accepted divergences vs brute (documented, benign for the fast-path
@@ -191,6 +193,13 @@ struct SegEntry {
     /// row-exact plan must skip set bits.  `None` = provably ghost-free,
     /// the shape every executor was originally built under.
     ghosts: Option<std::sync::Arc<Vec<u64>>>,
+    /// Live-row view: `cols` and `docs` cover only this segment's live rows,
+    /// and `row_map[row]` is the physical (stored-section) row behind view
+    /// row `row`. Set when a dirty segment was admitted for a plan that is
+    /// not row-exact (see [`live_row_view`]). Per-segment caches keyed by
+    /// `id` describe the physical row space, so a view never reads or
+    /// writes them.
+    row_map: Option<std::sync::Arc<Vec<u32>>>,
 }
 
 /// Bit `row` of a ghost-position bitmap (bit pos set ⇔ row is deleted or
@@ -346,7 +355,7 @@ fn dotted_suffix_diverges_from_brute(cols: &super::DocValueMap, field: &str) -> 
 fn field_needs_brute_fallback(
     field: &str,
     segs: &[SegEntry],
-    mapped_fields: &std::collections::HashSet<String>,
+    mapped_fields: &MappedFields,
 ) -> bool {
     if segs
         .iter()
@@ -373,8 +382,41 @@ fn field_needs_brute_fallback(
     // segment's docs, and only the suppressed case has data for brute to
     // find. A name whose root is unmapped is genuinely absent everywhere and
     // stays on the fast path as a real empty result.
+    //
+    // That "unmapped root means absent" step holds only while every field in
+    // `_source` is mapped, i.e. under `dynamic` or `strict` mapping. Under
+    // `dynamic: false` (#3514) an unmapped object leaf is still in `_source`
+    // with no column, so a miss proves nothing and the request bails, like
+    // the function_score columnar guard (#3506).
+    if !mapped_fields.unmapped_means_absent {
+        return true;
+    }
     let root = field.split_once('.').map_or(field, |(r, _)| r);
     mapped_fields.contains(field) || mapped_fields.contains(root)
+}
+
+/// The schema facts [`field_needs_brute_fallback`] keys off: every field name
+/// the schema maps, and whether an unmapped name is proof the field is absent
+/// from `_source` (true under `dynamic` / `strict` mapping only).
+pub(super) struct MappedFields {
+    pub(super) names: std::collections::HashSet<String>,
+    pub(super) unmapped_means_absent: bool,
+}
+
+impl MappedFields {
+    fn contains(&self, field: &str) -> bool {
+        self.names.contains(field)
+    }
+}
+
+/// Nothing mapped, under a mode where unmapped means absent.
+impl Default for MappedFields {
+    fn default() -> Self {
+        Self {
+            names: std::collections::HashSet::new(),
+            unmapped_means_absent: true,
+        }
+    }
 }
 
 /// Memtable docs for the fast path.
@@ -463,15 +505,16 @@ pub(super) struct FastCtx<'a> {
     /// than answer it empty.  A name whose root is absent from this set is
     /// genuinely absent and stays on the fast path.  See
     /// `field_needs_brute_fallback`.
-    mapped_fields: &'a std::collections::HashSet<String>,
+    mapped_fields: &'a MappedFields,
     /// Top-level query filter (from `{size:0, query:Q, aggs:…}`), compiled to
     /// a columnar predicate.  `None` == match_all (the whole corpus). When
     /// present, EVERY executor restricts its columnar reduction to matching
     /// segment rows (via the `fused_seg_pass` row gate + `exec_metric_top`'s
     /// filtered loop) and every memtable-doc walk is gated by
-    /// `doc_matches_filter(doc, top_filter_query)`.  Only metric + terms aggs
-    /// support filtering; other agg types bail (None) so the caller falls back
-    /// to the exact brute path.
+    /// `doc_matches_filter(doc, top_filter_query)`.  Only the agg types in
+    /// `exec_agg`'s filtered whitelist (metrics, terms, percentiles,
+    /// date_histogram, …) support filtering; other agg types bail (None) so
+    /// the caller falls back to the exact brute path.
     top_filter: Option<Pred>,
     /// The original ES-JSON query for the top-level filter, used for the
     /// memtable per-doc match (the trusted sibling of `compile_pred`, exactly
@@ -753,7 +796,250 @@ fn single_plain_terms_agg(aggs_obj: &serde_json::Map<String, Value>) -> bool {
     body.len() == 1 && body.contains_key("terms")
 }
 
+/// Every object key and string value in the aggs tree and the top-level
+/// filter: a superset of the field names the plan can look up. `None` when
+/// the tree carries a script, whose field references are not JSON strings of
+/// their own — the live view then copies every column.
+fn referenced_strings(
+    aggs_def: &Value,
+    filter: Option<&Value>,
+) -> Option<std::collections::HashSet<String>> {
+    fn walk(v: &Value, out: &mut std::collections::HashSet<String>) -> bool {
+        match v {
+            Value::String(s) => {
+                out.insert(s.clone());
+                true
+            }
+            Value::Array(a) => a.iter().all(|x| walk(x, out)),
+            Value::Object(o) => o.iter().all(|(k, x)| {
+                if k == "script" || k == "scripted_metric" {
+                    return false;
+                }
+                out.insert(k.clone());
+                walk(x, out)
+            }),
+            _ => true,
+        }
+    }
+    let mut out = std::collections::HashSet::new();
+    if !walk(aggs_def, &mut out) {
+        return None;
+    }
+    if let Some(f) = filter {
+        if !walk(f, &mut out) {
+            return None;
+        }
+    }
+    Some(out)
+}
+
+/// Whether column `col` can be reached from a referenced name: the name
+/// itself, the parent of a `.keyword` name (`dv_col`'s fallback), or a dotted
+/// ancestor / descendant (`dotted_suffix_diverges_from_brute` probes
+/// ancestors; descendants are kept for symmetry).
+fn column_is_referenced(col: &str, names: &std::collections::HashSet<String>) -> bool {
+    if names.contains(col) {
+        return true;
+    }
+    let dotted_under = |long: &str, short: &str| {
+        long.len() > short.len() && long.starts_with(short) && long.as_bytes()[short.len()] == b'.'
+    };
+    names.iter().any(|n| {
+        n.strip_suffix(".keyword") == Some(col) || dotted_under(n, col) || dotted_under(col, n)
+    })
+}
+
+/// [#3444] A dirty segment (resident deleted/superseded rows) served for a
+/// plan that is not row-exact. Every executor's O(1) per-segment stat
+/// (`per_ord_count`, `live_count`, `range_count`, the sorted run) counts
+/// physical rows, which is why such a segment used to bail the whole request
+/// to the brute corpus. The brute corpus clones every live `_source` (priced
+/// at 2 KB a doc against `limits.max_query_memory_mb`), so a large index
+/// with overwrite history answered `terms` / `date_histogram` /
+/// `cardinality` with 429 until a merge compacted the ghosts away.
+///
+/// Instead, copy the referenced columns keeping only live rows, so the
+/// executors see a segment that is ghost-free by construction (the invariant
+/// they were written under) and need no change. This is the collector-side
+/// "skip dead docs" of tantivy (`src/collector/mod.rs:192-210`, MIT: a
+/// segment collector is fed only `alive_bitset` docs), done once per column
+/// instead of once per executor. Returns the entry and the bytes its copied
+/// columns hold. Uncached; queries go through `Index::cached_live_row_view`
+/// (#3467), which keeps the copy per (segment, ghost generation, columns).
+#[cfg(test)]
+fn live_row_view(
+    id: &str,
+    cols: &super::Resident<super::DocValueMap>,
+    doc_count: u64,
+    ghosts: &[u64],
+    fields: &Option<std::collections::HashSet<String>>,
+) -> Option<(SegEntry, u64)> {
+    let (view, row_map, bytes) = live_row_columns(cols, doc_count, ghosts, fields)?;
+    Some((
+        live_view_entry(
+            id,
+            crate::segment_cache_budget::CacheResident::uncached(view),
+            std::sync::Arc::new(row_map),
+        ),
+        bytes,
+    ))
+}
+
+/// The columns a live-row view of `cols` copies for a plan referencing
+/// `fields` (`None`: every column), in `cols` order (sorted).
+fn live_view_column_names<'c>(
+    cols: &'c super::DocValueMap,
+    fields: &Option<std::collections::HashSet<String>>,
+) -> Vec<&'c str> {
+    cols.keys()
+        .filter(|name| match fields {
+            Some(names) => column_is_referenced(name, names),
+            None => true,
+        })
+        .map(String::as_str)
+        .collect()
+}
+
+/// The live-row copy behind [`live_row_view`]: the kept columns, the row map,
+/// and the bytes both hold.
+fn live_row_columns(
+    cols: &super::DocValueMap,
+    doc_count: u64,
+    ghosts: &[u64],
+    fields: &Option<std::collections::HashSet<String>>,
+) -> Option<(super::DocValueMap, Vec<u32>, u64)> {
+    let n = u32::try_from(doc_count).ok()?;
+    let row_map: Vec<u32> = (0..n).filter(|&r| !ghost_bit(ghosts, r)).collect();
+    let mut view = super::DocValueMap::new();
+    let mut bytes: u64 = (row_map.capacity() as u64).saturating_mul(4);
+    for name in live_view_column_names(cols, fields) {
+        let kept = cols.get(name)?.retain_rows(&row_map).ok()?;
+        bytes = bytes.saturating_add(kept.estimated_retained_bytes());
+        view.insert(name.to_string(), kept);
+    }
+    Some((view, row_map, bytes))
+}
+
+fn live_view_entry(
+    id: &str,
+    cols: super::Resident<super::DocValueMap>,
+    row_map: std::sync::Arc<Vec<u32>>,
+) -> SegEntry {
+    SegEntry {
+        id: id.to_string(),
+        cols,
+        docs: row_map.len() as u32,
+        ghosts: None,
+        row_map: Some(row_map),
+    }
+}
+
+/// [#3467] A cached live-row view: the ghost bitmap it was built from, its
+/// row map, and the copied columns (charged to the hydration budget).
+pub(super) type LiveViewEntry = (
+    std::sync::Arc<Vec<u64>>,
+    std::sync::Arc<Vec<u32>>,
+    super::Resident<super::DocValueMap>,
+);
+
+/// Entry cap for `dv_live_view_cache`. Bytes are bounded by the hydration
+/// budget; this bounds the key count, since column sets are query-shaped.
+const LIVE_VIEW_CACHE_MAX: usize = 256;
+
 impl Index {
+    /// [#3467] [`live_row_view`], cached per (segment, ghost generation,
+    /// column set). The key is the segment id plus the copied column names;
+    /// the generation is the segment's ghost bitmap, stored with the entry: a
+    /// hit is served only while the current bitmap is identical, so a delete
+    /// or overwrite of any row in the segment rebuilds the view, while writes
+    /// that leave the segment alone keep it. tantivy keys its per-segment
+    /// warm state the same way, by (segment id, delete opstamp)
+    /// (`src/core/searcher.rs:32-51`, MIT); there is no per-segment delete
+    /// opstamp here (`ghost_events` is index-wide), so the bitmap itself is
+    /// the generation. Segments are immutable and a merge retires the id
+    /// (`remove_segment_hydration_entries` evicts by prefix), so the columns
+    /// behind a key never change.
+    ///
+    /// Returns the bytes this call built (0 on a hit): those are what the
+    /// query allocated. A build the hydration budget cannot keep is used
+    /// once and dropped, as before #3467.
+    fn cached_live_row_view(
+        &self,
+        id: &str,
+        cols: &super::Resident<super::DocValueMap>,
+        doc_count: u64,
+        ghosts: &std::sync::Arc<Vec<u64>>,
+        fields: &Option<std::collections::HashSet<String>>,
+    ) -> Option<(SegEntry, u64)> {
+        let key = {
+            let names = live_view_column_names(cols, fields);
+            let mut key = String::with_capacity(id.len() + 1 + names.len() * 16);
+            key.push_str(id);
+            key.push('\u{1}');
+            for (i, name) in names.iter().enumerate() {
+                if i > 0 {
+                    key.push('\u{2}');
+                }
+                key.push_str(name);
+            }
+            key
+        };
+        if let Some(hit) = self.dv_live_view_cache.get(&key) {
+            let (built_from, row_map, view) = hit.value();
+            if std::sync::Arc::ptr_eq(built_from, ghosts) || **built_from == **ghosts {
+                return Some((
+                    live_view_entry(
+                        id,
+                        std::sync::Arc::clone(view),
+                        std::sync::Arc::clone(row_map),
+                    ),
+                    0,
+                ));
+            }
+        }
+        let (view, row_map, bytes) = live_row_columns(cols, doc_count, ghosts, fields)?;
+        let row_map = std::sync::Arc::new(row_map);
+        use crate::segment_cache_budget::{CacheResident, SegmentCacheCategory};
+        // Same publication rule as `publish_current_permitted`: under the
+        // lifecycle read lock, and only while the segment is current, so a
+        // merge that already evicted this id cannot be re-populated.
+        let _publication = self.segment_cache_lifecycle.read();
+        let current = self
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .any(|meta| meta.id == id);
+        let charge = current
+            .then(|| {
+                self.segment_hydration_budget
+                    .try_charge(SegmentCacheCategory::DocValues, bytes)
+            })
+            .flatten();
+        let resident = match charge {
+            Some(charge) => {
+                let resident =
+                    CacheResident::admitted(view, charge, SegmentCacheCategory::DocValues, bytes);
+                if self.dv_live_view_cache.len() >= LIVE_VIEW_CACHE_MAX {
+                    self.dv_live_view_cache.clear();
+                }
+                // Replaces an entry of an older generation, whose charge is
+                // refunded when its last reader drops it.
+                self.dv_live_view_cache.insert(
+                    key,
+                    (
+                        std::sync::Arc::clone(ghosts),
+                        std::sync::Arc::clone(&row_map),
+                        std::sync::Arc::clone(&resident),
+                    ),
+                );
+                resident
+            }
+            None => CacheResident::uncached(view),
+        };
+        Some((live_view_entry(id, resident, row_map), bytes))
+    }
+
     /// Entry point — see module docs.  Returns `Some(agg_result)` (shaped
     /// exactly like `run_aggs_with_all`'s return) or `None` to fall back.
     pub(super) fn try_fast_aggs(
@@ -763,7 +1049,7 @@ impl Index {
         snap: &xerj_storage::index_store::IndexSnapshot,
         segments_dir: &std::path::Path,
         bool_fields: &std::collections::HashSet<String>,
-        mapped_fields: &std::collections::HashSet<String>,
+        mapped_fields: &MappedFields,
     ) -> Option<(Value, Option<u64>)> {
         if fast_aggs_disabled() {
             return None;
@@ -846,6 +1132,10 @@ impl Index {
         let row_exact = top_filter.is_some() && single_plain_terms_agg(aggs_obj);
         let mut dirty_ghosts: std::collections::HashMap<String, std::sync::Arc<Vec<u64>>> =
             std::collections::HashMap::new();
+        // [#3444] Dirty segments of a plan that is NOT row-exact: served from
+        // a live-row copy of their columns (see `live_row_view`).
+        let mut live_view_ghosts: std::collections::HashMap<String, std::sync::Arc<Vec<u64>>> =
+            std::collections::HashMap::new();
         let mem_live_gate: Option<std::collections::HashSet<String>> = if deletes_present {
             for meta in &snap.segments {
                 if meta.doc_count == 0 {
@@ -853,10 +1143,11 @@ impl Index {
                 }
                 let ghosts = self.ghost_positions_for(&meta.id, meta.doc_count)?;
                 if ghosts.iter().any(|w| *w != 0) {
-                    if !row_exact {
-                        return None;
+                    if row_exact {
+                        dirty_ghosts.insert(meta.id.clone(), ghosts);
+                    } else {
+                        live_view_ghosts.insert(meta.id.clone(), ghosts);
                     }
-                    dirty_ghosts.insert(meta.id.clone(), ghosts);
                 }
             }
             // The memtable leg of the same gate: a buffered doc whose live
@@ -891,16 +1182,46 @@ impl Index {
         // Column sources.  A non-empty segment without a decodable `.dv`
         // sidecar makes the columnar view lossy → bail.
         let mut segs: Vec<SegEntry> = Vec::with_capacity(snap.segments.len());
+        let view_fields = if live_view_ghosts.is_empty() {
+            None
+        } else {
+            Some(referenced_strings(aggs_def, filter))
+        };
+        let mut view_bytes: u64 = 0;
         for meta in &snap.segments {
             if meta.doc_count == 0 {
                 continue;
             }
             let cols = self.dv_columns_for(segments_dir, &meta.id)?;
+            if let (Some(ghosts), Some(fields)) =
+                (live_view_ghosts.get(&meta.id), view_fields.as_ref())
+            {
+                let (entry, bytes) =
+                    self.cached_live_row_view(&meta.id, &cols, meta.doc_count, ghosts, fields)?;
+                view_bytes = view_bytes.saturating_add(bytes);
+                // The per-query budget the brute corpus is priced against,
+                // applied to what this path really holds: the copied columns
+                // this query built. A view served from `dv_live_view_cache`
+                // (#3467) counts 0 here; the hydration budget holds it.
+                if let Some(g) = crate::governor::global() {
+                    if g.query_memory_enabled()
+                        && g.check_query_alloc(view_bytes, "aggregation doc-values live view")
+                            .is_err()
+                    {
+                        return None;
+                    }
+                }
+                if entry.docs > 0 {
+                    segs.push(entry);
+                }
+                continue;
+            }
             segs.push(SegEntry {
                 id: meta.id.clone(),
                 cols,
                 docs: meta.doc_count as u32,
                 ghosts: dirty_ghosts.get(&meta.id).cloned(),
+                row_map: None,
             });
         }
 
@@ -1070,6 +1391,10 @@ impl<'a> FastCtx<'a> {
     fn fetch_seg_doc(&self, si: usize, row: u32) -> Option<Value> {
         let seg = &self.segs[si];
         let stored = self.idx.stored_values_for(&seg.id)?;
+        let row = match seg.row_map.as_deref() {
+            Some(map) => *map.get(row as usize)?,
+            None => row,
+        };
         let d = stored.get(row as usize)?;
         let id = d
             .get("_id")
@@ -1280,7 +1605,7 @@ impl<'a> FastCtx<'a> {
                     })
                 }
             }
-            MetricKind::ValueCount => json!({ "value": acc.count }),
+            MetricKind::ValueCount => json!({ "value": acc.count, "__xy_agg__": "value_count" }),
         }
     }
 
@@ -1493,6 +1818,9 @@ impl<'a> FastCtx<'a> {
         // report whole-index statistics for a filtered query.  The exclusion
         // meant a filtered `percentiles` fell to the O(N) `_source` scan:
         // measured 11.9 s on 1.12 M docs, 70 s on 5.6 M.
+        // `date_histogram` joined once its segment fold walked the matching
+        // rows instead of the whole-segment ord histogram (#3476): the brute
+        // fallback took 0.8-1.6 s on 200 k docs and answered 429 at 300 k.
         if self.top_filter.is_some()
             && !matches!(
                 agg_type,
@@ -1509,6 +1837,7 @@ impl<'a> FastCtx<'a> {
                     | "percentiles"
                     | "percentile_ranks"
                     | "median_absolute_deviation"
+                    | "date_histogram"
             )
         {
             return None;
@@ -1953,11 +2282,12 @@ impl<'a> FastCtx<'a> {
             }
         }
 
+        let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
         if count == 0 {
             // Mirror run_extended_stats' empty shape exactly: `sum` is a real
             // zero, every higher-order moment is null.
             return Some(json!({
-                "count": 0, "min": Value::Null, "max": Value::Null,
+                "__xy_sigma__": sigma, "count": 0, "min": Value::Null, "max": Value::Null,
                 "avg": Value::Null, "sum": 0.0, "sum_of_squares": Value::Null,
                 "variance": Value::Null, "variance_population": Value::Null,
                 "variance_sampling": Value::Null,
@@ -1982,9 +2312,8 @@ impl<'a> FastCtx<'a> {
         };
         let std_deviation = variance_pop.max(0.0).sqrt();
         let std_deviation_samp = variance_samp.max(0.0).sqrt();
-        let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
-
         Some(json!({
+            "__xy_sigma__": sigma,
             "count": count,
             "min": min,
             "max": max,
@@ -2978,25 +3307,15 @@ impl<'a> FastCtx<'a> {
             Some(n) => Some(n),
             None => Some(10),
         };
-        // `search.max_buckets` (issue #121). `size`/`cap` above only trims the
-        // OUTPUT; the term MAP itself was previously unbounded, so a terms agg
-        // over a high-cardinality field materialised every distinct term on the
-        // columnar path while the brute `run_terms` stopped at `max_buckets` —
-        // the exact OOM vector the cap exists to close, honoured on brute and
-        // ignored here.
-        //
-        // We do NOT enforce the cap by truncating the map: brute drops the
-        // terms past `max_buckets` in doc-iteration order and reports a
-        // `sum_other_doc_count` computed only over the terms it kept, so the
-        // dropped terms vanish silently (order-dependent, and the total
-        // conceals them). Reproducing that on the fast path would copy the bug,
-        // not the contract. Instead we BAIL to brute the moment the distinct
-        // count would exceed the cap (checked below as the map grows, so the
-        // map is bounded to ~`bucket_cap`): after the bail the request is
-        // answered by the very `run_terms` a test would measure the fast path
-        // against, so the two paths AGREE past the cap by construction — the
-        // same shape as the #104 / #120 bail-to-brute fallbacks. An index whose
-        // distinct count is at or under the cap is served here as before.
+        // `search.max_buckets` caps the buckets this agg RETURNS, not the
+        // distinct keys it counts (#3362 regression from #3383). ES collects
+        // every key and applies the limit in its final reduce, one count per
+        // bucket that survives the top-`size` cut. So the term map counts every
+        // key in the field (it is bounded by the segment dictionaries this
+        // pass already holds), and only a result that keeps more than
+        // `bucket_cap` buckets is refused: that case bails to brute
+        // `run_terms`, which owns the too_many_buckets answer, so the two paths
+        // agree by construction (the #104 / #120 bail shape).
         let bucket_cap = crate::aggs::max_buckets();
 
         let plan = self.plan_subs(sub, true)?;
@@ -3074,12 +3393,6 @@ impl<'a> FastCtx<'a> {
                         }
                     }
                 }
-                // Over `search.max_buckets` distinct terms → bail to brute (see
-                // the `bucket_cap` note above). Checked per segment so the map
-                // never grows more than one segment's dictionary past the cap.
-                if terms_map.len() > bucket_cap {
-                    return None;
-                }
                 continue;
             }
             // Row pass: per-ord local accumulators, then merged by term.
@@ -3155,11 +3468,6 @@ impl<'a> FastCtx<'a> {
                         push_top(&mut st.top, spec.k, spec.desc, e.0, e.1, e.2);
                     }
                 }
-            }
-            // Same cap bail as the `!has_row_work` arm above, after this
-            // segment's terms have merged in.
-            if terms_map.len() > bucket_cap {
-                return None;
             }
         }
 
@@ -3254,14 +3562,6 @@ impl<'a> FastCtx<'a> {
             }
         }
 
-        // Final cap check: the memtable may have introduced terms absent from
-        // every segment. Past `search.max_buckets` distinct terms, bail to
-        // brute (see the `bucket_cap` note above) rather than returning a
-        // fast-path answer the brute cap would never have produced.
-        if terms_map.len() > bucket_cap {
-            return None;
-        }
-
         if plan.top_hits.is_some() && missing_sort_seen {
             // A bucket doc without the sort value would need brute
             // missing-last + _id tie-breaking — bail for exactness.
@@ -3295,6 +3595,11 @@ impl<'a> FastCtx<'a> {
             shard_size_param,
             min_doc_count,
         );
+        // More buckets kept than `search.max_buckets` allows: brute answers
+        // with the too_many_buckets error (see the `bucket_cap` note above).
+        if candidates.len() > bucket_cap {
+            return None;
+        }
 
         let mut buckets: Vec<Value> = Vec::with_capacity(candidates.len());
         for (key, st) in candidates {
@@ -3303,6 +3608,7 @@ impl<'a> FastCtx<'a> {
             let (typed_key, key_as_string) = typed_term_key(&key, !is_bool);
             let mut bucket = Map::new();
             bucket.insert("key".to_string(), typed_key);
+            bucket.insert("__xy_terms_key__".to_string(), json!(key));
             if let Some(kas) = key_as_string {
                 bucket.insert("key_as_string".to_string(), json!(kas));
             }
@@ -3812,8 +4118,11 @@ impl<'a> FastCtx<'a> {
     /// `i64::MIN` marks unparseable terms.
     fn date_ord_index(&self, seg: &SegEntry, field: &str) -> Option<std::sync::Arc<Vec<i64>>> {
         let key = (seg.id.clone(), field.to_string());
-        if let Some(v) = self.idx.fast_date_cache.get(&key) {
-            return Some(std::sync::Arc::clone(v.value()));
+        let cacheable = seg.row_map.is_none();
+        if cacheable {
+            if let Some(v) = self.idx.fast_date_cache.get(&key) {
+                return Some(std::sync::Arc::clone(v.value()));
+            }
         }
         let Some(Column::Keyword(k)) = seg.col(field) else {
             return None;
@@ -3823,9 +4132,11 @@ impl<'a> FastCtx<'a> {
             ord_ms.push(parse_date_ms(&Value::String(t.clone())).unwrap_or(i64::MIN));
         }
         let arc = std::sync::Arc::new(ord_ms);
-        self.idx
-            .fast_date_cache
-            .insert(key, std::sync::Arc::clone(&arc));
+        if cacheable {
+            self.idx
+                .fast_date_cache
+                .insert(key, std::sync::Arc::clone(&arc));
+        }
         Some(arc)
     }
 
@@ -3840,8 +4151,11 @@ impl<'a> FastCtx<'a> {
         field: &str,
     ) -> Option<std::sync::Arc<(Vec<i64>, Vec<u64>)>> {
         let key = (seg.id.clone(), field.to_string());
-        if let Some(v) = self.idx.fast_date_sorted_cache.get(&key) {
-            return Some(std::sync::Arc::clone(v.value()));
+        let cacheable = seg.row_map.is_none();
+        if cacheable {
+            if let Some(v) = self.idx.fast_date_sorted_cache.get(&key) {
+                return Some(std::sync::Arc::clone(v.value()));
+            }
         }
         let Some(Column::Keyword(k)) = seg.col(field) else {
             return None;
@@ -3866,9 +4180,11 @@ impl<'a> FastCtx<'a> {
             prefix.push(acc);
         }
         let arc = std::sync::Arc::new((ms_v, prefix));
-        self.idx
-            .fast_date_sorted_cache
-            .insert(key, std::sync::Arc::clone(&arc));
+        if cacheable {
+            self.idx
+                .fast_date_sorted_cache
+                .insert(key, std::sync::Arc::clone(&arc));
+        }
         Some(arc)
     }
 
@@ -4608,7 +4924,114 @@ impl<'a> FastCtx<'a> {
         };
 
         let mut missing_sort_seen = false;
-        for si in 0..self.segs.len() {
+        // [#3476] Under a top-level query filter the whole-segment shortcuts
+        // below are wrong twice over: `per_ord_count` counts every row, and
+        // the ord → slot table creates a bucket for every timestamp in the
+        // segment, which would widen the `min_doc_count: 0` gap-fill span past
+        // the matching docs. The filtered arm walks the rows instead: ghost
+        // gate, columnar predicate, then bucket. A bucket exists only once a
+        // matching row lands in it, exactly as `aggs::run_date_histogram`
+        // builds its key set from the filtered docs. Segments serve either
+        // arm, never both.
+        let filtered = self.top_filter.is_some();
+        let unfiltered_segs = if filtered { 0 } else { self.segs.len() };
+        if let Some(pred) = &self.top_filter {
+            for si in 0..self.segs.len() {
+                let seg = &self.segs[si];
+                let (kw, num) = match seg.col(field) {
+                    Some(Column::Keyword(k)) => (Some(k), None),
+                    Some(Column::Numeric(n)) => (None, Some(n)),
+                    _ => continue,
+                };
+                let ord_ms = match kw {
+                    Some(_) => Some(self.date_ord_index(seg, field)?),
+                    None => None,
+                };
+                let sp = resolve_pred(&seg.cols, pred, &self.segs, self.mapped_fields)?;
+                if matches!(sp, SegPred::Never) {
+                    continue;
+                }
+                let seg_ghosts = seg.ghosts.as_deref();
+                let mut row_slot: Vec<i32> = if has_row_work {
+                    vec![-1; seg.docs as usize]
+                } else {
+                    Vec::new()
+                };
+                // Same [start, end) run memo as the keyword arm: rows of a
+                // time-ordered index fall into the current bucket, so the
+                // calendar math + HashMap probe run ~once per bucket.
+                let mut run: Option<(i64, i64, usize)> = None;
+                for row in 0..seg.docs {
+                    if let Some(g) = seg_ghosts {
+                        if ghost_bit(g, row) {
+                            continue;
+                        }
+                    }
+                    if !seg_pred_matches(&sp, row) {
+                        continue;
+                    }
+                    let ms = if let (Some(k), Some(ord_ms)) = (kw, ord_ms.as_deref()) {
+                        let Some(ord) = k.ord_for(row) else {
+                            continue;
+                        };
+                        match ord_ms.get(ord as usize) {
+                            Some(&ms) if ms != i64::MIN => ms,
+                            _ => continue,
+                        }
+                    } else if let Some(n) = num {
+                        match n.get(row) {
+                            // f64 BITS, as in the unfiltered numeric arm.
+                            Some(bits) => f64::from_bits(bits as u64) as i64,
+                            None => continue,
+                        }
+                    } else {
+                        continue;
+                    };
+                    let slot = match run {
+                        Some((start, end, slot)) if ms >= start && ms < end => slot,
+                        _ => {
+                            let key = bucket_of(ms);
+                            let slot = ensure_bucket(
+                                key,
+                                &mut bucket_ids,
+                                &mut bucket_keys,
+                                &mut counts,
+                                &mut accs,
+                            );
+                            run = Some((key, next_bucket(key), slot));
+                            slot
+                        }
+                    };
+                    counts[slot] += 1;
+                    if has_row_work {
+                        row_slot[row as usize] = slot as i32;
+                    }
+                }
+                if !has_row_work {
+                    continue;
+                }
+                let n_slots = bucket_keys.len();
+                let mut tops: Vec<Vec<(f64, u64, DocRef)>> = vec![Vec::new(); n_slots.max(1)];
+                let mut slot_of_row = |row: u32| -> Option<usize> {
+                    let s = *row_slot.get(row as usize)?;
+                    if s < 0 {
+                        None
+                    } else {
+                        Some(s as usize)
+                    }
+                };
+                self.fused_seg_pass(
+                    si,
+                    &mut slot_of_row,
+                    n_slots,
+                    &plan,
+                    &mut accs,
+                    &mut tops,
+                    &mut missing_sort_seen,
+                )?;
+            }
+        }
+        for si in 0..unfiltered_segs {
             let seg = &self.segs[si];
             let Some(Column::Keyword(k)) = seg.col(field) else {
                 continue;
@@ -4690,7 +5113,7 @@ impl<'a> FastCtx<'a> {
         // per doc). Segments are keyword XOR numeric for a field, so exactly
         // one of these two loops does work. Counts are bumped here; sub-metrics
         // fold via `fused_seg_pass`, mirroring the keyword arm above.
-        for si in 0..self.segs.len() {
+        for si in 0..unfiltered_segs {
             let seg = &self.segs[si];
             let Some(Column::Numeric(n)) = seg.col(field) else {
                 continue;
@@ -4744,8 +5167,20 @@ impl<'a> FastCtx<'a> {
         }
 
         // Memtable docs — brute multi-value date extraction with per-doc
-        // bucket dedup.
-        for doc in self.mem().iter() {
+        // bucket dedup. Under a filter only the matching docs fold: the
+        // O(matching) columnar candidates when the filter columnarises, else
+        // the full walk, both re-checked against the JSON matcher.
+        let mem_docs: Box<dyn Iterator<Item = &Value> + '_> =
+            match (self.filtered_mem(), self.top_filter_query.as_ref()) {
+                (Some(fdocs), Some(_)) => Box::new(fdocs.iter().map(|(_, d)| d.as_ref())),
+                _ => self.mem().iter(),
+            };
+        for doc in mem_docs {
+            if let Some(q) = &self.top_filter_query {
+                if !doc_matches_filter(doc, q) {
+                    continue;
+                }
+            }
             let raws = extract_date_ms_values(doc, field);
             let weight = doc_count_weight(doc);
             let mut seen: Vec<i64> = Vec::with_capacity(raws.len());
@@ -5602,7 +6037,7 @@ fn compile_pred(filter: &Value) -> Option<Pred> {
 fn miss_is_genuinely_empty<'a>(
     field: &str,
     segs: &[SegEntry],
-    mapped_fields: &std::collections::HashSet<String>,
+    mapped_fields: &MappedFields,
 ) -> Option<SegPred<'a>> {
     if field_needs_brute_fallback(field, segs, mapped_fields) {
         None
@@ -5648,7 +6083,7 @@ fn resolve_pred<'a>(
     cols: &'a super::DocValueMap,
     pred: &Pred,
     segs: &[SegEntry],
-    mapped_fields: &std::collections::HashSet<String>,
+    mapped_fields: &MappedFields,
 ) -> Option<SegPred<'a>> {
     Some(match pred {
         Pred::MatchAll => SegPred::Always,
@@ -6074,6 +6509,76 @@ mod range_kw_tests {
     use super::*;
     use xerj_storage::doc_values::KeywordColumn;
 
+    #[test]
+    fn value_count_emission_keeps_reduction_marker() {
+        let empty = MetricAcc::default();
+        assert_eq!(
+            FastCtx::emit_metric(MetricKind::ValueCount, &empty),
+            json!({"value": 0, "__xy_agg__": "value_count"})
+        );
+        let mut acc = MetricAcc::default();
+        acc.add(1.0);
+        acc.add(2.0);
+        assert_eq!(
+            FastCtx::emit_metric(MetricKind::ValueCount, &acc),
+            json!({"value": 2, "__xy_agg__": "value_count"})
+        );
+    }
+
+    #[tokio::test]
+    async fn extended_stats_emission_keeps_custom_sigma_for_reduction() {
+        use xerj_storage::doc_values::NumericColumn;
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.path().to_str().unwrap().to_string();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("sigma-test", xerj_common::types::Schema::empty())
+            .unwrap();
+        let idx = engine.get_index("sigma-test").unwrap();
+        let bool_fields = std::collections::HashSet::new();
+        let mapped = mapped_fields(&["n"]);
+        let mut cols = std::collections::BTreeMap::new();
+        cols.insert(
+            "n".to_string(),
+            Column::Numeric(NumericColumn::from_iter(
+                [1.0_f64, 2.0].into_iter().map(|v| Some(v.to_bits() as i64)),
+            )),
+        );
+        let mut seg = seg_with_cols(cols);
+        seg.docs = 2;
+        let mut ctx = FastCtx {
+            idx: &idx,
+            segs: vec![seg],
+            mem_docs: std::sync::OnceLock::new(),
+            needs_owned_mem: false,
+            bool_fields: &bool_fields,
+            mapped_fields: &mapped,
+            top_filter: None,
+            top_filter_query: None,
+            top_filter_mem_preds: None,
+            mem_filtered: std::sync::OnceLock::new(),
+            mem_live_gate: None,
+        };
+        let params = json!({"field":"n", "sigma":3.0});
+        let populated = ctx.exec_extended_stats(&params).unwrap();
+        assert_eq!(populated["count"], 2);
+        assert_eq!(populated["__xy_sigma__"], 3.0);
+        assert_eq!(populated["std_deviation_bounds"]["upper"], 3.0);
+        let mut empty_cols = std::collections::BTreeMap::new();
+        empty_cols.insert(
+            "n".to_string(),
+            Column::Numeric(NumericColumn::from_iter(std::iter::empty::<Option<i64>>())),
+        );
+        let mut empty_seg = seg_with_cols(empty_cols);
+        empty_seg.docs = 0;
+        ctx.segs = vec![empty_seg];
+        let empty = ctx.exec_extended_stats(&params).unwrap();
+        assert_eq!(empty["count"], 0);
+        assert_eq!(empty["__xy_sigma__"], 3.0);
+        assert_eq!(empty["variance"], Value::Null);
+    }
+
     /// Canonical RFC3339 timestamps, 24 chars — the shape the query parser
     /// emits and the ingest path normalises to.
     fn ts(day: u32, hour: u32) -> String {
@@ -6119,6 +6624,7 @@ mod range_kw_tests {
             cols: crate::segment_cache_budget::CacheResident::uncached(m),
             docs: 2,
             ghosts: None,
+            row_map: None,
         };
         assert!(
             seg.col("extension").is_some(),
@@ -6297,11 +6803,52 @@ mod range_kw_tests {
             cols: crate::segment_cache_budget::CacheResident::uncached(cols),
             docs: 1,
             ghosts: None,
+            row_map: None,
         }
     }
 
-    fn mapped_fields(names: &[&str]) -> std::collections::HashSet<String> {
-        names.iter().map(|s| s.to_string()).collect()
+    fn mapped_fields(names: &[&str]) -> MappedFields {
+        MappedFields {
+            names: names.iter().map(|s| s.to_string()).collect(),
+            unmapped_means_absent: true,
+        }
+    }
+
+    /// #3514: under `dynamic: false` an unmapped root is not proof of
+    /// absence, so a name no segment carries a column for bails to brute,
+    /// while a fully covered name stays on the fast path.
+    #[test]
+    fn unmapped_root_bails_when_unmapped_does_not_mean_absent() {
+        let mut cols = std::collections::BTreeMap::new();
+        cols.insert(
+            "n".to_string(),
+            Column::Numeric(NumericColumn::from_iter(vec![Some(1)])),
+        );
+        let seg = seg_with_cols(cols);
+        let open = MappedFields {
+            unmapped_means_absent: false,
+            ..MappedFields::default()
+        };
+        assert!(field_needs_brute_fallback(
+            "obj.r",
+            std::slice::from_ref(&seg),
+            &open
+        ));
+        assert!(field_needs_brute_fallback(
+            "r",
+            std::slice::from_ref(&seg),
+            &open
+        ));
+        assert!(!field_needs_brute_fallback(
+            "n",
+            std::slice::from_ref(&seg),
+            &open
+        ));
+        assert!(!field_needs_brute_fallback(
+            "obj.r",
+            std::slice::from_ref(&seg),
+            &mapped_fields(&[])
+        ));
     }
 
     // Regression: a genuinely nested JSON field (`geo.dest`, `machine.ram`)
@@ -6480,6 +7027,69 @@ mod range_kw_tests {
         );
     }
 
+    /// #3444: a live-row view keeps every column the plan can reach — the
+    /// named field, the parent of a `.keyword` name, dotted ancestors and
+    /// descendants — copies everything when a script is present, and maps
+    /// view rows back to the physical rows behind them.
+    #[test]
+    fn live_row_view_keeps_reachable_columns_and_maps_rows() {
+        let aggs = json!({
+            "a": { "terms": { "field": "ext.keyword" },
+                   "aggs": { "m": { "avg": { "field": "geo.lat" } } } }
+        });
+        let filter = json!({ "term": { "status": "ok" } });
+        let names = referenced_strings(&aggs, Some(&filter)).unwrap();
+        for col in [
+            "ext",
+            "ext.keyword",
+            "geo",
+            "geo.lat",
+            "geo.lat.x",
+            "status",
+        ] {
+            assert!(column_is_referenced(col, &names), "{col}");
+        }
+        for col in ["extension", "geo_lat", "stat", "other"] {
+            assert!(!column_is_referenced(col, &names), "{col}");
+        }
+        let scripted = json!({ "s": { "sum": { "script": "doc['x'].value" } } });
+        assert!(referenced_strings(&scripted, None).is_none());
+
+        let mut cols = std::collections::BTreeMap::new();
+        cols.insert(
+            "ext".to_string(),
+            Column::Keyword(
+                KeywordColumn::from_iter(["a", "b", "a", "c"].map(|s| Some(s.to_string())))
+                    .unwrap(),
+            ),
+        );
+        cols.insert(
+            "unused".to_string(),
+            Column::Numeric(NumericColumn::from_iter([
+                Some(1),
+                Some(2),
+                Some(3),
+                Some(4),
+            ])),
+        );
+        let resident = crate::segment_cache_budget::CacheResident::uncached(cols);
+        // Rows 0 and 2 are ghosts.
+        let ghosts = vec![0b0101u64];
+        let (entry, bytes) = live_row_view("seg1", &resident, 4, &ghosts, &Some(names)).unwrap();
+        assert_eq!(entry.docs, 2);
+        assert!(bytes > 0);
+        assert_eq!(entry.row_map.as_deref(), Some(&vec![1u32, 3]));
+        assert!(
+            entry.col("unused").is_none(),
+            "unreferenced columns are not copied"
+        );
+        let Some(Column::Keyword(k)) = entry.col("ext.keyword") else {
+            panic!("ext column");
+        };
+        assert_eq!(k.terms, vec!["b".to_string(), "c".to_string()]);
+        assert_eq!(k.per_ord_count, vec![1, 1]);
+    }
+
     /// The already-fixed `.keyword` multi-field case (`extension.keyword`)
     /// must NOT be flagged — `SegEntry::col` already resolves it via the
     /// `.keyword`-stripped fallback (the physical-column check short-circuits
@@ -6524,8 +7134,7 @@ mod range_kw_tests {
         // These fixtures all resolve (or bail inside `resolve_pred` on a
         // type/width gate), never through the column-miss path, so the
         // segment set and schema map are unused here.
-        let sp =
-            resolve_pred(cols, pred, &[], &std::collections::HashSet::new()).expect("resolvable");
+        let sp = resolve_pred(cols, pred, &[], &MappedFields::default()).expect("resolvable");
         let by_count = seg_pred_count(&sp, docs);
         let by_scan = (0..docs).filter(|r| seg_pred_matches(&sp, *r)).count() as u64;
         assert_eq!(by_count, by_scan, "seg_pred_count disagrees with row scan");
@@ -6607,7 +7216,7 @@ mod range_kw_tests {
         m.insert("ts".to_string(), Column::Keyword(k));
         let p = rng(Some(&ts(2, 0)), true, Some(&ts(3, 0)), false);
         assert!(
-            resolve_pred(&m, &p, &[], &std::collections::HashSet::new()).is_none(),
+            resolve_pred(&m, &p, &[], &MappedFields::default()).is_none(),
             "ragged dictionary must bail"
         );
     }
@@ -6618,7 +7227,7 @@ mod range_kw_tests {
         let c = cols();
         let p = rng(Some("2026-06-02"), true, Some("2026-06-03"), false);
         assert!(
-            resolve_pred(&c, &p, &[], &std::collections::HashSet::new()).is_none(),
+            resolve_pred(&c, &p, &[], &MappedFields::default()).is_none(),
             "short bound must bail"
         );
     }
@@ -6632,7 +7241,32 @@ mod range_kw_tests {
         let n = NumericColumn::from_iter((0..10).map(|i| Some((i as f64).to_bits() as i64)));
         m.insert("ts".to_string(), Column::Numeric(n));
         let p = rng(Some(&ts(2, 0)), true, None, true);
-        assert!(resolve_pred(&m, &p, &[], &std::collections::HashSet::new()).is_none());
+        assert!(resolve_pred(&m, &p, &[], &MappedFields::default()).is_none());
+    }
+
+    /// #3466: `query_node_to_agg_filter` hands a numeric `term` over as the
+    /// point range `[N, N]`. On a numeric column that is exactly the rows
+    /// holding `N`; a column that is not numeric must bail, not compare
+    /// strings.
+    #[test]
+    fn point_range_serves_numeric_columns_and_bails_on_the_rest() {
+        use xerj_storage::doc_values::NumericColumn;
+        let pred = compile_top_pred(&json!({ "range": { "g": { "gte": 1, "lte": 1 } } }))
+            .expect("a point range compiles");
+        let mut numeric = std::collections::BTreeMap::new();
+        let n =
+            NumericColumn::from_iter((0..8u32).map(|i| Some(f64::from(i % 4).to_bits() as i64)));
+        numeric.insert("g".to_string(), Column::Numeric(n));
+        assert_eq!(count(&pred, &numeric, 8), 2);
+
+        let mut keyword = std::collections::BTreeMap::new();
+        let k = KeywordColumn::from_iter((0..8u32).map(|i| Some((i % 4).to_string())))
+            .expect("build column");
+        keyword.insert("g".to_string(), Column::Keyword(k));
+        assert!(
+            resolve_pred(&keyword, &pred, &[], &MappedFields::default()).is_none(),
+            "a keyword column must bail"
+        );
     }
 
     /// Regression: the *predicate* resolver must apply the same `.keyword`
@@ -6761,8 +7395,216 @@ mod range_kw_tests {
             value: "x".into(),
         };
         assert!(matches!(
-            resolve_pred(&c, &p, &[], &std::collections::HashSet::new()).expect("resolvable"),
+            resolve_pred(&c, &p, &[], &MappedFields::default()).expect("resolvable"),
             SegPred::Never
         ));
+    }
+}
+
+/// #3467: the live-row view cache serves a repeat query, keeps a segment's
+/// view across writes that leave that segment alone, rebuilds it when a row
+/// of the segment is deleted or overwritten, and drops it when a merge
+/// retires the segment. Every step checks the aggregation is still exact.
+#[cfg(test)]
+mod live_view_cache_tests {
+    use super::super::Index;
+    use serde_json::{json, Value};
+    use std::collections::{BTreeMap, HashMap};
+    use std::sync::Arc;
+    use xerj_common::config::Config;
+    use xerj_common::types::{FieldConfig, FieldType, Schema};
+
+    const DOCS: u32 = 12_000;
+    const CATS: u32 = 10;
+
+    fn doc(i: u32, generation: u32) -> Value {
+        json!({
+            "cat": format!("c{}", i % CATS),
+            "n": (i + generation * 100_000) as i64,
+        })
+    }
+
+    /// The cached resident behind each segment's view, by segment id.
+    fn cached(idx: &Index) -> HashMap<String, usize> {
+        idx.dv_live_view_cache
+            .iter()
+            .map(|e| {
+                let seg = e.key().split('\u{1}').next().unwrap().to_string();
+                (seg, Arc::as_ptr(&e.value().2) as usize)
+            })
+            .collect()
+    }
+
+    /// `terms(cat)` with a `sum(n)` sub-agg (not the row-exact plan, so a
+    /// dirty segment is read through a live-row view), under a fresh agg
+    /// name so the request cache cannot answer it.
+    async fn run(idx: &Arc<Index>, tag: &str) -> Value {
+        let name = format!("a_{tag}");
+        let body = json!({
+            "size": 0,
+            "aggs": { name.clone(): { "terms": { "field": "cat", "size": 100 },
+                       "aggs": { "s": { "sum": { "field": "n" } } } } }
+        });
+        let res = idx
+            .search(&xerj_query::parse_request(&body).unwrap())
+            .await
+            .unwrap();
+        let mut rows: Vec<(String, u64, f64)> = res.aggs.unwrap()[&name]["buckets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| {
+                (
+                    b["key"].as_str().unwrap().to_string(),
+                    b["doc_count"].as_u64().unwrap(),
+                    b["s"]["value"].as_f64().unwrap(),
+                )
+            })
+            .collect();
+        rows.sort_by(|a, b| a.0.cmp(&b.0));
+        json!(rows)
+    }
+
+    /// Bucket `(key, doc_count, sum)` per cat, from the live `n` of each id.
+    fn want(live: &BTreeMap<u32, i64>) -> Value {
+        let mut per: BTreeMap<String, (u64, i64)> = BTreeMap::new();
+        for (&i, &n) in live {
+            let e = per.entry(format!("c{}", i % CATS)).or_default();
+            e.0 += 1;
+            e.1 += n;
+        }
+        let rows: Vec<(String, u64, f64)> = per
+            .into_iter()
+            .map(|(k, (c, s))| (k, c, s as f64))
+            .collect();
+        json!(rows)
+    }
+
+    #[tokio::test]
+    async fn live_view_cache_hits_survives_unrelated_writes_and_invalidates_3467() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .fields
+            .push(FieldConfig::new("cat", FieldType::Keyword));
+        schema.fields.push(FieldConfig::new("n", FieldType::Long));
+        engine.create_index("live-view-3467", schema).unwrap();
+        let idx = engine.get_index("live-view-3467").unwrap();
+        idx.abort_background_tasks();
+
+        let mut live = BTreeMap::new();
+        for i in 0..DOCS {
+            idx.index_document(Some(format!("d{i}")), doc(i, 0))
+                .await
+                .unwrap();
+            live.insert(i, i as i64);
+        }
+        idx.flush().await.unwrap();
+        let first: std::collections::HashSet<String> = idx
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|m| m.id.clone())
+            .collect();
+        // Overwrite every even doc: each segment of the first flush keeps
+        // ghosts, the segments of the second flush are clean.
+        for i in (0..DOCS).step_by(2) {
+            idx.index_document(Some(format!("d{i}")), doc(i, 1))
+                .await
+                .unwrap();
+            live.insert(i, (i + 100_000) as i64);
+        }
+        idx.flush().await.unwrap();
+        assert_eq!(idx.deleted_doc_count(), (DOCS / 2) as u64);
+        let seg_of = |id: &str| -> String {
+            let ver = idx.store.version_map.get(id).expect("indexed id");
+            let seg: &str = ver.segment_id.as_ref();
+            seg.to_string()
+        };
+
+        // 1. The first query builds one view per dirty segment and caches it.
+        assert_eq!(run(&idx, "1").await, want(&live), "first query");
+        let c1 = cached(&idx);
+        assert_eq!(
+            c1.keys().cloned().collect::<std::collections::HashSet<_>>(),
+            first,
+            "every first-flush segment is dirty, nothing else is"
+        );
+
+        // 2. A repeat query is served from the cache (same residents).
+        assert_eq!(run(&idx, "2").await, want(&live), "repeat query");
+        assert_eq!(cached(&idx), c1, "a repeat query must hit");
+
+        // 3. Overwrite a doc that lives in a second-flush segment:
+        // `ghost_events` moves, but no first-flush bitmap does, so their
+        // views stay; that one segment gets a view of its own.
+        let s0 = seg_of("d0");
+        assert!(!first.contains(&s0));
+        idx.index_document(Some("d0".into()), doc(0, 2))
+            .await
+            .unwrap();
+        live.insert(0, 200_000);
+        assert_eq!(run(&idx, "3").await, want(&live), "write elsewhere");
+        let c3 = cached(&idx);
+        for seg in &first {
+            assert_eq!(c3[seg], c1[seg], "a write outside {seg} keeps its view");
+        }
+        assert!(c3.contains_key(&s0), "{s0} is dirty now");
+        assert_eq!(c3.len(), first.len() + 1);
+
+        // 4. Delete a doc of the first flush (odd ids were never
+        // overwritten): its segment's bitmap changes, so that view alone is
+        // rebuilt.
+        let s1 = seg_of("d1");
+        assert!(first.contains(&s1));
+        assert!(idx.delete_document("d1").await.unwrap());
+        live.remove(&1);
+        assert_eq!(run(&idx, "4").await, want(&live), "delete in segment");
+        let c4 = cached(&idx);
+        assert_ne!(c4[&s1], c3[&s1], "a delete in {s1} must rebuild its view");
+        for (seg, v) in &c3 {
+            if *seg != s1 {
+                assert_eq!(c4[seg], *v, "the delete left {seg} alone");
+            }
+        }
+
+        // 5. Overwrite another first-flush doc: its segment is rebuilt.
+        let s3 = seg_of("d3");
+        idx.index_document(Some("d3".into()), doc(3, 3))
+            .await
+            .unwrap();
+        live.insert(3, 300_003);
+        assert_eq!(run(&idx, "5").await, want(&live), "overwrite in segment");
+        assert_ne!(cached(&idx)[&s3], c4[&s3], "an overwrite must rebuild");
+
+        // 6. A merge retires the segments, and with them their views.
+        idx.flush().await.unwrap();
+        idx.force_merge(1).await.unwrap();
+        let ids: Vec<String> = idx
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|m| m.id.clone())
+            .collect();
+        assert!(
+            first.iter().all(|seg| !ids.contains(seg)),
+            "forcemerge must retire the first flush"
+        );
+        let c6 = cached(&idx);
+        assert!(
+            c6.keys().all(|seg| ids.contains(seg)),
+            "views of retired segments must be evicted: {c6:?} vs {ids:?}"
+        );
+        assert_eq!(run(&idx, "6").await, want(&live), "after forcemerge");
+
+        // 7. release_memory drops every view.
+        idx.release_memory();
+        assert!(idx.dv_live_view_cache.is_empty());
+        assert_eq!(run(&idx, "7").await, want(&live), "after release_memory");
     }
 }

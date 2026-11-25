@@ -563,6 +563,13 @@ impl Clusterer {
         for (scope, mut c) in docs {
             let base = if scope.is_empty() {
                 "docs".to_string()
+            } else if let Some(repo_scope) = crate::sdd::parse_specs_scope(&scope) {
+                let s = sanitize_slug(repo_scope);
+                if s.is_empty() {
+                    "specs".to_string()
+                } else {
+                    format!("{s}-specs")
+                }
             } else {
                 let s = sanitize_slug(&scope);
                 if s.is_empty() {

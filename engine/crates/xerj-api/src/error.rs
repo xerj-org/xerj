@@ -168,7 +168,9 @@ impl ApiError {
         // `parse error: <msg>`; strip that so the reason matches ES
         // byte-for-byte, and surface ES's exception types
         // (`illegal_argument_exception` for a bad format string,
-        // `parse_exception` in root_cause for unparseable values/math).
+        // `parse_exception` in root_cause for unparseable values/math,
+        // `illegal_argument_exception` in root_cause for a date too far from
+        // 1970 to fit epoch millis).
         let mut reason = reason;
         let mut date_root: Option<&'static str> = None;
         {
@@ -176,6 +178,12 @@ impl ApiError {
             if stripped.starts_with("Invalid format: [") {
                 reason = stripped.to_string();
                 error_type = "illegal_argument_exception".into();
+                status_code = 400;
+                date_root = Some("illegal_argument_exception");
+            } else if stripped.starts_with("date[")
+                && stripped.ends_with("to be represented in a long milliseconds variable")
+            {
+                reason = stripped.to_string();
                 status_code = 400;
                 date_root = Some("illegal_argument_exception");
             } else if stripped.starts_with("failed to parse date field [")
@@ -200,11 +208,15 @@ impl ApiError {
             // `failed to create query:` above — `query_shard_exception`
             // in root_cause, outer wrapper unchanged.
             "query_shard_exception".to_string()
-        } else if reason.starts_with("function score query returned an invalid score:") {
+        } else if reason.starts_with("function score query returned an invalid score:")
+            || reason.starts_with("Missing value for field [")
+        {
             // ES validates function_score results and raises
             // `illegal_argument_exception` with a 400 status when a
             // function produces a non-finite or negative score
-            // (e.g. ln1p on qty=-1 → ln(0) = -∞).
+            // (e.g. ln1p on qty=-1 → ln(0) = -∞), and when a
+            // `field_value_factor` with no `missing` scores a doc that has
+            // no value for its field.
             error_type = "illegal_argument_exception".into();
             status_code = 400;
             "illegal_argument_exception".to_string()

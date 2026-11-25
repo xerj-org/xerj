@@ -15,7 +15,7 @@ function json(status, body) {
 }
 
 const { parseKnowledge, parseCatalogHits, topFields } = await import('../src/data/catalog.js');
-const { renderCorpusCard, renderRelations, renderCapabilities } = await import('../src/ux/corpus-render.js');
+const { renderCorpus, renderCorpusCard, renderRelations, renderCapabilities } = await import('../src/ux/corpus-render.js');
 const { corpus } = await import('../src/dashboards/corpus.js');
 const { textOf, findAll } = await import('../src/ux/safe-dom.js');
 
@@ -305,4 +305,33 @@ test('#1099 a catalog that elected a semantic field the index does not carry say
   const text = textOf(renderCapabilities(parseKnowledge(missing)));
   assert.match(text, /no vectors to match/);
   assert.doesNotMatch(text, /\d[\d,.]*\s+VECTORS?/i);
+});
+
+test('#2409 the empty state names the data directory the node serves', () => {
+  const hint = 'This node serves data directory /srv/xerj/data. If you indexed while the node ran with another --data-dir or --config, restart it with that one: a node reads only its own data directory and does not look for others.';
+  const empty = { data: { catalog: false, totals: { datasets: 0, records: 0, files: 0, bytes: 0, docs: 0, relations: 0 },
+    datasets: [], others: [], relations: [], brains: [], capabilities: [],
+    data_dir: '/srv/xerj/data', data_dir_hint: hint } };
+  const st = parseKnowledge(empty);
+  assert.equal(st.dataDir, '/srv/xerj/data');
+  const text = textOf(renderCorpus(st));
+  assert.match(text, /NOTHING INDEXED YET/);
+  assert.match(text, /DATA DIRECTORY/);
+  assert.ok(text.includes('/srv/xerj/data'), text);
+  assert.match(text, /--data-dir or --config/);
+
+  // a viewer: no path in the payload, the hint still renders, no path block
+  const viewer = { data: { ...empty.data, data_dir: null,
+    data_dir_hint: 'If you indexed while the node ran with another --data-dir or --config, this node may be serving a different data directory; its startup log names the one in use (`server data directory data_dir=...`).' } };
+  const vt = textOf(renderCorpus(parseKnowledge(viewer)));
+  assert.doesNotMatch(vt, /DATA DIRECTORY/);
+  assert.match(vt, /startup log names the one in use/);
+
+  // a share guest never sees either
+  const gt = textOf(renderCorpus(st, { guest: true }));
+  assert.doesNotMatch(gt, /data directory/i);
+
+  // an older engine without the fields: the empty state is unchanged
+  const old = textOf(renderCorpus(parseKnowledge({ data: { ...empty.data, data_dir: undefined, data_dir_hint: undefined } })));
+  assert.doesNotMatch(old, /DATA DIRECTORY|--data-dir/);
 });

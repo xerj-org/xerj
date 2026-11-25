@@ -38,12 +38,14 @@ use xerj_cluster::{ApplyEffect, ClusterCommand, ShardOp, ShardResult};
 
 use crate::es_compat::{
     aggregate_by_query_results, apply_get_doc_source_filter, apply_local_update,
-    pipeline_rejected_body, search_shard_local, unrunnable_pipeline_reason, EsSearchBody,
-    EsSearchJson, EsSearchQueryParams, EsUpdateBody, GetDocParams, UpdateDocParams,
+    pipeline_rejected_body, result_window_refusal, search_shard_local, unrunnable_pipeline_reason,
+    url_search_window, EsSearchBody, EsSearchJson, EsSearchQueryParams, EsUpdateBody, GetDocParams,
+    UpdateDocParams,
 };
 use crate::responses::{EsDeleteDocResponse, EsDocResponse, EsGetResponse};
 use crate::state::AppState;
 use crate::ApiError;
+use xerj_cluster::router::ShardUnassigned;
 
 /// Per-shard `from + size` cap when a search is merged across owners.
 const MAX_FANOUT_WINDOW: usize = 10_000;
@@ -82,6 +84,36 @@ pub(crate) fn shard_not_ready_response(index: &str) -> Response {
         })),
     )
         .into_response()
+}
+
+/// The index has a shard plan but `shard` has no primary. A write there is
+/// refused instead of being stored on the receiving node, where it would sit
+/// outside the plan and reads by id and search would never see it.
+pub(crate) fn shard_not_assigned_body(index: &str, shard: u32) -> Value {
+    json!({
+        "error": {
+            "type": "shard_not_assigned_exception",
+            "reason": format!("[{index}][{shard}] has no primary assigned in the shard plan"),
+            "index": index,
+            "shard": shard
+        },
+        "status": 503
+    })
+}
+
+fn shard_not_assigned_response(index: &str, unassigned: ShardUnassigned) -> Response {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(shard_not_assigned_body(index, unassigned.shard)),
+    )
+        .into_response()
+}
+
+fn shard_not_assigned_result(index: &str, unassigned: ShardUnassigned) -> ShardResult {
+    ShardResult::http(
+        503,
+        shard_not_assigned_body(index, unassigned.shard).to_string(),
+    )
 }
 
 fn http_result(result: ShardResult) -> Response {
@@ -153,8 +185,12 @@ pub(crate) async fn dispatch_index(
         .await;
         return Dispatch::Done(http_result(result));
     }
-    let Some(owner) = state.engine.route_write(index, id) else {
-        return Dispatch::Local;
+    let owner = match state.engine.route_write(index, id) {
+        Ok(Some(owner)) => owner,
+        Ok(None) => return Dispatch::Local,
+        Err(unassigned) => {
+            return Dispatch::Done(shard_not_assigned_response(index, unassigned));
+        }
     };
     let shard_op = ShardOp::IndexDoc {
         index: index.to_string(),
@@ -180,8 +216,12 @@ pub(crate) async fn dispatch_get(
     if !state.engine.has_cluster() {
         return Dispatch::Local;
     }
-    let Some((shard, owner)) = state.engine.primary_of(index, id) else {
-        return Dispatch::Local;
+    let (shard, owner) = match state.engine.primary_of(index, id) {
+        Ok(Some(found)) => found,
+        Ok(None) => return Dispatch::Local,
+        Err(unassigned) => {
+            return Dispatch::Done(shard_not_assigned_response(index, unassigned));
+        }
     };
     if owner == state.engine.routing_node_id() {
         return Dispatch::Local;
@@ -247,8 +287,12 @@ pub(crate) async fn dispatch_delete(
         let result = local_delete(state, index, id, if_seq_no, if_primary_term, false, 0).await;
         return Dispatch::Done(http_result(result));
     }
-    let Some(owner) = state.engine.route_write(index, id) else {
-        return Dispatch::Local;
+    let owner = match state.engine.route_write(index, id) {
+        Ok(Some(owner)) => owner,
+        Ok(None) => return Dispatch::Local,
+        Err(unassigned) => {
+            return Dispatch::Done(shard_not_assigned_response(index, unassigned));
+        }
     };
     let op = ShardOp::DeleteDoc {
         index: index.to_string(),
@@ -303,8 +347,12 @@ pub(crate) async fn dispatch_update(
         let result = local_update(state, index, id, &body_json, &params_json).await;
         return Dispatch::Done(http_result(result));
     }
-    let Some(owner) = state.engine.route_write(&concrete, id) else {
-        return Dispatch::Local;
+    let owner = match state.engine.route_write(&concrete, id) {
+        Ok(Some(owner)) => owner,
+        Ok(None) => return Dispatch::Local,
+        Err(unassigned) => {
+            return Dispatch::Done(shard_not_assigned_response(&concrete, unassigned));
+        }
     };
     let op = ShardOp::UpdateDoc {
         index: index.to_string(),
@@ -352,7 +400,30 @@ pub(crate) async fn fanout_search(
     if targets.is_empty() || (targets.len() == 1 && targets[0] == me) {
         return None;
     }
+    // The shards are sent this node's own `size` and `from`, so the URL
+    // values are read here: a bad one is refused as a single node refuses
+    // it, and a good one wins over the body, as on a single node. The other
+    // search parameters reach each shard's `search_impl` unchanged.
+    let (url_size, url_from) = match url_search_window(params) {
+        Ok(window) => window,
+        Err(refusal) => return Some(refusal),
+    };
     let parsed = body.0.clone().unwrap_or_default();
+    let from = url_from.unwrap_or(parsed.from);
+    let size = url_size.unwrap_or(parsed.size);
+    let window = from.saturating_add(size);
+    // Over the index's own limit, the refusal a single node gives, which a
+    // single node also gives before the features below. Not for a scroll: a
+    // single node names the batch size there, and the fan-out refuses
+    // scrolls below. Between that limit and a raised
+    // `index.max_result_window`, the fan-out's own refusal further down: it
+    // cannot merge the window yet, and ES's message would quote a limit the
+    // index does not have.
+    if params.scroll.is_none() {
+        if let Some(refusal) = result_window_refusal(state, index, from, size) {
+            return Some(refusal);
+        }
+    }
     if parsed.aggs.is_some() || parsed.aggregations.is_some() {
         return Some(cluster_search_unsupported("aggregations"));
     }
@@ -375,9 +446,6 @@ pub(crate) async fn fanout_search(
         return Some(cluster_search_unsupported("scroll"));
     }
 
-    let from = parsed.from;
-    let size = parsed.size;
-    let window = from.saturating_add(size);
     if window > MAX_FANOUT_WINDOW {
         return Some(cluster_search_unsupported("a from+size window above 10000"));
     }
@@ -654,8 +722,12 @@ impl xerj_cluster::ShardHandler for ApiShardHandler {
                     return ShardResult::http(503, shard_not_ready_body(&index));
                 }
                 if !self.state.engine.owns_shard(&concrete, &id) {
-                    if let Some(owner) = self.state.engine.route_write(&concrete, &id) {
-                        return not_this_primary(&index, &owner);
+                    match self.state.engine.route_write(&concrete, &id) {
+                        Ok(Some(owner)) => return not_this_primary(&index, &owner),
+                        Ok(None) => {}
+                        Err(unassigned) => {
+                            return shard_not_assigned_result(&concrete, unassigned);
+                        }
                     }
                 }
                 local_update(&self.state, &index, &id, &body_json, &params_json).await
@@ -1043,13 +1115,107 @@ fn replica_nack(index: &str, replica: &str, detail: &str) -> ShardResult {
             "error": {
                 "type": "replica_not_acknowledged",
                 "reason": format!(
-                    "primary applied the write on [{index}] but replica [{replica}] did not acknowledge it: {detail}. The primary has the write; retry the index so the copy can catch up"
+                    "primary applied the write on [{index}] but replica [{replica}] did not acknowledge it: {detail}. The primary has the write; the copy was marked stale and will be backfilled from the primary"
                 )
             },
             "status": 503
         })
         .to_string(),
     )
+}
+
+/// Publish `nodes` as the in-sync replicas of `index` shard `shard`.
+///
+/// An empty list leaves the primary as the only in-sync copy. `Ok` means the
+/// entry committed and this node applied it with every id in `nodes`
+/// present. The caller holds `replica_sync_lock`.
+async fn publish_in_sync(
+    state: &AppState,
+    index: &str,
+    shard: u32,
+    mut nodes: Vec<String>,
+) -> Result<(), String> {
+    nodes.sort();
+    nodes.dedup();
+    let Some(handle) = state.engine.cluster_handle() else {
+        return Err("no cluster handle to publish the in-sync set".to_string());
+    };
+    match handle
+        .propose(ClusterCommand::SetShardInSync {
+            index: index.to_string(),
+            shard,
+            nodes: nodes.clone(),
+        })
+        .await
+    {
+        Ok(ApplyEffect::Applied) => {
+            let published = state.engine.replica_nodes(index, shard);
+            if nodes.iter().all(|id| published.iter().any(|got| got == id)) {
+                Ok(())
+            } else {
+                Err(
+                    "the in-sync set committed without the replicas that confirmed this write"
+                        .to_string(),
+                )
+            }
+        }
+        Ok(other) => Err(format!("in-sync update applied as {other:?}")),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+/// Drop every replica of `index` shard `shard` that is not in `keep` from
+/// the in-sync set. Used when the primary applied a write that some copies
+/// did not confirm. The caller holds `replica_sync_lock`.
+async fn mark_stale(
+    state: &AppState,
+    index: &str,
+    shard: u32,
+    targets: &[String],
+    keep: Vec<String>,
+) -> Result<(), String> {
+    let stale: Vec<&String> = targets.iter().filter(|id| !keep.contains(id)).collect();
+    if stale.is_empty() {
+        return Ok(());
+    }
+    match publish_in_sync(state, index, shard, keep).await {
+        Ok(()) => {
+            tracing::warn!(
+                index = %index,
+                shard,
+                stale = ?stale,
+                "replica did not confirm a write the primary applied; marked stale for backfill"
+            );
+            Ok(())
+        }
+        Err(detail) => {
+            tracing::error!(
+                index = %index,
+                shard,
+                stale = ?stale,
+                error = %detail,
+                "replica may be stale and is still in sync: the in-sync shrink did not commit"
+            );
+            Err(detail)
+        }
+    }
+}
+
+/// Drop every in-sync replica of the shard `id` routes to.
+///
+/// For a write the primary applied but could not copy at all (its own
+/// document could not be read back), so no replica has it.
+async fn mark_shard_copies_stale(state: &AppState, index: &str, id: &str) {
+    let Ok(Some((shard, _))) = state.engine.primary_of(index, id) else {
+        return;
+    };
+    if state.engine.placed_replica_nodes(index, shard).is_empty() {
+        return;
+    }
+    let sync = state.engine.replica_sync_lock(index, shard);
+    let _sync = sync.lock().await;
+    let targets = state.engine.replica_nodes(index, shard);
+    let _ = mark_stale(state, index, shard, &targets, Vec::new()).await;
 }
 
 /// Copy `op` onto the in-sync replicas and wait for a quorum.
@@ -1060,9 +1226,10 @@ fn replica_nack(index: &str, replica: &str, detail: &str) -> ShardResult {
 /// is an upsert or a delete without the caller's sequence check: the
 /// replica's own sequence numbers are not the primary's.
 ///
-/// Every in-sync replica is asked. When enough confirm and some do not, the
-/// ones that confirmed are published through the Raft log before the caller
-/// is acknowledged, and later reads skip the rest until
+/// Every in-sync replica is asked. The primary has already applied the
+/// write, so any replica that does not confirm it is removed from the
+/// in-sync set through the Raft log before this returns, whether the
+/// caller gets a success or a 503. Later reads and failover skip it until
 /// [`backfill_replica`] copies the primary's live documents and publishes
 /// the replica again. Two writes of the same shard do not publish different
 /// sets; the primary holds `replica_sync_lock` across the copy and the
@@ -1073,8 +1240,10 @@ async fn replicate_write(
     id: &str,
     op: ShardOp,
 ) -> Result<(), ShardResult> {
-    let Some((shard, _)) = state.engine.primary_of(index, id) else {
-        return Ok(());
+    let shard = match state.engine.primary_of(index, id) {
+        Ok(Some((shard, _))) => shard,
+        Ok(None) => return Ok(()),
+        Err(unassigned) => return Err(shard_not_assigned_result(index, unassigned)),
     };
     let sync = state.engine.replica_sync_lock(index, shard);
     let _sync = sync.lock().await;
@@ -1085,12 +1254,23 @@ async fn replicate_write(
     let targets = state.engine.replica_nodes(index, shard);
     let needed = xerj_cluster::replica_quorum_acks(placed.len());
     if targets.len() < needed {
-        return Err(quorum_nack(
-            index,
-            needed,
-            targets.len(),
-            "fewer replicas are in sync than the quorum requires",
-        ));
+        // Still copy to the replicas that are in sync, so a copy that is
+        // not asked does not stay listed. Every replica that is not
+        // confirmed below leaves the set.
+        let op = replica_copy(op, shard);
+        let mut acked: Vec<String> = Vec::new();
+        for replica in &targets {
+            if confirm_replica(state, replica, &op).await.is_ok() {
+                acked.push(replica.clone());
+            }
+        }
+        let detail = match mark_stale(state, index, shard, &targets, acked).await {
+            Ok(()) => "fewer replicas are in sync than the quorum requires".to_string(),
+            Err(err) => format!(
+                "fewer replicas are in sync than the quorum requires, and a stale replica could not be marked: {err}"
+            ),
+        };
+        return Err(quorum_nack(index, needed, targets.len(), &detail));
     }
     let op = replica_copy(op, shard);
     let mut acked: Vec<String> = Vec::new();
@@ -1105,57 +1285,29 @@ async fn replicate_write(
             }
         }
     }
-    if acked.len() < needed {
+    if acked.len() == targets.len() {
+        return Ok(());
+    }
+    let got = acked.len();
+    let marked = mark_stale(state, index, shard, &targets, acked).await;
+    if got < needed {
         let (replica, detail) = failed.unwrap_or_else(|| {
             (
                 "none".to_string(),
                 "no in-sync replica acknowledged the write".to_string(),
             )
         });
-        return Err(replica_nack(index, &replica, &detail));
+        return match marked {
+            Ok(()) => Err(replica_nack(index, &replica, &detail)),
+            Err(err) => Err(quorum_nack(
+                index,
+                needed,
+                got,
+                &format!("replica [{replica}] did not acknowledge ({detail}) and could not be marked stale: {err}"),
+            )),
+        };
     }
-    if acked.len() == targets.len() {
-        return Ok(());
-    }
-    acked.sort();
-    acked.dedup();
-    let Some(handle) = state.engine.cluster_handle() else {
-        return Err(quorum_nack(
-            index,
-            needed,
-            acked.len(),
-            "no cluster handle to publish the in-sync set",
-        ));
-    };
-    match handle
-        .propose(ClusterCommand::SetShardInSync {
-            index: index.to_string(),
-            shard,
-            nodes: acked.clone(),
-        })
-        .await
-    {
-        Ok(ApplyEffect::Applied) => {
-            let published = state.engine.replica_nodes(index, shard);
-            if acked.iter().all(|id| published.iter().any(|got| got == id)) {
-                Ok(())
-            } else {
-                Err(quorum_nack(
-                    index,
-                    needed,
-                    acked.len(),
-                    "the in-sync set committed without the replicas that confirmed this write",
-                ))
-            }
-        }
-        Ok(other) => Err(quorum_nack(
-            index,
-            needed,
-            acked.len(),
-            &format!("in-sync update applied as {other:?}"),
-        )),
-        Err(err) => Err(quorum_nack(index, needed, acked.len(), &err.to_string())),
-    }
+    marked.map_err(|err| quorum_nack(index, needed, got, &err))
 }
 
 async fn confirm_replica(state: &AppState, replica: &str, op: &ShardOp) -> Result<(), String> {
@@ -1246,7 +1398,7 @@ async fn primary_live_docs(
         .map_err(|err| format!("primary index [{index}] is not open: {err}"))?;
     let mut docs = Vec::new();
     for id in idx.live_document_ids() {
-        let Some((doc_shard, _)) = state.engine.primary_of(index, &id) else {
+        let Ok(Some((doc_shard, _))) = state.engine.primary_of(index, &id) else {
             continue;
         };
         if doc_shard != shard {
@@ -1755,6 +1907,7 @@ async fn local_update(
                     shard: 0,
                 },
                 Err(err) => {
+                    mark_shard_copies_stale(state, &concrete, id).await;
                     return ShardResult::http(
                         503,
                         json!({
@@ -1779,6 +1932,7 @@ async fn local_update(
                 shard: 0,
             },
             Err(err) => {
+                mark_shard_copies_stale(state, &concrete, id).await;
                 return ShardResult::http(
                     503,
                     json!({
@@ -1795,6 +1949,7 @@ async fn local_update(
             }
         },
         Err(err) => {
+            mark_shard_copies_stale(state, &concrete, id).await;
             return ShardResult::http(
                 503,
                 json!({
@@ -2165,6 +2320,7 @@ async fn replicate_bulk_result(
                         shard: 0,
                     },
                     Err(err) => {
+                        mark_shard_copies_stale(state, &concrete, &item.id).await;
                         mark_bulk_nack(
                             item,
                             &ShardResult::http(
@@ -2196,6 +2352,7 @@ async fn replicate_bulk_result(
                     shard: 0,
                 },
                 Err(err) => {
+                    mark_shard_copies_stale(state, &concrete, &item.id).await;
                     mark_bulk_nack(
                         item,
                         &ShardResult::http(
@@ -2219,6 +2376,7 @@ async fn replicate_bulk_result(
                 }
             },
             Err(err) => {
+                mark_shard_copies_stale(state, &concrete, &item.id).await;
                 mark_bulk_nack(
                     item,
                     &ShardResult::http(
@@ -2304,10 +2462,12 @@ fn bulk_refused_here(state: &AppState, pieces: &[BulkPiece]) -> Option<ShardResu
         if state.engine.owns_shard(&concrete, &piece.id) {
             continue;
         }
-        if let Some(owner) = state.engine.route_write(&concrete, &piece.id) {
-            if owner != me {
+        match state.engine.route_write(&concrete, &piece.id) {
+            Ok(Some(owner)) if owner != me => {
                 return Some(not_this_primary(&piece.index, &owner));
             }
+            Ok(_) => {}
+            Err(unassigned) => return Some(shard_not_assigned_result(&concrete, unassigned)),
         }
     }
     None
@@ -2536,6 +2696,27 @@ pub(crate) async fn bulk_on_primaries(
         }
     }
 
+    for piece in &mut pieces {
+        if piece.preset.is_some() || state.engine.owns_shard(&piece.concrete, &piece.id) {
+            continue;
+        }
+        if let Err(unassigned) = state.engine.route_write(&piece.concrete, &piece.id) {
+            let body = shard_not_assigned_body(&piece.concrete, unassigned.shard);
+            let reason = body
+                .pointer("/error/reason")
+                .and_then(Value::as_str)
+                .unwrap_or("shard_not_assigned_exception")
+                .to_string();
+            piece.preset = Some(bulk_item_error(
+                &piece.action,
+                &piece.index,
+                &piece.id,
+                503,
+                reason,
+            ));
+        }
+    }
+
     let mut groups: Vec<OwnerGroup> = Vec::new();
     for (at, piece) in pieces.iter().enumerate() {
         if piece.preset.is_some() {
@@ -2544,7 +2725,11 @@ pub(crate) async fn bulk_on_primaries(
         let remote = if state.engine.owns_shard(&piece.concrete, &piece.id) {
             None
         } else {
-            state.engine.route_write(&piece.concrete, &piece.id)
+            state
+                .engine
+                .route_write(&piece.concrete, &piece.id)
+                .ok()
+                .flatten()
         };
         let owner = remote.clone().unwrap_or_default();
         if let Some(group) = groups
@@ -2795,7 +2980,7 @@ async fn forward_update_by_query(state: &AppState, index: &str, owner: &str, op:
 }
 
 async fn copy_updated_document(state: &AppState, index: &str, id: &str) -> Result<(), String> {
-    if state.engine.primary_of(index, id).is_none() {
+    if matches!(state.engine.primary_of(index, id), Ok(None)) {
         return Ok(());
     }
     if !state.engine.owns_shard(index, id) {
@@ -2819,6 +3004,7 @@ async fn copy_updated_document(state: &AppState, index: &str, id: &str) -> Resul
                     shard: 0,
                 },
                 Err(err) => {
+                    mark_shard_copies_stale(state, index, id).await;
                     return Err(format!(
                         "primary applied the update on [{index}] but document [{id}] is not JSON: {err}"
                     ));
@@ -2833,12 +3019,14 @@ async fn copy_updated_document(state: &AppState, index: &str, id: &str) -> Resul
                 shard: 0,
             },
             Err(err) => {
+                mark_shard_copies_stale(state, index, id).await;
                 return Err(format!(
                     "primary applied the update on [{index}] but document [{id}] could not be read: {err}"
                 ));
             }
         },
         Err(err) => {
+            mark_shard_copies_stale(state, index, id).await;
             return Err(format!(
                 "primary applied the update but [{index}] is not open: {err}"
             ));
@@ -3162,7 +3350,7 @@ async fn forward_delete_by_query(state: &AppState, index: &str, owner: &str, op:
 }
 
 async fn copy_deleted_document(state: &AppState, index: &str, id: &str) -> Result<(), String> {
-    if state.engine.primary_of(index, id).is_none() {
+    if matches!(state.engine.primary_of(index, id), Ok(None)) {
         return Ok(());
     }
     if !state.engine.owns_shard(index, id) {

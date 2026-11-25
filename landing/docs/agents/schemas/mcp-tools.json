@@ -2,7 +2,7 @@
   "tools": [
     {
       "name": "xerj_def",
-      "description": "Find a symbol's definition in local autoindexed data, like `xerj def --json`. Lexical ranking, not neural: shares the CLI's mapping-aware query, preferred-kind and public-declaration ranking, location deduplication and bounded candidate window. Returns ES JSON with declarations in hits.hits[]._source.code and locations in ax_path/path plus line/start_line (page/cell for documents); older file-level hits may carry fields._passage instead. hits.total counts engine matches before deduplication. No match is a successful empty hits list. Unlike xerj_hub_def, this queries the configured node, not a Hub pack. Optional max_tokens caps the response; see its tokenizer and locator-only rule. If this prefix was autoindexed from a folder on this machine and a file there is newer than the last run, or an indexed file has been removed, the response adds `_xerj.hints` code `index_stale` with the last index time and a reindex command, the same check as xerj_search: a definition from that index can be stale or missing.",
+      "description": "Find a symbol's definition in local autoindexed data, like `xerj def --json`. Lexical ranking, not neural: shares the CLI's mapping-aware query, preferred-kind and public-declaration ranking, location deduplication and bounded candidate window. Returns ES JSON with declarations in hits.hits[]._source.code and locations in ax_path/path plus line/start_line (page/cell for documents); older file-level hits may carry fields._passage instead. hits.total counts engine matches before deduplication. No match is a successful empty hits list. Unlike xerj_hub_def, this queries the configured node, not a Hub pack. Optional max_tokens caps the response; see its tokenizer and locator-only rule. If this prefix was autoindexed from a folder on this machine and a file there is newer than the last run, or an indexed file has been removed, the response adds `_xerj.hints` code `index_stale` with the last index time and a reindex command, the same check as xerj_search. On such a stale prefix, hits whose file changed are re-read: a moved declaration gets its current line with `reanchored: true` and `indexed_line`, a removed one is dropped, and when no hit is an exact-name definition the changed code files are parsed read-only and matches come back with `unindexed: true`. A hit that names the symbol only inside a string or list is ranked last with `reference: true`.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -38,7 +38,51 @@
             "type": "integer",
             "minimum": 32,
             "default": 8000,
-            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
+            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget, as is the `_xerj.embed_mode` note. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
+          }
+        },
+        "required": [
+          "symbol"
+        ]
+      }
+    },
+    {
+      "name": "xerj_references",
+      "description": "Every indexed line that names an exact identifier, excluding its definitions: path, line, the line's text and the enclosing symbol (narrowest declaration around it). Use it for \"where is X used / who calls X\" after xerj_def found the definition. Lexical, not a call graph: finds the files whose text holds `symbol` as a phrase, then scans each file's stored text for it with identifier boundaries, case-sensitive. Comments and strings count; calls through an alias do not; same-named symbols are not told apart. Lines that declare `symbol` (from the file's symbol catalogue) come back in `definitions`, not `references`. A mention inside a section of a long text file that the index stores without a line number comes back in `unlocated` (path, section, text; first 50, counted in `unlocated_total`), never with a guessed line. `total` counts every located reference line; `references` is the page `from`..`from+size`, sorted by path then line. `truncated: true` means more than 2000 matching files and the scan stopped. Indices that map neither `body` nor `text` are skipped. Optional max_tokens trims the page from its end and says so in `budget`.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Exact identifier, e.g. `activeDialog`, `SEND_PROTOCOL` or a dotted `ActiveUtils.activeDialog` / `Vec::new`. No spaces."
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Autoindex prefix: project searches project-*. Cannot be combined with a non-empty index. Defaults to ax when neither scope is given."
+          },
+          "index": {
+            "type": "string",
+            "description": "Explicit index name or pattern instead of prefix."
+          },
+          "from": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "First reference of the page (0-based)."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 50,
+            "description": "References per page (1..=500, default 50)."
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 32,
+            "default": 8000,
+            "description": "Word budget for the successful JSON result, counted with XERJ's StandardTokenizer (UAX #29 word boundaries). References are dropped from the end of the page until it fits; `budget.trimmed` says how many and `next_from` continues there. Totals, definitions and unlocated counts are kept. Minimum 32; when omitted the budget is 8000 UAX #29 words. Not a byte cap or a model-token count."
           }
         },
         "required": [
@@ -48,7 +92,7 @@
     },
     {
       "name": "xerj_batch_search",
-      "description": "Search 1..50 IDs or questions in one call, in input order. Shares the CLI xerj batch-search adapter. Each result has its zero-based position, optional caller key, and status hits, abstain (only a complete empty search), or error. Hits carry citations: index/id plus file/line or record locator when available. This retrieves evidence, not generated answers or calibrated confidence. Use identifier plus an explicitly keyword-mapped field for exact IDs; query takes plain text or an ES query clause. One bad item never discards its siblings; identical inputs remain separate. Uses one _msearch request, plus at most one mapping read; a response over 32 MiB is retried in halves, and an item still over it alone fails alone. Omitted or null max_tokens defaults to 8000 UAX #29 words and caps the entire successful JSON response using StandardTokenizer UAX #29 words, not BPE. Budgeting removes raw hit bodies, then extra hits, retaining each item's status and at least one citation per matched item. If that minimum cannot fit, returns an actionable tool error, never truncated JSON or a false abstention. Errors are not truncated.",
+      "description": "Search 1..50 IDs or questions in one call, in input order. Shares the CLI xerj batch-search adapter. Each result has its zero-based position, optional caller key, and status hits, abstain (only a complete empty search), or error. Hits carry citations: index/id plus file/line or record locator when available. This retrieves evidence, not generated answers or calibrated confidence. Use identifier plus an explicitly keyword-mapped field for exact IDs; query takes plain text or an ES query clause. One bad item never discards its siblings; identical inputs remain separate. The batch shares one 25 s time budget; an item it does not reach fails alone as search_incomplete. Uses one _msearch request, plus at most one mapping read; a response over 32 MiB is retried in halves, and an item still over it alone fails alone. Omitted or null max_tokens defaults to 8000 UAX #29 words and caps the entire successful JSON response using StandardTokenizer UAX #29 words, not BPE. Budgeting removes raw hit bodies, then extra hits, retaining each item's status and at least one citation per matched item. If that minimum cannot fit, returns an actionable tool error, never truncated JSON or a false abstention. Errors are not truncated.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -66,7 +110,7 @@
                 },
                 {
                   "type": "object",
-                  "additionalProperties": false,
+                  "description": "Pass query, or identifier plus field. Items are checked one by one: an item with an unknown key, or with both query and identifier, fails alone and its error lists the allowed keys (key, query, identifier, field, _source); the other items still run.",
                   "properties": {
                     "key": {
                       "type": "string",
@@ -82,7 +126,7 @@
                           "type": "object"
                         }
                       ],
-                      "description": "Plain text or ES query clause. Cannot be combined with identifier/field."
+                      "description": "Plain text or ES query clause; a string that is a JSON object is read as the clause. Cannot be combined with identifier/field."
                     },
                     "identifier": {
                       "type": "string",
@@ -93,21 +137,11 @@
                       "type": "string",
                       "minLength": 1,
                       "description": "Flat keyword field for identifier. Must be mapped as keyword wherever present; unreadable, absent or conflicting mappings fail this item."
-                    }
-                  },
-                  "oneOf": [
-                    {
-                      "required": [
-                        "query"
-                      ]
                     },
-                    {
-                      "required": [
-                        "identifier",
-                        "field"
-                      ]
+                    "_source": {
+                      "description": "Source filtering for this item's hits (bool, field list, or {includes,excludes}). Default: the whole _source, minus embedding vectors."
                     }
-                  ]
+                  }
                 }
               ]
             }
@@ -127,6 +161,10 @@
             "default": 3,
             "description": "Maximum hits per item."
           },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
+          },
           "max_tokens": {
             "type": "integer",
             "minimum": 32,
@@ -141,7 +179,7 @@
     },
     {
       "name": "xerj_search",
-      "description": "Full-text / keyword / structured search over a XERJ index. Proxies POST /{index}/_search. Pass `prefix` (a `xerj search --prefix` value, resolved by that command) or `index` (a name or pattern) — not both; with neither, searches `ax-*`. Pass `query` as a PLAIN STRING for the definition-first code search (ranks the file that defines a symbol above files that merely mention it — the right default for code), or as an ES query-DSL object (e.g. {\"term\":{\"status\":\"open\"}}, or a bool clause) for structured queries. Omit `query` for match_all. Optional `rerank` adds a second stage that re-judges the top hits with an external relevance model — read that argument's description before using it: it needs a provider the operator configured, and it sends document text off the machine. Optional `judge` re-judges the returned hits LOCALLY (zero tokens, nothing leaves the node) and adds a `_p_relevant` probability per hit — see that argument's description for its honest ceiling. Each hit carries `match_line` when a query term sits in the passage: the absolute 1-based source line of the best-scoring match (a tie takes the earliest line), and `match_lines` for every matched line (capped). Cite `path:match_line`. Both are omitted when no term is located or the passage start line is unknown. `start_line` remains the passage start. Pass `max_tokens` to override the default word budget (see that argument for the tokenizer, exceptions and locator-only rule). If this prefix was autoindexed from a folder on this machine and a file there is newer than the last run, or an indexed file has been removed, the response adds `_xerj.hints` code `index_stale` with the last index time and a reindex command. Hits are returned with that hint. The check stats at most 4096 entries, stops after 100ms, and skips hidden and ignored paths.",
+      "description": "Full-text / keyword / structured search over a XERJ index. Proxies POST /{index}/_search. Pass `prefix` (a `xerj search --prefix` value, resolved by that command) or `index` (a name or pattern) — not both; with neither, searches `ax-*`. Pass `query` as a PLAIN STRING for the definition-first code search (ranks the file that defines a symbol above files that merely mention it — the right default for code), or as an ES query-DSL object (e.g. {\"term\":{\"status\":\"open\"}}, or a bool clause) for structured queries. Omit `query` for match_all. Optional `rerank` adds a second stage that re-judges the top hits with an external relevance model — read that argument's description before using it: it needs a provider the operator configured, and it sends document text off the machine. Optional `judge` re-judges the returned hits LOCALLY (zero tokens, nothing leaves the node) and adds a `_p_relevant` probability per hit — see that argument's description for its honest ceiling. Each hit carries `match_line` when a query term sits in the passage: the absolute 1-based source line of the best-scoring match (a tie takes the earliest line), and `match_lines` for every matched line (capped). Cite `path:match_line`. Both are omitted when no term is located or the passage start line is unknown. `start_line` remains the passage start. Pass `max_tokens` to override the default word budget (see that argument for the tokenizer, exceptions and locator-only rule). If this prefix was autoindexed from a folder on this machine and a file there is newer than the last run, or an indexed file has been removed, the response adds `_xerj.hints` code `index_stale` with the last index time and a reindex command. Hits are returned with that hint. The check stats at most 4096 entries, stops after 100ms, and skips hidden and ignored paths. The response's `_xerj.embed_mode` names the embedder the node runs (`lexical` feature hashing unless it was started with --embed-mode); a natural-language query on a lexical node adds `_xerj.hints` code `lexical_embedder` (words match, not meaning).",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -155,7 +193,7 @@
           },
           "query": {
             "type": "string",
-            "description": "What to search for, in plain words — the definition-first code search `xerj search` runs. Use `query_dsl` for a structured clause. Omit both for legacy match_all browsing; explicit query_dsl: {match_all: {}} is clearer."
+            "description": "What to search for, in plain words — the definition-first code search `xerj search` runs. Use `query_dsl` for a structured clause. Omit both for legacy match_all browsing; explicit query_dsl: {match_all: {}} is clearer. A string that is a JSON object (\"{\\\"match_all\\\":{}}\") is read as query DSL, and `_xerj.hints` says so."
           },
           "query_dsl": {
             "type": "object",
@@ -175,6 +213,10 @@
           "_source": {
             "description": "Source filtering (bool, field, or {includes,excludes})."
           },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
+          },
           "rerank": {
             "type": [
               "object",
@@ -193,14 +235,14 @@
             "type": "integer",
             "minimum": 32,
             "default": 8000,
-            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
+            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget, as is the `_xerj.embed_mode` note. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
           }
         }
       }
     },
     {
       "name": "xerj_semantic_search",
-      "description": "Meaning-based search over a `semantic_text` field. The query text is embedded SERVER-SIDE by XERJ's built-in lexical embedder (no external API key), then matched by vector similarity. Proxies POST /{index}/_search with {\"query\":{\"semantic\":{...}}}. Pass `max_tokens` to override the default word budget (see that argument for the tokenizer, exceptions and locator-only rule).",
+      "description": "Meaning-based search over a `semantic_text` field. The query text is embedded SERVER-SIDE by XERJ's built-in lexical embedder (no external API key), then matched by vector similarity. Proxies POST /{index}/_search with {\"query\":{\"semantic\":{...}}}. The response's `_xerj.embed_mode` names the embedder the node runs (`lexical` feature hashing unless it was started with --embed-mode); a natural-language query on a lexical node adds `_xerj.hints` code `lexical_embedder` (words match, not meaning). Pass `max_tokens` to override the default word budget (see that argument for the tokenizer, exceptions and locator-only rule).",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -223,11 +265,18 @@
             "type": "object",
             "description": "Optional ES query clause applied as a pre-filter."
           },
+          "_source": {
+            "description": "Source filtering (bool, field, or {includes,excludes})."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
+          },
           "max_tokens": {
             "type": "integer",
             "minimum": 32,
             "default": 8000,
-            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
+            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget, as is the `_xerj.embed_mode` note. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
           }
         },
         "required": [
@@ -269,11 +318,18 @@
             "type": "object",
             "description": "Optional ES query clause applied as a pre-filter."
           },
+          "_source": {
+            "description": "Source filtering (bool, field, or {includes,excludes})."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
+          },
           "max_tokens": {
             "type": "integer",
             "minimum": 32,
             "default": 8000,
-            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
+            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget, as is the `_xerj.embed_mode` note. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
           }
         },
         "required": [
@@ -285,7 +341,7 @@
     },
     {
       "name": "xerj_hybrid_search",
-      "description": "Hybrid search: fuse several sub-queries (e.g. a lexical `match` plus a vector `knn`) into one ranked list. Fusion is `rrf` (reciprocal-rank) or `linear` (weighted). Proxies POST /{index}/_search with {\"query\":{\"hybrid\":{\"queries\":[...],\"fusion\":...}}}. Optional `rerank` re-judges the fused top hits with an external relevance model; here `rerank.query` is REQUIRED, because a hybrid search has several sub-queries and no single question to read. Optional `judge` re-judges the fused hits LOCALLY (zero tokens, nothing leaves the node); `judge.query` is REQUIRED for the same reason. Pass `max_tokens` to override the default word budget (see that argument for the tokenizer, exceptions and locator-only rule).",
+      "description": "Hybrid search: fuse several sub-queries (e.g. a lexical `match` plus a vector `knn`) into one ranked list. Fusion is `rrf` (reciprocal-rank) or `linear` (weighted). Proxies POST /{index}/_search with {\"query\":{\"hybrid\":{\"queries\":[...],\"fusion\":...}}}. Optional `rerank` re-judges the fused top hits with an external relevance model; here `rerank.query` is REQUIRED, because a hybrid search has several sub-queries and no single question to read. Optional `judge` re-judges the fused hits LOCALLY (zero tokens, nothing leaves the node); `judge.query` is REQUIRED for the same reason. The response's `_xerj.embed_mode` names the embedder the node runs (`lexical` feature hashing unless it was started with --embed-mode); a natural-language query on a lexical node adds `_xerj.hints` code `lexical_embedder` (words match, not meaning). Pass `max_tokens` to override the default word budget (see that argument for the tokenizer, exceptions and locator-only rule).",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -322,6 +378,13 @@
             "type": "integer",
             "description": "Max fused hits to return."
           },
+          "_source": {
+            "description": "Source filtering (bool, field, or {includes,excludes})."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
+          },
           "rerank": {
             "type": [
               "object",
@@ -340,7 +403,7 @@
             "type": "integer",
             "minimum": 32,
             "default": 8000,
-            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
+            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget, as is the `_xerj.embed_mode` note. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
           }
         },
         "required": [
@@ -395,7 +458,7 @@
     },
     {
       "name": "xerj_memory_recall",
-      "description": "Recall the most relevant memories from a namespace. Default is BM25 text recall; set `semantic:true` to embed the query server-side and recall by meaning; set `hybrid:true` to run both over the same `query` and fuse them by reciprocal rank; supply `vector` for pure vector recall. Proxies POST /_memory/{namespace}/_recall.",
+      "description": "Recall the most relevant memories from a namespace. Default is BM25 text recall; set `semantic:true` to embed the query server-side and recall by meaning; set `hybrid:true` to run both over the same `query` and fuse them by reciprocal rank; supply `vector` for pure vector recall. Proxies POST /_memory/{namespace}/_recall. Pass `max_tokens` to cap the response at a token budget (never exceeded; see that argument for the tokenizer and the locator-only rule).",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -481,6 +544,12 @@
             "required": [
               "mode"
             ]
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 32,
+            "default": 8000,
+            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget, as is the `_xerj.embed_mode` note. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
           }
         },
         "required": [
@@ -654,7 +723,7 @@
     },
     {
       "name": "xerj_map",
-      "description": "Per-index FIELD MAP from this node's autoindex catalog — call it BEFORE writing query DSL, so you stop guessing field names. For each catalogued index: record count, time field and time range, semantic body field, and every field the profiler inferred — name, es_type (keyword|text|long|double|boolean|date|semantic_text), date encoding, semantic tag, cardinality estimate, coverage, up to 5 examples, and the sampled date AND numeric min-max (numeric ranges appear on `long` fields only; fractional `double` ranges are not tracked). Reads the catalog index `autoindex-catalog` that `xerj autoindex <folder>` writes; never-autoindexed indexes are not listed. Honesty: every fact is inferred from a bounded sample taken at autoindex time — cardinality is an estimate (with `cardinality_overflow:true` it means AT LEAST that many), and min/max/coverage describe the sample, not the whole index. Up to 100 indexes per call (`indexes_omitted` reports more). When more than 8 indexes match and you did not pass `index`, the answer is a SUMMARY page (index, records, field names) — pass `index` or `detail: true` with `offset`/`limit` for full fields. This map lists autoindex datasets, not the managed corpus registry. A managed corpus slug is not an autoindex dataset/index pattern. Use `xerj corpus list` for this client's configured corpora, then `xerj code <corpus> <query>` (MCP `xerj_code_search`); the node's `_cat/indices` lists indices. An empty map does not establish that managed corpus data is absent; no managed corpus existence was checked. Never DELETE an index you did not create in this session. A shared default prefix is not a reason to delete one: use `xerj autoindex remove --prefix <name>` (MCP tool `xerj_autoindex_remove` is the same operation). It lists the indices, catalog rows, doc counts and sizes, deletes nothing without confirmation, and never removes another folder under that prefix.",
+      "description": "Per-index FIELD MAP from this node's autoindex catalog — call it BEFORE writing query DSL, so you stop guessing field names. For each catalogued index: record count, time field and time range, semantic body field, and every field the profiler inferred — name, es_type (keyword|text|long|double|boolean|date|semantic_text), date encoding, semantic tag, cardinality estimate, coverage, up to 5 examples, and the sampled date AND numeric min-max (numeric ranges appear on `long` fields only; fractional `double` ranges are not tracked). Reads the catalog index `autoindex-catalog` that `xerj autoindex <folder>` writes; never-autoindexed indexes are not listed. Honesty: every fact is inferred from a bounded sample taken at autoindex time — cardinality is an estimate (with `cardinality_overflow:true` it means AT LEAST that many), and min/max/coverage describe the sample, not the whole index. Up to 100 indexes per call (`indexes_omitted` reports more). When more than 8 indexes match and you did not pass `index`, the answer is a SUMMARY page (index, records, field names) — pass `index` or `detail: true` with `offset`/`limit` for full fields. `index_runs` lists, per autoindex prefix, `indexed_at`, `root` and, for a local git checkout, `indexed_commit` (HEAD at index time, from the reflog) and `head_commit` (HEAD now): compare them before trusting line numbers. This map lists autoindex datasets, not the managed corpus registry. A managed corpus slug is not an autoindex dataset/index pattern. Use `xerj corpus list` for this client's configured corpora, then `xerj code <corpus> <query>` (MCP `xerj_code_search`); the node's `_cat/indices` lists indices. An empty map does not establish that managed corpus data is absent; no managed corpus existence was checked. Never DELETE an index you did not create in this session. A shared default prefix is not a reason to delete one: use `xerj autoindex remove --prefix <name>` (MCP tool `xerj_autoindex_remove` is the same operation). It lists the indices, catalog rows, doc counts and sizes, deletes nothing without confirmation, and never removes another folder under that prefix.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -881,7 +950,7 @@
             "type": "integer",
             "minimum": 32,
             "default": 8000,
-            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
+            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget, as is the `_xerj.embed_mode` note. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
           }
         },
         "required": [

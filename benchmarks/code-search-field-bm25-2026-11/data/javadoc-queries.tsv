@@ -1,0 +1,200 @@
+J000	An Analyzer builds TokenStreams, which analyze text
+J001	An analyzer wrapper, that doesn't allow to wrap components or readers
+J002	Normalizes token text to lower case
+J003	Abstract parent class for analysis factories that create org.apache.lucene.analysis.TokenFilter instances
+J004	This class implements Word Break rules from the Unicode Text Segmentation algorithm, as specified in Unicode Standard Annex #29 
+J005	This attribute can be used if you have the raw term bytes to be indexed
+J006	This attribute can be used to mark a token as a keyword
+J007	Default implementation of the common attributes used by Lucene: CharTermAttribute TypeAttribute PositionIncrementAttribute PositionLengthAttribute OffsetAttribute TermFrequencyAttribute
+J008	The payload of a Token
+J009	This attribute is requested by TermsHashPerField to index the contents
+J010	Utility class for reading and writing versioned headers
+J011	Abstract API that consumes terms, doc, freq, prox, offset and payloads postings
+J012	Vectors writer for a field
+J013	Encodes/decodes per-document vector and any associated indexing structures required to support nearest-neighbor search
+J014	Reads vectors from an index
+J015	One leaf PointTree whose order of points can be changed
+J016	Encodes/decodes per-document score normalization values
+J017	Abstract API that produces field normalization values
+J018	Abstract API to write points
+J019	Computes which segments have identical field name to number mappings, which allows stored fields and term vectors in this codec to be bulk-merged
+J020	Vectors' writer for a field that allows additional indexing logic to be implemented by the caller
+J021	A block-based terms index and dictionary that assigns terms to variable length blocks according to how they share prefixes
+J022	Implements the Lucene 10.4 index format If you want to reuse functionality of this codec in another codec, extend FilterCodec
+J023	A vectors format that uses HNSW graph to store and search for vectors
+J024	The quantization format used here is a per-vector optimized scalar quantization
+J025	Reader for scalar quantized vectors in the Lucene 10.4 format
+J026	Scalar quantized vector values loaded from off-heap
+J027	Optimized scalar quantized implementation of FlatVectorsScorer for quantized vectors stored in the Lucene99 format
+J028	Lucene 9.9 Segment info format
+J029	Enables per field docvalues support
+J030	Enables per field numeric vector support
+J031	A binary representation of a range that wraps a BinaryDocValues field
+J032	Provides support for converting dates to strings and vice-versa
+J033	Field that stores a per-document float value for scoring, sorting or value retrieval and index the field for fast range filters
+J034	An indexed 128-bit InetAddress field
+J035	An indexed InetAddress Range Field This field indexes an InetAddress range defined as a min/max pairs
+J036	A field that contains a single float16 numeric vector (or none) for each document
+J037	A field that contains a single floating-point numeric vector (or none) for each document
+J038	An geo shape utility class for indexing and searching gis geometries whose vertices are latitude, longitude values (in decimal degrees)
+J039	Field that stores a per-document long value for scoring, sorting or value retrieval
+J040	A doc values field for LatLonShape and XYShape that uses ShapeDocValues as the underlying binary doc value format
+J041	Field that stores a set of per-document BytesRef values, indexed for faceting,grouping,joining
+J042	A field that is indexed but not tokenized: the entire String value is indexed as a single token
+J043	A field that is indexed and tokenized, without term vectors
+J044	A cartesian shape utility class for indexing and searching geometries whose vertices are unitless x, y values
+J045	A concrete implementation of ShapeDocValues for storing binary doc value representation of XYShape geometries in a XYShapeDocValuesField Note: This class cannot be instantiated directly
+J046	Static validation and bounds-checking helpers for the columnar indexing path
+J047	A Column that provides long values
+J048	A tuple cursor over a LongColumn
+J049	A tuple cursor over a Column whose values are objects
+J050	A Column that provides caller-supplied TokenStreams for term inversion
+J051	A Column that provides KNN vector values via a tuple cursor
+J052	Utility methods for geo-spatial calculations and coordinate validation
+J053	Represents a closed polygon on the earth's surface
+J054	Represents a line in cartesian space
+J055	Represents a point on the earth's surface
+J056	This exception is thrown when Lucene detects an inconsistency in the index
+J057	Abstract base class implementing a DocValuesProducer that has no doc values
+J058	This class tracks the number and position / offset parameters of terms being added to the index
+J059	Delegates all methods to a wrapped BinaryDocValues
+J060	A FilterDirectoryReader wraps another DirectoryReader, allowing implementations to transform or extend it
+J061	A wrapper for MergePolicy instances
+J062	Delegates all methods to a wrapped SortedSetDocValues
+J063	This class provides access to per-document float16 vector values indexed as KnnFloat16VectorField
+J064	Wrapper around parallel arrays storing term frequencies and length normalization factors
+J065	Controls how much information is stored in the postings lists
+J066	This is an easy-to-use tool that upgrades all segments of an index from previous Lucene versions to the current segment file format
+J067	An IndexWriter creates and maintains an index
+J068	Holds all the configuration that is used to create an IndexWriter
+J069	Represents a single field for indexing
+J070	Provides read-only metadata about a leaf
+J071	A Fields implementation that merges multiple Fields into one, and maps around deleted documents
+J072	A CompositeReader which reads multiple indexes, appending their content
+J073	An CompositeReader which reads multiple, parallel indexes
+J074	Subreader slice from a parent composite reader
+J075	A MergeScheduler that simply does each merge sequentially, using the current thread
+J076	An IndexDeletionPolicy that wraps any other IndexDeletionPolicy and adds the ability to hold and later release snapshots of an index
+J077	A multi-valued version of SortedDocValues
+J078	Expert: provides a low-level means of accessing the stored field values in an index
+J079	Encapsulates all required internal state to position the associated TermsEnum without re-seeking
+J080	An interface for implementations that support 2-phase commit
+J081	This MergePolicy is used for upgrading all existing segments of an index when calling forceMerge(int)
+J082	The numeric datatype of the vector values
+J083	A hash map of char to Object , implemented using open addressing with linear probing for collision resolution
+J084	A hash map of int to double , implemented using open addressing with linear probing for collision resolution
+J085	A hash map of int to int , implemented using open addressing with linear probing for collision resolution
+J086	A hash map of int to long , implemented using open addressing with linear probing for collision resolution
+J087	A hash set of long s, implemented using open addressing with linear probing for collision resolution
+J088	A hash map of long to int , implemented using open addressing with linear probing for collision resolution
+J089	A hash map of long to Object , implemented using open addressing with linear probing for collision resolution
+J090	Access to org.apache.lucene.index.ConcurrentMergeScheduler internals exposed to the test framework
+J091	Access to org.apache.lucene.index.SegmentReader internals exposed to the test framework
+J092	A provider of vectorization implementations
+J093	A query wrapper that transforms the inner query's score into a calibrated probability via sigmoid calibration: P
+J094	SortField for BinaryDocValues, usable as an index sort 
+J095	A Query that matches documents matching boolean combinations of other queries, e.g
+J096	A Query wrapper that allows to give a boost to the wrapped query
+J097	Caches all docs, and optionally also scores, coming from a search, and is then able to replay them to another collector
+J098	Throw this exception in collect(int) to prematurely terminate collection of the current leaf
+J099	Helper methods for building conjunction iterators
+J100	A query that wraps another query and simply returns a constant score equal to 1 for every document that matches the query
+J101	A Weight that has a constant score equal to the boost of the wrapped query
+J102	A DocIdSetIterator which is a disjunction of the approximations of the provided iterators
+J103	Bulk iterator over a DocIdSetIterator
+J104	Expert: a FieldComparator compares hits so as to determine their sort order when collecting the top results with TopFieldCollector
+J105	A Query that matches documents that contain either a KnnFloatVectorField, org.apache.lucene.document.KnnByteVectorField or a field that indexes norms or doc values
+J106	Contains statistics for a field
+J107	A MatchesIterator that delegates all calls to another MatchesIterator
+J108	Expert: Priority queue containing hit docs
+J109	A range query that can take advantage of the fact that the index is sorted to speed up execution
+J110	The Weight for IndriAndQuery, used to normalize, score and explain these queries
+J111	The Indri parent scorer that stores the boost so that IndriScorers can use the boost outside of the term
+J112	Uses search(String, to perform nearest neighbour search
+J113	A DoubleValuesSource that scores documents using similarity between a multi-vector query, and indexed document multi-vectors
+J114	Expert: comparator that gets instantiated on each leaf from a top-level FieldComparator instance
+J115	A query that matches all documents
+J116	A query that matches no documents
+J117	Add this Attribute to a fresh AttributeSource before calling getTermsEnum(Terms,AttributeSource)
+J118	A Multiset is a set that allows for duplicate elements
+J119	This is a PhraseQuery which is optimized for n-gram phrase query
+J120	Utility class for retrieving global numeric field statistics from index metadata structures, without accessing individual documents
+J121	This is a version of knn vector query that exits early when HNSW queue saturates over a saturationThreshold for more than patience times
+J122	Utility class to safely share instances of a certain type across multiple threads, while periodically refreshing them
+J123	Expert: Interface to supply commit for searcher refresh
+J124	A Scorer which wraps another scorer and caches the score of the current document
+J125	Base rewrite method that translates each term into a query, and keeps the scores as computed by the query
+J126	Factory class used by SearcherManager to create new IndexSearchers
+J127	Keeps track of current plus old IndexSearchers, closing the old ones once they have timed out
+J128	Base FieldComparator implementation that is used for all contexts
+J129	A DocIdSetIterator that returns all documents within DocValuesSkipper blocks that have minimum and maximum values that fall within a specified range
+J130	Encapsulates sort criteria for returned hits
+J131	A query that treats multiple terms as synonyms
+J132	Executor wrapper responsible for the execution of concurrent tasks
+J133	A base class for all collectors that return a TopDocs output
+J134	Represents hits returned by search(Query,int,Sort)
+J135	TopKnnCollector is a specific KnnCollector
+J136	Description of the total number of hits of a query
+J137	Comparator that sorts by asc _doc
+J138	Model of the information gain based on the ratio of two Bernoulli processes
+J139	F1EXP is defined as Sum(tf(term_doc_freq)*ln(docLen)*IDF(term)) where IDF(t) = pow((N+1)/df(t), k) N=total num of docs, df=doc freq
+J140	F2EXP is defined as Sum(tfln(term_doc_freq, docLen)*IDF(term)) where IDF(t) = ln((N+1)/df(t)) N=total num of docs, df=doc freq
+J141	Geometric as limiting form of the Bose-Einstein model
+J142	The basic tf-idf model of randomness
+J143	Simple similarity that gives terms a score that is equal to their query boost
+J144	Implements the Divergence from Independence (DFI) model based on Chi-square statistics (i.e., standardized Chi-squared distance from independence in term frequency tf)
+J145	Normalized chi-squared measure of distance from independence Described as: "can be used for tasks that require high precision, against both short and long queries."
+J146	A subclass of Similarity that provides a simplified API for its descendants
+J147	DataInput backed by a byte array
+J148	A DataInput implementing RandomAccessInput and reading data from a list of ByteBuffers
+J149	Hint on the data access pattern likely to be used
+J150	Abstract base class for performing read operations of Lucene's low-level data types
+J151	Abstract base class for performing write operations of Lucene's low-level data types
+J152	This exception is thrown when the write.lock could not be acquired
+J153	Simple standalone tool that forever acquires and releases a lock using a specific LockFactory
+J154	Provides access to the backing memory segment
+J155	An FSDirectory implementation that uses java.nio's FileChannel's positional read, which allows multiple threads to read from the same file without synchronizing
+J156	Implements LockFactory using native OS file locks
+J157	Directory that wraps another, and that sleeps and retries if obtaining the lock fails
+J158	This class enables the allocation of fixed-size buffers and their management as part of a buffer array
+J159	Represents a logical list of ByteRef backed by a ByteBlockPool
+J160	Represents char[], as a slice (offset + length) into an existing char[]
+J161	Helper class used by ServiceLoader to investigate parent/child relationships of ClassLoaders
+J162	Simple ResourceLoader that uses getResourceAsStream(String) and forName(String,boolean,ClassLoader) to open resources and classes, respectively
+J163	Methods for manipulating (sorting) and creating collections
+J164	A DocIdSetIterator like BitSetIterator but has a doc base in order to avoid storing previous 0s
+J165	A ring buffer that tracks the frequency of the integers that it contains
+J166	A Runnable that may throw an IOException
+J167	Acts like forever growing T[], but internally uses a circular buffer to reuse instances of T
+J168	A native int hash-based set where one value is reserved to mean "EMPTY" internally
+J169	Math functions that trade off accuracy for speed
+J170	LiveDocs implementation optimized for sparse deletions
+J171	A BytesRef sorter tries to use a efficient radix sorter if cmp is a BytesRefComparator, otherwise fallback to fallbackSorter
+J172	Helper methods to ease implementing toString()
+J173	Class to encode java's UTF16 char[] into UTF8 byte[] without always allocating a new byte[] as String.getBytes(StandardCharsets.UTF_8) does
+J174	An object with this interface is a wrapper around another object (e.g., a filter with a delegate)
+J175	A utility for keeping backwards compatibility on previously abstract methods (or similar replacements)
+J176	Represents an automaton and all its states and transitions
+J177	Finite-state automaton with fast run operation
+J178	Converts UTF-32 automata to the equivalent UTF-8 representation
+J179	Reads points from disk in a fixed-with format, previously written with OfflinePointWriter
+J180	Appends many points, and then at the end provides a PointReader to iterate those points
+J181	Builds a minimal FST (maps an IntsRef term to an arbitrary output) from pre-sorted terms with outputs
+J182	An FST Outputs implementation where each output is a sequence of ints
+J183	An FST Outputs implementation where each output is a non-negative long value
+J184	Consumes a TokenStream and creates an Automaton where the transition labels are terms from the TermToBytesRefAttribute
+J185	This merger merges graph in a concurrent manner, by using HnswConcurrentMergeBuilder
+J186	Abstraction of merging multiple graphs into one on-heap graph
+J187	Searches an HNSW graph to find nearest neighbors to a query vector
+J188	Utilities for use in tests involving HNSW graphs
+J189	This creates a graph builder that is initialized with the provided HnswGraph
+J190	A RandomVectorScorer for scoring random nodes in batches against an abstract query
+J191	A supplier that creates RandomVectorScorer from an ordinal
+J192	Just like a RandomVectorScorer but allows the scoring ordinal to be changed
+J193	MutableValue implementation of type String
+J194	A writer for large sequences of longs
+J195	A DataOutput wrapper to write unaligned, variable-length packed integers
+J196	Simplistic compression for array of unsigned long values
+J197	Utility class to compress integers into a LongValues instance
+J198	A version of ByteVectorValues for Scalar quantization scores
+J199	This is a scalar quantizer that optimizes the quantization intervals for a given vector

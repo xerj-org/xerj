@@ -1048,10 +1048,12 @@ fn pick_free_port(start: u16, tries: u16) -> Option<u16> {
     None
 }
 
-/// Spawn `launcher` with `args`, detached: own process group (own session on
-/// Windows), stdin closed, stdout and stderr appended to `log`. The child
-/// outlives this process and never receives its Ctrl-C. Shared with the
-/// background pull in `ask`.
+/// Spawn `launcher` with `args`, detached: its own session on Unix (`setsid`:
+/// no controlling terminal, its own process group), a detached process in its
+/// own group and, when allowed, out of the job on Windows. stdin is closed and
+/// stdout and stderr are appended to `log`. The child outlives this process
+/// and the terminal it ran in, and never receives its Ctrl-C (#3267). Shared
+/// with the background pull in `ask`.
 pub(crate) fn spawn_detached(
     launcher: &NodeLauncher,
     args: &[String],
@@ -1060,37 +1062,22 @@ pub(crate) fn spawn_detached(
     if let Some(parent) = log.parent() {
         fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
     }
-    let out = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log)
-        .with_context(|| format!("open {}", log.display()))?;
-    let err = out.try_clone()?;
-    let mut cmd = launcher.command();
-    cmd.args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(out))
-        .stderr(Stdio::from(err));
-    detach(&mut cmd);
-    cmd.spawn()
-        .with_context(|| format!("spawn {}", launcher.exe.display()))
+    let open_log = || fs::OpenOptions::new().create(true).append(true).open(log);
+    xerj_common::localnode::spawn_detached_with(|| {
+        let out = open_log()?;
+        let err = out.try_clone()?;
+        let mut cmd = launcher.command();
+        cmd.args(args)
+            // The node records this role, so a user's client looking for "the
+            // local node" never picks the hub's private pack node (#3267).
+            .env(xerj_common::localnode::NODE_ROLE_ENV, "hub")
+            .stdin(Stdio::null())
+            .stdout(Stdio::from(out))
+            .stderr(Stdio::from(err));
+        Ok(cmd)
+    })
+    .with_context(|| format!("spawn {} (log {})", launcher.exe.display(), log.display()))
 }
-
-#[cfg(unix)]
-fn detach(cmd: &mut Command) {
-    use std::os::unix::process::CommandExt;
-    cmd.process_group(0);
-}
-
-#[cfg(windows)]
-fn detach(cmd: &mut Command) {
-    use std::os::windows::process::CommandExt;
-    // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-    cmd.creation_flags(0x0000_0008 | 0x0000_0200);
-}
-
-#[cfg(not(any(unix, windows)))]
-fn detach(_cmd: &mut Command) {}
 
 /// Serialises starting the node: an exclusive OS lock on `<hub>/node.lock`, held
 /// from "nothing is recorded" to "the node is recorded and answering". It belongs
@@ -1712,6 +1699,36 @@ mod tests {
     // cases so they do not race other tests in the crate.
     use std::sync::Mutex;
     static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    /// #3267: the hub's node (and background pulls) start in their own
+    /// session, not only their own process group, so closing the terminal
+    /// that ran `xerj ask` does not SIGHUP them; stdin is closed and the role
+    /// is recorded.
+    #[cfg(unix)]
+    #[test]
+    fn spawn_detached_starts_a_new_session_with_the_hub_role() {
+        let dir = tempfile::tempdir().unwrap();
+        let log = dir.path().join("logs").join("node.log");
+        let launcher = NodeLauncher {
+            exe: PathBuf::from("/bin/sh"),
+            pre_args: vec![
+                "-c".into(),
+                "ps -o sid= -p $$; ps -o pgid= -p $$; echo \"$XERJ_NODE_ROLE\"; \
+                 if read -r line; then echo stdin-open; else echo stdin-closed; fi"
+                    .into(),
+            ],
+        };
+        let mut child = spawn_detached(&launcher, &[], &log).unwrap();
+        let pid = child.id().to_string();
+        child.wait().unwrap();
+        let text = fs::read_to_string(&log).unwrap();
+        let lines: Vec<&str> = text.lines().map(str::trim).collect();
+        assert_eq!(
+            lines,
+            vec![pid.as_str(), pid.as_str(), "hub", "stdin-closed"],
+            "{text}"
+        );
+    }
 
     #[test]
     fn url_resolution_prefers_flag_then_env_then_default() {

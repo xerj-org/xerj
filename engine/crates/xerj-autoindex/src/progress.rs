@@ -257,14 +257,63 @@ pub fn default_interval(surface: Surface) -> Duration {
 pub static SINK_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 #[cfg(test)]
-static TEST_SINK: Mutex<Option<Arc<Mutex<Vec<u8>>>>> = Mutex::new(None);
+struct TestSink {
+    buffer: Arc<Mutex<Vec<u8>>>,
+    freeze_bar_clock: bool,
+}
+
+#[cfg(test)]
+static TEST_SINK: Mutex<Option<TestSink>> = Mutex::new(None);
 
 /// Redirect every `Progress::new` in this process into `buffer` until the
 /// returned guard drops. Hold `SINK_TEST_LOCK` for the whole window.
 #[cfg(test)]
 pub fn install_test_sink(buffer: &Arc<Mutex<Vec<u8>>>) -> TestSinkGuard {
-    *TEST_SINK.lock().unwrap() = Some(Arc::clone(buffer));
+    install_sink(buffer, false)
+}
+
+/// [`install_test_sink`], and every `Progress` built under it paces its
+/// `xerj-bar` lines on a clock that never advances.
+///
+/// An end-to-end run that asserts how many bars it relayed otherwise depends
+/// on how fast the machine ran it: the same eight-file corpus that indexes in
+/// 0.3 s on an idle box crossed [`BAR_MIN_GAP`] on a loaded one, and the
+/// floor then correctly let a second bar through. Under a frozen bar clock no
+/// time passes between ticks, so the count measures only the pacing rules —
+/// the first line draws, a phase change waits for the floor, a periodic bar
+/// waits for the interval — and not the scheduler. Only the bar slot reads
+/// this clock; percent, ETA and stall detection keep the real one.
+#[cfg(test)]
+pub fn install_test_sink_with_frozen_bar_clock(buffer: &Arc<Mutex<Vec<u8>>>) -> TestSinkGuard {
+    install_sink(buffer, true)
+}
+
+#[cfg(test)]
+fn install_sink(buffer: &Arc<Mutex<Vec<u8>>>, freeze_bar_clock: bool) -> TestSinkGuard {
+    *TEST_SINK.lock().unwrap() = Some(TestSink {
+        buffer: Arc::clone(buffer),
+        freeze_bar_clock,
+    });
     TestSinkGuard
+}
+
+/// Where [`Progress::bar_slot`] reads the time. Always the real clock outside
+/// tests.
+#[derive(Debug, Clone, Copy)]
+enum BarClock {
+    Real,
+    #[cfg(test)]
+    Frozen(Instant),
+}
+
+impl BarClock {
+    fn now(self) -> Instant {
+        match self {
+            Self::Real => Instant::now(),
+            #[cfg(test)]
+            Self::Frozen(at) => at,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -278,6 +327,17 @@ impl Drop for TestSinkGuard {
 }
 
 enum Sink {
+    /// `std::io::stderr()`, deliberately, and no `SetConsoleOutputCP` (#3102).
+    /// On Windows, std writes to a console handle whose code page is not
+    /// UTF-8 through `WriteConsoleW` after converting the UTF-8 to UTF-16
+    /// (`library/std/src/sys/stdio/windows.rs`, `write` / `is_console`), so a
+    /// console window shows CJK paths correctly on code page 936 already.
+    /// The mojibake in #3102 comes from a *pipe*: its reader (a PowerShell
+    /// capture) decodes the bytes with an encoding the reader chose. Setting
+    /// the console's code page here changes nothing std writes to a console
+    /// window, and would leave the user's shell on 65001 whenever the
+    /// process is killed before restoring it.
+    /// `--help` (cli.rs) tells pipe readers to switch their decoder.
     Stderr,
     /// Test-only: the identical render path, captured in memory.
     #[cfg(test)]
@@ -401,6 +461,7 @@ pub struct Progress {
     stopped: Mutex<bool>,
     wake: Condvar,
     sink: Sink,
+    bar_clock: BarClock,
     /// Structured fields merged into the `--progress json` terminal object.
     ///
     /// The plain `xerj-done` line is `key=value` numbers split on spaces, so
@@ -410,7 +471,7 @@ pub struct Progress {
 }
 
 impl Progress {
-    fn build(surface: Surface, interval: Duration, sink: Sink) -> Arc<Self> {
+    fn build(surface: Surface, interval: Duration, sink: Sink, bar_clock: BarClock) -> Arc<Self> {
         let now = Instant::now();
         Arc::new(Self {
             surface,
@@ -438,6 +499,7 @@ impl Progress {
             stopped: Mutex::new(false),
             wake: Condvar::new(),
             sink,
+            bar_clock,
             done_json: Mutex::new(serde_json::Map::new()),
         })
     }
@@ -447,10 +509,20 @@ impl Progress {
         // end-to-end run must be observable through the REAL surface it uses
         // in production, not through a parallel one built for tests.
         #[cfg(test)]
-        if let Some(buffer) = TEST_SINK.lock().unwrap().as_ref() {
-            return Self::build(surface, interval, Sink::Buffer(Arc::clone(buffer)));
+        if let Some(test) = TEST_SINK.lock().unwrap().as_ref() {
+            let clock = if test.freeze_bar_clock {
+                BarClock::Frozen(Instant::now())
+            } else {
+                BarClock::Real
+            };
+            return Self::build(
+                surface,
+                interval,
+                Sink::Buffer(Arc::clone(&test.buffer)),
+                clock,
+            );
         }
-        Self::build(surface, interval, Sink::Stderr)
+        Self::build(surface, interval, Sink::Stderr, BarClock::Real)
     }
 
     /// A progress handle that emits nothing — `--quiet` / `--progress=none`,
@@ -463,7 +535,12 @@ impl Progress {
     #[cfg(test)]
     pub fn capture(surface: Surface, interval: Duration) -> (Arc<Self>, Arc<Mutex<Vec<u8>>>) {
         let buffer = Arc::new(Mutex::new(Vec::new()));
-        let progress = Self::build(surface, interval, Sink::Buffer(Arc::clone(&buffer)));
+        let progress = Self::build(
+            surface,
+            interval,
+            Sink::Buffer(Arc::clone(&buffer)),
+            BarClock::Real,
+        );
         (progress, buffer)
     }
 
@@ -657,6 +734,14 @@ impl Progress {
     ///   one — which is itself the signal that the process died abnormally.
     pub fn finish(&self, ok: bool, exit: i32, reason: &str, extra: &[(&str, u64)]) {
         self.finish_with_flags(ok, exit, reason, extra, &[]);
+    }
+
+    /// Close this surface WITHOUT a terminal line, because the run hands off
+    /// to a fresh run that reports its own (#3281's in-place legacy migration
+    /// restarts the run). Dropping the ticker afterwards then prints nothing,
+    /// so the stream still ends with exactly one `xerj-done`.
+    pub fn hand_off(&self) {
+        self.reported.store(true, Ordering::SeqCst);
     }
 
     /// Fields merged into the `--progress json` terminal object.
@@ -912,7 +997,7 @@ impl Progress {
     /// floor swallows it; it stays owed and draws on the next tick, so the
     /// human still learns the phase changed.
     fn bar_slot(&self) -> bool {
-        let now = Instant::now();
+        let now = self.bar_clock.now();
         let target = self.bar_interval();
         let mut state = self.state.lock().unwrap();
         let due = match state.last_bar_at {
@@ -974,8 +1059,11 @@ impl Progress {
                 let width = columns();
                 let body = truncate(&body, width);
                 let mut state = self.state.lock().unwrap();
-                let pad = state.tty_width.saturating_sub(body.chars().count());
-                state.tty_width = body.chars().count();
+                // Cells, not chars: the pad must blank exactly what the
+                // previous, possibly wider, CJK line painted (#3102).
+                let painted = cells(&body);
+                let pad = state.tty_width.saturating_sub(painted);
+                state.tty_width = painted;
                 drop(state);
                 let line = format!("\r{body}{}\r", " ".repeat(pad));
                 self.sink.write(line.as_bytes());
@@ -1139,11 +1227,40 @@ fn columns() -> usize {
         .unwrap_or(DEFAULT_COLUMNS)
 }
 
+/// Terminal cells one character occupies: 2 for East Asian Wide/Fullwidth
+/// (CJK), 0 for combining marks, 1 otherwise. Counting `char`s instead made
+/// a `中文路径测试` path render twice as wide as the line budget, so the bar
+/// wrapped and the `\r` redraw tore it (#3102). Controls never reach here
+/// (`sanitize`/`one_line` replace them) and count 0 if one ever does.
+fn char_cells(ch: char) -> usize {
+    unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0)
+}
+
+/// Terminal cells `text` occupies, summed per character so the cut points in
+/// [`truncate`] and [`elide_start`] agree with the padding arithmetic.
+fn cells(text: &str) -> usize {
+    text.chars().map(char_cells).sum()
+}
+
+/// At most `width` cells, keeping one column free when it has to cut (a
+/// line that fills the last column wraps on many terminals). A wide
+/// character that would straddle the limit is dropped whole.
 fn truncate(text: &str, width: usize) -> String {
-    if text.chars().count() <= width {
+    if cells(text) <= width {
         return text.to_string();
     }
-    text.chars().take(width.saturating_sub(1)).collect()
+    let budget = width.saturating_sub(1);
+    let mut used = 0;
+    let mut out = String::new();
+    for ch in text.chars() {
+        let w = char_cells(ch);
+        if used + w > budget {
+            break;
+        }
+        used += w;
+        out.push(ch);
+    }
+    out
 }
 
 /// Characters an externally-controlled string may not put on the surface.
@@ -1345,15 +1462,28 @@ fn display_eta(eta: Eta, since_progress: f64) -> String {
 /// real 27 s run's `…ene/tests/util/europarl.lines.txt.gz(9.2MB)` reads as
 /// `…/tests/util/europarl.lines.txt.gz(9.2MB)` instead of inventing a
 /// directory called `ene`.
+///
+/// `max` is terminal cells, `…` included, so a CJK path keeps half as many
+/// characters as an ASCII one and the bar line keeps its width (#3102).
 fn elide_start(text: &str, max: usize) -> String {
-    let count = text.chars().count();
-    if count <= max {
+    if cells(text) <= max {
         return text.to_string();
     }
-    let tail: String = text.chars().skip(count - max.saturating_sub(1)).collect();
+    let budget = max.saturating_sub(1);
+    let mut used = 0;
+    let mut start = text.len();
+    for (at, ch) in text.char_indices().rev() {
+        let w = char_cells(ch);
+        if used + w > budget {
+            break;
+        }
+        used += w;
+        start = at;
+    }
+    let tail = &text[start..];
     let snapped = match tail.find(['/', '\\']) {
         Some(cut) => &tail[cut..],
-        None => tail.as_str(),
+        None => tail,
     };
     format!("…{snapped}")
 }
@@ -1715,6 +1845,59 @@ mod tests {
         assert!(!display.contains('%'), "{display}");
     }
 
+    /// The flake in `a_run_reports_progress_through_every_phase_and_closes_the_stream`,
+    /// reproduced: a run whose phase changes straddle [`BAR_MIN_GAP`] of real
+    /// time relays a second bar, which is correct — the floor let it through.
+    /// That end-to-end test asserted one bar because its corpus usually
+    /// finishes in 0.3 s; on a loaded box it did not. Under the frozen bar
+    /// clock the same sequence relays one bar however slow the machine is,
+    /// and the pacing rules are still the shipped ones.
+    #[test]
+    fn a_frozen_bar_clock_makes_the_bar_count_independent_of_wall_time() {
+        let buffer = Arc::new(Mutex::new(Vec::new()));
+        let real = Progress::build(
+            Surface::Plain,
+            Duration::from_secs(3600),
+            Sink::Buffer(Arc::clone(&buffer)),
+            BarClock::Real,
+        );
+        let frozen_buffer = Arc::new(Mutex::new(Vec::new()));
+        let frozen = Progress::build(
+            Surface::Plain,
+            Duration::from_secs(3600),
+            Sink::Buffer(Arc::clone(&frozen_buffer)),
+            BarClock::Frozen(Instant::now()),
+        );
+        for progress in [&real, &frozen] {
+            progress.phase("walk", 0, 0);
+            progress.phase("hash", 8, 0);
+        }
+        // A slow machine: the next phase change lands past the floor.
+        std::thread::sleep(BAR_MIN_GAP + Duration::from_millis(100));
+        for progress in [&real, &frozen] {
+            progress.phase("index", 8, 0);
+            progress.phase("finalize", 8, 0);
+        }
+        let bars = |buffer: &Arc<Mutex<Vec<u8>>>| {
+            captured(buffer)
+                .lines()
+                .filter(|l| l.starts_with("xerj-bar "))
+                .count()
+        };
+        assert_eq!(
+            bars(&buffer),
+            2,
+            "real clock: the change past the floor draws:\n{}",
+            captured(&buffer)
+        );
+        assert_eq!(
+            bars(&frozen_buffer),
+            1,
+            "frozen clock: one bar, whatever the wall time:\n{}",
+            captured(&frozen_buffer)
+        );
+    }
+
     /// Two cadences, on purpose: the machine line keeps the interval that
     /// bounds silence, the relayed line is spaced so it does not flood a
     /// transcript. Driven by moving the clock rather than by sleeping.
@@ -1858,6 +2041,87 @@ mod tests {
         );
         // A last component longer than the budget still yields its tail.
         assert_eq!(elide_start("aaaaaaaaaaaaaaaa.txt", 10), "…aaaaa.txt");
+    }
+
+    /// #3102: widths are terminal cells. A CJK character is two of them, so
+    /// a cut by `char` count let a `中文路径测试` path render at twice its
+    /// budget and wrap the bar.
+    #[test]
+    fn cjk_text_is_cut_by_terminal_cells_not_chars() {
+        assert_eq!(cells("abc"), 3);
+        assert_eq!(cells("中文路径测试"), 12);
+        assert_eq!(cells("…"), 1);
+
+        // Six wide characters are 12 cells; a 7-cell line keeps one column
+        // free, so it holds three (6 cells), not six or seven.
+        assert_eq!(truncate("中文路径测试", 7), "中文路");
+        assert_eq!(truncate("中文路径测试", 12), "中文路径测试", "fits exactly");
+        // A wide char never straddles the limit: a 9-cell line keeps 8, and
+        // `a` plus three wide chars is 7 — a fourth would make 9.
+        assert_eq!(truncate("a中文路径测试", 9), "a中文路");
+        for width in 2..40 {
+            let cut = truncate("proj/中文路径测试/子目录/说明文档.md", width);
+            assert!(
+                cells(&cut) <= width,
+                "{width}: {cut:?} is {} cells",
+                cells(&cut)
+            );
+        }
+
+        let path = "C:/Users/me/AppData/Local/Temp/中文路径测试/proj/说明文档.md(1.0KB)";
+        let elided = elide_start(path, 30);
+        assert!(
+            cells(&elided) <= 30,
+            "{elided:?} is {} cells",
+            cells(&elided)
+        );
+        assert!(
+            elided.starts_with("…/"),
+            "snapped to a component: {elided:?}"
+        );
+        assert!(elided.ends_with("说明文档.md(1.0KB)"), "{elided:?}");
+        for max in 2..60 {
+            let elided = elide_start(path, max);
+            assert!(cells(&elided) <= max, "{max}: {elided:?}");
+        }
+        // ASCII is unchanged: one char is one cell.
+        assert_eq!(elide_start("aaaaaaaaaaaaaaaa.txt", 10), "…aaaaa.txt");
+    }
+
+    /// #3102 end to end: the in-place TTY line for a CJK path stays inside the
+    /// terminal width, and the next shorter redraw blanks exactly the cells
+    /// the previous one painted.
+    #[test]
+    fn a_tty_line_with_a_cjk_path_fits_the_terminal() {
+        let (progress, buffer) = Progress::capture(Surface::Tty, Duration::from_secs(3600));
+        progress.phase("index", 3, 30_000_000);
+        let start = captured(&buffer).len();
+        {
+            let _guard = progress.file(
+                "中文路径测试/项目/源代码/模块/子模块/非常长的目录名称/说明文档.md",
+                1024,
+            );
+            progress.tick();
+        }
+        let width = columns();
+        let first = captured(&buffer)[start..].to_string();
+        let painted = first.trim_matches('\r');
+        assert!(painted.contains("waiting on"), "{first:?}");
+        assert!(
+            cells(painted.trim_end()) < width,
+            "{} cells on a {width}-column terminal: {painted:?}",
+            cells(painted.trim_end())
+        );
+        let before = captured(&buffer).len();
+        progress.tick();
+        let all = captured(&buffer);
+        let redraw = &all[before..];
+        let body = redraw.trim_matches('\r');
+        assert_eq!(
+            cells(body),
+            cells(painted),
+            "the shorter redraw pads to the previous line's cells: {redraw:?}"
+        );
     }
 
     /// Names a repository someone else controls can put on disk. Every one is

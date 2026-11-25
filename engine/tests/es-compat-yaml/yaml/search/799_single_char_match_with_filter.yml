@@ -1,0 +1,142 @@
+# #3507: a one-letter `match` token is a real token. The `standard`
+# analyzer has no stop words, so `match t: "a"` matches every doc whose
+# text holds the token `a`, alone or inside a `bool` next to a `filter`.
+# A `bool` whose `filter` does not project to the inverted index re-tests
+# every flushed match against the stored source, and that matcher dropped
+# one-letter alphabetic query tokens: 3 hits in the memtable, 0 after
+# `_flush`. Two more shapes broke on the same flushed path when the range
+# filter was left out of the inverted-index query: a `should` beside the
+# filter became required, and a `must_not` of a nested `bool` with a range
+# filter excluded too much. Each case runs before and after `_flush`.
+# Expected values: ES `standard` analyzer semantics (no stop words).
+setup:
+  - do:
+      indices.create:
+        index: one_char_match
+        body:
+          mappings:
+            properties:
+              name: { type: keyword }
+              t: { type: text }
+              n: { type: long }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "one_char_match", "_id": "1"}}'
+          - '{"name": "d1", "t": "a cat", "n": 1}'
+          - '{"index": {"_index": "one_char_match", "_id": "2"}}'
+          - '{"name": "d2", "t": "a dog", "n": 2}'
+          - '{"index": {"_index": "one_char_match", "_id": "3"}}'
+          - '{"name": "d3", "t": "a bird", "n": 3}'
+          - '{"index": {"_index": "one_char_match", "_id": "4"}}'
+          - '{"name": "d4", "t": "the cat", "n": 4}'
+
+---
+"one-letter match with a range filter, memtable":
+  - do:
+      count:
+        index: one_char_match
+        body: { query: { bool: { must: [ { match: { t: "a" } } ], filter: [ { range: { n: { gte: 1 } } } ] } } }
+  - match: { count: 3 }
+  - do:
+      search:
+        index: one_char_match
+        body: { query: { bool: { must: [ { match: { t: "a" } } ], filter: [ { range: { n: { gte: 1 } } } ] } }, sort: [ name ] }
+  - match: { hits.total.value: 3 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.2._id: "3" }
+
+---
+"one-letter match with a range filter, flushed":
+  - do:
+      indices.flush:
+        index: one_char_match
+  - do:
+      count:
+        index: one_char_match
+        body: { query: { bool: { must: [ { match: { t: "a" } } ], filter: [ { range: { n: { gte: 1 } } } ] } } }
+  - match: { count: 3 }
+  - do:
+      search:
+        index: one_char_match
+        body: { query: { bool: { must: [ { match: { t: "a" } } ], filter: [ { range: { n: { gte: 1 } } } ] } }, sort: [ name ] }
+  - match: { hits.total.value: 3 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.2._id: "3" }
+
+---
+"operator and counts the one-letter token, memtable":
+  - do:
+      count:
+        index: one_char_match
+        body: { query: { bool: { must: [ { match: { t: { query: "a cat", operator: and } } } ], filter: [ { range: { n: { gte: 1 } } } ] } } }
+  - match: { count: 1 }
+
+---
+"operator and counts the one-letter token, flushed":
+  - do:
+      indices.flush:
+        index: one_char_match
+  - do:
+      count:
+        index: one_char_match
+        body: { query: { bool: { must: [ { match: { t: { query: "a cat", operator: and } } } ], filter: [ { range: { n: { gte: 1 } } } ] } } }
+  - match: { count: 1 }
+
+---
+"one-letter must_not with a range filter, memtable":
+  - do:
+      count:
+        index: one_char_match
+        body: { query: { bool: { must_not: [ { match: { t: "a" } } ], filter: [ { range: { n: { gte: 1 } } } ] } } }
+  - match: { count: 1 }
+
+---
+"one-letter must_not with a range filter, flushed":
+  - do:
+      indices.flush:
+        index: one_char_match
+  - do:
+      count:
+        index: one_char_match
+        body: { query: { bool: { must_not: [ { match: { t: "a" } } ], filter: [ { range: { n: { gte: 1 } } } ] } } }
+  - match: { count: 1 }
+
+---
+"should stays optional beside a range filter, memtable":
+  - do:
+      count:
+        index: one_char_match
+        body: { query: { bool: { filter: [ { range: { n: { gte: 1 } } } ], should: [ { match: { t: "cat" } } ], must_not: [ { match: { t: "dog" } } ] } } }
+  - match: { count: 3 }
+
+---
+"should stays optional beside a range filter, flushed":
+  - do:
+      indices.flush:
+        index: one_char_match
+  - do:
+      count:
+        index: one_char_match
+        body: { query: { bool: { filter: [ { range: { n: { gte: 1 } } } ], should: [ { match: { t: "cat" } } ], must_not: [ { match: { t: "dog" } } ] } } }
+  - match: { count: 3 }
+
+---
+"must_not of a bool with a range filter, memtable":
+  - do:
+      count:
+        index: one_char_match
+        body: { query: { bool: { must: [ { match: { t: "cat" } } ], must_not: [ { bool: { must: [ { match: { t: "the" } } ], filter: [ { range: { n: { lte: 3 } } } ] } } ] } } }
+  - match: { count: 2 }
+
+---
+"must_not of a bool with a range filter, flushed":
+  - do:
+      indices.flush:
+        index: one_char_match
+  - do:
+      count:
+        index: one_char_match
+        body: { query: { bool: { must: [ { match: { t: "cat" } } ], must_not: [ { bool: { must: [ { match: { t: "the" } } ], filter: [ { range: { n: { lte: 3 } } } ] } } ] } } }
+  - match: { count: 2 }

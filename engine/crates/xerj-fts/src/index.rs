@@ -1217,10 +1217,9 @@ fn index_field_values<'a>(
         field_len += tokens.len() as u64;
     }
 
-    field_data.norms.push((
-        doc_ord,
-        norm_u16_to_u8(field_len.min(u16::MAX as u64) as u16),
-    ));
+    field_data
+        .norms
+        .push((doc_ord, norm_len_to_byte(field_len)));
     field_data.stats.total_docs += 1;
     field_data.stats.total_field_length += field_len;
 }
@@ -1268,11 +1267,11 @@ struct FieldData {
     ///
     /// The quantisation happens HERE rather than in `write_field_static` so
     /// that the merge path can carry a source segment's norm byte through
-    /// verbatim.  [`norm_u8_to_u16`] is NOT the inverse of
-    /// [`norm_u16_to_u8`] — byte 9 dequantises to length 8, which
-    /// re-quantises to byte 8 — so a merge that read lengths back out of a
-    /// source segment and re-quantised them would silently change BM25
-    /// length normalisation for every merged document.
+    /// verbatim.  The legacy scale was not invertible (its byte 9
+    /// dequantised to length 8, which re-quantised to byte 8), and
+    /// [`FtsIndexReader::field_length`] saturates at `u16::MAX`, so a merge
+    /// that read lengths back out of a source segment and re-quantised them
+    /// could change BM25 length normalisation for merged documents.
     norms: Vec<(u32, u8)>,
 }
 
@@ -1638,8 +1637,8 @@ impl FtsIndexWriter {
     ///   are replayed verbatim from the source `.post` blobs, so `doc_freq`
     ///   and every posting list are identical to a re-analysed merge.
     /// * **norms** — the source's *quantised* byte is carried through
-    ///   untouched.  It cannot be recomputed from `field_length`, because
-    ///   `norm_u16_to_u8` is lossy and is not invertible.  Every byte a
+    ///   untouched.  It cannot be recomputed from `field_length`, which
+    ///   saturates at `u16::MAX` tokens.  Every byte a
     ///   reader can observe is the byte re-analysis would have written, but
     ///   the dense array may be SHORTER: byte 0 spells both "field absent"
     ///   and "field length <= 1", `load_norms` drops it on read, so a
@@ -2020,7 +2019,9 @@ impl FtsIndexWriter {
         //
         // Layout:
         //   "ZNM1"     4 bytes magic
-        //   u8         encoding: 0 = dense u8, 1 = dense u8 + LZ4
+        //   u8         encoding: 0 = dense u8, 1 = dense u8 + LZ4, OR'd
+        //              with NORMS_ENCODING_SCALE_V2 (0x10) when the bytes use
+        //              the `norm_len_to_byte` scale (#3007)
         //   u32        max_doc_id + 1   (size of implicit array)
         //   u32        payload_len
         //   payload    dense array (u8 × max_doc_id+1) or LZ4(dense)
@@ -2046,7 +2047,7 @@ impl FtsIndexWriter {
 
         let mut norms_bytes: Vec<u8> = Vec::with_capacity(4 + 1 + 4 + 4 + payload.len());
         norms_bytes.extend_from_slice(NORMS_MAGIC);
-        norms_bytes.push(encoding);
+        norms_bytes.push(encoding | NORMS_ENCODING_SCALE_V2);
         norms_bytes.extend_from_slice(&(dense_len as u32).to_le_bytes());
         norms_bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
         norms_bytes.extend_from_slice(payload);
@@ -2243,7 +2244,7 @@ fn merge_field_from_segments(
                 None => {
                     if had_posting[ordinal] {
                         dropped_docs += 1;
-                        dropped_quantised_length += norm_u8_to_u16(byte) as u64;
+                        dropped_quantised_length += norm_byte_to_len(byte) as u64;
                     }
                 }
             }
@@ -2372,27 +2373,80 @@ pub fn segment_indexed_field_names(
 
 const NORMS_MAGIC: &[u8; 4] = b"ZNM1";
 
-/// Lucene-style logarithmic norm quantisation: maps a u16 field length
-/// onto a u8.  Exactly 256 values with finer resolution at short lengths
-/// (where BM25 is most sensitive).  Inverse loses precision at long
-/// lengths, same as Lucene's `SmallFloat`.
+/// Bit in the ZNM1 `encoding` byte: the payload bytes use the
+/// [`norm_len_to_byte`] scale. Without it they use the legacy
+/// [`norm_legacy_byte_to_len`] scale. The low bits keep their meaning (0 = dense,
+/// 1 = dense + LZ4), so a binary that predates the bit refuses the file as
+/// an unknown encoding rather than misreading its lengths.
+const NORMS_ENCODING_SCALE_V2: u8 = 0x10;
+
+/// Field lengths below this are stored exactly (Lucene `SmallFloat`'s
+/// `NUM_FREE_VALUES` for `intToByte4`).
+const NORM_EXACT_BELOW: u64 = 24;
+
+/// Norm byte for a field length, on the scale Lucene's `SmallFloat.intToByte4`
+/// uses for BM25 norms (lucene/core/src/java/org/apache/lucene/util/
+/// SmallFloat.java:147, Apache-2.0, reimplemented here): exact below 24, then
+/// a 3-bit mantissa, so the 256 bytes reach `i32::MAX` tokens.
+///
+/// #3007: the legacy scale ([`norm_legacy_byte_to_len`]) saturated at byte 255, which
+/// decodes to 1,690 tokens. Every longer field was scored as if it were 1,690
+/// tokens long while `avgdl` used the true lengths, so a 7,000-token page
+/// collected the length-normalisation of a much shorter one and outranked
+/// the page that answered the query (SearchTome medicine R@1 56.6 against
+/// 65.2 for the same BM25 with true lengths).
+///
+/// Length 0 and 1 both map to byte 0, as on the legacy scale: the dense
+/// norms array spells "field absent" as 0 and the merge path relies on it.
 #[inline]
-fn norm_u16_to_u8(len: u16) -> u8 {
-    if len == 0 {
+fn norm_len_to_byte(len: u64) -> u8 {
+    if len <= 1 {
         return 0;
     }
-    // Clamp short lengths [1..8] to direct encoding (0..7).
-    if len < 8 {
-        return (len - 1) as u8 & 0x07;
+    if len < NORM_EXACT_BELOW {
+        return len as u8;
     }
-    // Logarithmic scale beyond 8.
-    let l = (len as f64).log2();
-    let v = ((l - 3.0) * 32.0 + 8.0) as i32;
-    v.clamp(0, 255) as u8
+    let rest = (len - NORM_EXACT_BELOW).min(i32::MAX as u64 - NORM_EXACT_BELOW);
+    let bits = 64 - rest.leading_zeros();
+    let int4 = if bits < 4 {
+        rest
+    } else {
+        let shift = bits - 4;
+        // The top four bits; the leading one is implied by the exponent.
+        ((rest >> shift) & 0x07) | (u64::from(shift + 1) << 3)
+    };
+    (NORM_EXACT_BELOW + int4) as u8
 }
 
+/// Field length for a [`norm_len_to_byte`] byte, saturating at `u16::MAX`
+/// (the width [`FtsIndexReader::field_length`] reports).
 #[inline]
-fn norm_u8_to_u16(b: u8) -> u16 {
+fn norm_byte_to_len(b: u8) -> u16 {
+    let b = u64::from(b);
+    if b == 0 {
+        return 1;
+    }
+    if b < NORM_EXACT_BELOW {
+        return b as u16;
+    }
+    let int4 = b - NORM_EXACT_BELOW;
+    let mantissa = int4 & 0x07;
+    let shift = (int4 >> 3) as i64 - 1;
+    let rest = if shift < 0 {
+        mantissa
+    } else {
+        (mantissa | 0x08) << shift
+    };
+    (NORM_EXACT_BELOW + rest).min(u64::from(u16::MAX)) as u16
+}
+
+/// Field length for a byte on the legacy (pre-#3007) logarithmic scale,
+/// `byte = (log2(len) - 3) * 32 + 8` with lengths 1..=8 stored as 0..=7.
+/// That scale saturated at byte 255 = 1,690 tokens. New segments use
+/// [`norm_len_to_byte`]; this only reads the norms of a segment written
+/// before the [`NORMS_ENCODING_SCALE_V2`] bit.
+#[inline]
+fn norm_legacy_byte_to_len(b: u8) -> u16 {
     if b < 8 {
         return (b + 1) as u16;
     }
@@ -2402,6 +2456,22 @@ fn norm_u8_to_u16(b: u8) -> u16 {
 }
 
 // ── FtsIndexReader ────────────────────────────────────────────────────────────
+
+/// One field's norms, from [`FtsIndexReader::field_lengths`].
+#[derive(Clone, Copy)]
+pub struct FieldLengths<'a> {
+    norms: &'a [(u32, u16, u8)],
+}
+
+impl FieldLengths<'_> {
+    /// Same answer as [`FtsIndexReader::field_length`] for this field.
+    pub fn get(&self, doc_id: u32) -> Option<u16> {
+        self.norms
+            .binary_search_by_key(&doc_id, |(id, _, _)| *id)
+            .ok()
+            .map(|idx| self.norms[idx].1)
+    }
+}
 
 /// Provides term lookup into a segment's FTS data.
 ///
@@ -2479,9 +2549,9 @@ struct LoadedField {
     ///
     /// The raw byte rides along beside the dequantised length because the
     /// merge path must reproduce the source segment's norms file byte for
-    /// byte: `norm_u16_to_u8(norm_u8_to_u16(b)) != b` for most `b`, so
-    /// re-quantising the length would move BM25's length normalisation on
-    /// every merged document.  `(u32, u16, u8)` still occupies 8 bytes
+    /// byte: the dequantised length saturates at `u16::MAX`, and a legacy
+    /// segment's byte was re-scaled once on load (see `load_norms`), so
+    /// re-quantising the length is not guaranteed to give the byte back.  `(u32, u16, u8)` still occupies 8 bytes
     /// after padding, so this costs no memory over the old `(u32, u16)`.
     norms: Vec<(u32, u16, u8)>,
 }
@@ -2844,7 +2914,8 @@ impl FtsIndexReader {
             let dense_len = u32::from_le_bytes(bytes[5..9].try_into().unwrap()) as usize;
             let payload_len = u32::from_le_bytes(bytes[9..13].try_into().unwrap()) as usize;
             let payload = &bytes[13..13 + payload_len];
-            let dense: Vec<u8> = match encoding {
+            let scale_v2 = encoding & NORMS_ENCODING_SCALE_V2 != 0;
+            let dense: Vec<u8> = match encoding & !NORMS_ENCODING_SCALE_V2 {
                 0 => payload.to_vec(),
                 1 => lz4_flex::decompress_size_prepended(payload)
                     .map_err(|e| anyhow::anyhow!("norms: lz4 decompress: {e}"))?,
@@ -2860,10 +2931,21 @@ impl FtsIndexReader {
             // Materialise (doc_id, norm) pairs only for live docs so the
             // rest of the engine (which expects `Vec<(u32, u16)>`) is
             // unchanged.  Zero bytes → missing.
+            //
+            // A segment written before the #3007 scale holds legacy bytes.
+            // Its length is what that scale decodes (it cannot recover a
+            // field longer than 1,690 tokens), and the byte is re-scaled
+            // once so a merge carries a byte of the scale it writes.
             let mut norms = Vec::new();
             for (doc_id, &b) in dense.iter().enumerate() {
-                if b != 0 {
-                    norms.push((doc_id as u32, norm_u8_to_u16(b), b));
+                if b == 0 {
+                    continue;
+                }
+                if scale_v2 {
+                    norms.push((doc_id as u32, norm_byte_to_len(b), b));
+                } else {
+                    let len = norm_legacy_byte_to_len(b);
+                    norms.push((doc_id as u32, len, norm_len_to_byte(u64::from(len))));
                 }
             }
             Ok(norms)
@@ -2877,7 +2959,7 @@ impl FtsIndexReader {
                 let norm = cur.read_u16::<LittleEndian>()?;
                 // The pre-M4.7 format stored an unquantised length; the byte a
                 // writer would emit for it is what a merge must carry forward.
-                norms.push((doc_id, norm, norm_u16_to_u8(norm)));
+                norms.push((doc_id, norm, norm_len_to_byte(u64::from(norm))));
             }
             Ok(norms)
         }
@@ -3052,13 +3134,17 @@ impl FtsIndexReader {
     /// every document on a [`Self::open_stats_only`] reader, whose norms
     /// table was deliberately not loaded.
     pub fn field_length(&self, field: &str, doc_id: u32) -> Option<u16> {
-        let loaded = self.fields.get(field)?;
-        // Binary search by doc_id
-        loaded
-            .norms
-            .binary_search_by_key(&doc_id, |(id, _, _)| *id)
-            .ok()
-            .map(|idx| loaded.norms[idx].1)
+        self.field_lengths(field).get(doc_id)
+    }
+
+    /// The field's norms table, resolved once: a postings loop that asks for
+    /// one length per posting looks the field name up once instead of
+    /// hashing it per posting (#3455: the per-posting `fields.get` was ~16%
+    /// of a `bool` of two keyword terms over 496 segments).
+    pub fn field_lengths(&self, field: &str) -> FieldLengths<'_> {
+        FieldLengths {
+            norms: self.fields.get(field).map_or(&[], |f| f.norms.as_slice()),
+        }
     }
 
     /// Every `(doc_id, quantised norm byte)` this field records, ascending by
@@ -4587,5 +4673,93 @@ mod tests {
         assert!(message.contains("seg.body.post"), "{message}");
         assert!(message.contains("os error"), "{message}");
         assert!(stuck.join("held").exists());
+    }
+
+    /// #3007: the norm scale is exact below 24, monotone, and its bytes
+    /// decode to lengths that encode back to the same byte (up to the
+    /// `u16::MAX` the reader reports).
+    #[test]
+    fn norm_scale_is_exact_short_monotone_and_round_trips() {
+        assert_eq!(norm_len_to_byte(0), 0);
+        assert_eq!(norm_len_to_byte(1), 0);
+        assert_eq!(norm_byte_to_len(0), 1);
+        for len in 2..24u64 {
+            assert_eq!(u64::from(norm_byte_to_len(norm_len_to_byte(len))), len);
+        }
+        let mut last = 0u8;
+        for len in 1..200_000u64 {
+            let b = norm_len_to_byte(len);
+            assert!(b >= last, "byte for {len} went down");
+            last = b;
+            let back = u64::from(norm_byte_to_len(b));
+            assert!(back <= len.max(1), "length {len} decoded up to {back}");
+        }
+        // Byte 1 is never written: length 1 shares byte 0 with "absent".
+        for b in (0..=255u8).filter(|b| *b != 1) {
+            let len = norm_byte_to_len(b);
+            if len < u16::MAX {
+                assert_eq!(norm_len_to_byte(u64::from(len)), b, "byte {b}");
+            }
+        }
+        // Lucene `SmallFloat.intToByte4` reference points.
+        assert_eq!(norm_len_to_byte(24), 24);
+        assert_eq!(norm_len_to_byte(1_000), 87);
+        assert_eq!(norm_len_to_byte(i32::MAX as u64), 255);
+        assert_eq!(norm_len_to_byte(u64::MAX), 255);
+    }
+
+    /// #3007 root cause: a 7,000-token field used to read back as 1,690
+    /// tokens (legacy byte 255), so long documents escaped length
+    /// normalisation. It now reads back within the scale's 1/8 step.
+    #[test]
+    fn a_long_field_keeps_its_length_past_the_old_saturation() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-long", make_registry());
+        let long = vec!["word"; 7_000].join(" ");
+        let fields: HashMap<String, FieldValues> =
+            [("body".to_owned(), FieldValues::from(long.as_str()))]
+                .into_iter()
+                .collect();
+        writer.add_document(0, &fields);
+        writer.finish().unwrap();
+        let reader = FtsIndexReader::open(dir.path(), "seg-long", &["body"]).unwrap();
+        let len = reader.field_length("body", 0).unwrap();
+        assert!((6_100..=7_000).contains(&len), "read back {len}");
+        assert!(norm_legacy_byte_to_len(255) < 1_700);
+    }
+
+    /// A segment written before #3007 (no scale bit) still reads with the
+    /// legacy scale, and its bytes are re-scaled so a merge writes bytes of
+    /// the new scale.
+    #[test]
+    fn a_legacy_scale_norms_file_reads_with_the_legacy_scale() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-old", make_registry());
+        let fields: HashMap<String, FieldValues> =
+            [("body".to_owned(), FieldValues::from("a b c d e f g h i j"))]
+                .into_iter()
+                .collect();
+        writer.add_document(0, &fields);
+        writer.finish().unwrap();
+        let mut path = None;
+        for entry in fs::read_dir(dir.path()).unwrap() {
+            let p = entry.unwrap().path();
+            if p.extension().and_then(|e| e.to_str()) == Some("norms") {
+                path = Some(p);
+            }
+        }
+        let path = path.expect("a norms file");
+        let mut bytes = fs::read(&path).unwrap();
+        assert_eq!(bytes[4] & NORMS_ENCODING_SCALE_V2, NORMS_ENCODING_SCALE_V2);
+        assert_eq!(bytes[13], 10, "length 10 is exact on the new scale");
+        // Legacy writer: encoding 0, byte (log2(10) - 3) * 32 + 8 = 18.
+        bytes[4] = 0;
+        bytes[13] = 18;
+        fs::write(&path, &bytes).unwrap();
+        let reader = FtsIndexReader::open(dir.path(), "seg-old", &["body"]).unwrap();
+        let len = reader.field_length("body", 0).unwrap();
+        assert_eq!(len, norm_legacy_byte_to_len(18));
+        let carried: Vec<(u32, u8)> = reader.field_norm_bytes("body").collect();
+        assert_eq!(carried, vec![(0, norm_len_to_byte(u64::from(len)))]);
     }
 }

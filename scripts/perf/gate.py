@@ -44,7 +44,7 @@ def proc_status(pid):
         with open("/proc/%d/status" % pid) as f:
             for line in f:
                 k, _, v = line.partition(":")
-                if k in ("VmRSS", "VmHWM"):
+                if k in ("VmRSS", "VmHWM", "RssAnon", "RssFile", "RssShmem"):
                     out[k] = int(v.split()[0]) // 1024  # MB
                 elif k == "Threads":
                     out[k] = int(v)
@@ -70,14 +70,38 @@ def tree_rss(pid):
     return rss
 
 
-class Sampler(threading.Thread):
-    """Peak RSS / thread count of the node and the autoindex client tree."""
+def load_1m():
+    try:
+        with open("/proc/loadavg") as f:
+            return float(f.read().split()[0])
+    except (OSError, ValueError, IndexError):
+        return None
 
-    def __init__(self):
+
+class Sampler(threading.Thread):
+    """Peak RSS / thread count of the node and the autoindex client tree.
+
+    Besides VmRSS/VmHWM (the gate's ceiling), the node is sampled for
+    RssAnon + RssShmem, the resident memory the kernel cannot drop and the
+    figure the node's own memory breaker compares to its watermark, and for
+    RssFile (mapped segment files and the binary, reclaimable page cache).
+    `cap_mb` counts the samples above the cap for each figure (#2427), and
+    the 1-minute load average is kept beside them: on a shared box the load
+    moves every timing in the run."""
+
+    def __init__(self, cap_mb=0):
         super().__init__(daemon=True)
+        self.cap_mb = cap_mb
         self.node_pid = None
         self.client_pid = None
         self.node_peak = 0
+        self.node_anon_peak = 0
+        self.node_file_peak = 0
+        self.node_samples = 0
+        self.node_rss_over_cap = 0
+        self.node_anon_over_cap = 0
+        self.load_min = None
+        self.load_max = None
         self.client_peak = 0
         self.client_threads_peak = 0
         self.stop = False
@@ -86,12 +110,32 @@ class Sampler(threading.Thread):
         while not self.stop:
             if self.node_pid:
                 s = proc_status(self.node_pid)
-                self.node_peak = max(self.node_peak, s.get("VmHWM", 0), s.get("VmRSS", 0))
+                if "VmRSS" in s:
+                    rss = s["VmRSS"]
+                    anon = s.get("RssAnon", 0) + s.get("RssShmem", 0)
+                    self.node_peak = max(self.node_peak, s.get("VmHWM", 0), rss)
+                    self.node_anon_peak = max(self.node_anon_peak, anon)
+                    self.node_file_peak = max(self.node_file_peak, s.get("RssFile", 0))
+                    self.node_samples += 1
+                    if self.cap_mb:
+                        self.node_rss_over_cap += rss > self.cap_mb
+                        self.node_anon_over_cap += anon > self.cap_mb
+                    la = load_1m()
+                    if la is not None:
+                        self.load_min = la if self.load_min is None else min(self.load_min, la)
+                        self.load_max = la if self.load_max is None else max(self.load_max, la)
             if self.client_pid:
                 s = proc_status(self.client_pid)
                 self.client_peak = max(self.client_peak, tree_rss(self.client_pid), s.get("VmHWM", 0))
                 self.client_threads_peak = max(self.client_threads_peak, s.get("Threads", 0))
-            time.sleep(0.25)
+            time.sleep(0.1)
+
+    def node_memory(self):
+        return {"peak_vmrss_or_hwm_mb": self.node_peak, "peak_anon_mb": self.node_anon_peak,
+                "peak_file_mb": self.node_file_peak, "samples": self.node_samples,
+                "vmrss_over_cap_samples": self.node_rss_over_cap,
+                "anon_over_cap_samples": self.node_anon_over_cap,
+                "load_1m_min": self.load_min, "load_1m_max": self.load_max}
 
 
 def http(url, body=None, timeout=60):
@@ -279,7 +323,7 @@ def cmd_run(a):
     except Exception:
         res["version"] = "?"
     res["source_bytes"] = tree_bytes(a.corpus)
-    sampler = Sampler(); sampler.start()
+    sampler = Sampler(a.cap_mb); sampler.start()
     node = Node(a, env, sampler)
     fatal = {}
     try:
@@ -294,6 +338,7 @@ def cmd_run(a):
         res["docs"] = sum(int(c.get("docs.count") or 0) for c in cat)
         res["index_store_bytes"] = sum(int(c.get("store.size") or 0) for c in cat)
         res["node_peak_rss_mb_ingest"] = sampler.node_peak
+        res["node_memory_ingest"] = sampler.node_memory()
         node.stop()
         node_txt = "".join(open(p, errors="replace").read() for p in node.logs)
         res["breaker_trips"] = len(BREAKER_RE.findall(node_txt))
@@ -344,6 +389,7 @@ def cmd_run(a):
         log("ERROR", e)
     finally:
         res["node_peak_rss_mb"] = sampler.node_peak
+        res["node_memory"] = sampler.node_memory()
         node.stop()
         sampler.stop = True
     ai = res.get("autoindex", {})
@@ -387,9 +433,14 @@ def cmd_eval(a):
     tp = c.get("throughput_mb_s")
     add("autoindex throughput (MB/s)", tp, ">= %s" % t["min_throughput_mb_s"], completed and tp is not None and tp >= t["min_throughput_mb_s"],
         "%.0f of %.0f MB indexed in %s s" % (c.get("indexed_bytes", c.get("source_bytes", 0)) / MiB, c.get("source_bytes", 0) / MiB, ai.get("wall_s")))
+    nm = c.get("node_memory") or {}
+    mem_note = "XERJ_MAX_PROCESS_MEMORY_MB=%s" % c.get("cap_mb")
+    if nm:
+        mem_note += "; anon peak %s MB, file peak %s MB; over cap %s/%s samples (anon %s); load %s-%s" % (
+            nm.get("peak_anon_mb"), nm.get("peak_file_mb"), nm.get("vmrss_over_cap_samples"), nm.get("samples"),
+            nm.get("anon_over_cap_samples"), nm.get("load_1m_min"), nm.get("load_1m_max"))
     add("node peak RSS (MB), cap %d" % t["node_memory_cap_mb"], c.get("node_peak_rss_mb"), "<= %d" % t["max_node_peak_rss_mb"],
-        (c.get("node_peak_rss_mb") or 0) <= t["max_node_peak_rss_mb"],
-        "XERJ_MAX_PROCESS_MEMORY_MB=%s" % c.get("cap_mb"))
+        (c.get("node_peak_rss_mb") or 0) <= t["max_node_peak_rss_mb"], mem_note)
     add("client peak RSS (MB)", c.get("client_peak_rss_mb"), "<= %d" % t["max_client_peak_rss_mb"],
         (c.get("client_peak_rss_mb") or 0) <= t["max_client_peak_rss_mb"], "peak threads %s" % c.get("client_threads_peak"))
     sr = c.get("state_to_source_ratio", 0)

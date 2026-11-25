@@ -1,0 +1,218 @@
+{
+ "k": 10,
+ "corpus": "lucene",
+ "sets": {
+  "all": {
+   "n": 8,
+   "ndcg": 0.48138948676741655,
+   "recall": 0.75,
+   "mrr": 0.3970238095238095,
+   "r1": 2,
+   "top5": 5,
+   "top10": 6,
+   "errors": 0,
+   "latency_p50_ms": 347.2,
+   "took_p50_ms": 294,
+   "took_p95_ms": 2373
+  },
+  "q": {
+   "n": 8,
+   "ndcg": 0.48138948676741655,
+   "recall": 0.75,
+   "mrr": 0.3970238095238095,
+   "r1": 2,
+   "top5": 5,
+   "top10": 6,
+   "errors": 0,
+   "latency_p50_ms": 347.2,
+   "took_p50_ms": 294,
+   "took_p95_ms": 2373
+  }
+ },
+ "queries": [
+  {
+   "qid": "q1_hnsw_maxconn",
+   "q": "When this codebase builds an HNSW graph, what is the default maximum number of connections per node? Give the constant name, its value, and the file that defines it.",
+   "latency_ms": 2793.2,
+   "took_ms": 2373,
+   "err": null,
+   "ndcg": 0.5,
+   "recall": 1.0,
+   "mrr": 0.3333333333333333,
+   "rank": 3,
+   "retrieved": [
+    "lucene/core/src/java/org/apache/lucene/index/CheckIndex.java",
+    "lucene/core/src/java/org/apache/lucene/codecs/lucene99/Lucene99HnswVectorsFormat.java",
+    "lucene/core/src/java/org/apache/lucene/util/hnsw/HnswGraphBuilder.java",
+    "lucene/sandbox/src/java/org/apache/lucene/sandbox/codecs/dedup/DedupHnswVectorsFormat.java",
+    "lucene/core/src/java/org/apache/lucene/codecs/lucene104/Lucene104HnswScalarQuantizedVectorsFormat.java",
+    "lucene/backward-codecs/src/java/org/apache/lucene/backward_codecs/lucene94/Lucene94HnswVectorsFormat.java",
+    "lucene/backward-codecs/src/java/org/apache/lucene/backward_codecs/lucene95/Lucene95HnswVectorsFormat.java",
+    "lucene/core/src/java/org/apache/lucene/codecs/lucene104/package-info.java",
+    "lucene/backward-codecs/src/java/org/apache/lucene/backward_codecs/lucene103/package-info.java",
+    "lucene/backward-codecs/src/java/org/apache/lucene/backward_codecs/lucene99/package-info.java"
+   ]
+  },
+  {
+   "qid": "q2_bm25_idf",
+   "q": "What exact formula does the default BM25 scoring implementation use to compute IDF from docFreq and docCount? Write the expression.",
+   "latency_ms": 347.2,
+   "took_ms": 294,
+   "err": null,
+   "ndcg": 1.0,
+   "recall": 1.0,
+   "mrr": 1.0,
+   "rank": 1,
+   "retrieved": [
+    "lucene/core/src/java/org/apache/lucene/search/similarities/BM25Similarity.java",
+    "lucene/core/src/java/org/apache/lucene/search/similarities/TFIDFSimilarity.java",
+    "lucene/core/src/java/org/apache/lucene/search/similarities/ClassicSimilarity.java",
+    "lucene/highlighter/src/java/org/apache/lucene/search/uhighlight/PassageScorer.java",
+    "lucene/core/src/java/org/apache/lucene/search/similarities/Similarity.java",
+    "lucene/core/src/java/org/apache/lucene/search/package-info.java",
+    "lucene/core/src/java/org/apache/lucene/index/CheckIndex.java",
+    "lucene/core/src/java/org/apache/lucene/search/IndexSearcher.java",
+    "lucene/queries/src/java/org/apache/lucene/queries/mlt/MoreLikeThis.java",
+    "lucene/core/src/java/org/apache/lucene/search/similarities/package-info.java"
+   ]
+  },
+  {
+   "qid": "q3_max_term_len",
+   "q": "What is the maximum length, in bytes, of a single indexed term, and how is that limit derived? Give the numeric value and the two constants involved.",
+   "latency_ms": 309.6,
+   "took_ms": 253,
+   "err": null,
+   "ndcg": 1.0,
+   "recall": 1.0,
+   "mrr": 1.0,
+   "rank": 1,
+   "retrieved": [
+    "lucene/core/src/java/org/apache/lucene/index/IndexWriter.java",
+    "lucene/core/src/java/org/apache/lucene/search/package-info.java",
+    "lucene/core/src/java/org/apache/lucene/codecs/lucene104/package-info.java",
+    "lucene/backward-codecs/src/java/org/apache/lucene/backward_codecs/lucene103/package-info.java",
+    "lucene/backward-codecs/src/java/org/apache/lucene/backward_codecs/lucene99/package-info.java",
+    "lucene/backward-codecs/src/java/org/apache/lucene/backward_codecs/lucene95/package-info.java",
+    "lucene/backward-codecs/src/java/org/apache/lucene/backward_codecs/lucene94/package-info.java",
+    "lucene/backward-codecs/src/java/org/apache/lucene/backward_codecs/lucene92/package-info.java",
+    "lucene/backward-codecs/src/java/org/apache/lucene/backward_codecs/lucene91/package-info.java",
+    "lucene/spatial3d/src/java/org/apache/lucene/spatial3d/geom/Plane.java"
+   ]
+  },
+  {
+   "qid": "q4_ram_buffer",
+   "q": "What is the default RAM buffer size (in MB) that the index writer uses before flushing, and which constant holds it?",
+   "latency_ms": 290.1,
+   "took_ms": 235,
+   "err": null,
+   "ndcg": 0.3333333333333333,
+   "recall": 1.0,
+   "mrr": 0.14285714285714285,
+   "rank": 7,
+   "retrieved": [
+    "lucene/core/src/java/org/apache/lucene/index/IndexWriter.java",
+    "lucene/core/src/java/org/apache/lucene/index/DocumentsWriterFlushControl.java",
+    "lucene/CHANGES.txt",
+    "lucene/core/src/java/org/apache/lucene/index/LiveIndexWriterConfig.java",
+    "lucene/core/src/test/org/apache/lucene/index/TestIndexWriter.java",
+    "lucene/core/src/java/org/apache/lucene/util/fst/FSTCompiler.java",
+    "lucene/core/src/java/org/apache/lucene/index/IndexWriterConfig.java",
+    "lucene/core/src/java/org/apache/lucene/index/CheckIndex.java",
+    "lucene/core/src/java/org/apache/lucene/index/DocumentsWriter.java",
+    "lucene/core/src/java/org/apache/lucene/util/packed/PackedInts.java"
+   ]
+  },
+  {
+   "qid": "q5_fsdir_choice",
+   "q": "When you open a filesystem directory without naming a concrete implementation, what decides which implementation you actually get, and what are the two possible outcomes?",
+   "latency_ms": 1083.6,
+   "took_ms": 382,
+   "err": null,
+   "ndcg": 0.38685280723454163,
+   "recall": 1.0,
+   "mrr": 0.2,
+   "rank": 5,
+   "retrieved": [
+    "lucene/core/src/java/org/apache/lucene/index/IndexWriter.java",
+    "lucene/test-framework/src/java/org/apache/lucene/tests/util/LuceneTestCaseParent.java",
+    "lucene/test-framework/src/java/org/apache/lucene/tests/util/TestUtil.java",
+    "lucene/demo/src/java/org/apache/lucene/demo/facet/package-info.java",
+    "lucene/core/src/java/org/apache/lucene/store/FSDirectory.java",
+    "lucene/benchmark/src/java/org/apache/lucene/benchmark/byTask/package-info.java",
+    "lucene/core/src/java/org/apache/lucene/index/CheckIndex.java",
+    "lucene/facet/src/test/org/apache/lucene/facet/TestDrillSideways.java",
+    "lucene/core/src/java/org/apache/lucene/index/DirectoryReader.java",
+    "lucene/core/src/java/org/apache/lucene/analysis/package-info.java"
+   ]
+  },
+  {
+   "qid": "q6_maxclause_locality",
+   "q": "What is the default limit on the number of clauses a boolean query may contain, and in which class is that limit actually defined?",
+   "latency_ms": 248.7,
+   "took_ms": 195,
+   "err": null,
+   "ndcg": 0.0,
+   "recall": 0.0,
+   "mrr": 0.0,
+   "rank": null,
+   "retrieved": [
+    "lucene/core/src/java/org/apache/lucene/search/package-info.java",
+    "lucene/highlighter/src/test/org/apache/lucene/search/matchhighlight/TestMatchHighlighter.java",
+    "lucene/core/src/java/org/apache/lucene/index/IndexWriter.java",
+    "lucene/core/src/java/org/apache/lucene/analysis/package-info.java",
+    "lucene/queryparser/docs/xml/LuceneContribQuery.dtd.html",
+    "lucene/core/src/java/org/apache/lucene/index/CheckIndex.java",
+    "lucene/test-framework/src/java/org/apache/lucene/tests/util/LuceneTestCaseParent.java",
+    "lucene/queryparser/src/java/org/apache/lucene/queryparser/classic/QueryParserBase.java",
+    "lucene/queryparser/src/java/org/apache/lucene/queryparser/flexible/standard/StandardQueryParser.java",
+    "lucene/demo/src/java/org/apache/lucene/demo/facet/package-info.java"
+   ]
+  },
+  {
+   "qid": "q8_deletes_pct",
+   "q": "In the default merge policy, what percentage of deleted documents is tolerated in the index before merges are triggered to reclaim them, and what is the field called?",
+   "latency_ms": 317.2,
+   "took_ms": 262,
+   "err": null,
+   "ndcg": 0.6309297535714575,
+   "recall": 1.0,
+   "mrr": 0.5,
+   "rank": 2,
+   "retrieved": [
+    "lucene/core/src/java/org/apache/lucene/index/IndexWriter.java",
+    "lucene/core/src/java/org/apache/lucene/index/TieredMergePolicy.java",
+    "lucene/core/src/java/org/apache/lucene/index/TemporalMergePolicy.java",
+    "lucene/core/src/java/org/apache/lucene/index/MergePolicy.java",
+    "lucene/core/src/test/org/apache/lucene/index/TestTieredMergePolicy.java",
+    "lucene/core/src/java/org/apache/lucene/index/IndexWriterConfig.java",
+    "lucene/core/src/java/org/apache/lucene/index/DirectoryReader.java",
+    "lucene/test-framework/src/java/org/apache/lucene/tests/util/LuceneTestCaseParent.java",
+    "lucene/core/src/test/org/apache/lucene/index/TestIndexWriter.java",
+    "lucene/core/src/java/org/apache/lucene/index/CheckIndex.java"
+   ]
+  },
+  {
+   "qid": "q9_min_java",
+   "q": "What is the minimum Java language version this project requires to build, and which file declares it?",
+   "latency_ms": 1747.1,
+   "took_ms": 861,
+   "err": null,
+   "ndcg": 0.0,
+   "recall": 0.0,
+   "mrr": 0.0,
+   "rank": null,
+   "retrieved": [
+    "build-tools/build-infra-shadow/build.gradle",
+    "lucene/spatial3d/src/java/org/apache/lucene/spatial3d/geom/Plane.java",
+    "build-tools/build-infra/src/main/java/org/apache/lucene/gradle/plugins/mrjar/LuceneJavaCoreMrjarPlugin.java",
+    "build-tools/build-infra/src/main/java/org/apache/lucene/gradle/plugins/java/JarManifestConfigurationPlugin.java",
+    "build-tools/build-infra/src/main/java/org/apache/lucene/gradle/plugins/globals/RegisterBuildGlobalsPlugin.java",
+    "build-tools/build-infra/src/main/java/org/apache/lucene/gradle/plugins/java/ErrorPronePlugin.java",
+    "lucene/core/src/java/org/apache/lucene/analysis/package-info.java",
+    "dev-tools/test-patch/lucene-solr-yetus-personality.sh",
+    "build-tools/build-infra/src/main/java/org/apache/lucene/gradle/plugins/java/TestsAndRandomizationPlugin.java",
+    "build-tools/build-infra/src/main/java/org/apache/lucene/gradle/plugins/globals/LuceneBuildGlobalsExtension.java"
+   ]
+  }
+ ]
+}

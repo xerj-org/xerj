@@ -225,6 +225,19 @@ pub const REJECTED_QUERY_TYPES: &[&str] = &["has_child", "has_parent"];
 // Public entry points
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// ES's refusal for a search body whose `track_total_hits` is an integer below
+/// `-1`, or `None` when the value is fine.
+///
+/// Mirrors `SearchSourceBuilder#trackTotalHitsUpTo` (ES 8.13.4): `-1` turns
+/// tracking off, any other negative integer is an `illegal_argument_exception`
+/// with this reason. `_msearch` calls it on every item before running any, so
+/// one bad item refuses the whole request as it does in ES.
+pub fn track_total_hits_refusal(body: &Value) -> Option<String> {
+    let n = body.get("track_total_hits")?.as_i64()?;
+    (n < -1)
+        .then(|| format!("[track_total_hits] parameter must be positive or equals to -1, got {n}"))
+}
+
 /// Parse a complete ES search request body.
 ///
 /// ```json
@@ -308,14 +321,18 @@ pub fn parse_request(body: &Value) -> Result<SearchRequest> {
         .and_then(|v| serde_json::from_value(v.clone()).ok());
 
     // Parse track_total_hits: true | false | integer
+    if let Some(reason) = track_total_hits_refusal(body) {
+        return Err(QueryError::Parse(ParseError::Invalid(reason)));
+    }
     let track_total_hits = match obj.get("track_total_hits") {
         Some(Value::Bool(true)) | None => TrackTotalHits::True,
         Some(Value::Bool(false)) => TrackTotalHits::False,
         Some(Value::Number(n)) => {
-            // ES accepts `track_total_hits: -1` as an alias for `true`
-            // (track the exact total).
-            if n.as_i64().map(|v| v < 0).unwrap_or(false) {
-                TrackTotalHits::True
+            // `-1` is ES's TRACK_TOTAL_HITS_DISABLED, the value `false` sets
+            // (`SearchContext`, `SearchSourceBuilder#trackTotalHits`), so it
+            // turns tracking off. Anything below it was refused above.
+            if n.as_i64() == Some(-1) {
+                TrackTotalHits::False
             } else {
                 let limit = n.as_u64().unwrap_or(10_000);
                 TrackTotalHits::Limit(limit)
@@ -371,6 +388,8 @@ pub fn parse_request(body: &Value) -> Result<SearchRequest> {
         savings: SavingsMode::Off,
         // #1019: ids-only is engine-internal and never arrives from the wire.
         ids_only: false,
+        // #3018: hybrid-leg deferral is engine-internal too.
+        defer_source: false,
     })
 }
 
@@ -1179,6 +1198,13 @@ fn date_resolve_err(e: dates::DateResolveError, fmt: Option<&str>, value: &str) 
             format!("operator not supported for date math [{m}]")
         }
         UnknownTimeZone(tz) => format!("Unknown time-zone ID: {tz}"),
+        OutOfRange { instant, future } => {
+            let when = if future { "future" } else { "past" };
+            format!(
+                "date[{instant}] is too far in the {when} to be represented \
+                 in a long milliseconds variable"
+            )
+        }
     };
     QueryError::Parse(ParseError::Invalid(msg))
 }
@@ -3378,7 +3404,22 @@ fn parse_hybrid(params: &Value) -> Result<QueryNode> {
                 ))
             })?;
             let query = parse_query(q_val)?;
-            let weight = entry.get("weight").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
+            // #3016: the weight is the per-leg RRF (or linear) multiplier, the
+            // knob that tilts fusion toward one leg. A weight that is not a
+            // finite, non-negative number used to fall back to 1 in silence, so
+            // a typo (`"weight": "0.3"`) ran an equal-weight fusion while the
+            // caller believed the vector leg was down-weighted.
+            let weight = match entry.get("weight") {
+                None | Some(Value::Null) => 1.0,
+                Some(v) => match v.as_f64() {
+                    Some(w) if w.is_finite() && w >= 0.0 && (w as f32).is_finite() => w as f32,
+                    _ => {
+                        return Err(qerr(format!(
+                            "`hybrid.queries[{i}].weight` must be a finite number >= 0, got {v}"
+                        )))
+                    }
+                },
+            };
             Ok(WeightedQuery { query, weight })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -3403,8 +3444,13 @@ fn parse_hybrid(params: &Value) -> Result<QueryNode> {
             let t = m.get("type").and_then(|v| v.as_str()).unwrap_or("rrf");
             match t {
                 "rrf" => {
-                    let k = m.get("k").and_then(|v| v.as_u64()).unwrap_or(60) as u32;
-                    FusionStrategy::Rrf { k }
+                    // `rank_constant` is the name the ES `rrf` retriever uses
+                    // for the same smoothing constant (#3016). Giving both is
+                    // ambiguous; a value that is not a whole number >= 0 used
+                    // to fall back to 60 in silence.
+                    FusionStrategy::Rrf {
+                        k: parse_rrf_rank_constant(m)?,
+                    }
                 }
                 "linear" => FusionStrategy::Linear,
                 // Learned fusion is not implemented — fail loud (see above).
@@ -3419,6 +3465,26 @@ fn parse_hybrid(params: &Value) -> Result<QueryNode> {
     };
 
     Ok(QueryNode::Hybrid { queries, fusion })
+}
+
+/// The RRF smoothing constant of an object-form `hybrid.fusion`: `k`, or
+/// `rank_constant` — the name the ES `rrf` retriever uses for it (#3016) —
+/// defaulting to 60. Giving both is ambiguous, and a value that is not a whole
+/// number >= 0 used to fall back to 60 in silence.
+fn parse_rrf_rank_constant(fusion: &serde_json::Map<String, Value>) -> Result<u32> {
+    let raw = match (fusion.get("k"), fusion.get("rank_constant")) {
+        (Some(_), Some(_)) => {
+            return invalid("`hybrid.fusion` takes `k` or its alias `rank_constant`, not both")
+        }
+        (Some(v), None) | (None, Some(v)) => v,
+        (None, None) => return Ok(60),
+    };
+    match raw.as_u64().map(u32::try_from) {
+        Some(Ok(k)) => Ok(k),
+        _ => invalid(format!(
+            "`hybrid.fusion` rrf `k` (`rank_constant`) must be a whole number >= 0, got {raw}"
+        )),
+    }
 }
 
 /// Parse a `function_score` query.
@@ -5337,9 +5403,17 @@ mod tests {
         let req = parse_request(&json!({"track_total_hits": 10_000})).unwrap();
         assert_eq!(req.track_total_hits, TrackTotalHits::Limit(10_000));
 
-        // -1 is the ES alias for `true` (exact), NOT a 10k cap.
+        // -1 is ES's "tracking off" (the value `false` sets), NOT exact.
         let req = parse_request(&json!({"track_total_hits": -1})).unwrap();
-        assert_eq!(req.track_total_hits, TrackTotalHits::True);
+        assert_eq!(req.track_total_hits, TrackTotalHits::False);
+
+        // Below -1 is refused with ES's reason.
+        let err = parse_request(&json!({"track_total_hits": -2})).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("[track_total_hits] parameter must be positive or equals to -1, got -2"),
+            "{err}"
+        );
     }
 
     // ── match_phrase ──────────────────────────────────────────────────────────
@@ -6544,6 +6618,55 @@ mod tests {
             ),
             "{msg}"
         );
+    }
+
+    /// #3016: per-leg weights and the RRF constant are the tuning knobs, so a
+    /// value that cannot be one is a 400, never a silent default.
+    #[test]
+    fn hybrid_weight_and_rank_constant_are_validated() {
+        let legs = |weight: Value| {
+            json!([
+                {"query": {"match": {"title": "rust"}}, "weight": weight},
+                {"query": {"match": {"title": "go"}}}
+            ])
+        };
+        for bad in [json!("0.3"), json!(-0.5), json!(true), json!([1])] {
+            let err = parse_query(&json!({"hybrid": {"queries": legs(bad.clone())}})).unwrap_err();
+            assert!(
+                err.to_string()
+                    .contains("`hybrid.queries[0].weight` must be a finite number >= 0"),
+                "{bad}: {err}"
+            );
+        }
+        for (raw, want) in [(json!(0), 0.0f32), (json!(2.5), 2.5), (Value::Null, 1.0)] {
+            let QueryNode::Hybrid { queries, .. } =
+                q(json!({"hybrid": {"queries": legs(raw.clone())}}))
+            else {
+                panic!("wrong variant");
+            };
+            assert_eq!(queries[0].weight, want, "{raw}");
+            assert_eq!(queries[1].weight, 1.0);
+        }
+
+        let fusion = |f: Value| json!({"hybrid": {"queries": legs(json!(1)), "fusion": f}});
+        for (f, want) in [
+            (json!({"type": "rrf", "rank_constant": 20}), 20u32),
+            (json!({"type": "rrf", "k": 0}), 0),
+            (json!({"type": "rrf"}), 60),
+        ] {
+            let QueryNode::Hybrid { fusion, .. } = q(fusion(f.clone())) else {
+                panic!("wrong variant");
+            };
+            assert_eq!(fusion, FusionStrategy::Rrf { k: want }, "{f}");
+        }
+        for bad in [
+            json!({"type": "rrf", "k": -1}),
+            json!({"type": "rrf", "k": "40"}),
+            json!({"type": "rrf", "rank_constant": 1.5}),
+            json!({"type": "rrf", "k": 10, "rank_constant": 10}),
+        ] {
+            assert!(parse_query(&fusion(bad.clone())).is_err(), "{bad}");
+        }
     }
 
     #[test]

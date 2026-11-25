@@ -1,13 +1,21 @@
 # The `/_facts` API: asking a question and reading a verified answer
 
+> **Release binaries only, not in the public build.** `/_facts`, `--facts-model-dir`
+> and the `xerj_facts_ask` MCP tool are in the published release binaries (rc.101
+> and later), which are built from a private tree that adds the proprietary model
+> crates (`xerj-infer`, `xerj-serve`, `xerj-exec`). This repository's source does
+> not contain them: a node built from `main` has no `/_facts` route, no
+> `--facts-model-dir` flag and no `xerj_facts_ask` tool. Everything below describes
+> the release binaries.
+
 The capabilities overview, one verified example per capability:
 [XERJ_QUERY_1.md](./XERJ_QUERY_1.md). This page is the contract.
 
 What this file is: the request/response reference for the `/_facts` endpoints —
 the facts store, the exact executor, and the learned compiler the engine serves.
 Last updated: 2026-11-05 (rc.101). If this document and the engine
-disagree, the engine wins (`engine/crates/xerj-api/src/facts_api.rs` and
-`engine/crates/xerj-serve/`); the [CHANGELOG](../CHANGELOG.md) carries the
+disagree, the release binary wins (its facts handler and `xerj-serve` are
+not in this repository); the [CHANGELOG](../CHANGELOG.md) carries the
 release summary. Companion docs: [MODEL_BUNDLE.md](./MODEL_BUNDLE.md) (what the
 model directory is and how roles are served) and
 [MODEL_QUICKSTART.md](./MODEL_QUICKSTART.md) (get the model and serve it).
@@ -269,11 +277,18 @@ Namespaces listed are the ones the caller may read (one it cannot read is simply
 not listed, so the list reveals nothing a 403 would not), each `ready`
 (projection in memory) or `cold` (rebuilt on first access).
 
-`model.state` is `not_configured` (no model directory), `not_loaded`, or `loaded`.
+`model.state` is `not_configured` (no model directory), `not_loaded`, `loaded`,
+or `unavailable` (the model directory is missing or failed a load check;
+`model.error` names the file, the response is still HTTP 200, and `_ask`
+answers `503 MODEL_UNAVAILABLE` until the node restarts with a working
+`--facts-model-dir`).
 With `--facts-model-dir` the node starts loading the model in the background at
 boot (`XERJ_FACTS_PRELOAD`, on by default), so the first status calls say
 `not_loaded`: measured 3.5 s from boot to `loaded` on a laptop-class x86_64.
-Poll until `loaded` before timing anything. `XERJ_FACTS_PRELOAD=0` skips the
+Poll while the state is `not_loaded`, and stop on anything else: `unavailable`
+never becomes `loaded`. The loop in
+[MODEL_QUICKSTART.md](./MODEL_QUICKSTART.md) does this. Wait for `loaded`
+before timing anything. `XERJ_FACTS_PRELOAD=0` skips the
 preload: the state stays `not_loaded` until the first `_ask`, which then pays
 the load (3.4 s measured) and answers; later asks run at the usual latency.
 `model.counting.state` is `ready` when the bundle carries a healthy counting

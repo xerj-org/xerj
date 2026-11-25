@@ -27,6 +27,7 @@ single-node.
 | `rrf_stability.py` | is the hybrid order the same after a restart on unchanged data | no |
 | `ingest_bench.py` | `_bulk` documents/s and the server's own CPU-seconds, by number of concurrent clients | **yes** — throwaway `tp_*` indices |
 | `encoder_scaling.rs` | encoder-only passages/s and cores busy, N callers on one shared model | — (no server) |
+| `test_http_failures.py` | regression: eval.py and latency.py stop on a non-2xx `_search` instead of scoring it as "no hits" or timing it | — (stub server) |
 
 ## Run it
 

@@ -12,6 +12,7 @@ use std::sync::OnceLock;
 
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
+use xerj_common::normalizer::KeywordNormalizers;
 use xerj_common::types::{FieldType, Schema};
 use xerj_compress::field_codec::{FieldAnalyzer, FieldEncoding};
 use xerj_fts::analyzer::{AnalyzerPipeline, AnalyzerRegistry, Token};
@@ -43,14 +44,17 @@ pub struct MemtableHit {
 /// (`HitQueue.lessThan` breaks an equal score by the smaller doc id,
 /// `lucene/core/src/java/org/apache/lucene/search/HitQueue.java:76-82`);
 /// approach only, no code taken.
-fn sort_hits_by_page_key(hits: &mut [MemtableHit]) {
-    hits.sort_unstable_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.seq_no.cmp(&b.seq_no))
-            .then_with(|| a.doc_id.cmp(&b.doc_id))
-    });
+pub(crate) fn sort_hits_by_page_key(hits: &mut [MemtableHit]) {
+    hits.sort_unstable_by(page_key_cmp);
+}
+
+/// The page-key comparator [`sort_hits_by_page_key`] sorts by.
+fn page_key_cmp(a: &MemtableHit, b: &MemtableHit) -> std::cmp::Ordering {
+    b.score
+        .partial_cmp(&a.score)
+        .unwrap_or(std::cmp::Ordering::Equal)
+        .then_with(|| a.seq_no.cmp(&b.seq_no))
+        .then_with(|| a.doc_id.cmp(&b.doc_id))
 }
 
 #[cfg(test)]
@@ -499,6 +503,157 @@ pub fn extract_field_values_excluding(
         }
     }
     out
+}
+
+/// The `object` leaf fields that get an FTS side-car of their own, by dotted
+/// path (`meta.title`), with their types (#3464).
+///
+/// Before #3464 the FTS writer keyed only on top-level `_source` keys. An
+/// object value was indexed whole, as one JSON-blob token under the parent's
+/// name, so no query on `meta.title` could use the postings: the
+/// per-segment `fts_has_field` gate failed and every segment took the
+/// stored-doc scan. ES indexes each object leaf as its own field under its
+/// full path (the object mapper flattens paths into field names); this is the
+/// same layout.
+///
+/// Left out: `nested` properties (ES matches them only inside a `nested`
+/// query, and they are separate documents there), multi-fields (`title.raw`:
+/// not walked), vector-like and binary types (no lexical form), and fields
+/// [`fts_excluded_fields`]-style exclusion would drop (`index: false` text, or
+/// `index: false` without doc values). The top-level fields keep their
+/// existing side-cars; the parent object keeps its blob side-car too.
+pub fn fts_object_leaf_paths(schema: &Schema) -> Vec<(String, FieldType)> {
+    fn walk(
+        fields: &[xerj_common::types::FieldConfig],
+        prefix: &str,
+        excluded: &std::collections::HashSet<String>,
+        out: &mut Vec<(String, FieldType)>,
+    ) {
+        for f in fields {
+            let path = format!("{prefix}.{}", f.name);
+            match f.field_type {
+                FieldType::Object => walk(&f.fields, &path, excluded, out),
+                FieldType::Text
+                | FieldType::Keyword
+                | FieldType::Long
+                | FieldType::Double
+                | FieldType::Boolean
+                | FieldType::Date
+                | FieldType::Ip => {
+                    let searchable = f.options.indexed
+                        || (f.options.doc_values && !matches!(f.field_type, FieldType::Text));
+                    if searchable && !excluded.contains(&path) {
+                        out.push((path, f.field_type));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    let excluded = fts_excluded_fields(schema);
+    let mut out = Vec::new();
+    for f in &schema.fields {
+        if matches!(f.field_type, FieldType::Object) && !excluded.contains(&f.name) {
+            walk(&f.fields, &f.name, &excluded, &mut out);
+        }
+    }
+    out
+}
+
+/// Add the values of each dotted object path in `paths` to `out` (#3464), the
+/// way the stored-doc scan reads such a path: an array of objects contributes
+/// every element's value, and a literal dotted key (`{"meta.title": …}` or
+/// `{"meta": {"a.b": …}}`) names the same path as nested objects do. The
+/// top-level literal key itself is already in `out` from
+/// [`extract_field_values_excluding`]; values reached through objects are
+/// appended to it rather than replacing it.
+pub fn add_object_path_values(
+    source: &Value,
+    paths: &[String],
+    out: &mut HashMap<String, xerj_fts::index::FieldValues>,
+) {
+    use xerj_fts::index::FieldValues;
+    fn collect(val: &Value, segs: &[&str], out: &mut Vec<String>) {
+        if segs.is_empty() {
+            match val {
+                Value::Array(arr) => {
+                    for v in arr {
+                        collect(v, segs, out);
+                    }
+                }
+                Value::Object(_) | Value::Null => {}
+                other => {
+                    let text = extract_text_value(other);
+                    if !text.is_empty() {
+                        out.push(text);
+                    }
+                }
+            }
+            return;
+        }
+        match val {
+            Value::Array(arr) => {
+                for v in arr {
+                    collect(v, segs, out);
+                }
+            }
+            Value::Object(obj) => {
+                for take in 1..=segs.len() {
+                    if let Some(child) = obj.get(&segs[..take].join(".")) {
+                        collect(child, &segs[take..], out);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    let Some(root) = source.as_object() else {
+        return;
+    };
+    for path in paths {
+        let segs: Vec<&str> = path.split('.').collect();
+        let mut values = Vec::new();
+        // At least one object level: the whole path as one top-level key is
+        // the literal key `out` already holds.
+        for take in 1..segs.len() {
+            if let Some(child) = root.get(&segs[..take].join(".")) {
+                collect(child, &segs[take..], &mut values);
+            }
+        }
+        if values.is_empty() {
+            continue;
+        }
+        match out.remove(path) {
+            Some(existing) => {
+                let mut all: Vec<String> = existing.iter().map(str::to_string).collect();
+                all.extend(values);
+                out.insert(path.clone(), FieldValues::from_values(all));
+            }
+            None => {
+                out.insert(path.clone(), FieldValues::from_values(values));
+            }
+        }
+    }
+}
+
+/// Normalize the FTS values of every normalized keyword field in `fields`
+/// (#3513), keyed as [`extract_field_values_excluding`] and
+/// [`add_object_path_values`] key them: a top-level name or an object leaf's
+/// dotted path. The segment's term dictionary then holds the normalized term,
+/// which is what a normalized query value looks up.
+pub fn normalize_fts_field_values(
+    fields: &mut HashMap<String, xerj_fts::index::FieldValues>,
+    normalizers: &KeywordNormalizers,
+) {
+    if normalizers.is_empty() {
+        return;
+    }
+    for (path, values) in fields.iter_mut() {
+        if let Some(n) = normalizers.get(path) {
+            *values =
+                xerj_fts::index::FieldValues::from_values(values.iter().map(|v| n.normalize(v)));
+        }
+    }
 }
 
 /// Convert one JSON value into the values the FTS writer should index for it.
@@ -1017,7 +1172,14 @@ pub struct ShardedFtsMemtable {
     /// Shared aggregate of all shards' `total_bytes` for this index — every
     /// shard mirrors its deltas here so the sampler reads one atomic.
     aggregate_bytes: Arc<AtomicUsize>,
+    /// The index's keyword normalizers (#3513), shared with every generation
+    /// of every shard so the doc-values columns hold normalized values.
+    keyword_normalizers: KeywordNormalizerHandle,
 }
+
+/// The keyword normalizers a memtable applies to its doc-values columns
+/// (#3513). One handle per index, swapped whole when the mapping changes.
+pub type KeywordNormalizerHandle = Arc<parking_lot::RwLock<Arc<KeywordNormalizers>>>;
 
 /// One shard's reader-visible generations (#1015).
 ///
@@ -1052,6 +1214,7 @@ pub(crate) struct ShardGenerations {
     /// aggregate — see [`FtsMemtable::with_registry_and_aggregate`]).
     registry: Arc<AnalyzerRegistry>,
     aggregate: Arc<AtomicUsize>,
+    keyword_normalizers: KeywordNormalizerHandle,
 }
 
 /// One frozen generation plus its ownership state.
@@ -1100,16 +1263,19 @@ impl ShardedFtsMemtable {
     pub fn with_registry_and_shards(registry: Arc<AnalyzerRegistry>, num_shards: usize) -> Self {
         let n = num_shards.max(1).next_power_of_two();
         let aggregate_bytes = Arc::new(AtomicUsize::new(0));
+        let keyword_normalizers: KeywordNormalizerHandle = Arc::default();
         let shards = (0..n)
             .map(|_| {
                 parking_lot::RwLock::new(ShardGenerations {
                     active: FtsMemtable::with_registry_and_aggregate(
                         Arc::clone(&registry),
                         Arc::clone(&aggregate_bytes),
+                        Arc::clone(&keyword_normalizers),
                     ),
                     frozen: Vec::new(),
                     registry: Arc::clone(&registry),
                     aggregate: Arc::clone(&aggregate_bytes),
+                    keyword_normalizers: Arc::clone(&keyword_normalizers),
                 })
             })
             .collect();
@@ -1117,6 +1283,42 @@ impl ShardedFtsMemtable {
             shards,
             shard_mask: n - 1,
             aggregate_bytes,
+            keyword_normalizers,
+        }
+    }
+
+    /// Install the keyword normalizers of the index's current mapping
+    /// (#3513). Documents inserted afterwards get normalized doc-values
+    /// cells; the mapping can only gain a normalizer on a field that is new
+    /// to it, so no buffered cell of that field predates the swap.
+    pub fn set_keyword_normalizers(&self, normalizers: KeywordNormalizers) {
+        *self.keyword_normalizers.write() = Arc::new(normalizers);
+    }
+
+    /// The keyword normalizers last installed by
+    /// [`Self::set_keyword_normalizers`]: the index's current mapping. The
+    /// flush and merge builds normalize the same fields with them, so a
+    /// segment's columns and terms agree with the buffered cells.
+    pub fn keyword_normalizers(&self) -> Arc<KeywordNormalizers> {
+        Arc::clone(&self.keyword_normalizers.read())
+    }
+
+    /// Stop every current generation's doc-values column for `field` from
+    /// answering (#3513), by the same flag an array value sets: callers fall
+    /// back to the `_source` scan, which normalizes. Used when `field` gains
+    /// a normalizer while cells written before it hold raw values; a later
+    /// generation is built with the normalizer and is unaffected.
+    pub fn mark_doc_values_unusable(&self, field: &str) {
+        for s in &self.shards {
+            let mut g = s.write();
+            g.active.doc_values.array_fields.insert(field.to_string());
+            for fz in &g.frozen {
+                fz.gen
+                    .write()
+                    .doc_values
+                    .array_fields
+                    .insert(field.to_string());
+            }
         }
     }
 
@@ -1726,11 +1928,28 @@ impl ShardedFtsMemtable {
         limit: usize,
         stats: Option<&xerj_fts::CollectionStats>,
     ) -> (Vec<MemtableHit>, u64) {
+        self.search_dis_max_gated_with_total_using(subs, tie_breaker, limit, stats, &|_, _| true)
+    }
+
+    /// `search_dis_max_boosted_with_total_using` with a per-sub membership
+    /// gate (#3329): sub `i`'s hit on `doc_id` contributes only when
+    /// `admit(i, doc_id)` holds. A positional phrase clause scores like the
+    /// OR of its terms on that field (the segment's `execute_phrase` sums the
+    /// per-term BM25 of the docs whose positions line up), so the phrase
+    /// sub is the term sub gated by the phrase predicate.
+    pub fn search_dis_max_gated_with_total_using(
+        &self,
+        subs: &[(&str, &str, f32)],
+        tie_breaker: f32,
+        limit: usize,
+        stats: Option<&xerj_fts::CollectionStats>,
+        admit: &dyn Fn(usize, &str) -> bool,
+    ) -> (Vec<MemtableHit>, u64) {
         // Per-doc (max, sum, seq_no) accumulator over sub scores — the same
         // f32 (max, sum) pair `execute_dis_max` keeps.
-        let acc: std::collections::HashMap<String, (f32, f32, u64)> = subs.iter().fold(
+        let acc: std::collections::HashMap<String, (f32, f32, u64)> = subs.iter().enumerate().fold(
             std::collections::HashMap::new(),
-            |acc, &(field, query, boost)| {
+            |acc, (i, &(field, query, boost))| {
                 let boosts: std::collections::HashMap<String, f32> =
                     std::iter::once((field.to_string(), boost)).collect();
                 let (hits, _) = self.search_text_boosted_inner(
@@ -1741,16 +1960,18 @@ impl ShardedFtsMemtable {
                     &boosts,
                     stats,
                 );
-                hits.into_iter().fold(acc, |mut acc, h| {
-                    let e = acc
-                        .entry(h.doc_id)
-                        .or_insert((f32::NEG_INFINITY, 0.0, h.seq_no));
-                    if h.score > e.0 {
-                        e.0 = h.score;
-                    }
-                    e.1 += h.score;
-                    acc
-                })
+                hits.into_iter()
+                    .filter(|h| admit(i, &h.doc_id))
+                    .fold(acc, |mut acc, h| {
+                        let e = acc
+                            .entry(h.doc_id)
+                            .or_insert((f32::NEG_INFINITY, 0.0, h.seq_no));
+                        if h.score > e.0 {
+                            e.0 = h.score;
+                        }
+                        e.1 += h.score;
+                        acc
+                    })
             },
         );
         let mut all: Vec<MemtableHit> = acc
@@ -1828,6 +2049,15 @@ impl ShardedFtsMemtable {
             std::collections::HashMap::new();
         let mut term_df: std::collections::HashMap<(String, String), u64> =
             std::collections::HashMap::new();
+        // #3349: a token the query repeats (`dogs dogs`, or one word in
+        // several leaves of a planned `bool`) is ONE term. Counting its
+        // postings once per occurrence doubled its doc_freq, so its IDF fell
+        // below the segment's, which counts each (field, term) once.
+        let mut seen: FxHashSet<&str> = FxHashSet::default();
+        let q_tokens: Vec<&xerj_fts::analyzer::Token> = q_tokens
+            .iter()
+            .filter(|t| seen.insert(t.text.as_str()))
+            .collect();
         for shard in &self.shards {
             let g = shard.read();
             let frozen: Vec<parking_lot::RwLockReadGuard<'_, FtsMemtable>> =
@@ -1850,7 +2080,7 @@ impl ShardedFtsMemtable {
                     if !fields.is_empty() && !fields.iter().any(|f| f == fname) {
                         continue;
                     }
-                    for token in q_tokens {
+                    for token in &q_tokens {
                         if let Some(pl) = postings.get(&token.text) {
                             *term_df
                                 .entry((fname.clone(), token.text.clone()))
@@ -1863,7 +2093,7 @@ impl ShardedFtsMemtable {
                     if !fields.is_empty() && !fields.iter().any(|f| f == fname) {
                         continue;
                     }
-                    for token in q_tokens {
+                    for token in &q_tokens {
                         if let Some(df) = terms.get(&token.text) {
                             *term_df
                                 .entry((fname.clone(), token.text.clone()))
@@ -1906,7 +2136,63 @@ impl ShardedFtsMemtable {
         if q_tokens.is_empty() {
             return (Vec::new(), 0);
         }
+        let mut all: Vec<MemtableHit> = self
+            .score_tokens_all_shards(&q_tokens, fields, shard_limit, field_boosts, external)
+            .into_iter()
+            .map(|(hit, _)| hit)
+            .collect();
+        // #191 — the cross-shard merge sorts by the FULL page key, not by score
+        // alone.  Score alone leaves ties in shard-concatenation order, so
+        // `truncate(limit)` kept "the tied documents that happen to live in the
+        // lowest-numbered shards" rather than the earliest-arriving ones, and a
+        // `size:5` page stopped being a prefix of a `size:1000` one.
+        sort_hits_by_page_key(&mut all);
+        // A doc_id lives in exactly ONE shard, so `all` has no duplicates:
+        // its pre-truncation length IS the exact global match count when
+        // `shard_limit == usize::MAX` (a lower bound otherwise).
+        let total = all.len() as u64;
+        all.truncate(limit);
+        (all, total)
+    }
 
+    /// One field's `match` scored against every shard, uncapped, with the
+    /// number of query token occurrences each hit matched (#3349), plus the
+    /// query's analysed token count. The memtable twin of the segment's
+    /// per-token `bool` for `match`: `operator: and` keeps the hits whose
+    /// count equals the token count, `minimum_should_match: n` the hits whose
+    /// count is at least `n`, and the score is the same per-token BM25 sum a
+    /// standalone `match` gets. Unsorted.
+    pub fn search_field_counted_using(
+        &self,
+        query: &str,
+        field: &str,
+        boost: f32,
+        stats: Option<&xerj_fts::CollectionStats>,
+    ) -> (Vec<(MemtableHit, u32)>, usize) {
+        let Some(analyzer) = self.default_analyzer() else {
+            return (Vec::new(), 0);
+        };
+        let q_tokens = analyzer.analyze(query);
+        if q_tokens.is_empty() {
+            return (Vec::new(), 0);
+        }
+        let boosts: std::collections::HashMap<String, f32> =
+            std::iter::once((field.to_string(), boost)).collect();
+        let hits = self.score_tokens_all_shards(&q_tokens, &[field], usize::MAX, &boosts, stats);
+        (hits, q_tokens.len())
+    }
+
+    /// Score analysed `q_tokens` over every shard (active and frozen
+    /// generations) against the global or index-wide statistics described
+    /// below. Unsorted, at most `shard_limit` hits per generation.
+    fn score_tokens_all_shards(
+        &self,
+        q_tokens: &[Token],
+        fields: &[&str],
+        shard_limit: usize,
+        field_boosts: &std::collections::HashMap<String, f32>,
+        external: Option<&xerj_fts::CollectionStats>,
+    ) -> Vec<(MemtableHit, u32)> {
         // ── Statistics fed to the per-shard scorers ──────────────────────
         //
         // TWO modes, and the difference is deliberate:
@@ -1968,7 +2254,7 @@ impl ShardedFtsMemtable {
                 }
                 global_avg_field_len = avg;
                 let mut df = std::collections::HashMap::new();
-                for token in &q_tokens {
+                for token in q_tokens {
                     for fname in global_avg_field_len.keys() {
                         if !fields.is_empty() && !fields.iter().any(|f| f == fname) {
                             continue;
@@ -1982,7 +2268,7 @@ impl ShardedFtsMemtable {
             }
             None => {
                 global_doc_count = ghost_inclusive_n;
-                let (field_total_len, df) = self.aggregate_shard_stats(&q_tokens, fields);
+                let (field_total_len, df) = self.aggregate_shard_stats(q_tokens, fields);
                 global_avg_field_len = field_total_len
                     .into_iter()
                     .map(|(k, (sum, n))| (k, if n == 0 { 0.0 } else { (sum / n as f64) as f32 }))
@@ -1991,14 +2277,14 @@ impl ShardedFtsMemtable {
             }
         }
 
-        let mut all: Vec<MemtableHit> = Vec::new();
+        let mut all: Vec<(MemtableHit, u32)> = Vec::new();
         for s in &self.shards {
             let g = s.read();
             let frozen: Vec<parking_lot::RwLockReadGuard<'_, FtsMemtable>> =
                 g.frozen.iter().map(|fz| fz.gen.read()).collect();
             for gen in std::iter::once(&g.active).chain(frozen.iter().map(|rd| &**rd)) {
-                all.extend(gen.search_text_with_global_stats(
-                    query,
+                all.extend(gen.score_tokens_with_global_stats(
+                    q_tokens,
                     fields,
                     shard_limit,
                     global_doc_count,
@@ -2009,18 +2295,7 @@ impl ShardedFtsMemtable {
                 ));
             }
         }
-        // #191 — the cross-shard merge sorts by the FULL page key, not by score
-        // alone.  Score alone leaves ties in shard-concatenation order, so
-        // `truncate(limit)` kept "the tied documents that happen to live in the
-        // lowest-numbered shards" rather than the earliest-arriving ones, and a
-        // `size:5` page stopped being a prefix of a `size:1000` one.
-        sort_hits_by_page_key(&mut all);
-        // A doc_id lives in exactly ONE shard, so `all` has no duplicates:
-        // its pre-truncation length IS the exact global match count when
-        // `shard_limit == usize::MAX` (a lower bound otherwise).
-        let total = all.len() as u64;
-        all.truncate(limit);
-        (all, total)
+        all
     }
 
     /// Drop-in replacement for the old single-memtable `insert` used by
@@ -2648,6 +2923,7 @@ impl ShardedFtsMemtable {
                 let fresh = FtsMemtable::with_registry_and_aggregate(
                     Arc::clone(&g.registry),
                     Arc::clone(&g.aggregate),
+                    Arc::clone(&g.keyword_normalizers),
                 );
                 let frozen_gen = Arc::new(parking_lot::RwLock::new(std::mem::replace(
                     &mut g.active,
@@ -3081,6 +3357,10 @@ pub struct FtsMemtable {
     ghost_docs: u64,
     ghost_field_len: FxHashMap<String, (f64, u64)>,
     ghost_doc_freq: FxHashMap<String, FxHashMap<String, u64>>,
+    /// The index's keyword normalizers (#3513): a normalized field's
+    /// doc-values cell holds the normalized value, as its segment column and
+    /// FTS terms do. `_source` (in `docs`) keeps the original.
+    keyword_normalizers: KeywordNormalizerHandle,
 }
 
 impl FtsMemtable {
@@ -3089,6 +3369,7 @@ impl FtsMemtable {
         Self::with_registry_and_aggregate(
             Arc::new(AnalyzerRegistry::default()),
             Arc::new(AtomicUsize::new(0)),
+            Arc::default(),
         )
     }
 
@@ -3098,7 +3379,7 @@ impl FtsMemtable {
     /// configured in the index settings so that indexing and query expansion
     /// use the same pipeline.
     pub fn with_registry(registry: Arc<AnalyzerRegistry>) -> Self {
-        Self::with_registry_and_aggregate(registry, Arc::new(AtomicUsize::new(0)))
+        Self::with_registry_and_aggregate(registry, Arc::new(AtomicUsize::new(0)), Arc::default())
     }
 
     /// Create a memtable mirroring its `total_bytes` deltas into
@@ -3109,6 +3390,7 @@ impl FtsMemtable {
     fn with_registry_and_aggregate(
         registry: Arc<AnalyzerRegistry>,
         aggregate_bytes: Arc<AtomicUsize>,
+        keyword_normalizers: KeywordNormalizerHandle,
     ) -> Self {
         Self {
             docs: Vec::new(),
@@ -3123,6 +3405,17 @@ impl FtsMemtable {
             ghost_docs: 0,
             ghost_field_len: FxHashMap::default(),
             ghost_doc_freq: FxHashMap::default(),
+            keyword_normalizers,
+        }
+    }
+
+    /// Append `source`'s doc-values cells, each normalized keyword field's
+    /// value normalized first (#3513).
+    fn push_doc_values(&mut self, source: &Value, doc_index: usize) {
+        let normalizers = Arc::clone(&self.keyword_normalizers.read());
+        match normalizers.normalized_top_level(source) {
+            Some(view) => self.doc_values.push(&view, doc_index),
+            None => self.doc_values.push(source, doc_index),
         }
     }
 
@@ -3225,7 +3518,7 @@ impl FtsMemtable {
         // Populate the columnar DocValues store BEFORE pushing to docs so that
         // the doc_index equals the current length (i.e. the slot we're about to fill).
         let doc_index = self.docs.len();
-        self.doc_values.push(&source, doc_index);
+        self.push_doc_values(&source, doc_index);
 
         // Track doc_id → index for O(1) lookup.
         self.doc_id_index.insert(doc_key, doc_index);
@@ -3454,7 +3747,7 @@ impl FtsMemtable {
 
         let doc_index = self.docs.len();
         // Pass a reference through the Arc — DocValues reads without cloning source.
-        self.doc_values.push(&source, doc_index);
+        self.push_doc_values(&source, doc_index);
 
         // Track doc_id → index for O(1) lookup (interned Arc<str> key).
         self.doc_id_index.insert(doc_key, doc_index);
@@ -3605,7 +3898,39 @@ impl FtsMemtable {
         if tokens.is_empty() {
             return Vec::new();
         }
+        self.score_tokens_with_global_stats(
+            &tokens,
+            fields,
+            limit,
+            global_doc_count,
+            global_field_doc_count,
+            global_avg_field_len,
+            global_term_df,
+            field_boosts,
+        )
+        .into_iter()
+        .map(|(hit, _)| hit)
+        .collect()
+    }
 
+    /// The scoring core of [`Self::search_text_with_global_stats`] over
+    /// already-analysed `tokens`, also returning per hit how many query token
+    /// OCCURRENCES matched it (#3349). A token repeated in the query counts
+    /// once per occurrence, the way the segment's per-token `bool` clauses
+    /// do, so `matched == tokens.len()` is `operator: and` and
+    /// `matched >= n` is `minimum_should_match: n`.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn score_tokens_with_global_stats(
+        &self,
+        tokens: &[Token],
+        fields: &[&str],
+        limit: usize,
+        global_doc_count: u64,
+        global_field_doc_count: &std::collections::HashMap<String, u64>,
+        global_avg_field_len: &std::collections::HashMap<String, f32>,
+        global_term_df: &std::collections::HashMap<(String, String), u64>,
+        field_boosts: &std::collections::HashMap<String, f32>,
+    ) -> Vec<(MemtableHit, u32)> {
         let doc_count = if global_doc_count > 0 {
             global_doc_count
         } else {
@@ -3614,9 +3939,9 @@ impl FtsMemtable {
         // Keyed by the interned `Arc<str>` doc id from the postings lists,
         // so accumulating a term's contribution is a pointer-bump clone
         // rather than a per-hit `String` allocation.
-        let mut scores: HashMap<DocId, f32> = HashMap::new();
+        let mut scores: HashMap<DocId, (f32, u32)> = HashMap::new();
 
-        for token in &tokens {
+        for token in tokens {
             // Search across requested fields (or all indexed fields if none specified).
             let search_fields: Vec<&str> = if fields.is_empty() {
                 self.index.keys().map(|s| s.as_str()).collect()
@@ -3668,14 +3993,16 @@ impl FtsMemtable {
                         .unwrap_or(1);
 
                     let score = scorer.score_term(doc_freq, tf, field_len) * field_boost;
-                    *scores.entry(doc_id.clone()).or_insert(0.0) += score;
+                    let e = scores.entry(doc_id.clone()).or_insert((0.0, 0));
+                    e.0 += score;
+                    e.1 += 1;
                 }
             }
         }
 
-        let mut hits: Vec<MemtableHit> = scores
+        let mut hits: Vec<(MemtableHit, u32)> = scores
             .into_iter()
-            .map(|(doc_id, score)| {
+            .map(|(doc_id, (score, matched))| {
                 // #191 — carry the arrival order with the hit.  `scores` is a
                 // HashMap, so without it the pre-truncation order of an
                 // all-tied hit set is the hash iteration order: the surviving
@@ -3684,18 +4011,21 @@ impl FtsMemtable {
                     .doc_id_index
                     .get(&doc_id)
                     .map_or(u64::MAX, |&pos| self.seq_no_at(pos));
-                MemtableHit {
-                    doc_id: doc_id.to_string(),
-                    score,
-                    seq_no,
-                }
+                (
+                    MemtableHit {
+                        doc_id: doc_id.to_string(),
+                        score,
+                        seq_no,
+                    },
+                    matched,
+                )
             })
             .collect();
 
         // Sort by the FULL page key (score DESC, seq_no ASC, `_id` ASC) — the
         // comparator `index.rs:16222-16228` applies to the final page — so a
         // truncation at `limit` keeps exactly the documents that page would.
-        sort_hits_by_page_key(&mut hits);
+        hits.sort_unstable_by(|a, b| page_key_cmp(&a.0, &b.0));
         hits.truncate(limit);
         hits
     }
@@ -4840,7 +5170,29 @@ fn collect_text_fields(
                         .collect::<Vec<_>>()
                         .join(" ");
                     if !joined.is_empty() && !out.contains_key(&path) {
-                        out.insert(path, joined);
+                        out.insert(path.clone(), joined);
+                    }
+                    // #3464: an array of objects is the same object field
+                    // given N times, so `meta.note` holds every element's
+                    // note. Before this only the JSON blob under `meta` was
+                    // indexed, and `match meta.note` missed such a document
+                    // until a flush gave it a segment (where the object leaf
+                    // side-car and the stored scan both see every element).
+                    for element in arr.iter().filter(|e| e.is_object()) {
+                        let mut inner: HashMap<String, String> = HashMap::new();
+                        collect_text_fields(element, &path, &mut inner, excluded);
+                        for (key, text) in inner {
+                            match out.get_mut(&key) {
+                                Some(existing) if key != path => {
+                                    existing.push(' ');
+                                    existing.push_str(&text);
+                                }
+                                Some(_) => {}
+                                None => {
+                                    out.insert(key, text);
+                                }
+                            }
+                        }
                     }
                 }
                 _ => {

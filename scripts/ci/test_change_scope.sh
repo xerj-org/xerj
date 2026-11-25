@@ -31,6 +31,10 @@ check "tools/xerj-code"      true  false tools/xerj-code/SKILL.md
 check "workflow"             true  false .github/workflows/ci.yml
 check "test-read doc"        true  false docs/RERANK.md
 check "test-read landing"    true  false landing/llms.txt
+check "doc tool counts"      true  false AGENTS.md
+check "doc counts: docs page" true false landing/docs/cli.html
+check "doc counts: home"     true  false landing/index.html
+check "nested landing page"  false false landing/answers/what-is-xerj.html landing/blog/x.html
 check "root README"          true  false README.md
 check "installer"            true  false landing/get
 check "test fixture .md"     true  false engine/crates/xerj-autoindex/tests/fixtures/a.md

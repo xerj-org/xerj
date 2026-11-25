@@ -702,6 +702,11 @@ pub struct IndexStore {
     /// ticks re-check only its remaining unproven `(doc_id, seq)` pairs
     /// against the version map and prune once the list drains.
     wal_prune_cache: Mutex<std::collections::HashMap<(usize, u64), WalGenVerdict>>,
+    /// #3324 — serializes WAL maintenance passes on this store. A pass
+    /// holds each shard's WAL mutex only to rotate; this lock keeps two
+    /// passes from working on the same frozen generations at once. Appends
+    /// never take it.
+    wal_maintenance_lock: Mutex<()>,
     /// Issue #965 — serializes object-store publication sequences
     /// (pack → bundle PUT → catalog PUT) so a catalog can never be written
     /// while a snapshot-referenced bundle is still in flight (the flush-tail
@@ -719,6 +724,10 @@ pub struct IndexStore {
     snapshot_save_failures_remaining: std::sync::atomic::AtomicUsize,
     #[cfg(test)]
     fail_next_wal_maintenance: std::sync::atomic::AtomicBool,
+    /// Parks a WAL maintenance pass after it froze a generation: the pass
+    /// waits on this barrier twice, between the rotation and the fsync.
+    #[cfg(test)]
+    frozen_work_pause: Mutex<Option<Arc<std::sync::Barrier>>>,
     #[cfg(test)]
     publication_failpoint: std::sync::atomic::AtomicU8,
     #[cfg(test)]
@@ -739,6 +748,27 @@ pub enum MergePublicationError {
         publication: StorageError,
         rollback: StorageError,
     },
+}
+
+/// Merge inputs whose orphan recovery is already durably disarmed.
+///
+/// Returned by [`IndexStore::disarm_merge_inputs`] and consumed by
+/// [`IndexStore::apply_merge_with_repoints`]. The disarm persists the
+/// snapshot and fsyncs the segments directory; doing it first lets a caller
+/// keep that disk work out of its reader-blocking publication bracket
+/// (#3351). The inputs stay snapshot-listed and readable until the merge
+/// publishes, so dropping this without publishing is the same handled state
+/// as an aborted merge.
+#[derive(Debug)]
+#[must_use = "pass the disarmed inputs to apply_merge_with_repoints"]
+pub struct DisarmedMergeInputs {
+    ids: Vec<SegmentId>,
+}
+
+impl DisarmedMergeInputs {
+    pub fn segment_ids(&self) -> &[SegmentId] {
+        &self.ids
+    }
 }
 
 /// Cached verification state of one rotated WAL generation.
@@ -971,6 +1001,7 @@ impl IndexStore {
             segments_changed_hook: Mutex::new(None),
             pending_deletes: Mutex::new(std::collections::HashMap::new()),
             wal_prune_cache: Mutex::new(std::collections::HashMap::new()),
+            wal_maintenance_lock: Mutex::new(()),
             object_publish_lock: Mutex::new(()),
             durable_bundles: Mutex::new(durable_bundles),
             #[cfg(test)]
@@ -981,6 +1012,8 @@ impl IndexStore {
             snapshot_save_failures_remaining: std::sync::atomic::AtomicUsize::new(1),
             #[cfg(test)]
             fail_next_wal_maintenance: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            frozen_work_pause: Mutex::new(None),
             #[cfg(test)]
             publication_failpoint: std::sync::atomic::AtomicU8::new(0),
             #[cfg(test)]
@@ -1826,6 +1859,18 @@ impl IndexStore {
         self.unlink_recovery_markers(segment_ids, true)
     }
 
+    /// Disarm a merge's inputs ahead of publication (#3351).
+    ///
+    /// This is the first step of [`Self::apply_merge`], split out so the
+    /// engine can run its snapshot save and directory fsync before it opens
+    /// the collection publication bracket. Nothing here is reader-visible.
+    pub fn disarm_merge_inputs(&self, merged_ids: &[SegmentId]) -> Result<DisarmedMergeInputs> {
+        self.disarm_orphan_recovery_for_segments(merged_ids)?;
+        Ok(DisarmedMergeInputs {
+            ids: merged_ids.to_vec(),
+        })
+    }
+
     /// Durably disarm every orphan-recovery generation for unpublished output.
     ///
     /// Completion markers are always attempted before ids. All requested
@@ -2021,8 +2066,27 @@ impl IndexStore {
 
     /// Lock a specific WAL shard.
     #[inline]
+    /// Test hook: hold every WAL shard lock, as a maintenance pass or an
+    /// fsync would, so a caller can check what waits behind it (#3324).
+    #[doc(hidden)]
+    pub fn hold_wal_shards_for_test(&self) -> Vec<std::sync::MutexGuard<'_, WalWriter>> {
+        self.wal_shards.iter().map(|s| s.lock().unwrap()).collect()
+    }
+
+    #[track_caller]
     fn wal_lock_shard(&self, shard: usize) -> std::sync::MutexGuard<'_, WalWriter> {
-        self.wal_shards[shard].lock().unwrap()
+        let asked = std::time::Instant::now();
+        let guard = self.wal_shards[shard].lock().unwrap();
+        let waited = asked.elapsed();
+        if crate::stall_trace::is_slow(waited) {
+            warn!(
+                shard,
+                waited_ms = waited.as_millis() as u64,
+                site = %std::panic::Location::caller(),
+                "WAL append waited for the WAL shard lock"
+            );
+        }
+        guard
     }
 
     // ── Write path ────────────────────────────────────────────────────────────
@@ -2849,6 +2913,7 @@ impl IndexStore {
             // the save registers it and the prune below can release the
             // deletes' WAL pins.  Best-effort: on failure the deletes
             // simply stay WAL-pinned (retention, not loss).
+            let maintenance_started = std::time::Instant::now();
             if let Err(e) = self.persist_pending_tombstones() {
                 if self.is_object_store_mode() {
                     // #965 — the bucket catalog does not carry the
@@ -2890,9 +2955,22 @@ impl IndexStore {
             // still rotate + prune on the same 1 s cadence; generations
             // holding unproven entries are retained (that retention IS the
             // fix) and reclaimed on a later tick once their docs flush.
+            let snapshot_saved = std::time::Instant::now();
             let durable_max = self.snapshot.load().max_seq_no;
             if let Err(error) = self.wal_maintain_all_verified(durable_max) {
                 warn!(error = %error, segment_id, "WAL maintenance deferred after segment publication");
+            }
+            let total = maintenance_started.elapsed();
+            if crate::stall_trace::is_slow(total) {
+                warn!(
+                    segment_id,
+                    total_ms = total.as_millis() as u64,
+                    tombstones_and_snapshot_ms = snapshot_saved
+                        .duration_since(maintenance_started)
+                        .as_millis() as u64,
+                    wal_ms = snapshot_saved.elapsed().as_millis() as u64,
+                    "post-flush maintenance slow"
+                );
             }
         }
 
@@ -3315,34 +3393,113 @@ impl IndexStore {
                 "injected post-publication WAL maintenance failure",
             )));
         }
+        // Passes on one store run one at a time: the frozen-generation work
+        // below runs without the shard mutex, and two passes must not
+        // decode, checkpoint or delete the same generation concurrently.
+        let _pass = self
+            .wal_maintenance_lock
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         self.sweep_pending_deletes();
         for (ws_idx, ws) in self.wal_shards.iter().enumerate() {
-            let mut wal = ws.lock().unwrap();
-            if self.wal_shard_pinned_by_pending_delete(ws_idx) {
-                debug!(
-                    shard = ws_idx,
-                    "WAL maintenance skipped: shard pinned by unpersisted delete"
-                );
-                continue;
-            }
-            // Drain the userspace buffer so the on-disk active generation
-            // is complete before we decode it.
-            wal.soft_flush()?;
-            let active_gen = wal.active_generation();
-            let (entries, clean) = wal.read_generation_entries(active_gen);
-            let unproven = self.collect_unproven(&entries);
-            if clean && unproven.is_empty() {
-                if !entries.is_empty() {
-                    wal.checkpoint(durable_max_seq)?;
-                }
-                wal.force_rotate()?;
+            let mut phases = WalMaintenancePhases::new(ws_idx);
+            // Create the next generation's file before taking the mutex: its
+            // header fsync is a journal-commit wait like any other.
+            let (dir, active, has_frames) = {
+                let wal = ws.lock().unwrap();
+                (
+                    wal.dir().to_path_buf(),
+                    wal.active_generation(),
+                    wal.has_frames(),
+                )
+            };
+            let mut prepared = if has_frames {
+                Some(crate::wal::PreparedGeneration::create(&dir, active + 1)?)
             } else {
-                wal.force_rotate()?;
-            }
-            // Record the verdict for the generation we just froze (if the
-            // rotate was a no-op — empty generation — there is nothing to
-            // record).
-            if wal.active_generation() != active_gen {
+                None
+            };
+            phases.mark("prepare");
+            let mut attempts = 0u32;
+            let (frozen, active_after, keep_floor) = loop {
+                let locked = std::time::Instant::now();
+                let mut wal = ws.lock().unwrap();
+                phases.lock_wait(locked);
+                if self.wal_shard_pinned_by_pending_delete(ws_idx) {
+                    debug!(
+                        shard = ws_idx,
+                        "WAL maintenance skipped: shard pinned by unpersisted delete"
+                    );
+                    break (None, None, 0);
+                }
+                let rotation = match prepared.take() {
+                    Some(next) => wal.rotate_detached(next)?,
+                    None if wal.has_frames() => crate::wal::DetachedRotation::Stale,
+                    None => crate::wal::DetachedRotation::Empty,
+                };
+                let floor = wal.min_retained_generations();
+                match rotation {
+                    crate::wal::DetachedRotation::Rotated(frozen) => {
+                        let active = wal.active_generation();
+                        drop(wal);
+                        phases.held(locked);
+                        break (Some(frozen), Some(active), floor);
+                    }
+                    crate::wal::DetachedRotation::Empty => {
+                        let active = wal.active_generation();
+                        drop(wal);
+                        phases.held(locked);
+                        break (None, Some(active), floor);
+                    }
+                    crate::wal::DetachedRotation::Stale => {
+                        // An append rotated this shard by size (or wrote its
+                        // first frame) after the file was prepared. Prepare
+                        // for the generation that is active now.
+                        let active = wal.active_generation();
+                        drop(wal);
+                        phases.held(locked);
+                        attempts += 1;
+                        if attempts > 3 {
+                            debug!(
+                                shard = ws_idx,
+                                "WAL rotation deferred to the next maintenance pass"
+                            );
+                            break (None, Some(active), floor);
+                        }
+                        prepared = Some(crate::wal::PreparedGeneration::create(&dir, active + 1)?);
+                    }
+                }
+            };
+            let Some(active_after) = active_after else {
+                continue;
+            };
+            phases.mark("rotate");
+            if let Some(frozen) = frozen {
+                #[cfg(test)]
+                {
+                    // Bound first: an `if let` scrutinee would keep the
+                    // mutex guard alive across the waits.
+                    let pause = self.frozen_work_pause.lock().unwrap().clone();
+                    if let Some(pause) = pause {
+                        pause.wait();
+                        pause.wait();
+                    }
+                }
+                // Durable before its checkpoint says anything about it.
+                frozen.sync()?;
+                phases.mark("fsync");
+                let (entries, clean) =
+                    crate::wal::read_generation_entries_in(&dir, frozen.generation);
+                let unproven = self.collect_unproven(&entries);
+                phases.mark("decode");
+                if clean && unproven.is_empty() && !entries.is_empty() {
+                    crate::wal::write_frozen_checkpoint(
+                        &dir,
+                        frozen.generation,
+                        frozen.offset,
+                        durable_max_seq,
+                    )?;
+                }
+                phases.mark("checkpoint");
                 let verdict = if !clean {
                     WalGenVerdict::Undecodable
                 } else if unproven.is_empty() {
@@ -3353,98 +3510,156 @@ impl IndexStore {
                 self.wal_prune_cache
                     .lock()
                     .unwrap()
-                    .insert((ws_idx, active_gen), verdict);
+                    .insert((ws_idx, frozen.generation), verdict);
             }
-
-            // Prune pass over all rotated generations, cache-first.
-            //
-            // #320 — the WAL-consumer retention floor is applied HERE, not
-            // only in `WalWriter::prune_verified`. `prune_verified` has no
-            // production caller (grep: `wal.rs` and its own unit tests are the
-            // only hits); this loop is the prune the engine actually runs, so
-            // a floor enforced only there was fully unit-tested and still had
-            // zero effect on a live node.
-            //
-            // `rotated_generations` is sorted ascending, so the newest are the
-            // tail and the prunable prefix is `len - keep`. Same arithmetic,
-            // and the same "enforce it inside the deletion pass rather than in
-            // its callers" placement, as Lucene's
-            // `KeepLastNCommitsDeletionPolicy.onCommit`
-            // (lucene/core/src/java/org/apache/lucene/index/KeepLastNCommitsDeletionPolicy.java:51-58,
-            // Apache-2.0): "The commits list is already sorted from oldest to
-            // newest / for (i = 0; i < size - numCommitsToKeep; i++)
-            // commits.get(i).delete()". Adapted, not copied.
-            //
-            // At the default floor of 0 this is `keep = 0` and the loop is
-            // byte-for-byte the old one: no extra syscall, no behaviour change.
-            let rotated = wal.rotated_generations()?;
-            let keep = (wal.min_retained_generations() as usize).min(rotated.len());
-            let prunable_prefix = rotated.len() - keep;
-            for (pos, gen) in rotated.into_iter().enumerate() {
-                if pos >= prunable_prefix {
-                    // Held for a WAL consumer. Deliberately skipped BEFORE the
-                    // cache lookup: decoding a generation we are not going to
-                    // delete is the O(retained WAL bytes)/tick cost the prune
-                    // cache exists to avoid.
-                    debug!(
-                        gen,
-                        shard = ws_idx,
-                        keep,
-                        "WAL generation retained: consumer retention floor"
-                    );
-                    continue;
-                }
-                let mut cache = self.wal_prune_cache.lock().unwrap();
-                let verdict = cache.entry((ws_idx, gen)).or_insert_with(|| {
-                    // Cache miss: a generation rotated by the size-based
-                    // append path, or retained across a restart.  Decode
-                    // it exactly once.
-                    let (gen_entries, gen_clean) = wal.read_generation_entries(gen);
-                    if !gen_clean {
-                        WalGenVerdict::Undecodable
-                    } else {
-                        let pairs = self.collect_unproven(&gen_entries);
-                        if pairs.is_empty() {
-                            WalGenVerdict::Durable
-                        } else {
-                            WalGenVerdict::Unproven(pairs)
-                        }
-                    }
-                });
-                let prunable = match verdict {
-                    WalGenVerdict::Durable => true,
-                    WalGenVerdict::Undecodable => {
-                        debug!(gen, shard = ws_idx, "WAL generation retained: undecodable");
-                        false
-                    }
-                    WalGenVerdict::Unproven(pairs) => {
-                        // Cheap re-check: version-map lookups only.
-                        pairs.retain(|(is_delete, doc_id, seq)| {
-                            !self.wal_pair_durable(*is_delete, doc_id, *seq)
-                        });
-                        if pairs.is_empty() {
-                            *verdict = WalGenVerdict::Durable;
-                            true
-                        } else {
-                            debug!(
-                                gen,
-                                shard = ws_idx,
-                                unproven = pairs.len(),
-                                "WAL generation retained: acked-but-unflushed entries"
-                            );
-                            false
-                        }
-                    }
-                };
-                if prunable {
-                    wal.delete_generation(gen)?;
-                    cache.remove(&(ws_idx, gen));
-                }
-            }
+            // Every generation below `active_after` is frozen: appends only
+            // ever go to the active generation, and it only moves forward.
+            let rotated = crate::wal::generations_before(&dir, active_after)?;
+            self.prune_frozen_generations(ws_idx, &dir, rotated, keep_floor)?;
+            phases.mark("prune");
+            phases.report();
         }
         Ok(())
     }
 
+    /// Prune pass over a shard's frozen generations, cache-first.
+    ///
+    /// #320 — the WAL-consumer retention floor is applied HERE, not only in
+    /// `WalWriter::prune_verified`, which has no production caller: this
+    /// loop is the prune the engine actually runs. `rotated` is sorted
+    /// ascending, so the newest are the tail and the prunable prefix is
+    /// `len - keep` — the same "enforce it inside the deletion pass" shape
+    /// as Lucene's `KeepLastNCommitsDeletionPolicy.onCommit`
+    /// (lucene/core/src/java/org/apache/lucene/index/KeepLastNCommitsDeletionPolicy.java:51-58,
+    /// Apache-2.0). Adapted, not copied. At the default floor of 0 nothing
+    /// is held back.
+    fn prune_frozen_generations(
+        &self,
+        ws_idx: usize,
+        dir: &std::path::Path,
+        rotated: Vec<u64>,
+        min_retained: u64,
+    ) -> Result<()> {
+        let keep = (min_retained as usize).min(rotated.len());
+        let prunable_prefix = rotated.len() - keep;
+        for (pos, gen) in rotated.into_iter().enumerate() {
+            if pos >= prunable_prefix {
+                debug!(
+                    gen,
+                    shard = ws_idx,
+                    keep,
+                    "WAL generation retained: consumer retention floor"
+                );
+                continue;
+            }
+            let mut cache = self.wal_prune_cache.lock().unwrap();
+            let verdict = cache.entry((ws_idx, gen)).or_insert_with(|| {
+                // Cache miss: a generation rotated by the size-based append
+                // path, or retained across a restart.  Decode it once.
+                let (gen_entries, gen_clean) = crate::wal::read_generation_entries_in(dir, gen);
+                if !gen_clean {
+                    WalGenVerdict::Undecodable
+                } else {
+                    let pairs = self.collect_unproven(&gen_entries);
+                    if pairs.is_empty() {
+                        WalGenVerdict::Durable
+                    } else {
+                        WalGenVerdict::Unproven(pairs)
+                    }
+                }
+            });
+            let prunable = match verdict {
+                WalGenVerdict::Durable => true,
+                WalGenVerdict::Undecodable => {
+                    debug!(gen, shard = ws_idx, "WAL generation retained: undecodable");
+                    false
+                }
+                WalGenVerdict::Unproven(pairs) => {
+                    pairs.retain(|(is_delete, doc_id, seq)| {
+                        !self.wal_pair_durable(*is_delete, doc_id, *seq)
+                    });
+                    if pairs.is_empty() {
+                        *verdict = WalGenVerdict::Durable;
+                        true
+                    } else {
+                        debug!(
+                            gen,
+                            shard = ws_idx,
+                            unproven = pairs.len(),
+                            "WAL generation retained: acked-but-unflushed entries"
+                        );
+                        false
+                    }
+                }
+            };
+            if prunable {
+                crate::wal::delete_generation_in(dir, gen)?;
+                cache.remove(&(ws_idx, gen));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Per-shard timing of one WAL maintenance pass (#3324). Appends to the
+/// shard wait only while the pass holds the shard's WAL mutex (`held_ms`);
+/// the other phases run without it.
+struct WalMaintenancePhases {
+    shard: usize,
+    started: std::time::Instant,
+    last: std::time::Instant,
+    lock_wait: std::time::Duration,
+    held: std::time::Duration,
+    phases: Vec<(&'static str, u64)>,
+}
+
+impl WalMaintenancePhases {
+    fn new(shard: usize) -> Self {
+        let now = std::time::Instant::now();
+        Self {
+            shard,
+            started: now,
+            last: now,
+            lock_wait: std::time::Duration::ZERO,
+            held: std::time::Duration::ZERO,
+            phases: Vec::new(),
+        }
+    }
+
+    fn mark(&mut self, phase: &'static str) {
+        let now = std::time::Instant::now();
+        self.phases
+            .push((phase, now.duration_since(self.last).as_millis() as u64));
+        self.last = now;
+    }
+
+    /// The mutex was asked for at `asked` and is held from now.
+    fn lock_wait(&mut self, asked: std::time::Instant) {
+        self.lock_wait += asked.elapsed();
+    }
+
+    /// The mutex, asked for at `asked`, was released just now.
+    fn held(&mut self, asked: std::time::Instant) {
+        self.held += asked.elapsed();
+    }
+
+    fn report(&self) {
+        let held = self.held.saturating_sub(self.lock_wait);
+        let total = self.started.elapsed();
+        if crate::stall_trace::is_slow(held) || crate::stall_trace::is_slow(total) {
+            warn!(
+                shard = self.shard,
+                lock_wait_ms = self.lock_wait.as_millis() as u64,
+                held_ms = held.as_millis() as u64,
+                total_ms = total.as_millis() as u64,
+                phases_ms = ?self.phases,
+                "WAL maintenance slow; appends to this shard waited only for held_ms"
+            );
+        }
+    }
+}
+
+impl IndexStore {
     /// Collect the `(is_delete, doc_id, seq)` pairs of every entry NOT yet
     /// provable durable (mapping updates are always durable and never
     /// collected).
@@ -4876,6 +5091,7 @@ impl IndexStore {
     /// atomically replace merged segments with the merged result and update
     /// the version map.
     pub fn apply_merge(&self, merged_ids: &[SegmentId], new_meta: SegmentMeta) -> Result<()> {
+        self.disarm_orphan_recovery_for_segments(merged_ids)?;
         self.apply_merge_inner(merged_ids, new_meta, None, || {})
             .map(|_| ())
             .map_err(|error| match error {
@@ -4892,13 +5108,16 @@ impl IndexStore {
     /// Publish a merge and take ownership of its provisional version-map
     /// repoints. The transaction commits at the exact durable manifest
     /// boundary, before any fallible or panic-capable post-publication work.
+    ///
+    /// The inputs must already be disarmed ([`Self::disarm_merge_inputs`]),
+    /// so the work left here is the snapshot swap and one snapshot save.
     pub fn apply_merge_with_repoints(
         &self,
-        merged_ids: &[SegmentId],
+        inputs: DisarmedMergeInputs,
         new_meta: SegmentMeta,
         version_repoints: VersionRepointTransaction,
     ) -> std::result::Result<MergePublicationOutcome, MergePublicationError> {
-        self.apply_merge_inner(merged_ids, new_meta, Some(version_repoints), || {})
+        self.apply_merge_inner(&inputs.ids, new_meta, Some(version_repoints), || {})
     }
 
     /// Test seam for exercising cancellation/panic immediately after durable
@@ -4906,12 +5125,12 @@ impl IndexStore {
     #[doc(hidden)]
     pub fn apply_merge_with_repoints_and_post_publish<F: FnOnce()>(
         &self,
-        merged_ids: &[SegmentId],
+        inputs: DisarmedMergeInputs,
         new_meta: SegmentMeta,
         version_repoints: VersionRepointTransaction,
         post_publish: F,
     ) -> std::result::Result<MergePublicationOutcome, MergePublicationError> {
-        self.apply_merge_inner(merged_ids, new_meta, Some(version_repoints), post_publish)
+        self.apply_merge_inner(&inputs.ids, new_meta, Some(version_repoints), post_publish)
     }
 
     fn apply_merge_inner<F: FnOnce()>(
@@ -4921,13 +5140,11 @@ impl IndexStore {
         version_repoints: Option<VersionRepointTransaction>,
         post_publish: F,
     ) -> std::result::Result<MergePublicationOutcome, MergePublicationError> {
-        // Inputs still belong to the authoritative snapshot at this point.
-        // Durably remove their ZID3 completion markers before committing the
-        // replacement, so no crash after snapshot publication can resurrect
-        // a partially retired input. The ids sidecars stay readable if this
-        // step fails and the merge is aborted.
-        self.disarm_orphan_recovery_for_segments(merged_ids)
-            .map_err(MergePublicationError::NotPublished)?;
+        // Callers have already durably removed the inputs' ZID3 completion
+        // markers (`disarm_orphan_recovery_for_segments`, via `apply_merge`
+        // or `disarm_merge_inputs`), so no crash after snapshot publication
+        // can resurrect a partially retired input. The inputs are still in
+        // the authoritative snapshot here.
         // Sum the doc counts of the segments we're about to replace, so we can
         // tell whether this merge actually dropped any documents.
         let (merged_total, previous_metas): (u64, Vec<SegmentMeta>) = {
@@ -5167,7 +5384,23 @@ impl IndexStore {
         Self::parse_raw_batch(batch.docs)
     }
 
+    /// Append a validated raw batch to the WAL and publish its documents in
+    /// the version map as memtable-resident.
     pub fn wal_append_batch_raw(&self, batch: &ValidatedRawBatch) -> Result<Vec<SeqNo>> {
+        let seq_nos = self.wal_write_batch_raw(batch)?;
+        self.publish_batch_versions(batch.docs().iter().map(|(id, _)| id.as_str()), &seq_nos);
+        Ok(seq_nos)
+    }
+
+    /// The WAL half of [`wal_append_batch_raw`](Self::wal_append_batch_raw):
+    /// assigns the batch's sequence numbers and writes its frames, with no
+    /// reader-visible side effect. Bulk ingest calls this BEFORE it opens the
+    /// collection-publication bracket and publishes the version map inside
+    /// it (#3324), so a search never waits on WAL I/O or the WAL shard lock.
+    /// A document whose WAL entry is written but not yet in the version map
+    /// is not provably durable (`wal_pair_durable` answers `false` for an
+    /// unknown id), so WAL maintenance retains it.
+    pub fn wal_write_batch_raw(&self, batch: &ValidatedRawBatch) -> Result<Vec<SeqNo>> {
         let docs = batch.docs();
         if docs.is_empty() {
             return Ok(Vec::new());
@@ -5180,13 +5413,6 @@ impl IndexStore {
                 .seq_counter
                 .fetch_add(n, std::sync::atomic::Ordering::AcqRel);
             let seq_nos: Vec<SeqNo> = (0..docs.len()).map(|i| start_seq + i as u64).collect();
-            // Hoist the segment-id Arc once: per-doc cost in the loop is one
-            // Arc::clone (single atomic increment) instead of a String alloc.
-            let in_memory: std::sync::Arc<str> = std::sync::Arc::from(IN_MEMORY_SEGMENT_ID);
-            for (i, (doc_id, _)) in docs.iter().enumerate() {
-                self.version_map
-                    .set(doc_id, seq_nos[i], std::sync::Arc::clone(&in_memory), false);
-            }
             return Ok(seq_nos);
         }
 
@@ -5273,17 +5499,26 @@ impl IndexStore {
             sync_result?;
         }
 
+        Ok(seq_nos)
+    }
+
+    /// The reader-visible half of a batch append: point each id at the
+    /// memtable with its sequence number. Callers run it inside the
+    /// collection-publication bracket, together with the memtable insert.
+    pub fn publish_batch_versions<'a>(
+        &self,
+        ids: impl IntoIterator<Item = &'a str>,
+        seq_nos: &[SeqNo],
+    ) {
         // Hoist the segment-id Arc once per batch: per-doc cost in the loop
         // becomes one Arc::clone (single atomic increment) instead of the
         // previous String allocation that came from `IN_MEMORY_SEGMENT_ID`'s
         // implicit `Into<String>` conversion.
         let in_memory: std::sync::Arc<str> = std::sync::Arc::from(IN_MEMORY_SEGMENT_ID);
-        for (i, (doc_id, _)) in docs.iter().enumerate() {
+        for (doc_id, seq_no) in ids.into_iter().zip(seq_nos) {
             self.version_map
-                .set(doc_id, seq_nos[i], std::sync::Arc::clone(&in_memory), false);
+                .set(doc_id, *seq_no, std::sync::Arc::clone(&in_memory), false);
         }
-
-        Ok(seq_nos)
     }
 
     /// Append parsed documents to the WAL.
@@ -5293,6 +5528,21 @@ impl IndexStore {
     /// for live indexing and replay to observe different documents; verifying
     /// that representation required a second full DOM parse on the hot path.
     pub fn wal_append_batch(
+        &self,
+        docs: &[(String, std::sync::Arc<serde_json::Value>)],
+    ) -> Result<Vec<SeqNo>> {
+        let seq_nos = self.wal_write_batch(docs)?;
+        // `XERJ_SKIP_WAL` never published versions on this path.
+        if std::env::var("XERJ_SKIP_WAL").is_err() {
+            self.publish_batch_versions(docs.iter().map(|(id, _)| id.as_str()), &seq_nos);
+        }
+        Ok(seq_nos)
+    }
+
+    /// The WAL half of [`wal_append_batch`](Self::wal_append_batch); see
+    /// [`wal_write_batch_raw`](Self::wal_write_batch_raw) for why bulk ingest
+    /// splits it from the version-map publication (#3324).
+    pub fn wal_write_batch(
         &self,
         docs: &[(String, std::sync::Arc<serde_json::Value>)],
     ) -> Result<Vec<SeqNo>> {
@@ -5457,15 +5707,9 @@ impl IndexStore {
         // memtables can't desync at flush time.
         //
         // The version_map still needs to learn about the new docs so
-        // lookups before flush resolve to `IN_MEMORY_SEGMENT_ID`.
-        // This is the only per-doc side effect this method has
-        // outside the WAL itself.
-        for (i, (doc_id, _source)) in docs.iter().enumerate() {
-            let seq_no = seq_nos[i];
-            self.version_map
-                .set(doc_id, seq_no, IN_MEMORY_SEGMENT_ID, false);
-        }
-
+        // lookups before flush resolve to `IN_MEMORY_SEGMENT_ID`; that is
+        // `publish_batch_versions`, run by `wal_append_batch` or, on bulk
+        // ingest, inside the caller's publication bracket (#3324).
         Ok(seq_nos)
     }
 }
@@ -6470,6 +6714,73 @@ mod tests {
             lost.len(),
             lost
         );
+    }
+
+    /// #3324 — a WAL maintenance pass holds a shard's WAL mutex only to
+    /// rotate. The fsync, decode, checkpoint and prune of the frozen
+    /// generation run without it, so an append to the shard completes while
+    /// the pass is parked there. Before, the pass held the mutex across four
+    /// fsyncs and every append (and the search waiting on that append's
+    /// publication bracket) waited for the disk.
+    #[test]
+    fn appends_complete_while_wal_maintenance_works_on_a_frozen_generation() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+        for i in 0..50 {
+            store
+                .index(format!("flushed{i}"), serde_json::json!({"v": i}))
+                .unwrap();
+        }
+        store.flush().unwrap().expect("segment");
+        // Unflushed, so the frozen generation keeps an unproven entry.
+        store
+            .index("pending", serde_json::json!({"v": -1}))
+            .unwrap();
+        let pause = Arc::new(std::sync::Barrier::new(2));
+        *store.frozen_work_pause.lock().unwrap() = Some(Arc::clone(&pause));
+        let maintenance = {
+            let store = Arc::clone(&store);
+            std::thread::spawn(move || store.force_wal_maintenance())
+        };
+        pause.wait();
+        // The pass is parked between its rotation and its fsync.
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let appender = {
+            let store = Arc::clone(&store);
+            std::thread::spawn(move || {
+                for i in 0..20 {
+                    store
+                        .index(format!("during{i}"), serde_json::json!({"v": i}))
+                        .unwrap();
+                }
+                done_tx.send(()).unwrap();
+            })
+        };
+        let appended = done_rx.recv_timeout(std::time::Duration::from_secs(10));
+        *store.frozen_work_pause.lock().unwrap() = None;
+        pause.wait();
+        maintenance.join().unwrap().unwrap();
+        appender.join().unwrap();
+        assert!(
+            appended.is_ok(),
+            "appends waited on WAL maintenance's frozen-generation work"
+        );
+        // Nothing acked was pruned: reopen and replay.
+        drop(store);
+        let reopened = open_test_store(dir.path());
+        for id in std::iter::once("pending".to_string())
+            .chain((0..20).map(|i| format!("during{i}")))
+            .chain((0..50).map(|i| format!("flushed{i}")))
+        {
+            assert!(
+                reopened
+                    .version_map
+                    .get(&id)
+                    .map(|e| !e.deleted)
+                    .unwrap_or(false),
+                "{id} lost after maintenance + reopen"
+            );
+        }
     }
 
     /// RC4 W1 #8 — after everything is flushed and maintenance runs, the
@@ -8381,10 +8692,71 @@ mod tests {
         store
             .snapshot_save_failures_remaining
             .store(2, Ordering::Release);
+        let inputs = store.disarm_merge_inputs(&input_ids).unwrap();
         let error = store
-            .apply_merge_with_repoints(&input_ids, output, transaction)
+            .apply_merge_with_repoints(inputs, output, transaction)
             .unwrap_err();
         assert!(matches!(error, MergePublicationError::Indeterminate { .. }));
+    }
+
+    /// #3351 — the engine disarms merge inputs before it opens its reader
+    /// bracket, so the publication step must do no disarm work of its own
+    /// (exactly one snapshot save), and a merge that stops between the two
+    /// steps must leave the inputs listed, readable and restartable.
+    #[test]
+    fn disarmed_merge_inputs_publish_with_one_save_or_stay_listed_when_dropped() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+        store.index("a", serde_json::json!({"value": "a"})).unwrap();
+        store.flush().unwrap().unwrap();
+        store.index("b", serde_json::json!({"value": "b"})).unwrap();
+        store.flush().unwrap().unwrap();
+        let before = store.snapshot();
+        let input_ids: Vec<_> = before.segments.iter().map(|meta| meta.id.clone()).collect();
+        let segments = dir.path().join("segments");
+
+        let dropped = store.disarm_merge_inputs(&input_ids).unwrap();
+        assert_eq!(dropped.segment_ids(), input_ids.as_slice());
+        for id in &input_ids {
+            assert!(!segments.join(format!("{id}.complete")).exists());
+        }
+        drop(dropped);
+        assert_eq!(store.snapshot().segments.len(), 2);
+        for id in &input_ids {
+            assert!(store.open_segment(id).is_ok());
+        }
+
+        let mut output = before.segments[0].clone();
+        output.id = "one-save-output".into();
+        let inputs = store.disarm_merge_inputs(&input_ids).unwrap();
+        // Fail the next two saves. If apply ran a disarm save first, that
+        // save would fail and return NotPublished before the swap. With the
+        // disarm already done, the two failures are the publication save and
+        // the rollback save: Indeterminate.
+        store.fail_snapshot_save_after.store(0, Ordering::Release);
+        store
+            .snapshot_save_failures_remaining
+            .store(2, Ordering::Release);
+        let transaction =
+            VersionRepointTransaction::with_capacity(Arc::clone(&store.version_map), 0);
+        let error = store
+            .apply_merge_with_repoints(inputs, output, transaction)
+            .unwrap_err();
+        assert!(matches!(error, MergePublicationError::Indeterminate { .. }));
+        let after: std::collections::HashSet<_> = store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.id.clone())
+            .collect();
+        assert_eq!(after, input_ids.iter().cloned().collect());
+        drop(before);
+        drop(store);
+
+        let reopened = open_test_store(dir.path());
+        assert_eq!(reopened.snapshot().segments.len(), 2);
+        assert!(reopened.version_map.get("a").is_some());
+        assert!(reopened.version_map.get("b").is_some());
     }
 
     // ── #948: storage memtable prune on flush completion ────────────────────
@@ -8493,5 +8865,50 @@ mod object_io_runtime_tests {
         });
         assert_eq!(left.join().unwrap().unwrap(), 1);
         assert_eq!(right.join().unwrap().unwrap(), 2);
+    }
+
+    /// #3353: a flush finalizer is a `spawn_blocking` task. It holds
+    /// `object_publish_lock` and drives the catalog PUT through
+    /// `block_on_backend`, and that PUT is `tokio::fs`, which is one more
+    /// `spawn_blocking`. tokio 1.52.0 shipped a sharded blocking pool
+    /// (tokio-rs/tokio#7757) in which two back-to-back `spawn_blocking` calls
+    /// could both "notify" the same idle thread and start no new one. The
+    /// sibling shard's finalizer took that thread, and the PUT stayed queued
+    /// with no thread to run it: the object_storage_e2e hang (2-3 runs in 20).
+    /// tokio reverted it in 1.52.1 (#8057).
+    ///
+    /// This pins what the bridge relies on: a blocking task that waits on a
+    /// blocking task queued right after it, while one pool thread is idle,
+    /// finishes. Each round fails after 10 s instead of hanging. On 1.52.0 a
+    /// round goes wrong when the idle thread picks the waiter (about half of
+    /// them), so 20 rounds catch it.
+    #[test]
+    fn a_blocking_task_that_waits_on_the_next_blocking_task_finishes() {
+        use std::time::Duration;
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            for round in 0..20 {
+                // Leave exactly one blocking thread idle.
+                tokio::task::spawn_blocking(|| ()).await.unwrap();
+                tokio::time::sleep(Duration::from_millis(20)).await;
+                let (tx, rx) = std::sync::mpsc::channel::<()>();
+                let waiter = tokio::task::spawn_blocking(move || {
+                    rx.recv_timeout(Duration::from_secs(10)).is_ok()
+                });
+                let sender = tokio::task::spawn_blocking(move || {
+                    let _ = tx.send(());
+                });
+                assert!(
+                    waiter.await.unwrap(),
+                    "round {round}: the second spawn_blocking never ran while the first \
+                     waited on it (tokio blocking-pool lost wakeup, #3353)"
+                );
+                sender.await.unwrap();
+            }
+        });
     }
 }
