@@ -44,13 +44,13 @@ Properties, all enforced at build time by `scripts/build-deb.sh`:
   anything outside the glibc set appears (a `libssl.so.3` here would mean a
   feature regression, not a packaging tweak), and derives the `libc6` floor
   from the newest `GLIBC_*` symbol version the binary actually references.
-  Consequence worth knowing before you install on anything old: the floor is
-  the CI runner's glibc (at the time of writing the official linux-gnu
-  binaries reference symbols up to `GLIBC_2.39`, measured by running
-  `scripts/verify-release.sh` on a glibc-2.35 host and reading its failure),
-  so the `.deb` will not install-and-run on Debian 12 (bookworm, glibc 2.36)
-  or older — this is a property of the binaries we already ship, not of the
-  `.deb` format.
+  The gnu release is built on Ubuntu 22.04 and
+  `scripts/glibc-baseline.sh --max 2.35` fails the job if the binary
+  references anything newer, so the floor is glibc 2.35: the `.deb` installs
+  on Debian 12 (bookworm, glibc 2.36), Debian 13 (glibc 2.41), Ubuntu 22.04
+  and newer. It will not install on anything older than glibc 2.35. A binary
+  built on `ubuntu-latest` (Ubuntu 26.04, glibc 2.43) required `GLIBC_2.43`
+  and did not start on Debian 13; that image is no longer the gnu builder.
 - The musl targets stay tar.gz-only (a static-musl `.deb` is unusual and
   nobody asked); macOS and Windows are unaffected.
 

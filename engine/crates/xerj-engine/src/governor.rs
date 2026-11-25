@@ -2182,6 +2182,49 @@ fn cap_memory_limit(machine_limit: u64, cap_mb: u64) -> u64 {
     machine_limit.min(cap_mb.saturating_mul(1024 * 1024))
 }
 
+/// Share of memory that is free *right now* the AUTO cap may still claim.
+/// The rest stays for the kernel, page cache, and other processes, so the
+/// breaker trips before the OOM killer. Three quarters of a 5 GiB
+/// `MemAvailable` is 3.75 GiB — an 8 GiB tier on that box was killed at
+/// about 4 GiB RSS, and an explicit 3500 MiB cap was not.
+const AVAILABLE_MEMORY_CAP_NUMERATOR: u64 = 3;
+const AVAILABLE_MEMORY_CAP_DENOMINATOR: u64 = 4;
+
+/// Lower an AUTO tier to what is actually free.
+///
+/// `free_bytes` is the room for a *new* allocation (`MemAvailable`, or the
+/// cgroup headroom when that is tighter), not memory this process already
+/// holds. The ceiling is the resident set plus that fraction of `free_bytes`,
+/// and it never raises the tier. `None` leaves the tier alone. An explicit
+/// cap does not call this — `auto_tier` is the caller's gate.
+fn apply_available_memory_ceiling(
+    tiered_limit: u64,
+    free_bytes: Option<u64>,
+    rss_bytes: u64,
+) -> u64 {
+    let Some(free) = free_bytes else {
+        return tiered_limit;
+    };
+    let claim =
+        free.saturating_mul(AVAILABLE_MEMORY_CAP_NUMERATOR) / AVAILABLE_MEMORY_CAP_DENOMINATOR;
+    let ceiling = rss_bytes.saturating_add(claim).max(1);
+    tiered_limit.min(ceiling).max(1)
+}
+
+/// AUTO caps move with free memory. A fixed cap (`auto_tier == false`) is
+/// the operator's number and is returned unchanged.
+fn maybe_lower_auto_cap_to_free(
+    auto_tier: bool,
+    tiered_limit: u64,
+    free_bytes: Option<u64>,
+    rss_bytes: u64,
+) -> u64 {
+    if !auto_tier {
+        return tiered_limit;
+    }
+    apply_available_memory_ceiling(tiered_limit, free_bytes, rss_bytes)
+}
+
 /// Lower a tiered cap to the Windows commit ceiling. `None` (Linux, macOS, a
 /// failed probe) returns `tiered_limit` unchanged.
 fn apply_windows_commit_ceiling(
@@ -2532,7 +2575,32 @@ fn build(config: &Config) -> ResourceGovernor {
     if let Some(warning) = &resolved_process_cap.warning {
         tracing::warn!("{warning}");
     }
-    let tiered_memory_limit = cap_memory_limit(effective_memory_bytes, resolved_process_cap.cap_mb);
+    let tier_before_availability =
+        cap_memory_limit(effective_memory_bytes, resolved_process_cap.cap_mb);
+    // The tier is a fraction of *total* RAM (or the cgroup limit). On a
+    // shared box that total is not free: a 16 GiB host with 5 GiB available
+    // still picked an 8 GiB cap, the process grew until the kernel OOM
+    // killer fired, and the breaker never tripped. Only the AUTO tier moves;
+    // an explicit `XERJ_MAX_PROCESS_MEMORY_MB` stays what the operator set.
+    let free_for_auto = free_bytes_for_auto_cap();
+    let tiered_memory_limit = maybe_lower_auto_cap_to_free(
+        resolved_process_cap.auto_tier,
+        tier_before_availability,
+        free_for_auto,
+        current_process_memory_bytes(),
+    );
+    if resolved_process_cap.auto_tier && tiered_memory_limit < tier_before_availability {
+        if let Some(free) = free_for_auto {
+            tracing::info!(
+                "memory: {} is free right now (MemAvailable, and the cgroup headroom when \
+                 one is set), so the auto cap is {} instead of the {} tier. Set \
+                 limits.max_process_memory_mb or XERJ_MAX_PROCESS_MEMORY_MB for a fixed ceiling",
+                format_gib(free),
+                format_gib(tiered_memory_limit),
+                format_gib(tier_before_availability),
+            );
+        }
+    }
     // Windows only: the tier above is still physical RAM / cgroup. A no-pagefile
     // box's commit limit is about that RAM, and other processes have already
     // charged most of it. Lower the cap to what this process can still commit,
@@ -2937,6 +3005,108 @@ fn cgroup_memory_limit_bytes() -> Option<u64> {
 #[cfg(not(target_os = "linux"))]
 fn cgroup_memory_limit_bytes() -> Option<u64> {
     None
+}
+
+/// Bytes this cgroup can still allocate under the tightest finite limit on
+/// the path: that limit minus the usage recorded at the same level
+/// (`memory.current` on v2, `memory.usage_in_bytes` on v1). `None` when no
+/// finite limit is visible or that level has no usage file — the caller
+/// then uses `MemAvailable` alone, which on a host with no cgroup is the
+/// right number and inside a container can be the host's.
+#[cfg(target_os = "linux")]
+fn tightest_headroom_up_hierarchy(
+    root: &str,
+    rel: &str,
+    limit_file: &str,
+    usage_file: &str,
+) -> Option<u64> {
+    let mut rel = rel.trim().to_string();
+    let mut best_limit: Option<u64> = None;
+    let mut best_usage: Option<Option<u64>> = None;
+    loop {
+        let dir = format!("{root}{rel}");
+        if let Ok(raw) = std::fs::read_to_string(format!("{dir}/{limit_file}")) {
+            if let Some(limit) = fold_cgroup_memory_limit(None, &raw) {
+                if best_limit.is_none_or(|best| limit < best) {
+                    best_limit = Some(limit);
+                    let usage = std::fs::read_to_string(format!("{dir}/{usage_file}"))
+                        .ok()
+                        .and_then(|raw| fold_cgroup_memory_limit(None, &raw));
+                    best_usage = Some(usage);
+                }
+            }
+        }
+        if rel.is_empty() || rel == "/" {
+            break;
+        }
+        match rel.rfind('/') {
+            Some(0) => rel = String::new(),
+            Some(i) => rel.truncate(i),
+            None => break,
+        }
+    }
+    let limit = best_limit?;
+    let usage = best_usage.flatten()?;
+    Some(limit.saturating_sub(usage))
+}
+
+/// Headroom under this process's cgroup memory limit. `None` off Linux and
+/// when the cgroup has no finite limit.
+#[cfg(target_os = "linux")]
+fn cgroup_memory_headroom_from(self_cgroup: &str, v2_root: &str, v1_root: &str) -> Option<u64> {
+    for line in self_cgroup.lines() {
+        if let Some(path) = line.strip_prefix("0::") {
+            return tightest_headroom_up_hierarchy(
+                v2_root,
+                path.trim(),
+                "memory.max",
+                "memory.current",
+            );
+        }
+    }
+    for line in self_cgroup.lines() {
+        if let Some(path) = cgroup_v1_memory_path(line) {
+            if let Some(headroom) = tightest_headroom_up_hierarchy(
+                v1_root,
+                path,
+                "memory.limit_in_bytes",
+                "memory.usage_in_bytes",
+            ) {
+                return Some(headroom);
+            }
+        }
+    }
+    tightest_headroom_up_hierarchy(
+        v1_root,
+        "",
+        "memory.limit_in_bytes",
+        "memory.usage_in_bytes",
+    )
+}
+
+#[cfg(target_os = "linux")]
+fn cgroup_memory_headroom_bytes() -> Option<u64> {
+    let self_cgroup = std::fs::read_to_string("/proc/self/cgroup").unwrap_or_default();
+    cgroup_memory_headroom_from(&self_cgroup, "/sys/fs/cgroup", "/sys/fs/cgroup/memory")
+}
+
+#[cfg(not(target_os = "linux"))]
+fn cgroup_memory_headroom_bytes() -> Option<u64> {
+    None
+}
+
+/// Memory a new allocation can still take: the tighter of `MemAvailable`
+/// and the cgroup headroom. Either probe alone is used when the other is
+/// unknown.
+fn free_bytes_for_auto_cap() -> Option<u64> {
+    let available = xerj_common::resource::available_memory_bytes();
+    let cgroup = cgroup_memory_headroom_bytes();
+    match (available, cgroup) {
+        (Some(available), Some(cgroup)) => Some(available.min(cgroup)),
+        (Some(available), None) => Some(available),
+        (None, Some(cgroup)) => Some(cgroup),
+        (None, None) => None,
+    }
 }
 
 /// `(total_bytes, avail_bytes)` for the filesystem backing `path`, via
@@ -3745,6 +3915,86 @@ mod tests {
         assert_eq!(tiered_cap_mb(16 * GIB), 8 * 1024);
         // And the 64 GiB step is unchanged.
         assert_eq!(tiered_cap_mb(64 * GIB - 1), 8 * 1024);
+    }
+
+    /// A 16 GiB box with 5 GiB free used to keep the 8 GiB tier. The process
+    /// grew until the kernel OOM killer fired, under the breaker. The AUTO
+    /// cap now stops at resident memory plus three quarters of what is free.
+    /// A fixed cap is the operator's number and does not move.
+    #[test]
+    fn auto_cap_shrinks_to_a_fraction_of_free_memory() {
+        const GIB: u64 = 1024 * 1024 * 1024;
+        let tier = 8 * GIB;
+        let rss = GIB / 5;
+        let free = 5 * GIB;
+        let lowered = maybe_lower_auto_cap_to_free(true, tier, Some(free), rss);
+        let expected = rss + free * 3 / 4;
+        assert_eq!(lowered, expected);
+        assert!(lowered < tier);
+        assert!(lowered < free + rss);
+
+        // Plenty free: the tier still wins. A quiet server is not shrunk.
+        assert_eq!(
+            maybe_lower_auto_cap_to_free(true, tier, Some(60 * GIB), GIB),
+            tier
+        );
+        // Unknown free memory leaves the tier alone.
+        assert_eq!(maybe_lower_auto_cap_to_free(true, tier, None, rss), tier);
+        // An explicit ceiling is not rewritten because the box is busy.
+        assert_eq!(
+            maybe_lower_auto_cap_to_free(false, tier, Some(free), rss),
+            tier
+        );
+    }
+
+    /// The cgroup headroom is the tightest finite limit minus the usage at
+    /// that same level. A leaf that reads `max` inherits its ancestor, and
+    /// the ancestor's `memory.current` is what siblings have already used.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn cgroup_headroom_is_the_tightest_limit_minus_its_usage() {
+        const GIB: u64 = 1024 * 1024 * 1024;
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().to_str().unwrap().to_string();
+        let write = |rel: &str, file: &str, body: &str| {
+            let dir = format!("{root}{rel}");
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(format!("{dir}/{file}"), body).unwrap();
+        };
+        write("", "memory.max", "max");
+        write("/user.slice", "memory.max", "1073741824");
+        write("/user.slice", "memory.current", "536870912");
+        write("/user.slice/app.scope", "memory.max", "max");
+        write("/user.slice/app.scope", "memory.current", "104857600");
+        assert_eq!(
+            cgroup_memory_headroom_from(
+                "0::/user.slice/app.scope\n",
+                &root,
+                &format!("{root}/memory"),
+            ),
+            Some(GIB / 2),
+            "a leaf reading max must use the ancestor's limit minus that ancestor's usage"
+        );
+
+        // A tighter leaf wins, and its own usage is the one subtracted.
+        write("/user.slice/tight.scope", "memory.max", "268435456");
+        write("/user.slice/tight.scope", "memory.current", "67108864");
+        assert_eq!(
+            cgroup_memory_headroom_from(
+                "0::/user.slice/tight.scope\n",
+                &root,
+                &format!("{root}/memory"),
+            ),
+            Some(256 * 1024 * 1024 - 64 * 1024 * 1024)
+        );
+
+        // A finite limit with no usage file contributes nothing, rather than
+        // a made-up headroom.
+        write("/nolimit", "memory.max", "1073741824");
+        assert_eq!(
+            cgroup_memory_headroom_from("0::/nolimit\n", &root, &format!("{root}/memory")),
+            None
+        );
     }
 
     /// The tier steps exactly on the 64 GiB and 128 GiB binary boundaries.

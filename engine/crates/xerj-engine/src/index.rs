@@ -4139,7 +4139,7 @@ mod flush_publication_recovery_tests {
         assert_eq!(row_projected.len(), cold.hits.len());
         for h in &cold.hits {
             let (seg, pos) = &row_projected[&h.id];
-            let mut rows = idx.hydrate_fts_rows_cold(seg, &[*pos], None).unwrap();
+            let mut rows = idx.hydrate_fts_rows_cold(seg, &[*pos], None, None).unwrap();
             let doc = rows.remove(pos).unwrap();
             assert_eq!(doc["_id"].as_str(), Some(h.id.as_str()));
             assert!(doc["_source"]["body_vector_chunks"].is_array());
@@ -10382,6 +10382,209 @@ mod semantic_deadline_regression_tests {
         );
     }
 
+    /// A first `_bulk` into an index with no mapping used to count one
+    /// "new field" per document. Three fields times a couple of hundred
+    /// documents crossed `max_fields_per_index` (500), the evolve returned
+    /// without writing a mapping, and the bulk still reported success.
+    /// Search then matched every document at the same score. Distinct
+    /// names are what the limit counts, and a bulk that really does not
+    /// fit fails before those documents are published.
+    #[tokio::test]
+    async fn first_bulk_maps_repeated_fields_once_and_rejects_a_real_explosion() {
+        let dir = TempDir::new().unwrap();
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine_instance = Engine::new(config).expect("engine");
+        engine_instance
+            .create_index("pubmed", Schema::empty())
+            .unwrap();
+        let index = engine_instance.get_index("pubmed").unwrap();
+
+        // 200 documents x 3 fields = 600 entries, over the default limit of
+        // 500 if each occurrence is counted, and 3 distinct names if not.
+        let docs: Vec<(String, Arc<[u8]>)> = (0..200)
+            .map(|i| {
+                let title = if i == 0 {
+                    "crispr landmark paper"
+                } else {
+                    "unrelated mitochondria review"
+                };
+                let source = serde_json::json!({
+                    "pmid": format!("{i}"),
+                    "title": title,
+                    "abstract": "a gene editing abstract"
+                });
+                (
+                    format!("doc-{i}"),
+                    Arc::<[u8]>::from(serde_json::to_vec(&source).unwrap()),
+                )
+            })
+            .collect();
+        index
+            .index_batch_turbo_raw(docs)
+            .await
+            .expect("repeated fields in one bulk must map, not trip the field limit");
+        let schema = index.schema().await;
+        assert!(
+            schema.field("title").is_some(),
+            "dynamic mapping must record title, got {schema:?}"
+        );
+        assert!(schema.field("abstract").is_some());
+        assert!(schema.field("pmid").is_some());
+        let found = index
+            .search(
+                &xerj_query::parse_request(&serde_json::json!({
+                    "query": {"match": {"title": "crispr"}},
+                    "size": 10
+                }))
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            found.hits.len(),
+            1,
+            "only the one title that contains the term is a hit, got {:?}",
+            found.hits.iter().map(|h| &h.id).collect::<Vec<_>>()
+        );
+        assert_eq!(found.hits[0].id, "doc-0");
+        assert!(
+            found.hits[0].score != 1.0,
+            "a mapped match must not be the unmapped constant score 1.0"
+        );
+
+        // A bulk whose distinct new fields do not fit must fail, and must
+        // not leave the documents searchable under an empty mapping.
+        let dir = TempDir::new().unwrap();
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        config.limits.max_fields_per_index = 4;
+        let engine_instance = Engine::new(config).expect("engine");
+        engine_instance
+            .create_index("explode", Schema::empty())
+            .unwrap();
+        let index = engine_instance.get_index("explode").unwrap();
+        let mut wide = serde_json::Map::new();
+        for i in 0..8 {
+            wide.insert(
+                format!("field_{i}"),
+                serde_json::json!(format!("value {i}")),
+            );
+        }
+        let err = index
+            .index_batch_turbo_raw(vec![(
+                "wide".into(),
+                Arc::<[u8]>::from(serde_json::to_vec(&serde_json::Value::Object(wide)).unwrap()),
+            )])
+            .await
+            .expect_err("more distinct fields than the limit must fail the bulk");
+        assert!(
+            err.to_string().contains("Limit of total fields"),
+            "unexpected error: {err}"
+        );
+        assert_eq!(
+            index.doc_count.load(Ordering::Acquire),
+            0,
+            "a refused mapping must not publish the documents"
+        );
+    }
+
+    #[test]
+    fn hydration_source_columns_drop_embedding_companions() {
+        let names = vec![
+            "title".to_string(),
+            "body".to_string(),
+            "body_vector".to_string(),
+            "body_vector_chunks".to_string(),
+        ];
+        let omit: HashSet<String> = ["body_vector", "body_vector_chunks"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        let columns = hydration_source_columns(&names, None, Some(&omit));
+        assert_eq!(columns, vec!["title", "body"]);
+        // No omit list still means every column.
+        assert_eq!(
+            hydration_source_columns(&names, None, None),
+            vec!["title", "body", "body_vector", "body_vector_chunks"]
+        );
+    }
+
+    /// BM25 over an unmerged segment that carries a semantic field must
+    /// return the text and must not decode the embedding columns to do it.
+    /// Those columns are walked in full for a handful of rows; on a 40k-doc
+    /// index that was ~2.4 s a query until force-merge stripped them.
+    #[tokio::test]
+    async fn bm25_over_an_unmerged_semantic_segment_skips_vector_columns() {
+        let dir = TempDir::new().unwrap();
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        // One shard, so the flush is a single segment large enough for the
+        // columnar stored layout (`V2_MIN_DOCS`). The default shard count
+        // splits this corpus into sub-128 segments, which use the legacy
+        // codec and cannot skip columns.
+        config.engine.ingest_shards = 1;
+        let engine_instance = Engine::new(config).expect("engine");
+        let mut schema = Schema::empty();
+        let mut field = FieldConfig::new("body", FieldType::Text);
+        field.options.dimensions = Some(384);
+        field.options.similarity = Some("cosine".into());
+        field.embedding = Some(xerj_common::types::EmbeddingConfig {
+            endpoint: None,
+            model: None,
+            target_field: Some("body_vector".into()),
+        });
+        schema.add_field(field).unwrap();
+        let mut companion = FieldConfig::new("body_vector", FieldType::Vector);
+        companion.options.dimensions = Some(384);
+        companion.options.similarity = Some("cosine".into());
+        schema.add_field(companion).unwrap();
+        engine_instance
+            .create_index("sem-unmerged", schema)
+            .unwrap();
+        let index = engine_instance.get_index("sem-unmerged").unwrap();
+        index.abort_background_tasks();
+        // At least `V2_MIN_DOCS` (128) so the segment is columnar and the
+        // row decoder can skip columns. One below that falls back to a
+        // full decode and would not prove the skip.
+        for i in 0..140u32 {
+            let body = if i == 0 {
+                "crispr landmark paper".to_string()
+            } else {
+                format!("unrelated mitochondria note {i}")
+            };
+            index
+                .index_document(Some(format!("d{i}")), serde_json::json!({ "body": body }))
+                .await
+                .unwrap();
+        }
+        index.flush().await.unwrap();
+        let found = index
+            .search(
+                &xerj_query::parse_request(&serde_json::json!({
+                    "query": {"match": {"body": "crispr"}},
+                    "size": 5
+                }))
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(found.hits.len(), 1, "the term occurs in one document");
+        assert_eq!(found.hits[0].id, "d0");
+        assert_eq!(
+            found.hits[0].source.get("body").and_then(|v| v.as_str()),
+            Some("crispr landmark paper")
+        );
+        assert!(
+            found.hits[0].source.get("body_vector").is_none(),
+            "default _source does not return the embedding"
+        );
+        assert!(
+            index.companion_columns_omitted.load(Ordering::Relaxed) > 0,
+            "the cold hydration must skip the embedding columns"
+        );
+    }
+
     #[tokio::test]
     async fn mapping_vector_over_existing_hidden_chunks_fails_closed_before_visibility() {
         let dir = TempDir::new().unwrap();
@@ -12950,6 +13153,9 @@ pub struct Index {
     /// Test-only: the most cold stored warms that ever ran at once (#2427).
     #[cfg(test)]
     cold_stored_warm_peak: std::sync::atomic::AtomicUsize,
+    /// Test-only: cold row hydrations that skipped embedding-companion columns.
+    #[cfg(test)]
+    companion_columns_omitted: AtomicU64,
     #[cfg(test)]
     cold_stored_warm_live: std::sync::atomic::AtomicUsize,
     /// Background warms not started because one was already running for
@@ -13701,6 +13907,8 @@ impl Index {
             #[cfg(test)]
             cold_stored_warm_peak: std::sync::atomic::AtomicUsize::new(0),
             #[cfg(test)]
+            companion_columns_omitted: AtomicU64::new(0),
+            #[cfg(test)]
             cold_stored_warm_live: std::sync::atomic::AtomicUsize::new(0),
             cold_stored_warms_skipped: AtomicU64::new(0),
             cold_row_hydrations: AtomicU64::new(0),
@@ -14205,6 +14413,8 @@ impl Index {
             cold_stored_warm_running: std::sync::atomic::AtomicBool::new(false),
             #[cfg(test)]
             cold_stored_warm_peak: std::sync::atomic::AtomicUsize::new(0),
+            #[cfg(test)]
+            companion_columns_omitted: AtomicU64::new(0),
             #[cfg(test)]
             cold_stored_warm_live: std::sync::atomic::AtomicUsize::new(0),
             cold_stored_warms_skipped: AtomicU64::new(0),
@@ -15332,7 +15542,7 @@ impl Index {
         // before WAL/VersionMap mutation so cancellation cannot strand a
         // half-published document batch.
         let evolve_t = std::time::Instant::now();
-        self.evolve_schema_from_docs(sources_for_prepare).await;
+        self.evolve_schema_from_docs(sources_for_prepare).await?;
         if prof {
             p_evolve_us = evolve_t.elapsed().as_micros();
         }
@@ -21409,6 +21619,7 @@ impl Index {
         segment_id: &str,
         positions: &[u32],
         keep: Option<&[String]>,
+        omit: Option<&HashSet<String>>,
     ) -> Option<HashMap<u32, Value>> {
         use xerj_storage::stored_codec::{
             decode_stored_v2_rows_projected_parallel, stored_v2_source_column_names,
@@ -21419,17 +21630,21 @@ impl Index {
         let ordinals: Vec<usize> = positions.iter().map(|&p| p as usize).collect();
         // Columns decode concurrently: a handful of rows still streams every
         // wanted column, so the serial sum was the cost of a cold page.
-        let hydrated = match keep {
-            Some(keep) => {
-                let names = stored_v2_source_column_names(bytes).ok()??;
-                let include: Vec<&str> = names
-                    .iter()
-                    .map(String::as_str)
-                    .filter(|column| row_projection_keeps_column(keep, column))
-                    .collect();
-                decode_stored_v2_rows_projected_parallel(bytes, &ordinals, Some(&include)).ok()?
+        // `omit` drops embedding companions. A row-selective decode walks a
+        // whole column to reach its rows, and those vector columns are what
+        // made a BM25 page over unmerged semantic segments take seconds.
+        let project = keep.is_some() || omit.is_some_and(|set| !set.is_empty());
+        let hydrated = if project {
+            let names = stored_v2_source_column_names(bytes).ok()??;
+            let include = hydration_source_columns(&names, keep, omit);
+            #[cfg(test)]
+            if omit.is_some_and(|set| !set.is_empty()) {
+                self.companion_columns_omitted
+                    .fetch_add(1, Ordering::Relaxed);
             }
-            None => decode_stored_v2_rows_projected_parallel(bytes, &ordinals, None).ok()?,
+            decode_stored_v2_rows_projected_parallel(bytes, &ordinals, Some(&include)).ok()?
+        } else {
+            decode_stored_v2_rows_projected_parallel(bytes, &ordinals, None).ok()?
         };
         let StoredV2RowHydrationResult::Hydrated { rows, .. } = hydrated else {
             return None;
@@ -21497,6 +21712,7 @@ impl Index {
         hits: Vec<Hit>,
         deferred: &HashMap<String, (String, u32, u64)>,
         keep: Option<&[String]>,
+        omit: Option<&HashSet<String>>,
         row_projected: &mut HashMap<String, (String, u32)>,
     ) -> Vec<Hit> {
         use rayon::prelude::*;
@@ -21521,7 +21737,7 @@ impl Index {
         let loaded: Vec<(&str, HashMap<u32, Value>, bool)> = segments
             .par_iter()
             .map(|(seg, positions, doc_count)| {
-                if let Some(rows) = self.hydrate_fts_rows_cold(seg, positions, keep) {
+                if let Some(rows) = self.hydrate_fts_rows_cold(seg, positions, keep, omit) {
                     return (*seg, rows, keep.is_some());
                 }
                 let mut docs: HashMap<u32, Value> = HashMap::with_capacity(positions.len());
@@ -21663,7 +21879,7 @@ impl Index {
             let positions: Vec<u32> = rows.iter().map(|&(_, position)| position).collect();
             let cold = match warm {
                 Some(_) => None,
-                None => self.hydrate_fts_rows_cold(&segment, &positions, None),
+                None => self.hydrate_fts_rows_cold(&segment, &positions, None, None),
             };
             // A section the row decoder cannot address (the LZ4 layout of a
             // small segment, a legacy wrapper) is read through its offset
@@ -21749,7 +21965,7 @@ impl Index {
         if let Some(slices) = warm {
             return from_slices(slices.value());
         }
-        if let Some(rows) = self.hydrate_fts_rows_cold(seg_id, positions, None) {
+        if let Some(rows) = self.hydrate_fts_rows_cold(seg_id, positions, None, None) {
             self.schedule_cold_stored_warm(seg_id, doc_count);
             return Some(rows);
         }
@@ -29500,6 +29716,32 @@ impl Index {
         // controls only how much work is done, never which hits win.
         // #2422/#2423 — the source columns a cold scored FTS page needs.
         let fts_row_keep: Option<Vec<String>> = fts_row_hydration_keep(request, query);
+        // Default `_source` strips embedding companions after the page is
+        // built. The cold row decoder still walks every column to reach a
+        // handful of rows, and on an unmerged semantic index those vector
+        // columns are most of the stored section — a BM25 page measured
+        // ~2.4 s until a force-merge dropped the vectors from the stored
+        // rows. Skip the columns the response will not return. An explicit
+        // `_source: true`, a highlight, or a query that reads the source
+        // after scoring still gets them.
+        let fts_companion_omit: Option<HashSet<String>> =
+            if matches!(request.source, SourceFilter::Default)
+                && request.aggs.is_none()
+                && request.fields.is_empty()
+                && request.script_fields.is_none()
+                && request.sort.is_empty()
+                && request.collapse.is_none()
+                && request.rescore.is_empty()
+                && request.highlight.is_none()
+                && !request.explain
+                && !query_may_read_source_after_scoring(query)
+            {
+                let schema = self.schema.read().await;
+                let companions = generated_embedding_companion_fields(&schema.schema);
+                (!companions.is_empty()).then_some(companions)
+            } else {
+                None
+            };
         // Hits whose `_source` came back column-projected, by id → (segment,
         // position), so the one post-page reader that looks at the WHOLE
         // document (the TF-IDF fallback below) can restore it.
@@ -30731,10 +30973,16 @@ impl Index {
                                     // five hits (~1.45 s on a 131 MB
                                     // section).
                                     let mut cold_ids: Option<HashMap<u32, String>> = None;
-                                    let cold_rows: Option<HashMap<u32, Value>> = if self
-                                        .stored_slices_cache
-                                        .contains_key(seg_id.as_str())
-                                        || self.decoded_stored_cache.contains_key(seg_id.as_str())
+                                    // A warm full-section cache still holds the
+                                    // embedding columns. When the response will
+                                    // drop them, stay on the projected row
+                                    // decoder instead of parsing that JSON.
+                                    let use_full_section = fts_companion_omit.is_none()
+                                        && (self.stored_slices_cache.contains_key(seg_id.as_str())
+                                            || self
+                                                .decoded_stored_cache
+                                                .contains_key(seg_id.as_str()));
+                                    let cold_rows: Option<HashMap<u32, Value>> = if use_full_section
                                     {
                                         None
                                     } else if sort_topk.is_none() {
@@ -30755,10 +31003,19 @@ impl Index {
                                         if cold_ids.is_some() {
                                             self.cold_row_hydrations
                                                 .fetch_add(1, Ordering::Relaxed);
-                                            self.schedule_cold_stored_warm(
-                                                seg_id.as_str(),
-                                                meta.doc_count,
-                                            );
+                                            // The full-section warm decompresses
+                                            // the vector columns this page is
+                                            // skipping, and on a semantic index
+                                            // it usually does not fit the
+                                            // hydration budget, so every later
+                                            // query stayed cold. Leave it cold
+                                            // and projected.
+                                            if fts_companion_omit.is_none() {
+                                                self.schedule_cold_stored_warm(
+                                                    seg_id.as_str(),
+                                                    meta.doc_count,
+                                                );
+                                            }
                                         }
                                         None
                                     } else {
@@ -30786,20 +31043,24 @@ impl Index {
                                         // request's first cold query went
                                         // 2.3 s -> 6.6 s). The full decode
                                         // below caches for the next query.
-                                        let worth_it = fts_row_keep.is_some();
+                                        let worth_it =
+                                            fts_row_keep.is_some() || fts_companion_omit.is_some();
                                         if worth_it && !candidates.is_empty() {
                                             let rows = self.hydrate_fts_rows_cold(
                                                 seg_id.as_str(),
                                                 &candidates,
                                                 fts_row_keep.as_deref(),
+                                                fts_companion_omit.as_ref(),
                                             );
                                             if rows.is_some() {
                                                 self.cold_row_hydrations
                                                     .fetch_add(1, Ordering::Relaxed);
-                                                self.schedule_cold_stored_warm(
-                                                    seg_id.as_str(),
-                                                    meta.doc_count,
-                                                );
+                                                if fts_companion_omit.is_none() {
+                                                    self.schedule_cold_stored_warm(
+                                                        seg_id.as_str(),
+                                                        meta.doc_count,
+                                                    );
+                                                }
                                             }
                                             rows
                                         } else {
@@ -31955,6 +32216,7 @@ impl Index {
                 all_hits,
                 &deferred_sources,
                 fts_row_keep.as_deref(),
+                fts_companion_omit.as_ref(),
                 &mut row_projected,
             );
             deferred_sources.clear();
@@ -32309,7 +32571,7 @@ impl Index {
                                 continue;
                             };
                             if let Some(source) = self
-                                .hydrate_fts_rows_cold(seg, &[*pos], None)
+                                .hydrate_fts_rows_cold(seg, &[*pos], None, None)
                                 .and_then(|mut rows| rows.remove(pos))
                                 .and_then(|mut doc| doc.get_mut("_source").map(Value::take))
                             {
@@ -34486,7 +34748,7 @@ impl Index {
     /// first doc that introduces a field decides its inferred type) and
     /// added under a single write lock, which re-checks `has_field` exactly
     /// like the per-doc slow path does.
-    async fn evolve_schema_from_docs(&self, sources: &[Arc<Value>]) {
+    async fn evolve_schema_from_docs(&self, sources: &[Arc<Value>]) -> Result<()> {
         // Fast path: read-lock scan for TWO kinds of change, not just one --
         // a brand-new top-level field (as before), or a NEW NESTED CHILD
         // under a top-level field the schema already knows about (the fix
@@ -34506,7 +34768,7 @@ impl Index {
                 self.dynamic_mode(&schema),
                 xerj_common::schema::DynamicMapping::Dynamic
             ) {
-                return;
+                return Ok(());
             }
             let mut new_top_level = Vec::new();
             let mut needs_merge = Vec::new();
@@ -34534,33 +34796,7 @@ impl Index {
         };
 
         if new_top_level.is_empty() && needs_merge.is_empty() {
-            return;
-        }
-
-        // Mapping-explosion guard: enforce `max_fields_per_index` on the
-        // production ingest path. `ManagedSchema::apply_document` checks the
-        // same limit, but the engine's dynamic-mapping path calls
-        // `Schema::add_field` directly, which previously bypassed the cap.
-        // An authenticated client could ingest documents with arbitrarily many
-        // distinct field names, bloating the schema unbounded. This is an
-        // approximate early exit on `new_top_level` alone (a `needs_merge`
-        // entry might add zero fields or several, not knowable without
-        // walking it against the live schema, which the write-lock section
-        // below does anyway) -- the write lock's own per-field checks are
-        // the real, exact enforcement.
-        {
-            let schema = self.schema.read().await;
-            let current = schema.schema.field_count() as u32;
-            let projected = current.saturating_add(new_top_level.len() as u32);
-            if projected > self.max_fields_per_index {
-                tracing::warn!(
-                    current_fields = current,
-                    new_fields = new_top_level.len(),
-                    limit = self.max_fields_per_index,
-                    "rejecting schema evolution: field limit exceeded"
-                );
-                return;
-            }
+            return Ok(());
         }
 
         let date_detection = self.date_detection_enabled();
@@ -34572,12 +34808,46 @@ impl Index {
             self.dynamic_template_fields(&candidates, date_detection)
                 .await
         };
+        // The guard used to add `new_top_level.len()` to the field count.
+        // That vec holds one entry per document per field, not one per
+        // distinct name, so the first bulk of a new index (three fields,
+        // a couple of hundred documents) projected thousands of "new"
+        // fields, tripped `max_fields_per_index` (500), and returned
+        // without mapping anything. The documents were still indexed.
+        // `_bulk` reported `errors: false`, the mapping stayed `{}`, and
+        // every later search matched the whole index at score 1. Count
+        // distinct names, and charge each one's real subtree size. If
+        // they do not fit, fail the bulk before anything is published.
+        {
+            let schema = self.schema.read().await;
+            let mut projected = schema.schema.field_count() as u32;
+            let mut seen = HashSet::new();
+            for (key, val) in &new_top_level {
+                if !seen.insert(key.as_str()) || schema.schema.has_field(key) {
+                    continue;
+                }
+                let fc = templated
+                    .get(key)
+                    .cloned()
+                    .unwrap_or_else(|| dynamic_field_config(key, val, date_detection));
+                projected = projected.saturating_add(fc.total_field_count() as u32);
+                if projected > self.max_fields_per_index {
+                    return Err(EngineError::Common(
+                        xerj_common::XerjError::invalid_mapping(format!(
+                            "Limit of total fields [{}] has been exceeded: this bulk would \
+                             bring the index to {projected} fields",
+                            self.max_fields_per_index
+                        )),
+                    ));
+                }
+            }
+        }
         let mut schema = self.schema.write().await;
         if !matches!(
             self.dynamic_mode(&schema),
             xerj_common::schema::DynamicMapping::Dynamic
         ) {
-            return;
+            return Ok(());
         }
         // Re-derive against the live schema under the write lock rather than
         // trusting the read-lock snapshot: another concurrent ingest may
@@ -34585,6 +34855,7 @@ impl Index {
         // this batch also wants) between the read-lock check above and this
         // write lock.
         let mut schema_changed = false;
+        let mut rejected_field: Option<String> = None;
         let mut field_count = schema.schema.field_count() as u32;
         for (key, val) in new_top_level {
             if let Some(existing) = schema.schema.field_mut(&key) {
@@ -34619,6 +34890,7 @@ impl Index {
                     limit = self.max_fields_per_index,
                     "rejecting new field: field limit reached"
                 );
+                rejected_field = Some(key);
                 break;
             }
             if matches!(fc.field_type, FieldType::Date) {
@@ -34645,6 +34917,15 @@ impl Index {
         if schema_changed {
             self.persist_evolved_schema(&schema).await;
         }
+        if let Some(field) = rejected_field {
+            return Err(EngineError::Common(
+                xerj_common::XerjError::invalid_mapping(format!(
+                    "Limit of total fields [{}] has been exceeded while adding field [{field}]",
+                    self.max_fields_per_index
+                )),
+            ));
+        }
+        Ok(())
     }
 
     async fn evolve_schema_from_doc(&self, source: &Value) {
@@ -50907,6 +51188,28 @@ fn collect_row_projection_query_fields(query: &QueryNode, out: &mut Vec<String>)
 /// Whether the stored top-level `column` can hold a value of one of the
 /// `keep` field paths (`keep` entries may be dotted paths or `prefix*`
 /// patterns; a column may itself be a flattened dotted key).
+/// Columns a cold row decode should read. `None` keep means every column
+/// except `omit`. An empty `omit` does not by itself project.
+fn hydration_source_columns<'a>(
+    names: &'a [String],
+    keep: Option<&[String]>,
+    omit: Option<&HashSet<String>>,
+) -> Vec<&'a str> {
+    names
+        .iter()
+        .map(String::as_str)
+        .filter(|column| {
+            if omit.is_some_and(|set| set.contains(*column)) {
+                return false;
+            }
+            match keep {
+                Some(keep) => row_projection_keeps_column(keep, column),
+                None => true,
+            }
+        })
+        .collect()
+}
+
 fn row_projection_keeps_column(keep: &[String], column: &str) -> bool {
     keep.iter().any(|field| {
         if let Some(prefix) = field.strip_suffix('*') {
@@ -57147,18 +57450,12 @@ const DYNAMIC_KEYWORD_IGNORE_ABOVE: u32 = 256;
 /// Same numeric default as ES's `index.mapping.depth.limit` -- but NOT the
 /// same behavior. Real ES rejects the document with a `MapperParsingException`
 /// once nesting exceeds the limit; this cap silently stops recursing and
-/// maps everything past it as an opaque, un-recursed `Object`, the same way
-/// the whole dynamic-mapping-evolution path already treats
-/// `max_fields_per_index` (see `evolve_schema_from_docs`'s own
-/// silently-skip-and-`tracing::warn!` handling right next to where this cap
-/// is consulted) -- every guard in this call chain is fire-and-forget by
-/// design today, not just this one. Making depth rejection hard (a real
-/// client-visible error, the #204 "accepted-and-ignored" class this repo
-/// otherwise avoids) would mean giving `evolve_schema_from_doc`/
-/// `evolve_schema_from_docs` a `Result` and deciding how a mixed bulk
-/// request (one oversized document among many) should behave -- a bigger,
-/// separate change than this cap alone, tracked as a follow-up rather than
-/// bundled in here inconsistently with the neighboring guard.
+/// maps everything past it as an opaque, un-recursed `Object`. The bulk
+/// field-count guard (`evolve_schema_from_docs`) is different: exceeding
+/// `max_fields_per_index` fails the batch before the documents are
+/// published. Depth past this cap is still fire-and-forget. Making depth
+/// rejection a client-visible error would mean deciding how one oversized
+/// document in a mixed bulk should behave, which is a separate change.
 const DYNAMIC_MAPPING_DEPTH_LIMIT: usize = 20;
 
 /// Build the [`FieldConfig`] for a dynamically discovered field.
