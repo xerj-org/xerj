@@ -8,15 +8,15 @@
   {
    "repo": "switchknife",
    "url": "https://github.com/Egoushka/switchknife",
-   "sha": "495c8c7afe7fe4fa84027ff5b49f2b7bf21b136c",
-   "licence": "MIT (LICENSE file at pin 495c8c7afe7f, GitHub licence API 2026-11-25)",
+   "sha": "3fc4f29914a18eea6bbb1ac5bf0f34f748d34f17",
+   "licence": "MIT (LICENSE file at pin 3fc4f29914a1, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "f921b440b9c2",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt f921b440b9c2); pinned to the default-branch head. LICENSE file at pin 495c8c7afe7f detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt f921b440b9c2); pinned to the default-branch head. LICENSE file at pin 3fc4f29914a1 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

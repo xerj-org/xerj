@@ -8,15 +8,15 @@
   {
    "repo": "feed-eater",
    "url": "https://github.com/Egoushka/feed-eater",
-   "sha": "ca1cc2b45ac8b362a7fb2c0184818fce18d50e7d",
-   "licence": "Apache-2.0 (LICENSE file at pin ca1cc2b45ac8, GitHub licence API 2026-11-25)",
+   "sha": "638bc7813286b7b31d3a2fb1c0f807844d74ed95",
+   "licence": "Apache-2.0 (LICENSE file at pin 638bc7813286, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "400c07b3c047",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 400c07b3c047); pinned to the default-branch head. LICENSE file at pin ca1cc2b45ac8 detected as Apache-2.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 400c07b3c047); pinned to the default-branch head. LICENSE file at pin 638bc7813286 detected as Apache-2.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

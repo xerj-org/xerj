@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on wysna, agent-first, programming-language queries this for how WashingtonYandun/Wysna implements it: The Wysna Programming language by WySofia - From clear intent to native software - Wysna is a strictly-typed programming language High predi (selected work: checker, selfhost, hir)",
+ "domain": "an agent working on wysna, agent-first, programming-language queries this for how WashingtonYandun/Wysna implements it: Wysna by WySofia \u2014 From clear intent to native software. A strictly-typed programming language engineered for AI agents. High predictability (selected work: checker, selfhost, hir)",
  "repos": [
   {
    "repo": "W",

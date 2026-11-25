@@ -8,15 +8,15 @@
   {
    "repo": "athena",
    "url": "https://github.com/aaryanrwt/athena",
-   "sha": "67cde5662bc1e9998ce7112b30fddb8665eb638b",
-   "licence": "Apache-2.0 (LICENSE file at pin 67cde5662bc1, GitHub licence API 2026-11-24)",
+   "sha": "bb36b1750d5dc6578671f0c861226d017ed1baf3",
+   "licence": "Apache-2.0 (LICENSE file at pin bb36b1750d5d, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-27T08:09Z",
     "consent_receipt": "0a040e167929",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T08:09Z (receipt 0a040e167929); selected commit 67cde5662bc1: \"feat(v1.0.0): add public API exposure flag, dynamic call detection, c\u2026\". LICENSE file at pin 67cde5662bc1 detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head 67cde5662bc1 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T08:09Z (receipt 0a040e167929); selected commit bb36b1750d5d: \"feat(v1.0.0): add public API exposure flag, dynamic call detection, c\u2026\". LICENSE file at pin bb36b1750d5d detected as Apache-2.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head bb36b1750d5d (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

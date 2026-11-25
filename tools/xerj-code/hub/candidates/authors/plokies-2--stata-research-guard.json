@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on codex-plugin, econometrics, mcp queries this for how Plokies-2/stata-research-guard implements it: Research guidance for AI-assisted Stata: readable code, original command help, paper examples, and peer review. Available for Codex (selected work: examples, the project root)",
+ "domain": "an agent working on codex-plugin, econometrics, mcp queries this for how Plokies-2/stata-research-guard implements it: AI-written Stata that reads like a careful coauthor wrote it. Visible specifications, real command help, reviewed edits. Plugin for Codex an (selected work: examples, the project root)",
  "repos": [
   {
    "repo": "stata-research-guard",
    "url": "https://github.com/Plokies-2/stata-research-guard",
-   "sha": "7c427f82a9490a1b0526f5ee7b769c4d0ebe937f",
-   "licence": "MIT (LICENSE file at pin 7c427f82a949, GitHub licence API 2026-11-25)",
+   "sha": "189a56c51b36cccf2a414cb5e3088d089af1c263",
+   "licence": "MIT (LICENSE file at pin 189a56c51b36, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T03:33Z",
     "consent_receipt": "b9578bfd7874",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T03:33Z (receipt b9578bfd7874); selected commit 7c427f82a949: \"Refresh README with independent workflow examples\". LICENSE file at pin 7c427f82a949 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 7c427f82a949 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T03:33Z (receipt b9578bfd7874); selected commit 189a56c51b36: \"Refresh README with independent workflow examples\". LICENSE file at pin 189a56c51b36 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 189a56c51b36 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

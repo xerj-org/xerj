@@ -8,15 +8,15 @@
   {
    "repo": "kinderclose-hassio",
    "url": "https://github.com/mikirodro/kinderclose-hassio",
-   "sha": "1de0e653d4d39d3c15329bba893270ad9136af9c",
-   "licence": "MIT (LICENSE file at pin 1de0e653d4d3, GitHub licence API 2026-11-25)",
+   "sha": "b5b23086a00405ecd6a4bc1dc046b7ac533be72c",
+   "licence": "MIT (LICENSE file at pin b5b23086a004, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T10:47Z",
     "consent_receipt": "fb5c8b893ecc",
-    "note": "Inclusion consented by the commit author by email at 2026-11-04T10:47Z (receipt fb5c8b893ecc); selected commit 1de0e653d4d3: \"\"A\u00f1adido para que funcione mediante HACS\"\". LICENSE file at pin 1de0e653d4d3 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 1de0e653d4d3 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T10:47Z (receipt fb5c8b893ecc); selected commit b5b23086a004: \"\"A\u00f1adido para que funcione mediante HACS\"\". LICENSE file at pin b5b23086a004 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head b5b23086a004 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
