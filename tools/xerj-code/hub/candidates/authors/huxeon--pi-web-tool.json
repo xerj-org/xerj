@@ -1,9 +1,9 @@
 {
- "corpus": "huxeon--pi-dsweb",
+ "corpus": "huxeon--pi-web-tool",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how huxeon/pi-dsweb implements it: DeepSeek Search and Fetch tools for Pi (selected work: tests, src, extensions)",
+ "domain": "an agent working on TypeScript queries this for how huxeon/pi-web-tool implements it: DeepSeek Search and Fetch tools for Pi (selected work: tests, src, extensions)",
  "repos": [
   {
    "repo": "pi-dsweb",

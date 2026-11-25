@@ -1,0 +1,23 @@
+{
+ "corpus": "kananpond---red-trpg",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how KananPond/-RED-TRPG- implements it: \u8fd9\u662f\u4e00\u4e2a\u57fa\u4e8e\u8d5b\u535a\u670b\u514bRED\u7b80\u6613\u6a21\u5f0f\u7684AI\u9a71\u52a8TRPG\u3002\u5168\u90e8\u4ee3\u7801\u7531AI\u5b9e\u73b0 (selected work: trpg, tests, tools)",
+ "repos": [
+  {
+   "repo": "-RED-TRPG-",
+   "url": "https://github.com/KananPond/-RED-TRPG-",
+   "sha": "300ce0fbc842e0dcee63c5d171b62239857c2db6",
+   "licence": "MIT (LICENSE file at pin 300ce0fbc842, GitHub licence API 2026-11-25)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T08:23Z",
+    "consent_receipt": "d2efbaf5d001",
+    "note": "Inclusion consented by the commit author by email at 2026-11-25T08:23Z (receipt d2efbaf5d001); selected commit 300ce0fbc842: \"feat: \u7eaf AI \u5267\u573a\u4e0e\u5168 AI \u8dd1\u56e2\uff0c\u4fee\u590d\u601d\u8003\u6a21\u5f0f reasoning \u56de\u4f20\". LICENSE file at pin 300ce0fbc842 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 300ce0fbc842 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+   }
+  }
+ ]
+}

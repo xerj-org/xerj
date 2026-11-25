@@ -8,15 +8,15 @@
   {
    "repo": "ircbot",
    "url": "https://github.com/chrj/ircbot",
-   "sha": "64328bd68ff6deafeb53f895e46bef24b7504024",
-   "licence": "MIT (LICENSE file at pin 64328bd68ff6, GitHub licence API 2026-11-14)",
+   "sha": "983718ca58194b3634cf77dcbbdcd1fc337caf0a",
+   "licence": "MIT (LICENSE file at pin 983718ca5819, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T22:51Z",
     "consent_receipt": "8f65aa8ddfff",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 8f65aa8ddfff); pinned to the default-branch head. LICENSE file at pin 64328bd68ff6 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 8f65aa8ddfff); pinned to the default-branch head. LICENSE file at pin 983718ca5819 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]
