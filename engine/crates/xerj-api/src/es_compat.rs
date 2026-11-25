@@ -52721,6 +52721,24 @@ pub(crate) fn mapping_has_ignore_directives(mapping: &Value) -> bool {
     }
 }
 
+/// Emit the source line paired with an action line the rewrite could not
+/// read, verbatim, so the engine still sees the pair and refuses just that
+/// item. Delete is the only action without a source line, using the same
+/// pairing rule as the bulk engine (`bulk_action_line_is_delete`).
+fn emit_paired_source_verbatim(
+    lines: &mut std::iter::Peekable<std::str::Lines<'_>>,
+    action_line: &str,
+    out: &mut String,
+) {
+    if crate::cluster_shard::bulk_action_line_is_delete(action_line) {
+        return;
+    }
+    if let Some(source_line) = lines.next() {
+        out.push_str(source_line);
+        out.push('\n');
+    }
+}
+
 pub(crate) fn rewrite_bulk_ignore_malformed(
     state: &AppState,
     default_index: Option<&str>,
@@ -52737,12 +52755,27 @@ pub(crate) fn rewrite_bulk_ignore_malformed(
         }
         let action: Value = match serde_json::from_str(action_trimmed) {
             Ok(v) => v,
-            Err(_) => continue,
+            // The engine pairs action+source lines BEFORE parsing
+            // (bulk.rs), so a failed action still consumes its source
+            // line and answers a per-item 400. Pass the pair through
+            // verbatim and keep the pairing aligned, or every following
+            // document is rewritten against the preceding action's
+            // _index/_id (issue #3189).
+            Err(_) => {
+                emit_paired_source_verbatim(&mut lines, action_line, &mut out);
+                continue;
+            }
         };
         // Determine if this action has a source body on the next line.
         let (op, op_body) = match action.as_object().and_then(|o| o.iter().next()) {
             Some((k, v)) => (k.clone(), v.clone()),
-            None => continue,
+            // Same desync as the parse failure above: a line that parses
+            // but names no operation (e.g. `{}` or `[]`) still owns a
+            // source line in the engine's pairing.
+            None => {
+                emit_paired_source_verbatim(&mut lines, action_line, &mut out);
+                continue;
+            }
         };
         if op == "delete" {
             continue;
@@ -52793,6 +52826,117 @@ pub(crate) fn rewrite_bulk_ignore_malformed(
         out.push('\n');
     }
     out
+}
+
+#[cfg(test)]
+mod rewrite_bulk_ignore_malformed_tests {
+    //! Regression tests for issue #3189: the ignore_malformed rewrite
+    //! walked a _bulk body as action/source pairs and, on an unparseable
+    //! action line, continued without consuming the paired source line, so
+    //! every following document was rewritten against the preceding action.
+    use super::*;
+    use xerj_common::config::{Config, WalSync};
+    use xerj_common::metrics::Metrics;
+    use xerj_engine::Engine;
+
+    fn state_with_ignore_mappings() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        let state = AppState::new(config, engine, metrics);
+        for index in ["a", "b"] {
+            state.engine.index_mappings.insert(
+                index.to_string(),
+                json!({
+                    "properties": {
+                        "n": {"type": "integer", "ignore_malformed": true}
+                    }
+                }),
+            );
+        }
+        state
+    }
+
+    #[tokio::test]
+    async fn malformed_action_line_keeps_following_pairs_aligned() {
+        let state = state_with_ignore_mappings();
+        // The exact body from issue #3189, with a malformed value in the
+        // third document so the rewrite visibly touches it only when the
+        // pairing is right: index b's mapping must see it, index a's must not.
+        let body = concat!(
+            "{\"index\": {\"_index\": \"a\", \"_id\": \"1\"}}\n",
+            "{\"title\": \"first\"}\n",
+            "{bad json\n",
+            "{\"title\": \"second\"}\n",
+            "{\"index\": {\"_index\": \"b\", \"_id\": \"2\"}}\n",
+            "{\"title\": \"third\", \"n\": \"not-a-number\"}\n",
+        );
+        let rewritten = rewrite_bulk_ignore_malformed(&state, None, body);
+        let lines: Vec<&str> = rewritten.lines().collect();
+        assert_eq!(
+            lines.len(),
+            6,
+            "rewritten body must keep all six lines: {rewritten}"
+        );
+        // The malformed pair passes through verbatim for the engine to
+        // refuse per item; it must not be swallowed or re-paired.
+        assert_eq!(lines[2], "{bad json");
+        assert_eq!(lines[3], "{\"title\": \"second\"}");
+        // The third document must still be paired with the index b action,
+        // and rewritten against b's mapping: the malformed `n` is dropped
+        // and recorded in `_ignored`. (lines[4] is compared parsed, not
+        // as a string: a desynced rewrite re-serialises the action line
+        // as if it were a source document, which is itself the bug.)
+        let fourth: Value = serde_json::from_str(lines[4]).expect("fourth line is JSON");
+        assert_eq!(fourth, json!({"index": {"_index": "b", "_id": "2"}}));
+        let third: Value = serde_json::from_str(lines[5]).expect("third line is JSON");
+        assert_eq!(third["title"], json!("third"));
+        assert_eq!(
+            third.get("_ignored"),
+            Some(&json!(["n"])),
+            "third doc was not rewritten against index b: {third}"
+        );
+        assert!(
+            third.get("n").is_none(),
+            "malformed value must be dropped: {third}"
+        );
+    }
+
+    #[tokio::test]
+    async fn action_line_with_no_operation_keeps_following_pairs_aligned() {
+        let state = state_with_ignore_mappings();
+        // Same defect class as the parse failure: a line that parses but
+        // names no operation (here `{}`) still owns a source line in the
+        // engine's pairing.
+        let body = concat!(
+            "{\"index\": {\"_index\": \"a\", \"_id\": \"1\"}}\n",
+            "{\"title\": \"first\"}\n",
+            "{}\n",
+            "{\"title\": \"second\"}\n",
+            "{\"index\": {\"_index\": \"b\", \"_id\": \"2\"}}\n",
+            "{\"title\": \"third\", \"n\": \"not-a-number\"}\n",
+        );
+        let rewritten = rewrite_bulk_ignore_malformed(&state, None, body);
+        let lines: Vec<&str> = rewritten.lines().collect();
+        assert_eq!(
+            lines.len(),
+            6,
+            "rewritten body must keep all six lines: {rewritten}"
+        );
+        assert_eq!(lines[2], "{}");
+        assert_eq!(lines[3], "{\"title\": \"second\"}");
+        let fourth: Value = serde_json::from_str(lines[4]).expect("fourth line is JSON");
+        assert_eq!(fourth, json!({"index": {"_index": "b", "_id": "2"}}));
+        let third: Value = serde_json::from_str(lines[5]).expect("third line is JSON");
+        assert_eq!(
+            third.get("_ignored"),
+            Some(&json!(["n"])),
+            "third doc was not rewritten against index b: {third}"
+        );
+    }
 }
 
 /// The 400 envelope ES sends when a document cannot be parsed against the
