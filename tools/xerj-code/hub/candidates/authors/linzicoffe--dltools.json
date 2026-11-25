@@ -8,15 +8,15 @@
   {
    "repo": "DLTools",
    "url": "https://github.com/LinZicoffe/DLTools",
-   "sha": "8c12961467a3d91227339cfb593dd683d5561ddb",
-   "licence": "MIT (LICENSE file at pin 8c12961467a3, GitHub licence API 2026-11-25)",
+   "sha": "0841ab8113c9d70cc49c9de1ea39af2219483b52",
+   "licence": "MIT (LICENSE file at pin 0841ab8113c9, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T04:39Z",
     "consent_receipt": "40c960cac117",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T04:39Z (receipt 40c960cac117); selected commit 8c12961467a3: \"fix(download): harden redirect validation scheduler locking and retry\u2026\". LICENSE file at pin 8c12961467a3 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 8c12961467a3 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T04:39Z (receipt 40c960cac117); selected commit 0841ab8113c9: \"fix(download): harden redirect validation scheduler locking and retry\u2026\". LICENSE file at pin 0841ab8113c9 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 0841ab8113c9 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

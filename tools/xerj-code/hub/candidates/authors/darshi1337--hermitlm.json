@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-assistant, chatbot, llm queries this for how darshi1337/hermitlm implements it: An 8M-parameter crab-persona LM that runs fully in the browser via ONNX. Its intent decision model applies a label-free L0 prior and two-pas (selected work: scripts, hermitlm, tests)",
+ "domain": "an agent working on ai-assistant, chatbot, llm queries this for how darshi1337/hermitlm implements it: A tiny crab-themed language model that runs in your browser and detects intent (selected work: scripts, hermitlm, tests)",
  "repos": [
   {
    "repo": "hermitlm",
