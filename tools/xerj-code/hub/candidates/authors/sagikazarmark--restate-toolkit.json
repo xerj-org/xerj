@@ -1,0 +1,23 @@
+{
+ "corpus": "sagikazarmark--restate-toolkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on restate queries this for how sagikazarmark/restate-toolkit implements it: Tools for building and testing Restate services with the Restate Rust SDK",
+ "repos": [
+  {
+   "repo": "restate-toolkit",
+   "url": "https://github.com/sagikazarmark/restate-toolkit",
+   "sha": "37820c577d4e58bee11b1ab13ae00182dc430aa3",
+   "licence": "author's permission (LICENSE at pin 37820c577d4e: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T15:00Z",
+    "consent_receipt": "3d7d327bd4f2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T15:00Z (receipt 3d7d327bd4f2); pinned to the default-branch head. LICENSE at pin 37820c577d4e: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

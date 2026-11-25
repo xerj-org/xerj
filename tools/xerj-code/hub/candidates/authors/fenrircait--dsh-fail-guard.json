@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on deepseek-harness, dsh-plugin queries this for how FenrirCait/dsh-fail-guard implements it: DSH plugin: stop the agent after N consecutive failures on the same tool, pushing a four-part stop instruction instead of another retry (selected work: lib, the project root)",
+ "domain": "an agent working on deepseek-harness, dsh-plugin, agent-loop queries this for how FenrirCait/dsh-fail-guard implements it: Standalone DeepSeek Harness guard for repeated tool failures and repetitive reasoning: one install, one Cordis entry, one settings page. Exp (selected work: lib, the project root)",
  "repos": [
   {
    "repo": "dsh-fail-guard",

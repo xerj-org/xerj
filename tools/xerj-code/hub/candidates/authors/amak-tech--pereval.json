@@ -8,15 +8,15 @@
   {
    "repo": "pereval",
    "url": "https://github.com/amak-tech/pereval",
-   "sha": "5e61af4e7d3654a480b3ef2a8b9e7821a3139323",
-   "licence": "Apache-2.0 (LICENSE file at pin 5e61af4e7d36, GitHub licence API 2026-11-25)",
+   "sha": "1fc7a8b88ed4fe0d3d26e7dc970a5877375513b3",
+   "licence": "Apache-2.0 (LICENSE file at pin 1fc7a8b88ed4, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-08T18:57Z",
     "consent_receipt": "9a1989e35254",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T18:57Z (receipt 9a1989e35254); selected commit 5e61af4e7d36: \"extended-services (#12)\". LICENSE file at pin 5e61af4e7d36 detected as Apache-2.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 5e61af4e7d36 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @amak-tech, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T18:57Z (receipt 9a1989e35254); selected commit 1fc7a8b88ed4: \"extended-services (#12)\". LICENSE file at pin 1fc7a8b88ed4 detected as Apache-2.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 1fc7a8b88ed4 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @amak-tech, who has not added it."
    },
    "paths": [
     ".github/workflows",

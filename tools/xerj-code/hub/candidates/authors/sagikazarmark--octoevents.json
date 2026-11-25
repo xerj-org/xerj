@@ -1,0 +1,23 @@
+{
+ "corpus": "sagikazarmark--octoevents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on github, webhook queries this for how sagikazarmark/octoevents implements it: Receive and verify GitHub webhook events in Rust",
+ "repos": [
+  {
+   "repo": "octoevents",
+   "url": "https://github.com/sagikazarmark/octoevents",
+   "sha": "4e40944ea4ad58fb5e8beefd05f85fe111506379",
+   "licence": "author's permission (LICENSE at pin 4e40944ea4ad: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T15:00Z",
+    "consent_receipt": "04271438024c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T15:00Z (receipt 04271438024c); pinned to the default-branch head. LICENSE at pin 4e40944ea4ad: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

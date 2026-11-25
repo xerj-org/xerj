@@ -1,0 +1,23 @@
+{
+ "corpus": "wizardwithcodehazard--orma",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on artificial-intelligence, cognitive-architecture, computational-mathematics queries this for how wizardwithcodehazard/orma implements it: Zero-latency, episode-first long-term memory for local LLMs (selected work: orma, tests, the project root)",
+ "repos": [
+  {
+   "repo": "orma",
+   "url": "https://github.com/wizardwithcodehazard/orma",
+   "sha": "da2738ab8b6c752b2d65f9e440eb23fd03762f47",
+   "licence": "Apache-2.0 (LICENSE file at pin da2738ab8b6c, GitHub licence API 2026-11-25)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T15:17Z",
+    "consent_receipt": "b7551096b304",
+    "note": "Inclusion consented by the commit author by email at 2026-11-25T15:17Z (receipt b7551096b304); selected commit da2738ab8b6c: \"feat(mcp): add native model context protocol server and smithery regi\u2026\". LICENSE file at pin da2738ab8b6c detected as Apache-2.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+   }
+  }
+ ]
+}

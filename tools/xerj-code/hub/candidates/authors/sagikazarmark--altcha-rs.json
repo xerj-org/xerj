@@ -1,0 +1,23 @@
+{
+ "corpus": "sagikazarmark--altcha-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how sagikazarmark/altcha-rs implements it: ALTCHA v2 proof-of-work for Rust web apps",
+ "repos": [
+  {
+   "repo": "altcha-rs",
+   "url": "https://github.com/sagikazarmark/altcha-rs",
+   "sha": "2177a1ac6e8d1ebb3c40d620053b17eb99d78943",
+   "licence": "author's permission (LICENSE at pin 2177a1ac6e8d: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T15:00Z",
+    "consent_receipt": "630917b906f5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T15:00Z (receipt 630917b906f5); pinned to the default-branch head. LICENSE at pin 2177a1ac6e8d: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

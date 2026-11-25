@@ -1,0 +1,23 @@
+{
+ "corpus": "sagikazarmark--drand-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on jwk, jwks, jwt queries this for how sagikazarmark/drand-rs implements it: Fetch and strictly verify drand randomness beacons in Rust",
+ "repos": [
+  {
+   "repo": "drand-rs",
+   "url": "https://github.com/sagikazarmark/drand-rs",
+   "sha": "e68cb2416bbd5adb9c7e943613336a8dddbd6724",
+   "licence": "author's permission (LICENSE at pin e68cb2416bbd: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T15:00Z",
+    "consent_receipt": "d7aaa6eae5da",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T15:00Z (receipt d7aaa6eae5da); pinned to the default-branch head. LICENSE at pin e68cb2416bbd: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "sagikazarmark--excalidraw-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on excalidraw queries this for how sagikazarmark/excalidraw-rs implements it: Editable native Excalidraw charts and documents in Rust",
+ "repos": [
+  {
+   "repo": "excalidraw-rs",
+   "url": "https://github.com/sagikazarmark/excalidraw-rs",
+   "sha": "df41f22fb7669fb5491d4745d8a5da6a79d59777",
+   "licence": "author's permission (LICENSE at pin df41f22fb766: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T15:00Z",
+    "consent_receipt": "43f1e197fbcc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T15:00Z (receipt 43f1e197fbcc); pinned to the default-branch head. LICENSE at pin df41f22fb766: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

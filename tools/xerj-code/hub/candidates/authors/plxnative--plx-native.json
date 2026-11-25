@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on ffmpeg, lg-webos, media-player queries this for how plxnative/plx-native implements it: Fast, unofficial Plex client for LG webOS TVs \u2014 native 60 fps UI, 4K HEVC/Dolby Vision, no Chromium or WebView (selected work: rust-modules)",
+ "domain": "an agent working on ffmpeg, lg-webos, media-player queries this for how plxnative/plx-native implements it: Fast, unofficial Plex client for LG webOS TVs (Samsung Tizen in early alpha) \u2014 native 60 fps UI, 4K HEVC/Dolby Vision, no Chromium or WebVie (selected work: rust-modules)",
  "repos": [
   {
    "repo": "plx-native",

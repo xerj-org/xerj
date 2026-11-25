@@ -1,0 +1,23 @@
+{
+ "corpus": "rrezartprebreza--spring-ai-eval-baseline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-testing, evals, java queries this for how rrezartprebreza/spring-ai-eval-baseline implements it: Regression tests for LLM features in Spring AI: repeated runs, confidence intervals, statistical baselines and record/replay for CI",
+ "repos": [
+  {
+   "repo": "spring-ai-eval-baseline",
+   "url": "https://github.com/rrezartprebreza/spring-ai-eval-baseline",
+   "sha": "4247e9a42c4dda9607359f3be9536b1b34130167",
+   "licence": "MIT (LICENSE file at pin 4247e9a42c4d, GitHub licence API 2026-11-25)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T14:44Z",
+    "consent_receipt": "96fd013e7387",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T14:44Z (receipt 96fd013e7387); pinned to the default-branch head. LICENSE file at pin 4247e9a42c4d detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+   }
+  }
+ ]
+}
