@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on C# queries this for how dmennenoh/KioskHelper implements it: A collection of Unity prefabs and scripts to help with kiosk creation (selected work: Textures, Scripts, Prefabs)",
+ "domain": "an agent working on C# queries this for how dmennenoh/KioskHelper implements it: A collection of Unity prefabs and scripts to help accelerate kiosk development (selected work: Textures, Scripts, Prefabs)",
  "repos": [
   {
    "repo": "KioskHelper",

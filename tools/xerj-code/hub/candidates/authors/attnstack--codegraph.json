@@ -8,15 +8,15 @@
   {
    "repo": "codegraph",
    "url": "https://github.com/attnstack/codegraph",
-   "sha": "846fc346a8428b51c13351e760e2366853299c14",
-   "licence": "MIT (LICENSE file at pin 846fc346a842, GitHub licence API 2026-11-06)",
+   "sha": "eb364c781dd95872b7a04c5080e14483d58b93b3",
+   "licence": "MIT (LICENSE file at pin eb364c781dd9, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T15:05Z",
     "consent_receipt": "2706e27298e2",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T15:05Z (receipt 2706e27298e2); pinned to the default-branch head. LICENSE file at pin 846fc346a842 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T15:05Z (receipt 2706e27298e2); pinned to the default-branch head. LICENSE file at pin eb364c781dd9 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

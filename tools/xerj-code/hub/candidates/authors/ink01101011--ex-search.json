@@ -1,0 +1,23 @@
+{
+ "corpus": "ink01101011--ex-search",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on exsorted, fuzzy, fuzzy-search queries this for how Ink01101011/ex-search implements it: Scoring-based fuzzy search with Myers Levenshtein distance and radix/tim sort ranking. Part of the ex-* ecosystem",
+ "repos": [
+  {
+   "repo": "ex-search",
+   "url": "https://github.com/Ink01101011/ex-search",
+   "sha": "69f0d79a048c08035f168e9e60eff135c64745c0",
+   "licence": "MIT (LICENSE file at pin 69f0d79a048c, GitHub licence API 2026-11-25)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T10:57Z",
+    "consent_receipt": "57b98aee5ea8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T10:57Z (receipt 57b98aee5ea8); pinned to the default-branch head. LICENSE file at pin 69f0d79a048c detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+   }
+  }
+ ]
+}

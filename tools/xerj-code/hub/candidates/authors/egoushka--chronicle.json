@@ -8,15 +8,15 @@
   {
    "repo": "chronicle",
    "url": "https://github.com/Egoushka/chronicle",
-   "sha": "af1c201771aea1409160860436bef081da8e012b",
-   "licence": "Apache-2.0 (LICENSE file at pin af1c201771ae, GitHub licence API 2026-11-11)",
+   "sha": "d51bd672719afaf169008ae7d8bd0b6e37d1d881",
+   "licence": "Apache-2.0 (LICENSE file at pin d51bd672719a, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "7b3501c79dfb",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 7b3501c79dfb); pinned to the default-branch head. LICENSE file at pin af1c201771ae detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 7b3501c79dfb); pinned to the default-branch head. LICENSE file at pin d51bd672719a detected as Apache-2.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

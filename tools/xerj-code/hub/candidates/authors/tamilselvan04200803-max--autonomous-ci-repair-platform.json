@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on autonomous-agents, benchmark, ci-cd queries this for how tamilselvan04200803-max/autonomous-ci-repair-platform implements it: Core Idea Aegis Forge = autonomous CI/CD repair system that fixes failed GitHub workflows and provides independent proof that the fix works. (selected work: benchmarks, scripts, examples)",
+ "domain": "an agent working on autonomous-agents, benchmark, ci-cd queries this for how tamilselvan04200803-max/autonomous-ci-repair-platform implements it: Evidence-gated autonomous CI repair platform: sandboxed reproduction, AST policy gate (P1-P8), hash-chained proof bundles, and hermetic benc (selected work: benchmarks, scripts, examples)",
  "repos": [
   {
    "repo": "autonomous-ci-repair-platform",
