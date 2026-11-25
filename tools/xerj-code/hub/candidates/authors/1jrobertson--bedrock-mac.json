@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on apple-silicon, dxmt, macos queries this for how 1JRobertson/bedrock-mac implements it: Experimental Windows Minecraft Bedrock launcher for Apple Silicon Macs using WineGDK and DXMT. CrossOver-free; source and build scripts only (selected work: file-pickers, tests, the project root)",
+ "domain": "an agent working on apple-silicon, dxmt, macos queries this for how 1JRobertson/bedrock-mac implements it: Run Minecraft for Windows (Bedrock) on Apple Silicon Macs. Open-source build targeting macOS 15+. Tested on an M1 Air. Xbox and PS5 LAN and  (selected work: file-pickers, tests, the project root)",
  "repos": [
   {
    "repo": "bedrock-mac",

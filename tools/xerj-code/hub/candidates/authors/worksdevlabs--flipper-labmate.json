@@ -1,9 +1,9 @@
 {
- "corpus": "sehmusadsoy-ui--flipper-labmate",
+ "corpus": "worksdevlabs--flipper-labmate",
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on flipper-app, flipperzero, flipperzero-app queries this for how sehmusadsoy-ui/flipper-labmate implements it: Flipper Zero digital signal toolkit with GPIO monitor, frequency meter, pulse analyzer and timer-based signal generator (selected work: src, scripts, the project root)",
+ "domain": "an agent working on flipper-app, flipperzero, flipperzero-app queries this for how WorksDevLabs/flipper-labmate implements it: Flipper Zero digital signal toolkit with GPIO monitor, frequency meter, pulse analyzer and timer-based signal generator (selected work: src, scripts, the project root)",
  "repos": [
   {
    "repo": "flipper-labmate",

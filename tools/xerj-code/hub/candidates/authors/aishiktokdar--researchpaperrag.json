@@ -8,15 +8,15 @@
   {
    "repo": "ResearchPaperRAG",
    "url": "https://github.com/AishikTokdar/ResearchPaperRAG",
-   "sha": "601b1c5799b431034ca438527a3a6cbcf668c66f",
-   "licence": "author's permission (LICENSE at pin 601b1c5799b4: NOASSERTION; repository: NOASSERTION)",
+   "sha": "dd34811c4c119201ce5a773d480c364ba08ca4b9",
+   "licence": "author's permission (LICENSE at pin dd34811c4c11: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T07:43Z",
     "consent_receipt": "8e501def023f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 8e501def023f); pinned to the default-branch head. LICENSE at pin 601b1c5799b4: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 8e501def023f); pinned to the default-branch head. LICENSE at pin dd34811c4c11: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

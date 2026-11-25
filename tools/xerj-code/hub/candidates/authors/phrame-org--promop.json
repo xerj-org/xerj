@@ -1,9 +1,9 @@
 {
- "corpus": "healthkey-ai--promop",
+ "corpus": "phrame-org--promop",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how healthkey-ai/promop implements it: Django/PostgreSQL project with models for OMOP+oncology plus a flat denormalized table to support fast clinical trial matching, clinical dec (selected work: frontend)",
+ "domain": "an agent working on Python queries this for how phrame-org/promop implements it: Django/PostgreSQL project with models for OMOP+oncology plus a flat denormalized table to support fast clinical trial matching, clinical dec (selected work: frontend)",
  "repos": [
   {
    "repo": "promop",

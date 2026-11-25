@@ -1,0 +1,23 @@
+{
+ "corpus": "vishalraghav0290--vishalraghav-protfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how vishalraghav0290/vishalRaghav-Protfolio implements it: My Potfolio sites (selected work: src/app, the project root)",
+ "repos": [
+  {
+   "repo": "vishalRaghav-Protfolio",
+   "url": "https://github.com/vishalraghav0290/vishalRaghav-Protfolio",
+   "sha": "0bf0bcfb2085c3f118896b0306bc839372c65e6a",
+   "licence": "MIT (LICENSE file at pin 0bf0bcfb2085, GitHub licence API 2026-11-25)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T17:56Z",
+    "consent_receipt": "d6a5d15e41f6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-25T17:56Z (receipt d6a5d15e41f6); selected commit 0bf0bcfb2085: \"Add MIT License, comprehensive SEO metadata, and LLM optimization (ll\u2026\". LICENSE file at pin 0bf0bcfb2085 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+   }
+  }
+ ]
+}
