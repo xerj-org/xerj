@@ -1,0 +1,23 @@
+{
+ "corpus": "andrraa--pi-antigravity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, antigravity, claude queries this for how andrraa/pi-antigravity implements it: Multi-account Antigravity & Google Cloud Code provider extension for Pi Coding Agent (selected work: test, src/account, the project root)",
+ "repos": [
+  {
+   "repo": "pi-antigravity",
+   "url": "https://github.com/andrraa/pi-antigravity",
+   "sha": "4e3d3c0b8b2e85a130a8eacdf85450a37427527d",
+   "licence": "MIT (LICENSE file at pin 4e3d3c0b8b2e, GitHub licence API 2026-10-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-20T02:46Z",
+    "consent_receipt": "c9fc38d7eea2",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T02:46Z (receipt c9fc38d7eea2); selected commit 4e3d3c0b8b2e: \"fix: refresh account quota tokens and add tests\". LICENSE file at pin 4e3d3c0b8b2e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

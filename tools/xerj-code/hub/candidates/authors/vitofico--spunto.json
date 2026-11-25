@@ -8,15 +8,15 @@
   {
    "repo": "spunto",
    "url": "https://github.com/vitofico/spunto",
-   "sha": "30dcdb5ce242a39112e1d71707a853d341ddd0cf",
-   "licence": "AGPL-3.0 (LICENSE file at pin 30dcdb5ce242, GitHub licence API 2026-11-25)",
+   "sha": "9725a2015847bb91e0e99cd236dd0b1084804e7e",
+   "licence": "AGPL-3.0 (LICENSE file at pin 9725a2015847, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-24T10:44Z",
     "consent_receipt": "5e895bdd3d56",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T10:44Z (receipt 5e895bdd3d56); pinned to the default-branch head. LICENSE file at pin 30dcdb5ce242 detected as AGPL-3.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T10:44Z (receipt 5e895bdd3d56); pinned to the default-branch head. LICENSE file at pin 9725a2015847 detected as AGPL-3.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

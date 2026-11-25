@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-red-team, generative-ai, red-team-tools queries this for how microsoft/PyRIT implements it: Open-source AI red teaming toolkit from Microsoft. Test generative AI systems with automated scans, adaptive multi-turn attacks, and a web U (selected work: tests, pyrit)",
+ "domain": "an agent working on ai-red-team, generative-ai, red-team-tools queries this for how microsoft/PyRIT implements it: Open-source AI red teaming toolkit from Microsoft. Test generative AI systems with automated scans, adaptive multi-turn attacks, and a web U (selected work: frontend, tests)",
  "repos": [
   {
    "repo": "PyRIT",
    "url": "https://github.com/microsoft/PyRIT",
-   "sha": "83719c5950d3fca71189f8ae06101475339781ea",
-   "licence": "MIT (LICENSE file at pin 83719c5950d3, GitHub licence API 2026-10-24)",
+   "sha": "921b5fd65c95e59a134297b1b8b9011b9f30839f",
+   "licence": "MIT (LICENSE file at pin 921b5fd65c95, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-16T23:39Z",
-    "consent_receipt": "e051c3f0127b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T23:39Z (receipt e051c3f0127b); selected commit 83719c5950d3: \"FEAT: Add LSBImageStegoConverter and LSBImageStegoDecodeConverter (#3\u2026\". LICENSE file at pin 83719c5950d3 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @microsoft, who has not added it."
+    "at": "2026-10-16T01:03Z",
+    "consent_receipt": "4bf216046883",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T01:03Z (receipt 4bf216046883); selected commit 921b5fd65c95: \"FEAT: Add dataset example table and seed detail view (#3163)\". LICENSE file at pin 921b5fd65c95 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @microsoft, who has not added it."
    },
    "paths": [
     "doc/code/converters",

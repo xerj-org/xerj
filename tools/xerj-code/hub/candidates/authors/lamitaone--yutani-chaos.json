@@ -8,15 +8,15 @@
   {
    "repo": "Yutani.CHAOS",
    "url": "https://github.com/LaMitaOne/Yutani.CHAOS",
-   "sha": "9d0f81905945f2f2d0e225c185a347d2fb400c32",
-   "licence": "MIT (LICENSE file at pin 9d0f81905945, GitHub licence API 2026-11-25)",
+   "sha": "66a187fc26d3c18a18b5fdc283813e70ebda112b",
+   "licence": "MIT (LICENSE file at pin 66a187fc26d3, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T18:06Z",
     "consent_receipt": "ad55db4203ea",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt ad55db4203ea); pinned to the default-branch head. LICENSE file at pin 9d0f81905945 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt ad55db4203ea); pinned to the default-branch head. LICENSE file at pin 66a187fc26d3 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

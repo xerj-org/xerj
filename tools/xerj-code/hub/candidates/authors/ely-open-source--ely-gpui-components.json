@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Rust queries this for how ELY-Open-Source/Ely-GPUI-Components implements it: ELY-Open-Source/Ely-GPUI-Components (Rust) (selected work: src/mail, examples)",
+ "domain": "an agent working on Rust queries this for how ELY-Open-Source/Ely-GPUI-Components implements it: 1,272 components for GPUI, the Rust UI framework behind Zed. Light and dark, live in the browser (selected work: src/mail, examples)",
  "repos": [
   {
    "repo": "Ely-GPUI-Components",
