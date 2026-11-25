@@ -1932,7 +1932,13 @@ pub struct LimitsConfig {
     ///   64 GiB ≤ effective < 128 GiB   → 16 GiB cap
     ///   effective ≥ 128 GiB            → 32 GiB cap
     ///
-    /// so a laptop is never sized for ~20 GiB of memtables and a big server is
+    /// That tier is then lowered to resident memory plus three quarters of
+    /// what is free right now (`MemAvailable`, and on Linux the cgroup
+    /// headroom `memory.max - memory.current` when that is tighter). A 16 GiB
+    /// box with 5 GiB free no longer keeps an 8 GiB cap and grows until the
+    /// OOM killer fires. The tier still wins when more than that is free, so
+    /// a quiet server is unchanged. An explicit `0` or `N` below does not
+    /// take this step. A laptop is never sized for ~20 GiB of memtables and a big server is
     /// no longer starved by a flat 8 GiB. A host under 16 GiB used to take the
     /// 8 GiB step and then the machine, so an 8 GiB box's budget was all of
     /// its RAM; half of RAM leaves room for the OS during a merge (#1122).
