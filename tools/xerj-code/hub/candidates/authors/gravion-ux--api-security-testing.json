@@ -8,15 +8,15 @@
   {
    "repo": "api-security-testing",
    "url": "https://github.com/gravion-ux/api-security-testing",
-   "sha": "9b8bf9d479f3ff299173bbe5f7b6e607249ae4e0",
-   "licence": "MIT (LICENSE file at pin 9b8bf9d479f3, GitHub licence API 2026-11-23)",
+   "sha": "7a6eab65577ed8d120151ec5fa9acd88ad0a85cf",
+   "licence": "MIT (LICENSE file at pin 7a6eab65577e, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "fecbdb1b262c",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt fecbdb1b262c); pinned to the default-branch head. LICENSE file at pin 9b8bf9d479f3 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt fecbdb1b262c); pinned to the default-branch head. LICENSE file at pin 7a6eab65577e detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

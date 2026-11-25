@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how CSSPLICE/splice-catalog implements it: CSSPLICE/splice-catalog (TypeScript) (selected work: tests, src/public, src/services)",
+ "domain": "an agent working on JavaScript queries this for how CSSPLICE/splice-catalog implements it: CSSPLICE/splice-catalog (JavaScript) (selected work: tests, src/public, src/services)",
  "repos": [
   {
    "repo": "splice-catalog",
