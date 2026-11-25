@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how JoShMiQueL/opencode-devin implements it: OpenCode v2 plugin: connect your Devin subscription to opencode with native /connect login and devin/* models (selected work: test, scripts, src/auth)",
+ "domain": "an agent working on devin-ecosystem queries this for how JoShMiQueL/opencode-devin implements it: OpenCode v2 plugin: connect your Devin subscription to opencode with native /connect login and devin/* models (selected work: test, scripts, src/auth)",
  "repos": [
   {
    "repo": "opencode-devin",
