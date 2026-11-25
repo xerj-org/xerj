@@ -8,15 +8,15 @@
   {
    "repo": "webapp-security-toolkit",
    "url": "https://github.com/gravion-ux/webapp-security-toolkit",
-   "sha": "8310c835fcf2231f03cb190f8775984992c43bfb",
-   "licence": "MIT (LICENSE file at pin 8310c835fcf2, GitHub licence API 2026-11-23)",
+   "sha": "e193bd808054b8e6a79ada5f6d67ab3fa0b2ec2c",
+   "licence": "MIT (LICENSE file at pin e193bd808054, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "bd32b1423e77",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt bd32b1423e77); pinned to the default-branch head. LICENSE file at pin 8310c835fcf2 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt bd32b1423e77); pinned to the default-branch head. LICENSE file at pin e193bd808054 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]
