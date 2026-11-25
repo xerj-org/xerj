@@ -134,6 +134,16 @@ pub enum LicenceClass {
     Excluded,
 }
 
+/// `approach-only licence (<spdx>): read, do not copy`: the one sentence every
+/// surface (`xerj ask`, the MCP hub tools with or without a node) puts on an
+/// approach-only hit and in the answer's warnings.
+pub fn approach_only_warning(spdx: &str) -> String {
+    format!(
+        "approach-only licence ({}): read, do not copy",
+        if spdx.is_empty() { "unknown" } else { spdx }
+    )
+}
+
 /// One corpus as the catalogue lists it. The client picks a corpus from this
 /// without downloading anything.
 #[derive(Serialize, Deserialize, Clone, Debug)]

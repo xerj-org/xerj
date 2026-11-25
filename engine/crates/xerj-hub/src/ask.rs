@@ -444,12 +444,10 @@ pub fn printable(s: &str) -> String {
     out.trim().to_string()
 }
 
-/// `approach-only licence (<spdx>): read, do not copy`.
+/// `approach-only licence (<spdx>): read, do not copy`
+/// ([`xerj_common::hub::approach_only_warning`]).
 pub fn approach_only_warning(spdx: &str) -> String {
-    format!(
-        "approach-only licence ({}): read, do not copy",
-        if spdx.is_empty() { "unknown" } else { spdx }
-    )
+    xerj_common::hub::approach_only_warning(spdx)
 }
 
 fn push_unique(list: &mut Vec<String>, line: String) {

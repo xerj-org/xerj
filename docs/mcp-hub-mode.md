@@ -222,9 +222,14 @@ Nothing here returns an empty result in place of a failure. As tool errors
 `InvalidPack`, `EntryExceedsCacheBudget`, `NoHubKey`, `EmptyQuery`, `CacheLock`,
 and `HubFetch` (the hub cannot be reached, answers an HTTP error, serves
 something that is not a catalogue, or a pack is over the 50 MB cap). A corpus
-marked `LicenceClass::ApproachOnly` attaches a `licence_warning` to every hit.
+marked `LicenceClass::ApproachOnly` attaches `approach-only licence (<spdx>):
+read, do not copy` (the sentence `xerj ask` uses) to every hit and once to the
+answer's warnings.
 A known corpus that simply has no definition of the symbol is an answer with no
-hits, as in the `xerj ask` flow, not an error.
+hits, as in the `xerj ask` flow, not an error. Some hub packs hold no definition
+records at all (`defs_count: 0` in `pack.json`, for example the `msgpack-c` pack
+at pin `1cdc1b66`, which indexes prose only); every definition lookup in one
+answers with no hits, and its file list still answers.
 
 ## Acceptance criteria of #2760
 

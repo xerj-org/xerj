@@ -50,10 +50,10 @@ use sha2::{Digest, Sha256};
 use crate::flock::{held_by, FileLock, LockError};
 use crate::fsio::write_file_durable;
 use crate::hub::{
-    catalogue_format_supported, hub_pubkey, render, Answer, AnswerMode, AnsweredFrom, Catalogue,
-    CatalogueEntry, DefRecord, Hit, LicenceClass, PackManifest, CATALOGUE_FORMAT_VERSION,
-    CATALOGUE_FORMAT_VERSION_MIN, DEFAULT_HUB_URL, DISK_BUDGET_BYTES, NO_HUB_KEY_MESSAGE,
-    PACK_FORMAT_VERSION,
+    approach_only_warning, catalogue_format_supported, hub_pubkey, render, Answer, AnswerMode,
+    AnsweredFrom, Catalogue, CatalogueEntry, DefRecord, Hit, LicenceClass, PackManifest,
+    CATALOGUE_FORMAT_VERSION, CATALOGUE_FORMAT_VERSION_MIN, DEFAULT_HUB_URL, DISK_BUDGET_BYTES,
+    NO_HUB_KEY_MESSAGE, PACK_FORMAT_VERSION,
 };
 
 /// Default per-session local-node reachability probe budget in milliseconds.
@@ -1599,10 +1599,7 @@ pub fn answer_from_pack(
 ) -> Result<PackAnswer, HubModeError> {
     let licence_warning = match entry.licence_class {
         LicenceClass::AdaptWithAttribution => None,
-        LicenceClass::ApproachOnly => Some(format!(
-            "approach-only licence ({}): read to understand the approach, do not copy verbatim",
-            entry.licence_spdx
-        )),
+        LicenceClass::ApproachOnly => Some(approach_only_warning(&entry.licence_spdx)),
         LicenceClass::Excluded => {
             return Err(HubModeError::ExcludedCorpusLicence {
                 slug: entry.slug.clone(),
@@ -1922,6 +1919,9 @@ impl HubFirstRouter {
         }
         warnings.extend(cat_resolved.warnings("catalogue"));
         warnings.extend(pack_resolved.warnings(&format!("corpus '{}'", entry.slug)));
+        if entry.licence_class == LicenceClass::ApproachOnly {
+            warnings.push(approach_only_warning(&entry.licence_spdx));
+        }
         if found.truncated {
             warnings.push(format!(
                 "output truncated to the best {} of {} matches; narrow the query",

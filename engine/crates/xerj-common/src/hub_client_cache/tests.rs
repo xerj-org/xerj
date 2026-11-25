@@ -1395,11 +1395,16 @@ fn excluded_corpora_are_never_fetched_and_approach_only_hits_carry_a_warning() {
             |_| Ok(hub.download(&gpl_archive)),
         )
         .unwrap();
-    assert!(ok.answer.hits[0]
-        .licence_warning
-        .as_deref()
-        .unwrap()
-        .contains("approach-only licence"));
+    // The `xerj ask` flow's sentence, on the hit and once in the answer's warnings.
+    let sentence = "approach-only licence (BSD-2-Clause): read, do not copy";
+    assert_eq!(ok.answer.hits[0].licence_warning.as_deref(), Some(sentence));
+    assert_eq!(
+        ok.answer.warnings.iter().filter(|w| *w == sentence).count(),
+        1,
+        "{:?}",
+        ok.answer.warnings
+    );
+    assert!(ok.rendered.contains(&format!("warning: {sentence}")));
 }
 
 #[test]
