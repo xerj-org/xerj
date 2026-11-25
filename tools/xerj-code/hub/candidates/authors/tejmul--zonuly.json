@@ -8,15 +8,15 @@
   {
    "repo": "Zonuly",
    "url": "https://github.com/Tejmul/Zonuly",
-   "sha": "6e33388a341502d5df0f9b5ecf166a8443ad0c9a",
-   "licence": "MIT (LICENSE file at pin 6e33388a3415, GitHub licence API 2026-11-23)",
+   "sha": "981f057896a707cac5738eba5b06a19c161acb3e",
+   "licence": "MIT (LICENSE file at pin 981f057896a7, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T22:57Z",
     "consent_receipt": "d993dd4c4bca",
-    "note": "Inclusion consented by the commit author by email at 2026-11-11T22:57Z (receipt d993dd4c4bca); selected commit 6e33388a3415: \"Pay is the bar, not DSA: a CSV needs proved \u20b920L, no guessed address \u2026\". LICENSE file at pin 6e33388a3415 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head 6e33388a3415 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T22:57Z (receipt d993dd4c4bca); selected commit 981f057896a7: \"Pay is the bar, not DSA: a CSV needs proved \u20b920L, no guessed address \u2026\". LICENSE file at pin 981f057896a7 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 981f057896a7 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

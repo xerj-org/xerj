@@ -1,0 +1,23 @@
+{
+ "corpus": "sagikazarmark--email-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on email, rust queries this for how sagikazarmark/email-rs implements it: Provider-neutral email sending for Rust",
+ "repos": [
+  {
+   "repo": "email-rs",
+   "url": "https://github.com/sagikazarmark/email-rs",
+   "sha": "25bbd6bfa2841d204fdeb1ed7364a3fd4cf2bc24",
+   "licence": "author's permission (LICENSE at pin 25bbd6bfa284: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T15:00Z",
+    "consent_receipt": "f9a6d8f70e8a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T15:00Z (receipt f9a6d8f70e8a); pinned to the default-branch head. LICENSE at pin 25bbd6bfa284: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

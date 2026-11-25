@@ -1,0 +1,23 @@
+{
+ "corpus": "sagikazarmark--ext-php-rs-nix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cross-compile, nix, php queries this for how sagikazarmark/ext-php-rs.nix implements it: Build PHP extensions written in Rust with ext-php-rs, with Nix",
+ "repos": [
+  {
+   "repo": "ext-php-rs.nix",
+   "url": "https://github.com/sagikazarmark/ext-php-rs.nix",
+   "sha": "aae71e30526df1393903cfe417ba4539c577db0c",
+   "licence": "MIT (LICENSE file at pin aae71e30526d, GitHub licence API 2026-11-25)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T15:00Z",
+    "consent_receipt": "4a9f6e7e5fa9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T15:00Z (receipt 4a9f6e7e5fa9); pinned to the default-branch head. LICENSE file at pin aae71e30526d detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+   }
+  }
+ ]
+}

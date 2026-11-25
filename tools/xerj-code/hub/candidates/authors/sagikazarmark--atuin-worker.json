@@ -1,0 +1,23 @@
+{
+ "corpus": "sagikazarmark--atuin-worker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on atuin, cloudflare-workers queries this for how sagikazarmark/atuin-worker implements it: Your own Atuin sync server on Cloudflare Workers",
+ "repos": [
+  {
+   "repo": "atuin-worker",
+   "url": "https://github.com/sagikazarmark/atuin-worker",
+   "sha": "8f40b3fa46d2a282deb4ba2bf35878b9b681c860",
+   "licence": "AGPL-3.0 (LICENSE file at pin 8f40b3fa46d2, GitHub licence API 2026-11-25)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-25T15:00Z",
+    "consent_receipt": "68dd14bc0e7d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T15:00Z (receipt 68dd14bc0e7d); pinned to the default-branch head. LICENSE file at pin 8f40b3fa46d2 detected as AGPL-3.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+   }
+  }
+ ]
+}

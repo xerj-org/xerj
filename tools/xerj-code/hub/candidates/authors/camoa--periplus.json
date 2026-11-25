@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, ai-agents, cli queries this for how camoa/periplus implements it: Map your code into one deterministic JSON graph, each link with its file and line. YAML rutters teach it any stack. For people and AI agents (selected work: src/periplus, scripts, tests)",
+ "domain": "an agent working on agent-skills, ai-agents, cli queries this for how camoa/periplus implements it: A deterministic, framework-aware semantic code graph, for people and AI agents. YAML rutters teach it any stack (selected work: src/periplus, scripts, tests)",
  "repos": [
   {
    "repo": "periplus",

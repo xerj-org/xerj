@@ -1,9 +1,9 @@
 {
- "corpus": "baney75--hildegard",
+ "corpus": "students-of-local--hildegard",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-studio, ai-video, comfyui queries this for how baney75/hildegard implements it: Your own AI studio on your own GPU: AI video, voice, characters and 3D, local and private. A free, open source alternative to Higgsfield and (selected work: packages/craft, skills)",
+ "domain": "an agent working on ai-studio, ai-video, comfyui queries this for how Students-of-Local/hildegard implements it: Your own AI studio on your own GPU: AI video, voice, characters and 3D, local and private. A free, open source alternative to Higgsfield and (selected work: packages/craft, skills)",
  "repos": [
   {
    "repo": "hildegard",

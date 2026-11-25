@@ -8,15 +8,15 @@
   {
    "repo": "qubes-win-idd-driver",
    "url": "https://github.com/arkenoi/qubes-win-idd-driver",
-   "sha": "39886d0750ffe8e6bbdc3bacbad3cf0661641621",
-   "licence": "author's permission (LICENSE at pin 39886d0750ff: NONE; repository: none)",
+   "sha": "75dd79c384597c26d0eb9ac12cefd8c804ab3408",
+   "licence": "author's permission (LICENSE at pin 75dd79c38459: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-18T14:45Z",
     "consent_receipt": "004b397257a1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T14:45Z (receipt 004b397257a1); pinned to the default-branch head. LICENSE at pin 39886d0750ff: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T14:45Z (receipt 004b397257a1); pinned to the default-branch head. LICENSE at pin 75dd79c38459: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

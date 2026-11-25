@@ -1,0 +1,23 @@
+{
+ "corpus": "sagikazarmark--allama",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how sagikazarmark/allama implements it: Low-level, provider-agnostic AI abstractions for Rust",
+ "repos": [
+  {
+   "repo": "allama",
+   "url": "https://github.com/sagikazarmark/allama",
+   "sha": "2e1778309b5f45461fb7ae1dbb6de8cbdd68011f",
+   "licence": "author's permission (LICENSE at pin 2e1778309b5f: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T15:00Z",
+    "consent_receipt": "9368e9fd2eab",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T15:00Z (receipt 9368e9fd2eab); pinned to the default-branch head. LICENSE at pin 2e1778309b5f: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude-code, claude-code-mod, status-line queries this for how accodev/hairline implements it: A highly opinionated claude code status bar, using the new mod API - high refresh rate and satisfying animations (selected work: pi)",
+ "domain": "an agent working on claude-code, claude-code-mod, status-line queries this for how accodev/hairline implements it: A highly opinionated status line for Claude Code and Pi, using the mod API: high refresh rate and satisfying animations (selected work: pi)",
  "repos": [
   {
    "repo": "hairline",
