@@ -6032,6 +6032,21 @@ pub(crate) fn is_calendar_interval(interval: &str) -> bool {
     )
 }
 
+/// True when the interval uses a calendar-only unit (month, quarter,
+/// year). ES rejects those as `fixed_interval` values: a fixed interval
+/// must be a multiple of SI units. Only the unit matters, so `2M` is
+/// rejected like `1M`, while `1ms` (unit `ms`) and `1m` (minute) pass.
+pub(crate) fn fixed_interval_is_calendar_only(interval: &str) -> bool {
+    let t = interval.trim();
+    if matches!(t, "month" | "quarter" | "year") {
+        return true;
+    }
+    let Some(idx) = t.find(|c: char| c.is_alphabetic()) else {
+        return false;
+    };
+    matches!(&t[idx..], "M" | "q" | "y")
+}
+
 pub(crate) fn calendar_bucket_key(ts_ms: i64, interval: &str) -> i64 {
     let dt = chrono::DateTime::from_timestamp_millis(ts_ms).unwrap_or_default();
     let naive = dt.naive_utc();
@@ -6256,7 +6271,15 @@ fn run_date_histogram(
     };
 
     // Accept both `fixed_interval` and `calendar_interval` (ES 8.x naming)
-    // as well as the legacy `interval` key.
+    // as well as the legacy `interval` key. Which key supplied the
+    // interval matters, not just its string: a fixed interval buckets on
+    // the epoch-anchored SI grid, while the same string as a calendar
+    // interval rounds to local boundaries (#3344). The legacy `interval`
+    // key keeps its existing calendar treatment.
+    let from_fixed = params
+        .get("fixed_interval")
+        .and_then(Value::as_str)
+        .is_some();
     let interval_str = params
         .get("fixed_interval")
         .or_else(|| params.get("calendar_interval"))
@@ -6264,12 +6287,24 @@ fn run_date_histogram(
         .and_then(Value::as_str)
         .unwrap_or("1d");
 
+    // ES rejects month, quarter and year as `fixed_interval` values:
+    // those are calendar-only intervals.
+    if from_fixed && fixed_interval_is_calendar_only(interval_str) {
+        return json!({
+            "error": format!(
+                "fixed_interval '{}' is not supported: month, quarter and year are calendar-only intervals, use calendar_interval instead",
+                interval_str
+            ),
+            "__error_status__": 400u32,
+        });
+    }
+
     let interval_ms = match interval_to_ms(interval_str) {
         Some(ms) => ms,
         None => return json!({"error": format!("unknown interval '{}'", interval_str)}),
     };
 
-    let use_calendar = is_calendar_interval(interval_str);
+    let use_calendar = !from_fixed && is_calendar_interval(interval_str);
 
     let tz_str = params
         .get("time_zone")
@@ -6362,6 +6397,15 @@ fn run_date_histogram(
         utc
     };
 
+    // Fixed intervals bucket on a fixed SI grid: the zone offset is taken
+    // at the instant being bucketed, so bucket starts stay exactly
+    // interval_ms apart in UTC across a DST transition (#3344). Calendar
+    // intervals keep `to_utc`, which resolves the offset at the rounded
+    // instant so local midnights land on the right UTC instant.
+    let to_utc_fixed = |local_bucket: i64, reference_ts: i64| -> i64 {
+        local_bucket - shift_at(reference_ts) + offset_ms
+    };
+
     for (i, doc) in docs.iter().enumerate() {
         // Multi-valued date fields contribute one entry per distinct bucket.
         let mut raws = extract_date_ms_values(doc, field);
@@ -6381,12 +6425,11 @@ fn run_date_histogram(
         let mut seen: Vec<i64> = Vec::with_capacity(raws.len() + ranges.len());
         for ts_ms in raws {
             let local_ts = to_local(ts_ms);
-            let local_bucket = if use_calendar {
-                calendar_bucket_key(local_ts, interval_str)
+            let bucket_key = if use_calendar {
+                to_utc(calendar_bucket_key(local_ts, interval_str))
             } else {
-                local_ts.div_euclid(interval_ms) * interval_ms
+                to_utc_fixed(local_ts.div_euclid(interval_ms) * interval_ms, ts_ms)
             };
-            let bucket_key = to_utc(local_bucket);
             // Apply hard_bounds (inclusive on both ends — ES semantics).
             if let Some(m) = hard_min {
                 if bucket_key < m {
@@ -6424,7 +6467,14 @@ fn run_date_histogram(
                 if guard > 65_536 {
                     break;
                 }
-                let bucket_key = to_utc(local_bucket);
+                // Fixed ranges walk the uniform grid anchored at the range
+                // start, so every bucket stays exactly interval_ms from
+                // the previous one in UTC.
+                let bucket_key = if use_calendar {
+                    to_utc(local_bucket)
+                } else {
+                    to_utc_fixed(local_bucket, start_anchor)
+                };
                 // Stop once the bucket's start is at/after the range's upper bound
                 // — no more intersection possible.
                 if bucket_key >= end_anchor {
@@ -6441,7 +6491,11 @@ fn run_date_histogram(
                 } else {
                     local_bucket + interval_ms
                 };
-                let next_key = to_utc(next_local);
+                let next_key = if use_calendar {
+                    to_utc(next_local)
+                } else {
+                    to_utc_fixed(next_local, start_anchor)
+                };
                 if next_key > start_anchor {
                     if let Some(m) = hard_min {
                         if bucket_key < m {
@@ -6510,7 +6564,11 @@ fn run_date_histogram(
         } else {
             local_m.div_euclid(interval_ms) * interval_ms
         };
-        let key = ext_bound_to_utc(b);
+        let key = if use_calendar {
+            ext_bound_to_utc(b)
+        } else {
+            to_utc_fixed(b, m)
+        };
         range_min = Some(range_min.map_or(key, |k| k.min(key)));
         range_max = Some(range_max.map_or(key, |k| k.max(key)));
     }
@@ -6521,7 +6579,11 @@ fn run_date_histogram(
         } else {
             local_m.div_euclid(interval_ms) * interval_ms
         };
-        let key = ext_bound_to_utc(b);
+        let key = if use_calendar {
+            ext_bound_to_utc(b)
+        } else {
+            to_utc_fixed(b, m)
+        };
         range_min = Some(range_min.map_or(key, |k| k.min(key)));
         range_max = Some(range_max.map_or(key, |k| k.max(key)));
     }
@@ -6534,7 +6596,11 @@ fn run_date_histogram(
         } else {
             local_m.div_euclid(interval_ms) * interval_ms
         };
-        let key = to_utc(b);
+        let key = if use_calendar {
+            to_utc(b)
+        } else {
+            to_utc_fixed(b, m)
+        };
         range_min = Some(range_min.map_or(key, |k| k.max(key)));
     }
     if let Some(m) = hard_max {
@@ -6546,7 +6612,11 @@ fn run_date_histogram(
         } else {
             local_m.div_euclid(interval_ms) * interval_ms
         };
-        let key = to_utc(b);
+        let key = if use_calendar {
+            to_utc(b)
+        } else {
+            to_utc_fixed(b, m)
+        };
         range_max = Some(range_max.map_or(key, |k| k.min(key)));
     }
 
@@ -7313,6 +7383,23 @@ fn run_filters(
 /// (must/filter/must_not/should). Unknown clause types are NOT a match
 /// (#959); clauses the query parser rejects are surfaced as an error at
 /// run_filter/run_filters entry instead.
+/// #3533: true when `field` is an unmapped leaf sub-field under the schema
+/// the current agg filter runs against (see `FILTER_SCHEMA`). A term-level
+/// filter leaf on such a field names a field that does not exist, so it
+/// matches nothing in ES (`extract_field_values` would otherwise strip the
+/// suffix and read the parent value. A declared multi-field is not unmapped
+/// and keeps matching. With no schema in scope this is false; with a live
+/// schema it fires for dynamically mapped parents too, which is why
+/// `fast_aggs_multifield_suffix`'s brute leg moved to 0 for filter leaves
+/// on `<field>.raw` (see the #3533 note there).
+fn filter_field_is_unmapped_leaf_subfield(field: &str) -> bool {
+    FILTER_SCHEMA.with(|cell| {
+        cell.borrow()
+            .as_ref()
+            .is_some_and(|s| crate::index::is_unmapped_leaf_subfield(s, field))
+    })
+}
+
 pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
     let obj = match filter.as_object() {
         Some(o) => o,
@@ -7325,6 +7412,10 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "term" => {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, expected) in field_map {
+                        // #3533: an unmapped leaf sub-field matches nothing.
+                        if filter_field_is_unmapped_leaf_subfield(field) {
+                            return false;
+                        }
                         let actual_values = extract_field_values(doc, field);
                         let expected_str = match expected {
                             Value::Object(o) => o.get("value").map(value_to_string),
@@ -7341,6 +7432,10 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "terms" => {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, expected_vals) in field_map {
+                        // #3533: an unmapped leaf sub-field matches nothing.
+                        if filter_field_is_unmapped_leaf_subfield(field) {
+                            return false;
+                        }
                         if let Some(arr) = expected_vals.as_array() {
                             let expected_strs: Vec<String> =
                                 arr.iter().map(value_to_string).collect();
@@ -7459,6 +7554,10 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "regexp" => {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, expected) in field_map {
+                        // #3533: an unmapped leaf sub-field matches nothing.
+                        if filter_field_is_unmapped_leaf_subfield(field) {
+                            return false;
+                        }
                         let actual_values = extract_field_values(doc, field);
                         let (pattern, case_insensitive) = match expected {
                             Value::Object(o) => (
@@ -7500,6 +7599,10 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "exists" => {
                 // exists: {"field": "price"} — match docs that have the field.
                 if let Some(field) = query_body.get("field").and_then(Value::as_str) {
+                    // #3533: an unmapped leaf sub-field has no value of its own.
+                    if filter_field_is_unmapped_leaf_subfield(field) {
+                        return false;
+                    }
                     // #1260: a field whose value is directly an OBJECT counts
                     // as present.  `extract_field_values` flattens objects to
                     // `[]` while the query path's `value_present`
@@ -7518,6 +7621,10 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "range" => {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, bounds) in field_map {
+                        // #3533: an unmapped leaf sub-field matches nothing.
+                        if filter_field_is_unmapped_leaf_subfield(field) {
+                            return false;
+                        }
                         let values = extract_field_values(doc, field);
                         if values.is_empty() {
                             return false;
@@ -8579,6 +8686,38 @@ fn run_composite(
         return json!({"buckets": []});
     }
 
+    // A fixed interval in a composite source rejects calendar-only units,
+    // exactly like a top-level date_histogram (#3344).
+    for (_, src_type, _, src_params) in &source_defs {
+        if src_type != "date_histogram" {
+            continue;
+        }
+        let from_fixed = src_params
+            .get("calendar_interval")
+            .and_then(Value::as_str)
+            .is_none()
+            && src_params
+                .get("fixed_interval")
+                .and_then(Value::as_str)
+                .is_some();
+        if !from_fixed {
+            continue;
+        }
+        let interval_str = src_params
+            .get("fixed_interval")
+            .and_then(Value::as_str)
+            .unwrap_or("1d");
+        if fixed_interval_is_calendar_only(interval_str) {
+            return json!({
+                "error": format!(
+                    "fixed_interval '{}' is not supported: month, quarter and year are calendar-only intervals, use calendar_interval instead",
+                    interval_str
+                ),
+                "__error_status__": 400u32,
+            });
+        }
+    }
+
     // Collect composite keys from each document.
     // A composite key is a tuple of string values — one per source.
     let mut bucket_map: HashMap<Vec<String>, Vec<usize>> = HashMap::new();
@@ -8620,8 +8759,22 @@ fn run_composite(
                         .and_then(Value::as_str)
                         .or_else(|| src_params.get("fixed_interval").and_then(Value::as_str))
                         .or_else(|| src_params.get("interval").and_then(Value::as_str));
+                    // Same string-only trap as the top-level path: whether
+                    // the interval came from `fixed_interval` decides the
+                    // grid (#3344). The lookup above prefers
+                    // `calendar_interval`, so a source is fixed only when
+                    // no calendar interval is present.
+                    let from_fixed = src_params
+                        .get("calendar_interval")
+                        .and_then(Value::as_str)
+                        .is_none()
+                        && src_params
+                            .get("fixed_interval")
+                            .and_then(Value::as_str)
+                            .is_some();
                     let interval_ms = interval_str.and_then(interval_to_ms).unwrap_or(86_400_000);
-                    let use_calendar = interval_str.map(is_calendar_interval).unwrap_or(false);
+                    let use_calendar =
+                        !from_fixed && interval_str.map(is_calendar_interval).unwrap_or(false);
                     // `offset` accepts either a string duration (`"4h"`,
                     // `"-1d"`) or a raw ms integer. Parse both.
                     let offset_ms = match src_params.get("offset") {
@@ -11625,10 +11778,22 @@ fn run_auto_date_histogram(
     };
 
     // Delegate to the regular date_histogram logic with the chosen interval.
-    let mut synthetic_params = serde_json::json!({
-        "field": field,
-        "fixed_interval": interval_label,
-    });
+    // The `1y` rung is a calendar year, not a 365-day fixed grid: ES's
+    // auto ladder rounds years on the calendar, and `fixed_interval`
+    // rejects year as a calendar-only unit (#3344). Every other rung is a
+    // fixed SI interval and keeps the epoch grid. The reported `interval`
+    // label stays `1y` either way.
+    let mut synthetic_params = if interval_label == "1y" {
+        serde_json::json!({
+            "field": field,
+            "calendar_interval": interval_label,
+        })
+    } else {
+        serde_json::json!({
+            "field": field,
+            "fixed_interval": interval_label,
+        })
+    };
     if !offset_str.is_empty() {
         synthetic_params
             .as_object_mut()
@@ -16255,6 +16420,90 @@ mod tests {
             AggLimits { max_buckets: 3 },
         );
         assert_eq!(ok["t"]["buckets"].as_array().map(Vec::len), Some(3), "{ok}");
+    }
+
+    /// Fixed intervals are epoch-anchored, `bucket_key =
+    /// floor(value / interval) * interval`. 1970-01-01 was a Thursday, so
+    /// a fixed `1w` grid starts on Thursdays; a calendar `1w` starts on
+    /// Mondays. The doc here is Monday 2026-11-16T12:00:00Z, so ES puts
+    /// it in the bucket starting Thursday 2026-11-12T00:00:00Z
+    /// (1794441600000), not the calendar week starting Monday
+    /// 2026-11-16 (1794787200000). Regression test for #3344.
+    #[test]
+    fn fixed_interval_week_is_epoch_anchored_not_calendar() {
+        let docs = vec![json!({ "ts": 1794830400000i64 })];
+        let agg = json!({
+            "h": { "date_histogram": { "field": "ts", "fixed_interval": "1w" } }
+        });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["h"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 1, "one bucket expected, got {result}");
+        assert_eq!(
+            buckets[0]["key"], 1794441600000i64,
+            "fixed 1w bucket must start Thu 2026-11-12, got {result}"
+        );
+    }
+
+    /// Same fixed-vs-calendar confusion on a DST day. The doc is
+    /// 2026-10-25T22:30:00Z, the night Europe/Berlin falls back (25-hour
+    /// local day). A fixed `1d` grid is 24 hours, so with the +01:00
+    /// offset in force at the doc instant the bucket starts
+    /// 2026-10-24T23:00:00Z (1792882800000). The calendar day starts at
+    /// local midnight, 2026-10-24T22:00:00Z (1792879200000).
+    /// Regression test for #3344.
+    #[test]
+    fn fixed_interval_day_across_dst_is_24h_not_calendar() {
+        let docs = vec![json!({ "ts": 1792967400000i64 })];
+        let agg = json!({
+            "h": { "date_histogram": {
+                "field": "ts", "fixed_interval": "1d", "time_zone": "Europe/Berlin"
+            } }
+        });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["h"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 1, "one bucket expected, got {result}");
+        assert_eq!(
+            buckets[0]["key"], 1792882800000i64,
+            "fixed 1d bucket across the DST fallback must start 2026-10-24T23:00:00Z, got {result}"
+        );
+    }
+
+    /// ES rejects month, quarter and year as `fixed_interval` values:
+    /// those are calendar-only intervals. Regression test for #3344.
+    #[test]
+    fn fixed_interval_rejects_calendar_only_units() {
+        let docs = vec![json!({ "ts": 1794830400000i64 })];
+        for interval in ["1M", "1q", "1y", "month", "quarter", "year"] {
+            let agg = json!({
+                "h": { "date_histogram": { "field": "ts", "fixed_interval": interval } }
+            });
+            let result = run_aggs(&agg, &docs);
+            let err = result["h"]["error"].as_str().unwrap_or_default();
+            assert!(
+                err.contains("fixed_interval"),
+                "fixed_interval {interval} must be rejected, got {result}"
+            );
+        }
+    }
+
+    /// The composite `date_histogram` source has the same string-only
+    /// interval lookup: a fixed `1w` there must also bucket on the
+    /// epoch-anchored grid. Regression test for #3344.
+    #[test]
+    fn composite_fixed_interval_week_is_epoch_anchored_not_calendar() {
+        let docs = vec![json!({ "ts": 1794830400000i64 })];
+        let agg = json!({
+            "c": { "composite": { "sources": [
+                { "w": { "date_histogram": { "field": "ts", "fixed_interval": "1w" } } }
+            ] } }
+        });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["c"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 1, "one bucket expected, got {result}");
+        assert_eq!(
+            buckets[0]["key"]["w"], 1794441600000i64,
+            "composite fixed 1w bucket must start Thu 2026-11-12, got {result}"
+        );
     }
 }
 

@@ -4742,6 +4742,150 @@ mod oversized_update {
     }
 }
 
+#[cfg(test)]
+mod deep_update_path {
+    use super::*;
+    use axum::body::{to_bytes, Body};
+    use axum::http::Request;
+    use tower::ServiceExt;
+    use xerj_common::config::{Config, WalSync};
+    use xerj_common::metrics::Metrics;
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    /// A deeply nested `ctx._source` path must be refused with a 400, not
+    /// abort the process. One update statement builds one nested object per
+    /// path segment, and the resulting document is then walked recursively
+    /// by FTS analysis, serialisation and `Value` drop, so an unbounded
+    /// path is a stack overflow on the request thread (release profile:
+    /// `panic = "abort"`).
+    #[tokio::test]
+    async fn deep_update_path_is_refused_not_fatal() {
+        let app = crate::router::build_es_compat_router(test_state());
+        let created = app
+            .clone()
+            .oneshot(
+                Request::put("/upddeep/_doc/1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"n":1}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(created.status(), StatusCode::CREATED);
+
+        // 200,000 segments: ~400 KiB of script, far under the 16 MiB update
+        // body envelope, far past any worker stack.
+        let deep_path = "a.".repeat(200_000);
+        let script = format!("ctx._source.{deep_path}a = 1");
+        let body = serde_json::json!({ "script": script }).to_string();
+        let updated = app
+            .clone()
+            .oneshot(
+                Request::post("/upddeep/_update/1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(updated.status(), StatusCode::BAD_REQUEST);
+        let bytes = to_bytes(updated.into_body(), usize::MAX).await.unwrap();
+        let text = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(text.contains("too deep"), "{text}");
+
+        // The document is unchanged: the refused update wrote nothing.
+        let fetched = app
+            .oneshot(Request::get("/upddeep/_doc/1").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(fetched.status(), StatusCode::OK);
+        let bytes = to_bytes(fetched.into_body(), usize::MAX).await.unwrap();
+        let doc: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(doc["_source"], json!({"n": 1}));
+    }
+
+    /// The cap is a boundary, not a wall at zero: a path at the cap applies,
+    /// one segment past it is refused with a 400.
+    #[tokio::test]
+    async fn update_path_depth_boundary_is_enforced() {
+        let app = crate::router::build_es_compat_router(test_state());
+        let created = app
+            .clone()
+            .oneshot(
+                Request::put("/updbound/_doc/1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"n":1}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(created.status(), StatusCode::CREATED);
+
+        // 64 segments: at the cap, applies.
+        let at_cap = format!("ctx._source.{}a = 7", "a.".repeat(63));
+        let ok = app
+            .clone()
+            .oneshot(
+                Request::post("/updbound/_update/1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({ "script": at_cap }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(ok.status(), StatusCode::OK);
+
+        // 65 segments: one past the cap, refused.
+        let past_cap = format!("ctx._source.{}a = 7", "a.".repeat(64));
+        let refused = app
+            .clone()
+            .oneshot(
+                Request::post("/updbound/_update/1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({ "script": past_cap }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
+        let bytes = to_bytes(refused.into_body(), usize::MAX).await.unwrap();
+        let text = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(text.contains("too deep"), "{text}");
+
+        // The at-cap update landed: walk the 64-deep path to the leaf.
+        let fetched = app
+            .oneshot(
+                Request::get("/updbound/_doc/1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(fetched.status(), StatusCode::OK);
+        let bytes = to_bytes(fetched.into_body(), usize::MAX).await.unwrap();
+        let doc: Value = serde_json::from_slice(&bytes).unwrap();
+        let mut cur = &doc["_source"];
+        for _ in 0..64 {
+            cur = &cur["a"];
+        }
+        assert_eq!(cur, &json!(7));
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /{index}/_doc/{id}?_source_includes=f1,f2&_source_excludes=f3
 // ─────────────────────────────────────────────────────────────────────────────
@@ -7984,6 +8128,270 @@ fn finalize_leaf_terms_summaries(
     }
 }
 
+/// Post-merge finalize for non-leaf `terms` and `multi_terms` aggs.
+///
+/// The bounded leaf-terms path (#2957) finalizes order/size only for plain
+/// leaf terms. A terms agg with a child agg, a metric order, or a script,
+/// and every `multi_terms` agg, fall through to `merge_bucket_agg`, which
+/// re-sorts count-desc and never re-applies the requested order or size.
+/// This mirrors `finalize_leaf_terms_summaries` for those aggs: re-apply
+/// `min_doc_count`, re-sort by the request's `order`, truncate to `size`,
+/// and recompute `sum_other_doc_count` from the dropped buckets. Aggs
+/// already finalized by the leaf path (passed in `leaf_names`) are skipped.
+/// Keyed (`keyed: true`) bucket objects are left as merged.
+fn finalize_terms_aggs(results: &mut Value, request: &Value, leaf_names: &[String]) {
+    let (Some(results), Some(request)) = (results.as_object_mut(), request.as_object()) else {
+        return;
+    };
+    for (name, spec) in request {
+        let Some(result) = results.get_mut(name) else {
+            continue;
+        };
+        if let Some(params) = spec.get("terms").or_else(|| spec.get("multi_terms")) {
+            if !leaf_names.iter().any(|n| n == name) {
+                finalize_terms_result(result, params, spec.get("multi_terms").is_some());
+            }
+        }
+        if let Some(nested) = spec.get("aggs").or_else(|| spec.get("aggregations")) {
+            if let Some(buckets) = result.get_mut("buckets") {
+                match buckets {
+                    Value::Array(buckets) => {
+                        for bucket in buckets {
+                            finalize_terms_aggs(bucket, nested, leaf_names);
+                        }
+                    }
+                    Value::Object(buckets) => {
+                        for bucket in buckets.values_mut() {
+                            finalize_terms_aggs(bucket, nested, leaf_names);
+                        }
+                    }
+                    _ => {}
+                }
+            } else {
+                finalize_terms_aggs(result, nested, leaf_names);
+            }
+        }
+    }
+}
+
+fn finalize_terms_result(result: &mut Value, params: &Value, is_multi: bool) {
+    if result.get("error").is_some() {
+        return;
+    }
+    let merged_other = result
+        .get("sum_other_doc_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let merged_error = result
+        .get("doc_count_error_upper_bound")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let Some(rows) = result.get_mut("buckets").and_then(Value::as_array_mut) else {
+        return;
+    };
+    let minimum = params
+        .get("min_doc_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(1);
+    rows.retain(|b| b["doc_count"].as_u64().unwrap_or(0) >= minimum);
+    let orders = terms_orders(params);
+    rows.sort_by(|a, b| cmp_terms_buckets(a, b, &orders, is_multi, params));
+    let size = params.get("size").and_then(Value::as_u64).unwrap_or(10);
+    let size = if size == 0 {
+        usize::MAX
+    } else {
+        usize::try_from(size).unwrap_or(usize::MAX)
+    };
+    let other = rows.iter().skip(size).try_fold(merged_other, |sum, b| {
+        sum.checked_add(b["doc_count"].as_u64().unwrap_or(0))
+    });
+    rows.truncate(size);
+    let Some(other) = other else {
+        *result = json!({"error":"terms document count overflow","__error_status__":400});
+        return;
+    };
+    // Only a count-descending list has a meaningful bound: an unseen term
+    // has at most the last count each cutting index returned.
+    let count_desc = orders
+        .first()
+        .is_some_and(|(key, asc)| key == "_count" && !asc);
+    result["sum_other_doc_count"] = json!(other);
+    result["doc_count_error_upper_bound"] = json!(if count_desc { merged_error } else { 0 });
+}
+
+/// Parse a terms `order` the way the engine does (`order_entries` in
+/// `xerj-engine/src/aggs.rs`): an object or an array of objects mapping
+/// `_count`, `_key`, a sub-agg path, or (for `multi_terms`) a term field
+/// name to `asc`/`desc`. Anything else is ignored; an empty list means
+/// the ES default (count desc, key asc), handled by the comparator.
+fn terms_orders(params: &Value) -> Vec<(String, bool)> {
+    let mut out: Vec<(String, bool)> = Vec::new();
+    let mut push = |o: &serde_json::Map<String, Value>| {
+        for (k, v) in o {
+            out.push((k.clone(), v.as_str() == Some("asc")));
+        }
+    };
+    match params.get("order") {
+        Some(Value::Object(o)) => push(o),
+        Some(Value::Array(arr)) => {
+            for item in arr {
+                if let Some(o) = item.as_object() {
+                    push(o);
+                }
+            }
+        }
+        _ => {}
+    }
+    out
+}
+
+fn cmp_terms_buckets(
+    a: &Value,
+    b: &Value,
+    orders: &[(String, bool)],
+    is_multi: bool,
+    params: &Value,
+) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    if orders.is_empty() {
+        // ES default: count desc, key asc.
+        return b["doc_count"]
+            .as_u64()
+            .cmp(&a["doc_count"].as_u64())
+            .then_with(|| cmp_terms_keys(a, b, is_multi));
+    }
+    for (path, asc) in orders {
+        let ord = match path.as_str() {
+            "_count" => a["doc_count"].as_u64().cmp(&b["doc_count"].as_u64()),
+            "_key" => cmp_terms_keys(a, b, is_multi),
+            other => {
+                if is_multi {
+                    if let Some(idx) = multi_terms_field_index(params, other) {
+                        let (ka, kb) = (
+                            a.get("key").unwrap_or(&Value::Null),
+                            b.get("key").unwrap_or(&Value::Null),
+                        );
+                        compare_leaf_terms_keys(
+                            ka.as_array()
+                                .and_then(|p| p.get(idx))
+                                .unwrap_or(&Value::Null),
+                            kb.as_array()
+                                .and_then(|p| p.get(idx))
+                                .unwrap_or(&Value::Null),
+                        )
+                    } else {
+                        let va = lookup_terms_metric(a, other);
+                        let vb = lookup_terms_metric(b, other);
+                        va.partial_cmp(&vb).unwrap_or(Ordering::Equal)
+                    }
+                } else {
+                    let va = lookup_terms_metric(a, other);
+                    let vb = lookup_terms_metric(b, other);
+                    va.partial_cmp(&vb).unwrap_or(Ordering::Equal)
+                }
+            }
+        };
+        let ord = if *asc { ord } else { ord.reverse() };
+        if ord != Ordering::Equal {
+            return ord;
+        }
+    }
+    // Final tiebreaker on key.
+    cmp_terms_keys(a, b, is_multi)
+}
+
+fn cmp_terms_keys(a: &Value, b: &Value, is_multi: bool) -> std::cmp::Ordering {
+    let (ka, kb) = (
+        a.get("key").unwrap_or(&Value::Null),
+        b.get("key").unwrap_or(&Value::Null),
+    );
+    if is_multi {
+        let (Some(aa), Some(bb)) = (ka.as_array(), kb.as_array()) else {
+            return compare_leaf_terms_keys(ka, kb);
+        };
+        for (x, y) in aa.iter().zip(bb.iter()) {
+            let ord = compare_leaf_terms_keys(x, y);
+            if ord != std::cmp::Ordering::Equal {
+                return ord;
+            }
+        }
+        return aa.len().cmp(&bb.len());
+    }
+    compare_leaf_terms_keys(ka, kb)
+}
+
+fn multi_terms_field_index(params: &Value, name: &str) -> Option<usize> {
+    params
+        .get("terms")?
+        .as_array()?
+        .iter()
+        .position(|t| t.get("field").and_then(Value::as_str) == Some(name))
+}
+
+/// Resolve a dotted/`>`-separated metric path against a bucket's sub-aggs
+/// into a numeric value. Port of `lookup_agg_metric` in
+/// `xerj-engine/src/aggs.rs`: `<agg_name>`, `<agg_name>.value`,
+/// `<agg_name>.values.<pct>`, nested bucket paths
+/// `<bucket_agg>><metric_agg>`, and keyed percentile lookups. Missing
+/// sorts as -inf, so it lands first on asc, last on desc.
+fn lookup_terms_metric(bucket: &Value, path: &str) -> f64 {
+    let normalized = path.replace('>', ".");
+    let mut cur: &Value = bucket;
+    for seg in normalized.split('.').filter(|s| !s.is_empty()) {
+        match cur.get(seg) {
+            Some(v) => cur = v,
+            None => {
+                return lookup_keyed_terms_metric(bucket, path).unwrap_or(f64::NEG_INFINITY);
+            }
+        }
+    }
+    if let Some(v) = cur.get("value") {
+        if let Some(f) = v.as_f64() {
+            return f;
+        }
+    }
+    cur.as_f64()
+        .or_else(|| lookup_keyed_terms_metric(bucket, path))
+        .unwrap_or(f64::NEG_INFINITY)
+}
+
+fn lookup_keyed_terms_metric(root: &Value, path: &str) -> Option<f64> {
+    let (chain, last) = match path.rsplit_once('>') {
+        Some((chain, last)) => (Some(chain), last),
+        None => (None, path),
+    };
+    let mut cur = root;
+    for name in chain.into_iter().flat_map(|c| c.split('>')) {
+        cur = cur.get(name)?;
+    }
+    let (name, key) = match last.split_once('[') {
+        Some((name, rest)) => (name, rest.strip_suffix(']')?),
+        None => last.split_once('.')?,
+    };
+    let agg = cur.get(name)?;
+    if let Some(f) = agg.get(key).and_then(Value::as_f64) {
+        return Some(f);
+    }
+    let want = key.parse::<f64>().ok();
+    let same_key = |k: &str| want.is_some() && k.parse::<f64>().ok() == want;
+    match agg.get("values")? {
+        Value::Object(values) => values
+            .get(key)
+            .or_else(|| values.iter().find(|(k, _)| same_key(k)).map(|(_, v)| v))
+            .and_then(Value::as_f64),
+        Value::Array(entries) => entries
+            .iter()
+            .find(|e| match e.get("key") {
+                Some(Value::String(k)) => same_key(k),
+                Some(k) => k.as_f64().is_some() && k.as_f64() == want,
+                None => false,
+            })
+            .and_then(|e| e.get("value"))
+            .and_then(Value::as_f64),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod leaf_terms_coordinator_tests {
     use super::*;
@@ -8331,6 +8739,143 @@ mod leaf_terms_coordinator_tests {
             2,
         );
         assert_eq!(r["t"]["__error_status__"], 400);
+    }
+}
+
+#[cfg(test)]
+mod non_leaf_terms_coordinator_tests {
+    use super::*;
+
+    // The bounded leaf-terms path (#2957) finalizes order/size only for
+    // plain leaf terms. A terms agg with a child agg, a metric order, or a
+    // multi_terms agg is excluded from it (see
+    // `plan_preserves_original_and_excludes_children_scripts_metric_order`)
+    // and falls back to `merge_bucket_agg`, which re-sorts count-desc and
+    // never re-applies the requested order or size. These tests pin the
+    // ES-expected outcome for the merge of two per-index results, run
+    // through the post-merge `finalize_terms_aggs`.
+    //
+    // Per-index inputs mirror what the engine returns for the request:
+    // each index's own top-N in the requested order, with its own
+    // `sum_other_doc_count` (0 here: each side fits its own cap).
+
+    fn finalize_merged(req: Value, a: Value, b: Value, leaf: &[String]) -> Value {
+        let mut r = json!({"t": merge_bucket_agg(&a, &b).unwrap()});
+        finalize_terms_aggs(&mut r, &req, leaf);
+        r
+    }
+
+    fn bucket_keys(r: &Value) -> Vec<String> {
+        r["t"]["buckets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|bk| bk["key"].to_string())
+            .collect()
+    }
+
+    #[test]
+    fn nested_terms_merge_keeps_requested_key_order_and_size() {
+        // Request: {"terms": {"field": "k", "order": {"_key": "asc"},
+        // "size": 2}, "aggs": {"avg_n": {"avg": {"field": "n"}}}}
+        let req = json!({"t":{"terms":{"field":"k","order":{"_key":"asc"},"size":2},"aggs":{"avg_n":{"avg":{"field":"n"}}}}});
+        let a = json!({"buckets":[
+            {"key":"a","doc_count":1,"avg_n":{"value":10.0}},
+            {"key":"b","doc_count":5,"avg_n":{"value":20.0}}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let b = json!({"buckets":[
+            {"key":"c","doc_count":2,"avg_n":{"value":30.0}},
+            {"key":"d","doc_count":4,"avg_n":{"value":40.0}}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let r = finalize_merged(req, a, b, &[]);
+        assert_eq!(bucket_keys(&r), vec!["\"a\"", "\"b\""]);
+        assert_eq!(r["t"]["sum_other_doc_count"], 6);
+    }
+
+    #[test]
+    fn metric_order_terms_merge_follows_the_metric_not_the_count() {
+        // Request: {"terms": {"field": "k", "order": {"avg_n": "desc"},
+        // "size": 2}, "aggs": {"avg_n": {"avg": {"field": "n"}}}}
+        let req = json!({"t":{"terms":{"field":"k","order":{"avg_n":"desc"},"size":2},"aggs":{"avg_n":{"avg":{"field":"n"}}}}});
+        let a = json!({"buckets":[
+            {"key":"b","doc_count":5,"avg_n":{"value":20.0}},
+            {"key":"a","doc_count":1,"avg_n":{"value":10.0}}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let b = json!({"buckets":[
+            {"key":"d","doc_count":4,"avg_n":{"value":40.0}},
+            {"key":"c","doc_count":2,"avg_n":{"value":30.0}}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let r = finalize_merged(req, a, b, &[]);
+        assert_eq!(bucket_keys(&r), vec!["\"d\"", "\"c\""]);
+        assert_eq!(r["t"]["sum_other_doc_count"], 6);
+    }
+
+    #[test]
+    fn multi_terms_merge_keeps_requested_key_order_and_size() {
+        // Request: {"multi_terms": {"terms": [{"field": "k"}, {"field": "g"}],
+        // "order": {"_key": "asc"}, "size": 2}}
+        let req = json!({"t":{"multi_terms":{"terms":[{"field":"k"},{"field":"g"}],"order":{"_key":"asc"},"size":2}}});
+        let a = json!({"buckets":[
+            {"key":["a","x"],"doc_count":1},
+            {"key":["b","x"],"doc_count":5}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let b = json!({"buckets":[
+            {"key":["c","x"],"doc_count":2},
+            {"key":["d","x"],"doc_count":4}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let r = finalize_merged(req, a, b, &[]);
+        assert_eq!(bucket_keys(&r), vec!["[\"a\",\"x\"]", "[\"b\",\"x\"]"]);
+        assert_eq!(r["t"]["sum_other_doc_count"], 6);
+    }
+
+    #[test]
+    fn default_order_is_count_desc_with_key_asc_tiebreak_and_size_cut() {
+        let req = json!({"t":{"terms":{"field":"k","size":2}}});
+        let a = json!({"buckets":[
+            {"key":"a","doc_count":1},
+            {"key":"b","doc_count":5}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let b = json!({"buckets":[
+            {"key":"c","doc_count":2},
+            {"key":"d","doc_count":4}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let r = finalize_merged(req, a, b, &[]);
+        assert_eq!(bucket_keys(&r), vec!["\"b\"", "\"d\""]);
+        assert_eq!(r["t"]["sum_other_doc_count"], 3);
+    }
+
+    #[test]
+    fn nested_child_terms_finalized_inside_surviving_buckets() {
+        let req = json!({"t":{"terms":{"field":"k","order":{"_key":"asc"},"size":1},"aggs":{"g":{"terms":{"field":"g","order":{"_key":"asc"},"size":1}}}}});
+        let a = json!({"buckets":[
+            {"key":"a","doc_count":4,"g":{"buckets":[{"key":"x","doc_count":3},{"key":"y","doc_count":1}],"sum_other_doc_count":0,"doc_count_error_upper_bound":0}},
+            {"key":"b","doc_count":5,"g":{"buckets":[{"key":"p","doc_count":5}],"sum_other_doc_count":0,"doc_count_error_upper_bound":0}}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let b = json!({"buckets":[
+            {"key":"c","doc_count":2,"g":{"buckets":[{"key":"m","doc_count":2}],"sum_other_doc_count":0,"doc_count_error_upper_bound":0}}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let r = finalize_merged(req, a, b, &[]);
+        assert_eq!(
+            r["t"]["buckets"],
+            json!([{"key":"a","doc_count":4,"g":{"buckets":[{"key":"x","doc_count":3}],"sum_other_doc_count":1,"doc_count_error_upper_bound":0}}])
+        );
+        assert_eq!(r["t"]["sum_other_doc_count"], 7);
+    }
+
+    #[test]
+    fn leaf_terms_names_are_left_to_the_leaf_finalize() {
+        let req = json!({"t":{"terms":{"field":"k","order":{"_key":"asc"},"size":2}}});
+        let a = json!({"buckets":[
+            {"key":"a","doc_count":1},
+            {"key":"b","doc_count":5}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let b = json!({"buckets":[
+            {"key":"c","doc_count":2},
+            {"key":"d","doc_count":4}
+        ],"sum_other_doc_count":0,"doc_count_error_upper_bound":0});
+        let r = finalize_merged(req, a, b, &["t".to_string()]);
+        assert_eq!(bucket_keys(&r), vec!["\"b\"", "\"d\"", "\"c\"", "\"a\""]);
+        assert_eq!(r["t"]["sum_other_doc_count"], 0);
     }
 }
 
@@ -9010,6 +9555,96 @@ fn merge_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
     Some(Value::Object(out))
 }
 
+/// Merge one index's aggregation result into the cross-index accumulator.
+///
+/// This is the merge `_search` already performed inline, shared with
+/// `_msearch` (issue #3358): `_msearch` used to keep only the first
+/// index's aggregations (`if merged_aggs.is_none() { ... }`), so every
+/// later index's buckets were silently dropped while `hits.total` still
+/// summed across all indices. Both handlers now call this helper, so a
+/// multi-index `_msearch` item merges exactly like `_search`.
+///
+/// Per top-level aggregation key, in order: a metric merge
+/// (`merge_metric_agg`), a bucketed merge (`merge_bucket_agg`), a
+/// single-bucket merge (`merge_single_bucket_agg`); when none of those
+/// applies, the new value replaces the old one only when the old
+/// buckets are empty and the new ones are not, otherwise the existing
+/// value is kept.
+fn merge_cross_index_aggs(
+    merged_aggs: &mut Option<Value>,
+    new_aggs: Value,
+    leaf_terms: Option<(&[String], Option<&Value>)>,
+) {
+    match merged_aggs {
+        None => *merged_aggs = Some(new_aggs),
+        Some(existing) => {
+            if let (Some(ex_obj), Some(new_obj)) = (existing.as_object_mut(), new_aggs.as_object())
+            {
+                for (k, v) in new_obj {
+                    // Metric-agg aware merge: when both shards
+                    // returned a metric result with internal
+                    // tracking, recombine the primitives so
+                    // `avg/sum/min/max` reflect the union
+                    // across indices rather than just the
+                    // first index's value.
+                    if let Some(old) = ex_obj.get(k).cloned() {
+                        // Leaf-terms summaries (#3361) are rewritten
+                        // per-index fetches, merged by union under the
+                        // request cap. Callers that never rewrite them
+                        // (the `_msearch` path) pass `None`.
+                        if let Some((names, request)) = leaf_terms {
+                            if names.contains(k) {
+                                let merged = merge_leaf_terms_summary(
+                                    &old,
+                                    v,
+                                    leaf_terms_union_cap(
+                                        request,
+                                        k,
+                                        xerj_engine::aggs::max_buckets(),
+                                    ),
+                                );
+                                ex_obj.insert(k.clone(), merged);
+                                continue;
+                            }
+                        }
+                        if let Some(merged) = merge_metric_agg(&old, v) {
+                            ex_obj.insert(k.clone(), merged);
+                            continue;
+                        }
+                        if let Some(merged) = merge_bucket_agg(&old, v) {
+                            ex_obj.insert(k.clone(), merged);
+                            continue;
+                        }
+                        if let Some(merged) = merge_single_bucket_agg(&old, v) {
+                            ex_obj.insert(k.clone(), merged);
+                            continue;
+                        }
+                    }
+                    let should_replace = match (ex_obj.get(k), v) {
+                        (Some(old), new) => {
+                            let old_empty = old
+                                .get("buckets")
+                                .and_then(|b| b.as_array())
+                                .map(|a| a.is_empty())
+                                .unwrap_or(false);
+                            let new_has_data = new
+                                .get("buckets")
+                                .and_then(|b| b.as_array())
+                                .map(|a| !a.is_empty())
+                                .unwrap_or(false);
+                            old_empty && new_has_data
+                        }
+                        (None, _) => true,
+                    };
+                    if should_replace {
+                        ex_obj.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod merge_bucket_agg_keyed_tests {
     use super::*;
@@ -9216,6 +9851,149 @@ mod merge_bucket_agg_keyed_tests {
                            "__xy_weight_sum__": 0.0, "__xy_weighted_sum__": 0.0});
         let merged = merge_metric_agg(&empty, &empty).expect("must merge");
         assert_eq!(merged["value"], Value::Null);
+    }
+
+    // #3358: `_msearch` used to keep only the first index's aggregations,
+    // so these tests exercise the shared `merge_cross_index_aggs` helper
+    // both handlers now call. Each one fails against the old first-only
+    // behavior (second index's contribution dropped) and passes with the
+    // merge. The shapes below mirror the live repro: index `ma` holds
+    // b x5, a x1; index `mb` holds d x4, c x2.
+    #[test]
+    fn msearch_terms_buckets_merge_across_indices() {
+        let mut merged: Option<Value> = None;
+        let from_ma = json!({"by_k": {"buckets": [
+            {"key": "b", "doc_count": 5},
+            {"key": "a", "doc_count": 1},
+        ], "sum_other_doc_count": 0}});
+        let from_mb = json!({"by_k": {"buckets": [
+            {"key": "d", "doc_count": 4},
+            {"key": "c", "doc_count": 2},
+        ], "sum_other_doc_count": 0}});
+        merge_cross_index_aggs(&mut merged, from_ma, None);
+        merge_cross_index_aggs(&mut merged, from_mb, None);
+        let merged = merged.expect("accumulator must seed");
+        let buckets = merged["by_k"]["buckets"].as_array().expect("array buckets");
+        let by_key: std::collections::HashMap<&str, u64> = buckets
+            .iter()
+            .map(|b| (b["key"].as_str().unwrap(), b["doc_count"].as_u64().unwrap()))
+            .collect();
+        assert_eq!(by_key.len(), 4, "all four buckets must survive: {merged}");
+        assert_eq!(by_key["b"], 5);
+        assert_eq!(by_key["a"], 1);
+        assert_eq!(by_key["d"], 4);
+        assert_eq!(by_key["c"], 2);
+    }
+
+    #[test]
+    fn msearch_terms_shared_key_sums_doc_count() {
+        let mut merged: Option<Value> = None;
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"by_k": {"buckets": [{"key": "a", "doc_count": 1}], "sum_other_doc_count": 3}}),
+            None,
+        );
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"by_k": {"buckets": [{"key": "a", "doc_count": 2}], "sum_other_doc_count": 4}}),
+            None,
+        );
+        let merged = merged.unwrap();
+        assert_eq!(merged["by_k"]["buckets"][0]["doc_count"], 3);
+        assert_eq!(merged["by_k"]["sum_other_doc_count"], 7);
+    }
+
+    #[test]
+    fn msearch_metric_avg_merges_via_tracking() {
+        let mut merged: Option<Value> = None;
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"avg_price": {"value": 10.0, "__xy_count__": 2, "__xy_sum__": 20.0}}),
+            None,
+        );
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"avg_price": {"value": 30.0, "__xy_count__": 3, "__xy_sum__": 90.0}}),
+            None,
+        );
+        let merged = merged.unwrap();
+        assert_eq!(merged["avg_price"]["__xy_count__"], 5);
+        assert_eq!(merged["avg_price"]["__xy_sum__"], 110.0);
+        assert_eq!(merged["avg_price"]["value"], 22.0);
+    }
+
+    #[test]
+    fn msearch_single_bucket_filter_sums_doc_count_with_nested_metric() {
+        let mut merged: Option<Value> = None;
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"only_big": {"doc_count": 3,
+                "avg_price": {"value": 10.0, "__xy_count__": 3, "__xy_sum__": 30.0}}}),
+            None,
+        );
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"only_big": {"doc_count": 4,
+                "avg_price": {"value": 20.0, "__xy_count__": 4, "__xy_sum__": 80.0}}}),
+            None,
+        );
+        let merged = merged.unwrap();
+        assert_eq!(merged["only_big"]["doc_count"], 7);
+        assert_eq!(merged["only_big"]["avg_price"]["__xy_count__"], 7);
+        assert!(
+            (merged["only_big"]["avg_price"]["value"].as_f64().unwrap() - 110.0 / 7.0).abs() < 1e-9
+        );
+    }
+
+    #[test]
+    fn msearch_keyed_buckets_object_form_merges() {
+        let mut merged: Option<Value> = None;
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"by_filter": {"buckets": {"a": {"doc_count": 3}}}}),
+            None,
+        );
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"by_filter": {"buckets": {"a": {"doc_count": 4}, "b": {"doc_count": 2}}}}),
+            None,
+        );
+        let merged = merged.unwrap();
+        assert_eq!(merged["by_filter"]["buckets"]["a"]["doc_count"], 7);
+        assert_eq!(merged["by_filter"]["buckets"]["b"]["doc_count"], 2);
+    }
+
+    #[test]
+    fn msearch_unmergeable_shape_keeps_existing() {
+        let mut merged: Option<Value> = None;
+        merge_cross_index_aggs(&mut merged, json!({"odd": {"foo": 1}}), None);
+        merge_cross_index_aggs(&mut merged, json!({"odd": {"foo": 2}}), None);
+        let merged = merged.unwrap();
+        assert_eq!(
+            merged["odd"]["foo"], 1,
+            "unmergeable shapes keep the first index"
+        );
+    }
+
+    #[test]
+    fn msearch_empty_old_buckets_take_new_data() {
+        let mut merged: Option<Value> = None;
+        merge_cross_index_aggs(&mut merged, json!({"by_k": {"buckets": []}}), None);
+        merge_cross_index_aggs(
+            &mut merged,
+            json!({"by_k": {"buckets": [{"key": "a", "doc_count": 2}]}}),
+            None,
+        );
+        let merged = merged.unwrap();
+        assert_eq!(merged["by_k"]["buckets"][0]["doc_count"], 2);
+    }
+
+    #[test]
+    fn msearch_none_accumulator_seeds_from_first_result() {
+        let mut merged: Option<Value> = None;
+        let first = json!({"by_k": {"buckets": [{"key": "a", "doc_count": 1}]}});
+        merge_cross_index_aggs(&mut merged, first.clone(), None);
+        assert_eq!(merged, Some(first));
     }
 }
 
@@ -12442,8 +13220,13 @@ fn search_task_panic_response(join_err: tokio::task::JoinError, index: &str) -> 
 
 #[cfg(test)]
 mod search_task_lifetime_tests {
-    use super::{search_task_panic_response, AbortOnDrop, TEST_PENDING_SEARCH_SIGNALS};
-    use axum::http::{Request, StatusCode};
+    use super::{
+        json, search_task_panic_response, AbortOnDrop, Value, TEST_PENDING_SEARCH_SIGNALS,
+    };
+    use axum::{
+        body::{to_bytes, Body},
+        http::{Request, StatusCode},
+    };
     use tower::ServiceExt;
 
     fn test_state() -> crate::state::AppState {
@@ -12595,6 +13378,145 @@ mod search_task_lifetime_tests {
         })
         .await
         .expect("aborting the request must abort all fan-out searches");
+    }
+
+    async fn post_json(
+        state: &crate::state::AppState,
+        method: &str,
+        path: &str,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        let response = crate::router::build_es_compat_router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .expect("request"),
+            )
+            .await
+            .expect("route response");
+        let status = response.status();
+        let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json = serde_json::from_slice(&bytes).unwrap_or_else(|error| {
+            panic!(
+                "{method} {path} returned non-JSON ({error}): {}",
+                String::from_utf8_lossy(&bytes)
+            )
+        });
+        (status, json)
+    }
+
+    /// #3332: `from` + `size` over a multi-index pattern must page the
+    /// merged hits, not each index. The fan-out used to hand every index
+    /// the caller's `from` unchanged and then apply `from`/`size` again
+    /// to the merged list, so `from=50,size=100` over 130 hits returned
+    /// 30 and `from=90` returned nothing.
+    #[tokio::test]
+    async fn multi_index_from_size_pages_merged_hits() {
+        let state = test_state();
+        // 130 docs numbered 0..129, split across two indices, so the
+        // merged page must draw from both.
+        for (index, range) in [("pg-a", 0..70), ("pg-b", 70..130)] {
+            let (status, body) = post_json(
+                &state,
+                "PUT",
+                &format!("/{index}"),
+                json!({"mappings": {"properties": {
+                    "n": {"type": "long"},
+                    "body": {"type": "text"},
+                }}}),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{body}");
+            for n in range {
+                let (status, body) = post_json(
+                    &state,
+                    "PUT",
+                    &format!("/{index}/_doc/doc-{n}"),
+                    json!({"n": n, "body": "DocId shared marker"}),
+                )
+                .await;
+                assert!(status.is_success(), "{body}");
+            }
+            state
+                .engine
+                .get_index(index)
+                .expect(index)
+                .refresh()
+                .await
+                .expect("refresh");
+        }
+
+        // (from, expected page length, first n, last n) for size=100.
+        for (from, len, first, last) in [
+            (0u64, 100usize, 0u64, 99u64),
+            (50, 80, 50, 129),
+            (90, 40, 90, 129),
+            (100, 30, 100, 129),
+            (120, 10, 120, 129),
+        ] {
+            let (status, resp) = post_json(
+                &state,
+                "POST",
+                "/pg-*/_search",
+                json!({
+                    "query": {"match_all": {}},
+                    "from": from,
+                    "size": 100,
+                    "sort": [{"n": "asc"}],
+                }),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "from={from}: {resp}");
+            assert_eq!(
+                resp["hits"]["total"]["value"].as_u64(),
+                Some(130),
+                "from={from}: {resp}"
+            );
+            let hits = resp["hits"]["hits"].as_array().expect("hits array");
+            assert_eq!(hits.len(), len, "from={from}: {resp}");
+            assert_eq!(
+                hits.first().unwrap()["_source"]["n"].as_u64(),
+                Some(first),
+                "from={from}: {resp}"
+            );
+            assert_eq!(
+                hits.last().unwrap()["_source"]["n"].as_u64(),
+                Some(last),
+                "from={from}: {resp}"
+            );
+        }
+
+        // Control: the same request on one concrete index pages correctly
+        // with or without the fix.
+        let (status, resp) = post_json(
+            &state,
+            "POST",
+            "/pg-a/_search",
+            json!({
+                "query": {"match_all": {}},
+                "from": 50,
+                "size": 100,
+                "sort": [{"n": "asc"}],
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+        assert_eq!(resp["hits"]["total"]["value"].as_u64(), Some(70), "{resp}");
+        let hits = resp["hits"]["hits"].as_array().expect("hits array");
+        assert_eq!(hits.len(), 20, "{resp}");
+        assert_eq!(
+            hits.first().unwrap()["_source"]["n"].as_u64(),
+            Some(50),
+            "{resp}"
+        );
+        assert_eq!(
+            hits.last().unwrap()["_source"]["n"].as_u64(),
+            Some(69),
+            "{resp}"
+        );
     }
 
     #[tokio::test]
@@ -19005,6 +19927,19 @@ async fn search_impl(
                 .saturating_mul(4)
                 .max(100);
             req_clone.from = 0;
+        } else if index_names.len() > 1 {
+            // Multi-index search (#3332): fetch the whole `from + size`
+            // window from each index and let the merge below cut the
+            // requested page out of the combined hits. Handing each index
+            // the caller's `from` dropped the first `from` hits per index,
+            // and the merge then applied `from` a second time, so
+            // `from=50,size=100` over 130 hits came back short or empty.
+            // Single-index searches keep the caller's window: the engine
+            // applies it once and the merge step is skipped there. This
+            // mirrors the cluster `fanout_search`, which sends each shard
+            // `from=0, size=from+size`.
+            req_clone.size = req_clone.from.saturating_add(req_clone.size);
+            req_clone.from = 0;
         }
         // Per-index alias rewrite for collapse.field: if the declared
         // field name is an alias in THIS index's mapping, swap in the
@@ -19136,71 +20071,16 @@ async fn search_impl(
                         Some(merged_population_max.map_or(ms as f64, |m: f64| m.max(ms as f64)));
                 }
                 if let Some(new_aggs) = result.aggs {
-                    match &mut merged_aggs {
-                        None => merged_aggs = Some(new_aggs),
-                        Some(existing) => {
-                            if let (Some(ex_obj), Some(new_obj)) =
-                                (existing.as_object_mut(), new_aggs.as_object())
-                            {
-                                for (k, v) in new_obj {
-                                    // Metric-agg aware merge: when both shards
-                                    // returned a metric result with internal
-                                    // tracking, recombine the primitives so
-                                    // `avg/sum/min/max` reflect the union
-                                    // across indices rather than just the
-                                    // first index's value.
-                                    if let Some(old) = ex_obj.get(k).cloned() {
-                                        if leaf_terms_names.contains(k) {
-                                            let merged = merge_leaf_terms_summary(
-                                                &old,
-                                                v,
-                                                leaf_terms_union_cap(
-                                                    body.aggs
-                                                        .as_ref()
-                                                        .or(body.aggregations.as_ref()),
-                                                    k,
-                                                    xerj_engine::aggs::max_buckets(),
-                                                ),
-                                            );
-                                            ex_obj.insert(k.clone(), merged);
-                                            continue;
-                                        }
-                                        if let Some(merged) = merge_metric_agg(&old, v) {
-                                            ex_obj.insert(k.clone(), merged);
-                                            continue;
-                                        }
-                                        if let Some(merged) = merge_bucket_agg(&old, v) {
-                                            ex_obj.insert(k.clone(), merged);
-                                            continue;
-                                        }
-                                        if let Some(merged) = merge_single_bucket_agg(&old, v) {
-                                            ex_obj.insert(k.clone(), merged);
-                                            continue;
-                                        }
-                                    }
-                                    let should_replace = match (ex_obj.get(k), v) {
-                                        (Some(old), new) => {
-                                            let old_empty = old
-                                                .get("buckets")
-                                                .and_then(|b| b.as_array())
-                                                .map(|a| a.is_empty())
-                                                .unwrap_or(false);
-                                            let new_has_data = new
-                                                .get("buckets")
-                                                .and_then(|b| b.as_array())
-                                                .map(|a| !a.is_empty())
-                                                .unwrap_or(false);
-                                            old_empty && new_has_data
-                                        }
-                                        (None, _) => true,
-                                    };
-                                    if should_replace {
-                                        ex_obj.insert(k.clone(), v.clone());
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // Cross-index merge shared with `_msearch` (#3358);
+                    // the leaf-terms context comes from #3361.
+                    merge_cross_index_aggs(
+                        &mut merged_aggs,
+                        new_aggs,
+                        Some((
+                            &leaf_terms_names,
+                            body.aggs.as_ref().or(body.aggregations.as_ref()),
+                        )),
+                    );
                 }
                 if let Some(savings) = result.savings {
                     for (id, bytes) in &savings.per_hit {
@@ -19246,6 +20126,7 @@ async fn search_impl(
                 &leaf_terms_names,
                 xerj_engine::aggs::max_buckets(),
             );
+            finalize_terms_aggs(m, aggs_req, &leaf_terms_names);
         }
     }
 
@@ -27289,6 +28170,16 @@ fn eval_update_expr(expr: &str, source: &Value, params: &Value) -> Result<Value,
     Ok(painless_update_value(pv))
 }
 
+/// Maximum depth of a `ctx._source` path an update script may address.
+///
+/// One statement builds one nested object per path segment, and the resulting
+/// document is then walked recursively by FTS analysis (`collect_text_fields`),
+/// serialisation and `Value` drop, so an unbounded path is a stack overflow on
+/// the request thread (issue #3222). 64 is far above any legitimate update path
+/// and far below any stack risk, and it sits under the other depth caps in
+/// this area (painless `MAX_PARSE_DEPTH` 100, serde_json's 128 nesting cap).
+const MAX_UPDATE_PATH_DEPTH: usize = 64;
+
 /// Apply a painless update script to `source` in place. Supports the common
 /// `ctx._source.*` mutation forms: assignment (`=`), compound assignment
 /// (`+= -= *= /=`), increment / decrement (`++ --`), and `remove(...)`.
@@ -27368,6 +28259,16 @@ fn apply_one_update_stmt(source: &mut Value, stmt: &str, params: &Value) -> Resu
     let (path, consumed) = consume_source_path(rest);
     if path.is_empty() {
         return Err(format!("invalid update script target: {s}"));
+    }
+    // Bound the depth before any nesting is built: each segment adds one
+    // nested object, and the document is walked recursively downstream, so
+    // a path past this cap is a stack overflow, not an update (#3222).
+    if path.len() > MAX_UPDATE_PATH_DEPTH {
+        return Err(format!(
+            "update script path is too deep ({} segments, max {}); split the update into shallower paths",
+            path.len(),
+            MAX_UPDATE_PATH_DEPTH
+        ));
     }
     let opr = rest[consumed..].trim_start();
 
@@ -34655,8 +35556,12 @@ async fn msearch_impl(
                     if result.total.relation == xerj_query::executor::TotalHitsRelation::Gte {
                         total_relation = "gte";
                     }
-                    if merged_aggs.is_none() {
-                        merged_aggs = result.aggs;
+                    // Cross-index merge shared with `_search` (#3358):
+                    // `_msearch` used to keep only the first index's
+                    // aggregations, silently dropping every later
+                    // index's buckets.
+                    if let Some(new_aggs) = result.aggs {
+                        merge_cross_index_aggs(&mut merged_aggs, new_aggs, None);
                     }
                     for hit in result.hits {
                         merged_hits.push((idx_name.clone(), hit));
@@ -52721,6 +53626,24 @@ pub(crate) fn mapping_has_ignore_directives(mapping: &Value) -> bool {
     }
 }
 
+/// Emit the source line paired with an action line the rewrite could not
+/// read, verbatim, so the engine still sees the pair and refuses just that
+/// item. Delete is the only action without a source line, using the same
+/// pairing rule as the bulk engine (`bulk_action_line_is_delete`).
+fn emit_paired_source_verbatim(
+    lines: &mut std::iter::Peekable<std::str::Lines<'_>>,
+    action_line: &str,
+    out: &mut String,
+) {
+    if crate::cluster_shard::bulk_action_line_is_delete(action_line) {
+        return;
+    }
+    if let Some(source_line) = lines.next() {
+        out.push_str(source_line);
+        out.push('\n');
+    }
+}
+
 pub(crate) fn rewrite_bulk_ignore_malformed(
     state: &AppState,
     default_index: Option<&str>,
@@ -52737,12 +53660,27 @@ pub(crate) fn rewrite_bulk_ignore_malformed(
         }
         let action: Value = match serde_json::from_str(action_trimmed) {
             Ok(v) => v,
-            Err(_) => continue,
+            // The engine pairs action+source lines BEFORE parsing
+            // (bulk.rs), so a failed action still consumes its source
+            // line and answers a per-item 400. Pass the pair through
+            // verbatim and keep the pairing aligned, or every following
+            // document is rewritten against the preceding action's
+            // _index/_id (issue #3189).
+            Err(_) => {
+                emit_paired_source_verbatim(&mut lines, action_line, &mut out);
+                continue;
+            }
         };
         // Determine if this action has a source body on the next line.
         let (op, op_body) = match action.as_object().and_then(|o| o.iter().next()) {
             Some((k, v)) => (k.clone(), v.clone()),
-            None => continue,
+            // Same desync as the parse failure above: a line that parses
+            // but names no operation (e.g. `{}` or `[]`) still owns a
+            // source line in the engine's pairing.
+            None => {
+                emit_paired_source_verbatim(&mut lines, action_line, &mut out);
+                continue;
+            }
         };
         if op == "delete" {
             continue;
@@ -52793,6 +53731,117 @@ pub(crate) fn rewrite_bulk_ignore_malformed(
         out.push('\n');
     }
     out
+}
+
+#[cfg(test)]
+mod rewrite_bulk_ignore_malformed_tests {
+    //! Regression tests for issue #3189: the ignore_malformed rewrite
+    //! walked a _bulk body as action/source pairs and, on an unparseable
+    //! action line, continued without consuming the paired source line, so
+    //! every following document was rewritten against the preceding action.
+    use super::*;
+    use xerj_common::config::{Config, WalSync};
+    use xerj_common::metrics::Metrics;
+    use xerj_engine::Engine;
+
+    fn state_with_ignore_mappings() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        let state = AppState::new(config, engine, metrics);
+        for index in ["a", "b"] {
+            state.engine.index_mappings.insert(
+                index.to_string(),
+                json!({
+                    "properties": {
+                        "n": {"type": "integer", "ignore_malformed": true}
+                    }
+                }),
+            );
+        }
+        state
+    }
+
+    #[tokio::test]
+    async fn malformed_action_line_keeps_following_pairs_aligned() {
+        let state = state_with_ignore_mappings();
+        // The exact body from issue #3189, with a malformed value in the
+        // third document so the rewrite visibly touches it only when the
+        // pairing is right: index b's mapping must see it, index a's must not.
+        let body = concat!(
+            "{\"index\": {\"_index\": \"a\", \"_id\": \"1\"}}\n",
+            "{\"title\": \"first\"}\n",
+            "{bad json\n",
+            "{\"title\": \"second\"}\n",
+            "{\"index\": {\"_index\": \"b\", \"_id\": \"2\"}}\n",
+            "{\"title\": \"third\", \"n\": \"not-a-number\"}\n",
+        );
+        let rewritten = rewrite_bulk_ignore_malformed(&state, None, body);
+        let lines: Vec<&str> = rewritten.lines().collect();
+        assert_eq!(
+            lines.len(),
+            6,
+            "rewritten body must keep all six lines: {rewritten}"
+        );
+        // The malformed pair passes through verbatim for the engine to
+        // refuse per item; it must not be swallowed or re-paired.
+        assert_eq!(lines[2], "{bad json");
+        assert_eq!(lines[3], "{\"title\": \"second\"}");
+        // The third document must still be paired with the index b action,
+        // and rewritten against b's mapping: the malformed `n` is dropped
+        // and recorded in `_ignored`. (lines[4] is compared parsed, not
+        // as a string: a desynced rewrite re-serialises the action line
+        // as if it were a source document, which is itself the bug.)
+        let fourth: Value = serde_json::from_str(lines[4]).expect("fourth line is JSON");
+        assert_eq!(fourth, json!({"index": {"_index": "b", "_id": "2"}}));
+        let third: Value = serde_json::from_str(lines[5]).expect("third line is JSON");
+        assert_eq!(third["title"], json!("third"));
+        assert_eq!(
+            third.get("_ignored"),
+            Some(&json!(["n"])),
+            "third doc was not rewritten against index b: {third}"
+        );
+        assert!(
+            third.get("n").is_none(),
+            "malformed value must be dropped: {third}"
+        );
+    }
+
+    #[tokio::test]
+    async fn action_line_with_no_operation_keeps_following_pairs_aligned() {
+        let state = state_with_ignore_mappings();
+        // Same defect class as the parse failure: a line that parses but
+        // names no operation (here `{}`) still owns a source line in the
+        // engine's pairing.
+        let body = concat!(
+            "{\"index\": {\"_index\": \"a\", \"_id\": \"1\"}}\n",
+            "{\"title\": \"first\"}\n",
+            "{}\n",
+            "{\"title\": \"second\"}\n",
+            "{\"index\": {\"_index\": \"b\", \"_id\": \"2\"}}\n",
+            "{\"title\": \"third\", \"n\": \"not-a-number\"}\n",
+        );
+        let rewritten = rewrite_bulk_ignore_malformed(&state, None, body);
+        let lines: Vec<&str> = rewritten.lines().collect();
+        assert_eq!(
+            lines.len(),
+            6,
+            "rewritten body must keep all six lines: {rewritten}"
+        );
+        assert_eq!(lines[2], "{}");
+        assert_eq!(lines[3], "{\"title\": \"second\"}");
+        let fourth: Value = serde_json::from_str(lines[4]).expect("fourth line is JSON");
+        assert_eq!(fourth, json!({"index": {"_index": "b", "_id": "2"}}));
+        let third: Value = serde_json::from_str(lines[5]).expect("third line is JSON");
+        assert_eq!(
+            third.get("_ignored"),
+            Some(&json!(["n"])),
+            "third doc was not rewritten against index b: {third}"
+        );
+    }
 }
 
 /// The 400 envelope ES sends when a document cannot be parsed against the

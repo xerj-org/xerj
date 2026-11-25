@@ -174,6 +174,40 @@ async fn match_on_unmapped_subfield_returns_empty_before_and_after_flush() {
         (json!({"match": {"title.raw.extra": "fruit"}}), vec![]),
         (json!({"match": {"title.keyword.raw": "Fruit"}}), vec![]),
         (json!({"match": {"obj.name.raw": "fruit"}}), vec![]),
+        // Issue #3533: term-level leaves on the unmapped sub-field match nothing.
+        (json!({"term": {"title.raw": "Fruit"}}), vec![]),
+        (json!({"terms": {"title.raw": ["fruit", "Fruit"]}}), vec![]),
+        (json!({"range": {"title.raw": {"gte": "a"}}}), vec![]),
+        (json!({"regexp": {"title.raw": "fru.*"}}), vec![]),
+        (json!({"exists": {"field": "title.raw"}}), vec![]),
+        (
+            json!({"constant_score": {"filter": {"term": {"title.raw": "Fruit"}}}}),
+            vec![],
+        ),
+        (
+            json!({"bool": {"must": [{"term": {"title.raw": "Fruit"}}]}}),
+            vec![],
+        ),
+        (
+            json!({"bool": {"must_not": [{"term": {"title.raw": "Fruit"}}]}}),
+            vec!["1", "2", "3"],
+        ),
+        (
+            json!({"bool": {"filter": [{"exists": {"field": "title.raw"}}]}}),
+            vec![],
+        ),
+        (json!({"term": {"title.raw.extra": "Fruit"}}), vec![]),
+        (json!({"term": {"title.keyword.raw": "Fruit"}}), vec![]),
+        (json!({"term": {"obj.name.raw": "Fruit"}}), vec![]),
+        (json!({"exists": {"field": "obj.name.raw"}}), vec![]),
+        // Mapped term-level controls keep working.
+        (json!({"term": {"title.keyword": "Fruit"}}), vec!["1"]),
+        (json!({"term": {"title.keyword": "fruit salad"}}), vec!["2"]),
+        (json!({"exists": {"field": "title"}}), vec!["1", "2", "3"]),
+        (
+            json!({"exists": {"field": "title.keyword"}}),
+            vec!["1", "2", "3"],
+        ),
         // Mapped multi-fields keep #3495 behaviour, and mapped parents stay unchanged.
         (json!({"match": {"title.keyword": "fruit"}}), vec![]),
         (json!({"match": {"title.keyword": "Fruit"}}), vec!["1"]),
@@ -201,6 +235,12 @@ async fn match_on_unmapped_subfield_returns_empty_before_and_after_flush() {
                 "size": 0,
                 "aggs": {
                     "unmapped_raw": { "filter": { "match": { "title.raw": "fruit" } } },
+                    // #3533: term-level agg filters on the unmapped sub-field.
+                    "unmapped_term": { "filter": { "term": { "title.raw": "Fruit" } } },
+                    "unmapped_terms": { "filter": { "terms": { "title.raw": ["fruit", "Fruit"] } } },
+                    "unmapped_range": { "filter": { "range": { "title.raw": { "gte": "a" } } } },
+                    "unmapped_regexp": { "filter": { "regexp": { "title.raw": "fru.*" } } },
+                    "unmapped_exists": { "filter": { "exists": { "field": "title.raw" } } },
                     "mixed_bool_must": {
                         "filter": {
                             "bool": {
@@ -237,6 +277,19 @@ async fn match_on_unmapped_subfield_returns_empty_before_and_after_flush() {
             json!(0),
             "{phase}: agg filter on unmapped title.raw must match 0"
         );
+        for (name, want) in [
+            ("unmapped_term", 0),
+            ("unmapped_terms", 0),
+            ("unmapped_range", 0),
+            ("unmapped_regexp", 0),
+            ("unmapped_exists", 0),
+        ] {
+            assert_eq!(
+                agg_resp["aggregations"][name]["doc_count"],
+                json!(want),
+                "{phase}: agg filter {name} on unmapped title.raw must match {want}"
+            );
+        }
         assert_eq!(
             agg_resp["aggregations"]["mixed_bool_must"]["doc_count"],
             json!(0),
@@ -354,6 +407,47 @@ async fn explicit_mapping_keeps_declared_multifield_and_rejects_undeclared_sibli
             vec!["1"],
             "{phase}: declared title.raw"
         );
+        // #3533: term-level leaves on a DECLARED multi-field keep working.
+        assert_eq!(
+            ids(
+                &app,
+                "explicit_mf",
+                &json!({"term": {"title.raw": "Fruit"}})
+            )
+            .await,
+            vec!["1"],
+            "{phase}: declared title.raw term"
+        );
+        assert_eq!(
+            ids(
+                &app,
+                "explicit_mf",
+                &json!({"term": {"title.raw": "fruit"}})
+            )
+            .await,
+            Vec::<String>::new(),
+            "{phase}: declared title.raw term case-sensitive"
+        );
+        assert_eq!(
+            ids(
+                &app,
+                "explicit_mf",
+                &json!({"exists": {"field": "title.raw"}})
+            )
+            .await,
+            vec!["1", "2"],
+            "{phase}: declared title.raw exists"
+        );
+        assert_eq!(
+            ids(
+                &app,
+                "explicit_mf",
+                &json!({"range": {"title.raw": {"gte": "a"}}})
+            )
+            .await,
+            vec!["2"],
+            "{phase}: declared title.raw range"
+        );
         assert_eq!(
             ids(
                 &app,
@@ -375,6 +469,37 @@ async fn explicit_mapping_keeps_declared_multifield_and_rejects_undeclared_sibli
             Vec::<String>::new(),
             "{phase}: undeclared title.missing"
         );
+        // #3533: term-level leaves on undeclared siblings match nothing too.
+        assert_eq!(
+            ids(
+                &app,
+                "explicit_mf",
+                &json!({"term": {"title.missing": "Fruit"}})
+            )
+            .await,
+            Vec::<String>::new(),
+            "{phase}: undeclared title.missing term"
+        );
+        assert_eq!(
+            ids(
+                &app,
+                "explicit_mf",
+                &json!({"exists": {"field": "title.missing"}})
+            )
+            .await,
+            Vec::<String>::new(),
+            "{phase}: undeclared title.missing exists"
+        );
+        assert_eq!(
+            ids(
+                &app,
+                "explicit_mf",
+                &json!({"term": {"title.keyword": "Fruit"}})
+            )
+            .await,
+            Vec::<String>::new(),
+            "{phase}: undeclared title.keyword term"
+        );
         assert_eq!(
             ids(
                 &app,
@@ -395,6 +520,27 @@ async fn explicit_mapping_keeps_declared_multifield_and_rejects_undeclared_sibli
             .await,
             Vec::<String>::new(),
             "{phase}: nested unmapped items.title.raw"
+        );
+        // #3533: nested term-level leaves on the unmapped sub-field too.
+        assert_eq!(
+            ids(
+                &app,
+                "explicit_mf",
+                &json!({"nested": {"path": "items", "query": {"term": {"items.title.raw": "Fruit"}}}})
+            )
+            .await,
+            Vec::<String>::new(),
+            "{phase}: nested unmapped items.title.raw term"
+        );
+        assert_eq!(
+            ids(
+                &app,
+                "explicit_mf",
+                &json!({"nested": {"path": "items", "query": {"exists": {"field": "items.title.raw"}}}})
+            )
+            .await,
+            Vec::<String>::new(),
+            "{phase}: nested unmapped items.title.raw exists"
         );
         assert_eq!(
             ids(
