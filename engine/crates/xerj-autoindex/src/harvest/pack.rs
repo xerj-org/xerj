@@ -468,8 +468,16 @@ pub fn read_manifest(pack_dir: &Path) -> Result<PackMeta> {
     if sources.is_empty() {
         bail!(at("manifest declares no sources"));
     }
-    if sources.iter().any(|s| s.slug.is_empty()) {
-        bail!(at("a manifest source has no slug"));
+    // #3166: the slug becomes a directory under the corpus on consume
+    // (`corpora/<name>/<slug>`), so it is gated here, before any path is
+    // built from it, using the same gate the recipe build path applies. A
+    // checksum cannot stand in for this: SHA256SUMS is authored by the
+    // same party as the manifest, so a self-consistent malicious pack
+    // verifies clean.
+    for s in &sources {
+        if let Err(e) = xerj_common::xccode::pathgate::valid_slug(&s.slug) {
+            bail!(at(&format!("source slug: {e}")));
+        }
     }
 
     Ok(PackMeta {
@@ -744,6 +752,69 @@ mod tests {
         std::fs::write(r.dir.join("SHA256SUMS"), kept).unwrap();
         let err = read_manifest(&r.dir).unwrap_err().to_string();
         assert!(err.contains("does not cover manifest.json"), "{err}");
+    }
+
+    /// Rewrite SHA256SUMS from the bytes now on disk, so a test that edits
+    /// manifest.json can reach the slug check instead of dying on a
+    /// checksum first.
+    fn rehash_sums(pack_dir: &Path) {
+        let sums_raw = std::fs::read_to_string(pack_dir.join("SHA256SUMS")).unwrap();
+        let mut fresh = String::new();
+        for line in sums_raw.lines() {
+            let (_, name) = line.split_once("  ").unwrap();
+            let file_bytes = std::fs::read(pack_dir.join(name)).unwrap();
+            fresh.push_str(&format!(
+                "{}  {}\n",
+                hex(&Sha256::digest(&file_bytes)),
+                name
+            ));
+        }
+        std::fs::write(pack_dir.join("SHA256SUMS"), fresh).unwrap();
+    }
+
+    /// Rewrite one source slug in an emitted pack's manifest, keeping the
+    /// checksums valid so only the slug gate can refuse it.
+    fn set_source_slug(pack_dir: &Path, slug: &str) {
+        let mut m: Value =
+            serde_json::from_str(&std::fs::read_to_string(pack_dir.join("manifest.json")).unwrap())
+                .unwrap();
+        m["sources"][0]["slug"] = json!(slug);
+        std::fs::write(
+            pack_dir.join("manifest.json"),
+            serde_json::to_vec_pretty(&m).unwrap(),
+        )
+        .unwrap();
+        rehash_sums(pack_dir);
+    }
+
+    /// #3166: a pack manifest may name any slug, and the slug becomes a
+    /// directory under the corpus on consume, so a `../` slug writes
+    /// outside it. The consume path must refuse it, checksums or not: a
+    /// self-consistent malicious pack verifies clean.
+    #[test]
+    fn read_manifest_refuses_a_traversal_source_slug() {
+        let tmp = tempfile::tempdir().unwrap();
+        let records = vec![rec("a", &[])];
+        let r = emit(
+            tmp.path(),
+            &recipe("t", 1),
+            "# r\n",
+            records.clone(),
+            &stats_with_source(),
+            &sugg(&records),
+        )
+        .unwrap();
+        for bad in ["../../tmp/pwn", "..", "a/b", ".hidden", ""] {
+            set_source_slug(&r.dir, bad);
+            let err = read_manifest(&r.dir).unwrap_err().to_string();
+            assert!(err.contains("source slug"), "{bad}: {err}");
+            assert!(err.contains(bad) || bad.is_empty(), "{bad}: {err}");
+        }
+        // a plain slug with the same charset the recipe build path allows
+        // still consumes: the gate must not reject real packs.
+        set_source_slug(&r.dir, "a-b_c.d");
+        let meta = read_manifest(&r.dir).unwrap();
+        assert_eq!(meta.sources[0].slug, "a-b_c.d");
     }
 
     #[test]
