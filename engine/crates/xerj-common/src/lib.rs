@@ -68,6 +68,7 @@ pub mod metrics;
 pub mod net;
 pub mod nodedir;
 pub mod normalizer;
+pub mod pack_catalog;
 pub mod packed_f32;
 pub mod resource;
 pub mod schema;

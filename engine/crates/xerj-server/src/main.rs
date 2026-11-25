@@ -211,6 +211,7 @@ fn is_top_level_command(arg: &str) -> bool {
             | "def"
             | "status"
             | "init"
+            | "tools"
             | "gain"
             | "autoindex"
             | "sources"
@@ -537,6 +538,7 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20`xerj code` searches (see xerj corpus --help)\n\
          \x20\x20\x20\x20xerj init                       wire XERJ into the coding agents in this project:\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20MCP + skill files, one command (see xerj init --help)\n\
+         \x20\x20\x20\x20xerj tools list [--json]        MCP tool catalog grouped by core, hub, writing, bio and cyber packs\n\
          \x20\x20\x20\x20xerj gain                       what this node did for you, counted from the audit\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20log — searches, hit rate, latency (xerj gain --help)\n\
          \x20\x20\x20\x20xerj brain      <folder>        one command: index a folder into a running, browsable\n\
@@ -3729,6 +3731,10 @@ fn main() -> Result<()> {
         if args.first().is_some_and(|a| a == "hook") {
             std::process::exit(xerj_autoindex::search_hints::run(&args[1..]));
         }
+    }
+    if matches!(xerj_common::argv::subcommand().as_deref(), Some("tools")) {
+        let args = xerj_common::argv::args_after_subcommand();
+        std::process::exit(xerj_mcp::run_tools_cli(&args));
     }
     if matches!(xerj_common::argv::subcommand().as_deref(), Some("sessions")) {
         let args = xerj_common::argv::args_after_subcommand();
