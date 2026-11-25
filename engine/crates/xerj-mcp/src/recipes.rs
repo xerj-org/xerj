@@ -5,9 +5,9 @@
 //! the tool's `inputSchema`, its `[corpora]`, filters, ranking, grading, output
 //! schema and checks are what the tool does. [`RecipeRegistry`] is how a server
 //! is told which recipes to serve. It projects each one into `tools/list` and
-//! sends the matching `tools/call` to `RecipeRunner::execute`, so a recipe file
-//! dropped into a recipe directory becomes a working MCP tool with no Rust
-//! change.
+//! sends the matching `tools/call` to `RecipeRunner::execute_from_source`, so a
+//! recipe file dropped into a recipe directory becomes a working MCP tool with
+//! no Rust change.
 //!
 //! The registry is empty unless the operator asks for recipes
 //! (`xerj mcp --recipe-dir <DIR>` or `XERJ_RECIPE_DIR`). An empty registry adds
@@ -19,11 +19,16 @@
 //! * It never calls the node. It reads recipe and corpus files from the
 //!   operator's directory only, so it is served over `--http` with the other
 //!   read-only tools.
-//! * The runner does not fetch corpus data; it takes `hits` from its caller.
-//!   Here the caller is a [`RecipeHitSource`]. [`CorpusDir`] reads the hits
-//!   pinned in `<recipe dir>/corpora/<corpus>.jsonl`, one `RecipeCorpusHit` per
-//!   line, for each corpus the recipe's `[corpora]` names. Fetching them live
-//!   from hub packs is the runtime path of #2760 and is not here.
+//! * The recipe's `[corpora]` block selects the data. The runner asks a
+//!   [`RecipeCorpusSource`] for each corpus the recipe names: every `required`
+//!   one (absent or unreadable refuses the call) and every `optional` one
+//!   (absent is skipped). [`CorpusDir`] is the source here: for a corpus it
+//!   reads the hits pinned in `<recipe dir>/corpora/<corpus>.jsonl`, one
+//!   `RecipeCorpusHit` per line, or else the signed
+//!   `<corpus>-<pin8>.hubpack.tar.zst` pack archive (and its `.sig`) in that
+//!   directory, verified against the hub key and ranked by the call's inputs.
+//!   Other corpora in the directory are never read. Hub packs fetched over the
+//!   network are the runtime path of #2760 and are not here.
 //! * The result is one text block holding the RFC 8785 (JCS) bytes of the sealed
 //!   `RecipeExecutionReport` (`report_sha256` included), `isError: false`. A
 //!   refusal (excluded licence, missing corpus, too little evidence, a failed
@@ -33,112 +38,72 @@
 //!   argument is not an operator-declared work order, so every call would be
 //!   refused), or a name that is not `xerj_*` or that is already a tool.
 
-use std::path::{Path, PathBuf};
+use std::collections::BTreeMap;
+use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{bail, Context};
 use serde_json::{json, Value};
 use xerj_common::cyber_scope::InputOrigin;
-use xerj_common::pack_recipe::{PackRecipe, RecipeCorpusHit, RecipeRunner};
+use xerj_common::pack_recipe::{
+    ChainedCorpusSource, JsonlCorpusDir, PackRecipe, RecipeCorpusHit, RecipeCorpusSource,
+    RecipeError, RecipeRunner,
+};
+use xerj_hub::recipe_source::HubPackDir;
 
 use crate::tool_text;
 
 /// Environment variable naming the recipe directory (`--recipe-dir` wins).
 pub const RECIPE_DIR_ENV: &str = "XERJ_RECIPE_DIR";
 
-/// Subdirectory of the recipe directory holding `<corpus>.jsonl` snapshots.
+/// Subdirectory of the recipe directory holding the corpora: `<corpus>.jsonl`
+/// snapshots and `<corpus>-<pin8>.hubpack.tar.zst` pack archives.
 pub const CORPORA_SUBDIR: &str = "corpora";
 
 /// Largest recipe file read. A recipe is a page of TOML.
 const MAX_RECIPE_BYTES: u64 = 1024 * 1024;
 
-/// Largest corpus snapshot read for one call.
-const MAX_CORPUS_BYTES: u64 = 16 * 1024 * 1024;
-
-/// Where a recipe's candidate hits come from when its tool is called. The
-/// runner filters, grades and ranks them; a source only supplies them.
-pub trait RecipeHitSource: Send + Sync {
-    /// Every hit this source holds for the corpora `recipe` names.
-    fn hits(&self, recipe: &PackRecipe) -> Result<Vec<RecipeCorpusHit>, String>;
-}
-
-/// Hits pinned in files: `<dir>/<corpus>.jsonl`, one `RecipeCorpusHit` JSON
-/// object per line. A corpus with no file contributes no hits, so a recipe that
-/// requires it is refused by the runner (`missing required corpus`), and an
-/// optional one is simply absent.
-#[derive(Debug, Clone)]
+/// The corpora of one directory: a corpus's pinned `<corpus>.jsonl` snapshot,
+/// else its signed `<corpus>-<pin8>.hubpack.tar.zst` pack archive. Only the
+/// corpus a recipe asks for is opened, so unrelated files in the directory are
+/// never read; one that is in neither form is not installed.
 pub struct CorpusDir {
-    dir: PathBuf,
+    sources: ChainedCorpusSource,
 }
 
 impl CorpusDir {
-    pub fn new(dir: impl Into<PathBuf>) -> Self {
-        Self { dir: dir.into() }
+    /// Pack archives verify against the hub key of this build
+    /// (`xerj_common::hub::hub_pubkey`).
+    pub fn new(dir: impl AsRef<Path>) -> Self {
+        let dir = dir.as_ref();
+        Self::from_sources(JsonlCorpusDir::new(dir), HubPackDir::new(dir))
     }
 
-    fn read_corpus(&self, corpus: &str) -> Result<Vec<RecipeCorpusHit>, String> {
-        // A recipe slug may hold `:`, which is a stream separator on NTFS, and
-        // a leading `.`; neither names a snapshot file.
-        let file_name_ok = corpus
-            .bytes()
-            .next()
-            .is_some_and(|b| b.is_ascii_alphanumeric())
-            && corpus
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'));
-        if !file_name_ok {
-            return Err(format!(
-                "corpus `{corpus}` cannot be read from a snapshot file: use letters, digits, \
-                 `.`, `_` and `-`, starting with a letter or digit"
-            ));
+    /// Pack archives verify against `pubkey_hex` (an ed25519 public key, 64 hex
+    /// digits) instead of the hub key of this build.
+    pub fn with_hub_pubkey(dir: impl AsRef<Path>, pubkey_hex: impl Into<String>) -> Self {
+        let dir = dir.as_ref();
+        Self::from_sources(
+            JsonlCorpusDir::new(dir),
+            HubPackDir::new(dir).with_pubkey(pubkey_hex),
+        )
+    }
+
+    fn from_sources(snapshots: JsonlCorpusDir, packs: HubPackDir) -> Self {
+        Self {
+            sources: ChainedCorpusSource::new().then(snapshots).then(packs),
         }
-        let path = self.dir.join(format!("{corpus}.jsonl"));
-        let len = match std::fs::metadata(&path) {
-            Ok(meta) => meta.len(),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-            Err(e) => return Err(format!("{}: {e}", path.display())),
-        };
-        if len > MAX_CORPUS_BYTES {
-            return Err(format!(
-                "{} is {len} bytes; the limit is {MAX_CORPUS_BYTES}",
-                path.display()
-            ));
-        }
-        let raw = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-        let mut hits = Vec::new();
-        for (n, line) in raw
-            .lines()
-            .enumerate()
-            .filter(|(_, l)| !l.trim().is_empty())
-        {
-            let hit: RecipeCorpusHit = serde_json::from_str(line)
-                .map_err(|e| format!("{}:{}: {e}", path.display(), n + 1))?;
-            if hit.corpus != corpus {
-                return Err(format!(
-                    "{}:{}: the hit says corpus `{}`, but this file is `{corpus}`",
-                    path.display(),
-                    n + 1,
-                    hit.corpus
-                ));
-            }
-            hits.push(hit);
-        }
-        Ok(hits)
     }
 }
 
-impl RecipeHitSource for CorpusDir {
-    fn hits(&self, recipe: &PackRecipe) -> Result<Vec<RecipeCorpusHit>, String> {
-        let mut hits = Vec::new();
-        for corpus in recipe
-            .corpora
-            .required
-            .iter()
-            .chain(&recipe.corpora.optional)
-        {
-            hits.extend(self.read_corpus(corpus)?);
-        }
-        Ok(hits)
+impl RecipeCorpusSource for CorpusDir {
+    fn fetch_corpus_hits(
+        &self,
+        corpus: &str,
+        query: &str,
+        max_hits: usize,
+    ) -> Result<Vec<RecipeCorpusHit>, RecipeError> {
+        self.sources.fetch_corpus_hits(corpus, query, max_hits)
     }
 }
 
@@ -153,7 +118,7 @@ struct Entry {
 #[derive(Clone, Default)]
 pub struct RecipeRegistry {
     entries: Vec<Entry>,
-    source: Option<Arc<dyn RecipeHitSource>>,
+    source: Option<Arc<dyn RecipeCorpusSource>>,
 }
 
 impl std::fmt::Debug for RecipeRegistry {
@@ -171,7 +136,7 @@ impl RecipeRegistry {
     }
 
     /// Load every `*.toml` file in `dir` (not recursive, in file-name order) as
-    /// a recipe, and read their hits from `dir/corpora/<corpus>.jsonl`. A file
+    /// a recipe, and read their corpora from `dir/corpora` ([`CorpusDir`]). A file
     /// that is not a valid, servable recipe is an error naming the file: a
     /// server that quietly skipped it would answer without a tool the operator
     /// believes is there.
@@ -208,11 +173,12 @@ impl RecipeRegistry {
                 .register(recipe)
                 .with_context(|| format!("recipe file {}", path.display()))?;
         }
-        Ok(registry.with_hit_source(Arc::new(CorpusDir::new(dir.join(CORPORA_SUBDIR)))))
+        Ok(registry.with_corpus_source(Arc::new(CorpusDir::new(dir.join(CORPORA_SUBDIR)))))
     }
 
-    /// Where the hits for every recipe come from.
-    pub fn with_hit_source(mut self, source: Arc<dyn RecipeHitSource>) -> Self {
+    /// Where the corpora of every recipe come from. With none, every corpus is
+    /// not installed, so a recipe with a required corpus is refused.
+    pub fn with_corpus_source(mut self, source: Arc<dyn RecipeCorpusSource>) -> Self {
         self.source = Some(source);
         self
     }
@@ -282,30 +248,24 @@ impl RecipeRegistry {
             .collect()
     }
 
-    /// Run the recipe tool `tool` over its hits. `None` when no registered
-    /// recipe has that name, so the caller can try the built-in tools.
+    /// Run the recipe tool `tool` over the corpora its `[corpora]` block names.
+    /// `None` when no registered recipe has that name, so the caller can try the
+    /// built-in tools.
     pub(crate) async fn call(&self, tool: &str, args: &Value) -> Option<Value> {
         let entry = self.entries.iter().find(|e| e.tool == tool)?;
         let recipe = Arc::clone(&entry.recipe);
         let source = self.source.clone();
         let args = args.clone();
-        // File reads and the runner are blocking work; keep them off the
-        // reactor so one recipe call does not hold up `ping` and `tools/list`.
-        let result = tokio::task::spawn_blocking(move || {
-            let hits = match &source {
-                Some(source) => source.hits(&recipe),
-                None => Ok(Vec::new()),
-            };
-            match hits {
-                Ok(hits) => dispatch_recipe_tool_call(&recipe, &args, &hits),
-                Err(why) => tool_text(
-                    format!(
-                        "recipe `{}` could not read its corpora: {why}",
-                        recipe.recipe.name
-                    ),
-                    true,
-                ),
-            }
+        // File reads, pack verification and the runner are blocking work; keep
+        // them off the reactor so one recipe call does not hold up `ping` and
+        // `tools/list`.
+        let result = tokio::task::spawn_blocking(move || match &source {
+            Some(source) => dispatch_recipe_tool_call(&recipe, &args, source.as_ref()),
+            None => dispatch_recipe_tool_call(
+                &recipe,
+                &args,
+                &BTreeMap::<String, Vec<RecipeCorpusHit>>::new(),
+            ),
         })
         .await
         .unwrap_or_else(|e| tool_text(format!("the recipe task failed: {e}"), true));
@@ -322,23 +282,25 @@ fn is_builtin_tool(name: &str) -> bool {
             .is_some_and(|tools| tools.iter().any(|t| t["name"].as_str() == Some(name)))
 }
 
-/// Run `recipe` over `args` and `hits` and return the MCP `tools/call` result.
+/// Run `recipe` over `args` and the corpora its `[corpora]` block names, taken
+/// from `source`, and return the MCP `tools/call` result.
 ///
 /// Success is one text block holding the RFC 8785 (JCS) bytes of the sealed
 /// `RecipeExecutionReport`, `isError: false`. Any `RecipeError` (bad arguments,
-/// an excluded licence, a missing corpus, too little evidence, an output that
-/// fails its schema or a check) is an `isError: true` text block with the
-/// error, as for every other tool. The call carries no `ScopeGuard` and its
-/// origin is untrusted, so a `requires_scope` recipe is refused here.
+/// a required corpus the source does not hold or cannot read, an excluded
+/// licence, too little evidence, an output that fails its schema or a check) is
+/// an `isError: true` text block with the error, as for every other tool. The
+/// call carries no `ScopeGuard` and its origin is untrusted, so a
+/// `requires_scope` recipe is refused here.
 pub fn dispatch_recipe_tool_call(
     recipe: &PackRecipe,
     args: &Value,
-    hits: &[RecipeCorpusHit],
+    source: &dyn RecipeCorpusSource,
 ) -> Value {
-    let sealed = RecipeRunner::execute(
+    let sealed = RecipeRunner::execute_from_source(
         recipe,
         args,
-        hits,
+        source,
         None,
         InputOrigin::UntrustedRepository,
         chrono::Utc::now(),
@@ -524,31 +486,40 @@ non_empty = true
     fn a_corpus_dir_serves_pinned_hits_and_refuses_a_file_that_names_another_corpus() {
         let dir = tempfile::tempdir().unwrap();
         let source = CorpusDir::new(dir.path());
-        let r = recipe("demo.hits", "");
-        assert!(source.hits(&r).unwrap().is_empty(), "no file, no hits");
+        let fetch = || source.fetch_corpus_hits("demo-corpus", "", 100);
+        assert!(
+            matches!(fetch(), Err(RecipeError::CorpusNotInstalled { .. })),
+            "no file is not installed"
+        );
 
         let path = dir.path().join("demo-corpus.jsonl");
         std::fs::write(&path, format!("{}\n\n", hit_line("demo-corpus", "r1"))).unwrap();
-        assert_eq!(source.hits(&r).unwrap().len(), 1);
+        assert_eq!(fetch().unwrap().len(), 1);
 
         std::fs::write(&path, hit_line("other-corpus", "r1")).unwrap();
-        let why = source.hits(&r).unwrap_err();
+        let why = fetch().unwrap_err().to_string();
         assert!(
             why.contains("other-corpus") && why.contains("demo-corpus"),
             "{why}"
         );
 
         std::fs::write(&path, "{not json").unwrap();
-        assert!(source.hits(&r).unwrap_err().contains("demo-corpus.jsonl:1"));
+        assert!(fetch()
+            .unwrap_err()
+            .to_string()
+            .contains("demo-corpus.jsonl:1"));
     }
 
     #[test]
     fn a_corpus_slug_that_is_not_a_file_name_is_refused_not_opened() {
         let source = CorpusDir::new("unused");
         for slug in ["ns:corpus", ".hidden", "-lead"] {
-            let why = source.read_corpus(slug).unwrap_err();
+            let why = source
+                .fetch_corpus_hits(slug, "", 10)
+                .unwrap_err()
+                .to_string();
             assert!(
-                why.contains("cannot be read from a snapshot file"),
+                why.contains("a snapshot file is named after its corpus"),
                 "{slug}: {why}"
             );
         }

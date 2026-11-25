@@ -6,11 +6,16 @@
 
 **Status.** The format, the runner and the four built-in recipes are here and
 tested, and `xerj mcp --recipe-dir <DIR>` serves the recipes in a directory as
-MCP tools ([Serving recipes as MCP tools](#serving-recipes-as-mcp-tools)). The
-runner still takes the corpus hits from its caller (`hits: &[RecipeCorpusHit]`):
-a recipe's `[corpora]` block selects and checks data, it does not fetch it.
-`xerj mcp` supplies the hits from files; fetching them from hub packs is the
-runtime path of #2760 (#3297) and is not here.
+MCP tools ([Serving recipes as MCP tools](#serving-recipes-as-mcp-tools)). A
+recipe's `[corpora]` block selects the data it runs on:
+`RecipeRunner::execute_from_source` asks a `RecipeCorpusSource` for each
+`required` corpus (a missing or unreadable one refuses the call) and each
+`optional` one (a missing one is skipped), and nothing from a corpus the recipe
+does not name reaches the report ([Where the hits come from](#where-the-hits-come-from)).
+`RecipeRunner::execute` still takes hits a caller already holds and applies the
+same `[corpora]` rules to them. `xerj mcp` reads pinned `<corpus>.jsonl` files
+and signed `.hubpack.tar.zst` packs from a directory; fetching packs from the
+hub over the network is the runtime path of #2760 (#3297) and is not here.
 
 ## Built-in recipes
 
@@ -101,7 +106,68 @@ A pack tool is declared in TOML with no new Rust code:
 runs filtering, grading and ranking, checks the evidence floor, assembles and
 fits the output, validates it against `[output_schema]`, executes every
 `[[checks]]` gate, and seals the `RecipeExecutionReport` with an RFC 8785 (JCS)
-`report_sha256` digest.
+`report_sha256` digest. Whoever supplies the hits, `[corpora]` governs them: a
+hit from a corpus the recipe does not list under `required` or `optional` is
+ignored (it cannot satisfy a required corpus, and its licence is not examined),
+and a `required` corpus with no hit among the rest is
+`RecipeError::MissingRequiredCorpus`.
+
+### Where the hits come from
+
+`RecipeRunner::execute_from_source(recipe, args, source, guard, origin, now)`
+takes no hits. After checking the arguments and the `ScopeGuard` gate it asks
+`source` (a `RecipeCorpusSource`) for the corpora the recipe names, `required`
+first, then `optional`, and runs `execute` over what they hold:
+
+```rust
+pub trait RecipeCorpusSource: Send + Sync {
+    fn fetch_corpus_hits(&self, corpus: &str, query: &str, max_hits: usize)
+        -> Result<Vec<RecipeCorpusHit>, RecipeError>;
+}
+```
+
+- `query` is the call's free-text inputs (`PackRecipe::corpus_query`): the
+  string and `string_array` inputs that are not enums, in declaration order,
+  separated by a space. `max_hits` is `MAX_SOURCE_HITS_PER_CORPUS` (5,000).
+- A **required** corpus the source does not hold, or holds with no hit, refuses
+  the call with `MissingRequiredCorpus` naming it. One the source holds but
+  cannot read (a malformed snapshot, a pack that does not verify) refuses it with
+  `CorpusUnreadable`, naming the corpus and why.
+- An **optional** corpus the source does not hold is skipped, and the report is
+  built from the others. One it holds but cannot read refuses the call the same
+  way: a corpus that is present but broken is not "not installed", and a report
+  built without evidence it was meant to carry would not say so.
+- A hit whose `corpus` is not the corpus that was asked for is dropped. A corpus
+  named in both lists is asked for once, as required.
+
+Sources:
+
+| Source | Holds |
+| --- | --- |
+| `BTreeMap<String, Vec<RecipeCorpusHit>>` | hits in memory (tests, or a caller that already has them) |
+| `JsonlCorpusDir` | `<dir>/<corpus>.jsonl`, one `RecipeCorpusHit` per line, returned whole (the recipe's `[[filters]]` select from it); at most 16 MiB |
+| `xerj_hub::recipe_source::HubPackDir` | signed `<dir>/<corpus>-<pin8>.hubpack.tar.zst` pack archives, below |
+| `ChainedCorpusSource` | several sources tried in order; one that does not hold the corpus passes the question on, any other error stops the chain |
+
+**Hub packs.** `HubPackDir` finds the one `<corpus>-<pin8>.hubpack.tar.zst` in
+its directory (two pins of a corpus is an error; it does not choose) and reads
+it through `xerj_hub::pack::read_verified_pack_records`, which checks, before
+anything is used, the ed25519 signature of the detached `<archive>.sig` against
+the hub key of the build (`XERJ_HUB_PUBKEY` overrides it for tests, `none`
+disables it), the decompression bound, `format_version`, and every `SHA256SUMS`
+line. An archive with no `.sig`, a build with no hub key, a pack whose
+`pack.json` names another slug, and an archive named for a pin its `pack.json`
+does not carry are all refused. Nothing is extracted. Each `defs.jsonl` line is a
+hit (`record_id` `<file>:<line>:<symbol>`, `title` the symbol, `excerpt` the
+declaration, `fields` `kind`, `lang`, `file`, `line`, optional `value`,
+`source_member = "defs.jsonl"`) and so is each `files.jsonl` line (`record_id`
+the path, `fields` `kind = "file"`, `lang`, `bytes`, `licence`,
+`source_member = "files.jsonl"`); all carry the pack's `pin_sha`, `pin_date`
+(`published_date`), `built_at` (`fetched_at`) and licence class. Records are
+ranked by the query: the score is the share of its words (letters and digits,
+two or more) found in the record, records sharing none are left out, and the
+best `max_hits` come back. An archive over 50 MiB, or one that decompresses past
+256 MiB, is refused. The archive is verified again at each call.
 
 ## Serving recipes as MCP tools
 
@@ -113,7 +179,9 @@ dropping one in is a new tool, with no Rust change.
 DIR/
   advisories_by_cwe.toml        one recipe, one tool: xerj_advisories_by_cwe
   corpora/
-    demo-advisories.jsonl       the hits for [corpora] required = ["demo-advisories"]
+    demo-advisories.jsonl       pinned hits for [corpora] required = ["demo-advisories"]
+    other-corpus-0774d055.hubpack.tar.zst       a signed hub pack, and its
+    other-corpus-0774d055.hubpack.tar.zst.sig   detached signature
 ```
 
 - **Off by default.** Without the flag, `tools/list` is the built-in tool list
@@ -127,28 +195,34 @@ DIR/
   (an MCP argument is not an operator-declared work order, so every call would be
   refused), a tool name that does not start with `xerj_`, one that is already a
   built-in tool or a `xerj_hub_*` name, or one another recipe already uses.
-- **`tools/call` runs `RecipeRunner::execute`.** The arguments are validated
-  against `[[inputs]]`, the recipe runs over its hits, and the result is one text
-  block holding the RFC 8785 (JCS) bytes of the sealed `RecipeExecutionReport`
-  (`report_sha256` included), `isError: false`. A refusal (bad arguments, an
-  excluded licence, a missing corpus, too little evidence, a failed check) is an
-  `isError: true` block that names the reason.
-- **The hits are files.** For each corpus in `[corpora]`, the runner is given the
-  hits in `DIR/corpora/<corpus>.jsonl`, one `RecipeCorpusHit` JSON object per
-  line (`corpus`, `licence_class`, `record_id`, `title`, `excerpt`, `score`,
+- **`tools/call` runs `RecipeRunner::execute_from_source`.** The arguments are
+  validated against `[[inputs]]`, the recipe's `[corpora]` are read from
+  `DIR/corpora`, and the result is one text block holding the RFC 8785 (JCS)
+  bytes of the sealed `RecipeExecutionReport` (`report_sha256` included),
+  `isError: false`. A refusal (bad arguments, a missing or unreadable corpus, an
+  excluded licence, too little evidence, a failed check) is an `isError: true`
+  block that names the reason.
+- **`[corpora]` selects the data.** For each corpus the recipe names, `CorpusDir`
+  reads `DIR/corpora/<corpus>.jsonl` (one `RecipeCorpusHit` JSON object per line:
+  `corpus`, `licence_class`, `record_id`, `title`, `excerpt`, `score`,
   `published_date`, `pin_sha`, `fetched_at`, and `fields` for what filters and
-  grading read). The file is read at each call, so an edit needs no restart. A
-  line whose `corpus` is not the file's name is an error, a corpus with no file
-  gives no hits (so a required one is refused as missing), and a file over
-  16 MiB is refused.
+  grading read), or else the signed `DIR/corpora/<corpus>-<pin8>.hubpack.tar.zst`
+  and its `.sig` ([Hub packs](#where-the-hits-come-from)). Other files in the
+  directory are never opened. The files are read at each call, so an edit needs
+  no restart. A snapshot line whose `corpus` is not the file's name is an error,
+  a corpus with neither form is not installed (so a required one is refused as
+  missing and an optional one is skipped), and a snapshot over 16 MiB is
+  refused.
 - **No node, read-only.** A recipe tool reads only the operator's recipe and
   corpus files and never calls the node, so `xerj mcp --http` serves it with the
   other read-only tools, without `--allow-writes`.
 
 From Rust, `RecipeRegistry::register` adds a `PackRecipe` (for example the ones
-`builtin_recipes()` returns), `tool_specs_with_recipes(include_hub, &registry)`
-is the list a server with that registry answers `tools/list` with, and
-`dispatch_recipe_tool_call(recipe, args, hits)` runs one call over hits you hold.
+`builtin_recipes()` returns), `RecipeRegistry::with_corpus_source` sets where
+the corpora come from, `tool_specs_with_recipes(include_hub, &registry)` is the
+list a server with that registry answers `tools/list` with, and
+`dispatch_recipe_tool_call(recipe, args, &source)` runs one call over a
+`RecipeCorpusSource` you hold.
 
 ## What a recipe cannot express yet
 

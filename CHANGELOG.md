@@ -23,13 +23,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `min_evidence_hits` refusal instead of padding, `cluster_by` chapter grouping,
   and study-type grading with a `GradeRule` receipt (including `expert_opinion`,
   and `Level5` for any study that is not human clinical) with a
-  clinical / non-clinical split. `xerj mcp --recipe-dir <DIR>` (or
+  clinical / non-clinical split. `RecipeRunner::execute_from_source` makes the
+  recipe's `[corpora]` block select the data: it asks a `RecipeCorpusSource` for
+  every `required` corpus (absent refuses with `MissingRequiredCorpus`, present
+  but unreadable with `CorpusUnreadable`) and every `optional` one (absent is
+  skipped), and a hit from an undeclared corpus never reaches the report; sources
+  are an in-memory map, `<corpus>.jsonl` snapshots, and signed
+  `<corpus>-<pin8>.hubpack.tar.zst` hub packs read without extraction
+  (`xerj_hub::recipe_source::HubPackDir`, signature and `SHA256SUMS` checked).
+  `xerj mcp --recipe-dir <DIR>` (or
   `XERJ_RECIPE_DIR`) serves the `*.toml` recipes in a directory as MCP tools: each
   is listed in `tools/list` after the built-in tools, and its `tools/call` runs
-  `RecipeRunner::execute` over the hits pinned in `<DIR>/corpora/<corpus>.jsonl`
+  `RecipeRunner::execute_from_source` over the corpora its `[corpora]` block names
+  in `<DIR>/corpora` (`<corpus>.jsonl`, or a signed hub pack)
   and returns the RFC 8785 (JCS) sealed report, so a recipe file is a working tool
   with no Rust change. Off by default: without the flag the tool list and the
-  published schema are unchanged. Fetching hits from hub packs still needs #2760.
+  published schema are unchanged. Fetching packs from the hub over the network
+  still needs #2760.
 
 ## [1.0.0-rc.105] - 2026-11-23
 

@@ -99,10 +99,11 @@
 //! `--recipe-dir <DIR>` (or `XERJ_RECIPE_DIR`) serves every `*.toml` recipe in
 //! `DIR` as one more tool: [`RecipeRegistry`] projects each
 //! `xerj-recipe/v1` recipe into `tools/list` and runs its `tools/call` through
-//! `xerj_common::pack_recipe::RecipeRunner`, over the hits pinned in
-//! `DIR/corpora/<corpus>.jsonl`. A new recipe file is a new tool with no Rust
-//! change. These tools never call the node, and without the flag the tool list
-//! is exactly [`tool_specs`]. See `docs/pack-recipes.md`.
+//! `xerj_common::pack_recipe::RecipeRunner`, over the corpora its `[corpora]`
+//! block names: `DIR/corpora/<corpus>.jsonl`, or a signed
+//! `DIR/corpora/<corpus>-<pin8>.hubpack.tar.zst` pack. A new recipe file is a new
+//! tool with no Rust change. These tools never call the node, and without the
+//! flag the tool list is exactly [`tool_specs`]. See `docs/pack-recipes.md`.
 //!
 //! ## Token budgets (#1058, default since #2491)
 //!
@@ -131,8 +132,7 @@ mod vectors;
 pub use batch_cli::run_batch_cli;
 pub use http::{HttpOptions, READ_ONLY_TOOLS as HTTP_READ_ONLY_TOOLS};
 pub use recipes::{
-    dispatch_recipe_tool_call, CorpusDir, RecipeHitSource, RecipeRegistry, CORPORA_SUBDIR,
-    RECIPE_DIR_ENV,
+    dispatch_recipe_tool_call, CorpusDir, RecipeRegistry, CORPORA_SUBDIR, RECIPE_DIR_ENV,
 };
 
 use std::sync::Arc;
@@ -224,10 +224,12 @@ OPTIONS:
     --recipe-dir <DIR>
                     Also serve the pack recipes in DIR as tools: each *.toml
                     (xerj-recipe/v1) is one tool in tools/list, run by the
-                    recipe runner over the hits pinned in
-                    DIR/corpora/<corpus>.jsonl, with no call to the node. An
-                    invalid recipe stops the server. Default: none, so only
-                    the tools above are served. Env: XERJ_RECIPE_DIR
+                    recipe runner over the corpora its [corpora] block names
+                    (DIR/corpora/<corpus>.jsonl, or a signed
+                    DIR/corpora/<corpus>-<pin8>.hubpack.tar.zst), with no call
+                    to the node. An invalid recipe stops the server. Default:
+                    none, so only the tools above are served. Env:
+                    XERJ_RECIPE_DIR
     -h, --help      Show this help
     -V, --version   Print version and exit
     --disable-feedback

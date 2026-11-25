@@ -9,7 +9,13 @@
 //!   `description`, `inputSchema`) with no Rust changes. `xerj-mcp`'s
 //!   `RecipeRegistry` (`xerj mcp --recipe-dir <DIR>`) registers the recipes in a
 //!   directory in `tools/list` and sends each `tools/call` to
-//!   [`RecipeRunner::execute`], returning the JCS-sealed report.
+//!   [`RecipeRunner::execute_from_source`], returning the JCS-sealed report.
+//! - The recipe's `[corpora]` block selects the data. [`RecipeRunner::execute_from_source`]
+//!   asks a [`RecipeCorpusSource`] for every `required` corpus (absent or
+//!   unreadable refuses the call) and every `optional` one (absent is skipped),
+//!   and nothing from an undeclared corpus reaches the report.
+//!   [`RecipeRunner::execute`] still takes hits a caller already holds, and
+//!   applies the same `[corpora]` rules to them.
 //! - Invalid recipes fail at build/test time with a precise [`RecipeError`].
 //! - Execution performs corpus selection, redistribution licence checks,
 //!   input-bound filtering, study-type grading with a `GradeRule` receipt,
@@ -31,6 +37,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
 pub const RECIPE_FORMAT_VERSION: &str = "xerj-recipe/v1";
 pub const RECIPE_REPORT_VERSION: &str = "xerj-recipe-execution/v1";
@@ -50,6 +57,16 @@ pub enum RecipeError {
     ExcludedCorpusLicence { recipe: String, corpus: String },
     #[error("recipe `{recipe}` refused: missing required corpus `{corpus}`")]
     MissingRequiredCorpus { recipe: String, corpus: String },
+    /// What a [`RecipeCorpusSource`] answers for a corpus it does not hold.
+    /// `execute_from_source` turns it into [`RecipeError::MissingRequiredCorpus`]
+    /// for a required corpus and skips an optional one.
+    #[error("corpus `{corpus}` is not installed")]
+    CorpusNotInstalled { corpus: String },
+    /// A corpus the source holds but cannot hand over: unreadable, malformed,
+    /// too large, or a pack that does not verify. Never skipped, optional or not:
+    /// a report built without evidence it was meant to carry would not say so.
+    #[error("corpus `{corpus}` could not be read: {reason}")]
+    CorpusUnreadable { corpus: String, reason: String },
     #[error("recipe `{recipe}` abstained: matched {matched} hits, need at least {min_hits}")]
     InsufficientEvidence {
         recipe: String,
@@ -976,6 +993,29 @@ impl PackRecipe {
         Ok(obj.clone())
     }
 
+    /// The text a retrieval-backed [`RecipeCorpusSource`] ranks its records by:
+    /// the call's free-text inputs (string and string-array inputs that are not
+    /// enums), in declaration order, separated by a space. An enum input picks a
+    /// variant of the recipe (`length = "standard"`); it is not search text.
+    pub fn corpus_query(&self, valid_args: &Map<String, Value>) -> String {
+        let mut parts: Vec<&str> = Vec::new();
+        for inp in self.inputs.iter().filter(|i| i.enum_values.is_empty()) {
+            match (inp.kind, valid_args.get(&inp.name)) {
+                (FieldKind::String, Some(Value::String(s))) => parts.push(s),
+                (FieldKind::StringArray, Some(Value::Array(items))) => {
+                    parts.extend(items.iter().filter_map(Value::as_str));
+                }
+                _ => {}
+            }
+        }
+        let parts: Vec<&str> = parts
+            .into_iter()
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .collect();
+        parts.join(" ")
+    }
+
     /// Validate a candidate output JSON object against `[output_schema]`.
     pub fn validate_output(&self, output: &Value) -> Result<()> {
         let rname = &self.recipe.name;
@@ -1253,6 +1293,198 @@ pub struct RecipeCorpusHit {
     pub pinned_citation: Option<PinnedCitation>,
 }
 
+/// The most hits one corpus contributes to one [`RecipeRunner::execute_from_source`]
+/// call. Retrieval-backed sources rank by the query and return the best this
+/// many; a pinned snapshot larger than this is cut to its best-scored records.
+/// The runner filters, grades and ranks what it is given, so a recipe's
+/// `top_k` and `min_hits` are far below it.
+pub const MAX_SOURCE_HITS_PER_CORPUS: usize = 5_000;
+
+/// Largest `<corpus>.jsonl` snapshot [`JsonlCorpusDir`] reads for one call.
+const MAX_CORPUS_FILE_BYTES: u64 = 16 * 1024 * 1024;
+
+/// Where [`RecipeRunner::execute_from_source`] gets the hits of each corpus the
+/// recipe's `[corpora]` block names. The runner filters, grades and ranks them;
+/// a source only holds them. Implementations: a map in memory (`BTreeMap`, for
+/// tests and callers that already hold the hits), [`JsonlCorpusDir`] (pinned
+/// `<corpus>.jsonl` files), [`ChainedCorpusSource`], and `xerj-hub`'s
+/// `HubPackDir` (signed `.hubpack.tar.zst` archives).
+pub trait RecipeCorpusSource: Send + Sync {
+    /// The hits `corpus` holds for `query`, at most `max_hits`.
+    ///
+    /// `query` is the call's free-text inputs ([`PackRecipe::corpus_query`]); a
+    /// source that retrieves ranks by it, and one that holds curated hits may
+    /// ignore it. Every returned hit must say `corpus` as its own `corpus`.
+    ///
+    /// A corpus the source does not hold is
+    /// [`RecipeError::CorpusNotInstalled`]; one it holds but cannot read is
+    /// [`RecipeError::CorpusUnreadable`]. An empty `Ok` means installed, nothing
+    /// to offer, which a required corpus cannot be.
+    fn fetch_corpus_hits(
+        &self,
+        corpus: &str,
+        query: &str,
+        max_hits: usize,
+    ) -> Result<Vec<RecipeCorpusHit>>;
+}
+
+/// The best-scored `max_hits` of `hits` (score, then `record_id`), or all of
+/// them in their given order when there are no more than that.
+fn cap_hits(mut hits: Vec<RecipeCorpusHit>, max_hits: usize) -> Vec<RecipeCorpusHit> {
+    if hits.len() > max_hits {
+        hits.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.record_id.cmp(&b.record_id))
+        });
+        hits.truncate(max_hits);
+    }
+    hits
+}
+
+impl RecipeCorpusSource for BTreeMap<String, Vec<RecipeCorpusHit>> {
+    fn fetch_corpus_hits(
+        &self,
+        corpus: &str,
+        _query: &str,
+        max_hits: usize,
+    ) -> Result<Vec<RecipeCorpusHit>> {
+        match self.get(corpus) {
+            Some(hits) => Ok(cap_hits(hits.clone(), max_hits)),
+            None => Err(RecipeError::CorpusNotInstalled {
+                corpus: corpus.to_string(),
+            }),
+        }
+    }
+}
+
+/// Hits pinned in files: `<dir>/<corpus>.jsonl`, one [`RecipeCorpusHit`] JSON
+/// object per line. A snapshot is curated for the recipes that name it, so it is
+/// returned whole (the query is not applied): the recipe's own `[[filters]]`
+/// select from it. A corpus with no file is
+/// [`RecipeError::CorpusNotInstalled`].
+#[derive(Debug, Clone)]
+pub struct JsonlCorpusDir {
+    dir: PathBuf,
+}
+
+impl JsonlCorpusDir {
+    pub fn new(dir: impl Into<PathBuf>) -> Self {
+        Self { dir: dir.into() }
+    }
+
+    pub fn dir(&self) -> &Path {
+        &self.dir
+    }
+}
+
+impl RecipeCorpusSource for JsonlCorpusDir {
+    fn fetch_corpus_hits(
+        &self,
+        corpus: &str,
+        _query: &str,
+        max_hits: usize,
+    ) -> Result<Vec<RecipeCorpusHit>> {
+        let unreadable = |reason: String| RecipeError::CorpusUnreadable {
+            corpus: corpus.to_string(),
+            reason,
+        };
+        // A recipe slug may hold `:`, which is a stream separator on NTFS, and a
+        // leading `.`; neither names a snapshot file.
+        let file_name_ok = corpus
+            .bytes()
+            .next()
+            .is_some_and(|b| b.is_ascii_alphanumeric())
+            && corpus
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'));
+        if !file_name_ok {
+            return Err(unreadable(
+                "a snapshot file is named after its corpus, which may use only letters, digits, \
+                 `.`, `_` and `-`, starting with a letter or digit"
+                    .to_string(),
+            ));
+        }
+        let path = self.dir.join(format!("{corpus}.jsonl"));
+        let len = match std::fs::metadata(&path) {
+            Ok(meta) => meta.len(),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return Err(RecipeError::CorpusNotInstalled {
+                    corpus: corpus.to_string(),
+                })
+            }
+            Err(e) => return Err(unreadable(format!("{}: {e}", path.display()))),
+        };
+        if len > MAX_CORPUS_FILE_BYTES {
+            return Err(unreadable(format!(
+                "{} is {len} bytes; the limit is {MAX_CORPUS_FILE_BYTES}",
+                path.display()
+            )));
+        }
+        let raw = std::fs::read_to_string(&path)
+            .map_err(|e| unreadable(format!("{}: {e}", path.display())))?;
+        let mut hits = Vec::new();
+        for (n, line) in raw
+            .lines()
+            .enumerate()
+            .filter(|(_, l)| !l.trim().is_empty())
+        {
+            let hit: RecipeCorpusHit = serde_json::from_str(line)
+                .map_err(|e| unreadable(format!("{}:{}: {e}", path.display(), n + 1)))?;
+            if hit.corpus != corpus {
+                return Err(unreadable(format!(
+                    "{}:{}: the hit says corpus `{}`, but this file is `{corpus}`",
+                    path.display(),
+                    n + 1,
+                    hit.corpus
+                )));
+            }
+            hits.push(hit);
+        }
+        Ok(cap_hits(hits, max_hits))
+    }
+}
+
+/// Sources tried in order. The first that holds the corpus answers, so a pinned
+/// snapshot can sit in front of a pack archive; a source that does not hold it
+/// ([`RecipeError::CorpusNotInstalled`]) passes the question on, and any other
+/// error stops the chain (a corpus that is present but broken is not "absent").
+#[derive(Default)]
+pub struct ChainedCorpusSource {
+    sources: Vec<Box<dyn RecipeCorpusSource>>,
+}
+
+impl ChainedCorpusSource {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn then(mut self, source: impl RecipeCorpusSource + 'static) -> Self {
+        self.sources.push(Box::new(source));
+        self
+    }
+}
+
+impl RecipeCorpusSource for ChainedCorpusSource {
+    fn fetch_corpus_hits(
+        &self,
+        corpus: &str,
+        query: &str,
+        max_hits: usize,
+    ) -> Result<Vec<RecipeCorpusHit>> {
+        for source in &self.sources {
+            match source.fetch_corpus_hits(corpus, query, max_hits) {
+                Err(RecipeError::CorpusNotInstalled { .. }) => continue,
+                held => return held,
+            }
+        }
+        Err(RecipeError::CorpusNotInstalled {
+            corpus: corpus.to_string(),
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CheckOutcome {
@@ -1287,10 +1519,108 @@ struct Preimage<'a> {
 
 pub struct RecipeRunner;
 
+/// The `ScopeGuard` gate of a `requires_scope` recipe: the declared work order
+/// it runs under, or `None` for a recipe that needs none.
+fn check_scope(
+    recipe: &PackRecipe,
+    valid_args: &Map<String, Value>,
+    guard: Option<&ScopeGuard>,
+    origin: InputOrigin,
+    now: DateTime<Utc>,
+) -> Result<Option<WorkOrder>> {
+    if !recipe.recipe.requires_scope {
+        return Ok(None);
+    }
+    let g = guard.ok_or_else(|| RecipeError::ScopeRequired {
+        recipe: recipe.recipe.name.clone(),
+    })?;
+    if origin != InputOrigin::AuthorizedControlPlane {
+        return Err(RecipeError::Scope(ScopeError::UntrustedInput));
+    }
+    let wo = g.scope();
+    if now < wo.not_before {
+        return Err(RecipeError::Scope(ScopeError::NotYetValid));
+    }
+    if now > wo.expires_at {
+        return Err(RecipeError::Scope(ScopeError::Expired));
+    }
+    if let Some(target) = valid_args.get("target").and_then(Value::as_str) {
+        let _ = g.authorize(target, origin, now)?;
+    }
+    Ok(Some(wo.clone()))
+}
+
 impl RecipeRunner {
+    /// Execute a declarative [`PackRecipe`] over the recipe's `[corpora]`: ask
+    /// `source` for every `required` corpus, then every `optional` one, and run
+    /// [`RecipeRunner::execute`] over what they hold.
+    ///
+    /// A required corpus the source does not hold, or holds with no hit, is
+    /// [`RecipeError::MissingRequiredCorpus`]; one it holds but cannot read is
+    /// [`RecipeError::CorpusUnreadable`]. Either way nothing is reported: a
+    /// recipe never answers without the corpora it requires. An optional corpus
+    /// the source does not hold is skipped and the others still answer; one that
+    /// is held but unreadable is as fatal as a required one. Hits whose `corpus`
+    /// is not the one asked for are dropped, so only declared corpora contribute.
+    ///
+    /// The arguments and the `ScopeGuard` gate are checked before the source is
+    /// asked for anything.
+    pub fn execute_from_source(
+        recipe: &PackRecipe,
+        args: &Value,
+        source: &dyn RecipeCorpusSource,
+        guard: Option<&ScopeGuard>,
+        origin: InputOrigin,
+        now: DateTime<Utc>,
+    ) -> Result<RecipeExecutionReport> {
+        recipe.validate()?;
+        let valid_args = recipe.validate_arguments(args)?;
+        check_scope(recipe, &valid_args, guard, origin, now)?;
+        let query = recipe.corpus_query(&valid_args);
+
+        let required = recipe.corpora.required.iter().map(|c| (c, true));
+        let optional = recipe.corpora.optional.iter().map(|c| (c, false));
+        let mut asked: HashSet<&str> = HashSet::new();
+        let mut hits: Vec<RecipeCorpusHit> = Vec::new();
+        for (corpus, is_required) in required.chain(optional) {
+            // A corpus listed as both is asked for once, as required.
+            if !asked.insert(corpus.as_str()) {
+                continue;
+            }
+            let missing = || RecipeError::MissingRequiredCorpus {
+                recipe: recipe.recipe.name.clone(),
+                corpus: corpus.clone(),
+            };
+            match source.fetch_corpus_hits(corpus, &query, MAX_SOURCE_HITS_PER_CORPUS) {
+                Ok(found) => {
+                    let before = hits.len();
+                    hits.extend(found.into_iter().filter(|h| h.corpus == *corpus));
+                    if is_required && hits.len() == before {
+                        return Err(missing());
+                    }
+                }
+                Err(
+                    RecipeError::CorpusNotInstalled { .. }
+                    | RecipeError::MissingRequiredCorpus { .. },
+                ) => {
+                    if is_required {
+                        return Err(missing());
+                    }
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Self::execute(recipe, args, &hits, guard, origin, now)
+    }
+
     /// Execute a declarative [`PackRecipe`] over supplied corpus hits and MCP
     /// arguments, validating the output against the recipe's schema and running
     /// every deterministic check step before sealing the report.
+    ///
+    /// `[corpora]` governs which hits count, whoever supplied them: a hit from a
+    /// corpus the recipe does not declare (`required` or `optional`) is ignored,
+    /// and a `required` corpus with no hit among those left is
+    /// [`RecipeError::MissingRequiredCorpus`].
     pub fn execute(
         recipe: &PackRecipe,
         args: &Value,
@@ -1301,28 +1631,7 @@ impl RecipeRunner {
     ) -> Result<RecipeExecutionReport> {
         recipe.validate()?;
         let valid_args = recipe.validate_arguments(args)?;
-
-        let scope_echo = if recipe.recipe.requires_scope {
-            let g = guard.ok_or_else(|| RecipeError::ScopeRequired {
-                recipe: recipe.recipe.name.clone(),
-            })?;
-            if origin != InputOrigin::AuthorizedControlPlane {
-                return Err(RecipeError::Scope(ScopeError::UntrustedInput));
-            }
-            let wo = g.scope();
-            if now < wo.not_before {
-                return Err(RecipeError::Scope(ScopeError::NotYetValid));
-            }
-            if now > wo.expires_at {
-                return Err(RecipeError::Scope(ScopeError::Expired));
-            }
-            if let Some(target) = valid_args.get("target").and_then(Value::as_str) {
-                let _ = g.authorize(target, origin, now)?;
-            }
-            Some(wo.clone())
-        } else {
-            None
-        };
+        let scope_echo = check_scope(recipe, &valid_args, guard, origin, now)?;
 
         let allowed_corpora: HashSet<&str> = recipe
             .corpora
@@ -3368,5 +3677,411 @@ mod tests {
         assert!(outline
             .validate_output(&json!({"recipe": "write.outline"}))
             .is_err());
+    }
+
+    const SOURCES_RECIPE: &str = r#"
+[recipe]
+format_version = "xerj-recipe/v1"
+pack = "demo"
+name = "demo.sources"
+description = "A recipe whose [corpora] block names alpha (required) and beta (optional)."
+
+[[inputs]]
+name = "topic"
+kind = "string"
+required = true
+description = "Free text the source ranks by."
+
+[[inputs]]
+name = "tags"
+kind = "string_array"
+description = "More free text."
+
+[[inputs]]
+name = "length"
+kind = "string"
+description = "An enum: picks a variant, is not search text."
+enum_values = ["brief", "long"]
+
+[[inputs]]
+name = "count"
+kind = "integer"
+description = "Not text."
+
+[corpora]
+required = ["alpha"]
+optional = ["beta"]
+min_hits = 1
+
+[ranking]
+strategy = "score_desc"
+top_k = 10
+
+[output_schema]
+required_fields = ["items"]
+
+[output_schema.properties.recipe]
+kind = "string"
+
+[output_schema.properties.pack]
+kind = "string"
+
+[output_schema.properties.items]
+kind = "array"
+non_empty = true
+item_required_fields = ["corpus", "record_id"]
+"#;
+
+    fn sources_recipe() -> PackRecipe {
+        recipe(SOURCES_RECIPE)
+    }
+
+    /// A source of `(corpus, [record ids])`, best score first by position.
+    fn held(corpora: &[(&str, &[&str])]) -> BTreeMap<String, Vec<RecipeCorpusHit>> {
+        corpora
+            .iter()
+            .map(|(corpus, ids)| {
+                let hits = ids
+                    .iter()
+                    .enumerate()
+                    .map(|(n, id)| hit(corpus, id, "T", "E", 0.9 - n as f64 * 0.1, &[]))
+                    .collect();
+                (corpus.to_string(), hits)
+            })
+            .collect()
+    }
+
+    fn run_from(
+        recipe: &PackRecipe,
+        args: Value,
+        source: &dyn RecipeCorpusSource,
+    ) -> Result<RecipeExecutionReport> {
+        RecipeRunner::execute_from_source(
+            recipe,
+            &args,
+            source,
+            None,
+            InputOrigin::AuthorizedControlPlane,
+            now(),
+        )
+    }
+
+    fn items(report: &RecipeExecutionReport) -> Vec<(String, String)> {
+        report.output["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|i| {
+                (
+                    i["corpus"].as_str().unwrap().to_string(),
+                    i["record_id"].as_str().unwrap().to_string(),
+                )
+            })
+            .collect()
+    }
+
+    fn pair(corpus: &str, id: &str) -> (String, String) {
+        (corpus.to_string(), id.to_string())
+    }
+
+    #[test]
+    fn corpora_selects_only_the_declared_corpora_from_a_multi_corpus_source() {
+        // `gamma` is not in `[corpora]` and holds the best-scored hit of all.
+        let mut source = held(&[
+            ("alpha", &["a1", "a2"]),
+            ("beta", &["b1"]),
+            ("gamma", &["g1"]),
+        ]);
+        source.get_mut("gamma").unwrap()[0].score = 0.99;
+
+        let report = run_from(&sources_recipe(), json!({"topic": "x"}), &source).unwrap();
+        assert_eq!(
+            items(&report),
+            [pair("alpha", "a1"), pair("beta", "b1"), pair("alpha", "a2")]
+        );
+        assert!(items(&report).iter().all(|(c, _)| c != "gamma"));
+
+        // The required corpus alone is enough.
+        let report = run_from(
+            &sources_recipe(),
+            json!({"topic": "x"}),
+            &held(&[("alpha", &["a1"])]),
+        )
+        .unwrap();
+        assert_eq!(items(&report), [pair("alpha", "a1")]);
+    }
+
+    #[test]
+    fn a_missing_required_corpus_refuses_and_a_missing_optional_one_does_not() {
+        let args = json!({"topic": "x"});
+        let recipe = sources_recipe();
+
+        // `beta` is optional and absent: the report is built from `alpha`.
+        let report = run_from(&recipe, args.clone(), &held(&[("alpha", &["a1"])])).unwrap();
+        assert_eq!(items(&report), [pair("alpha", "a1")]);
+
+        // `alpha` is required: absent, or present with nothing to offer, refuses
+        // by name, and `beta` and `gamma` cannot stand in for it.
+        for source in [
+            held(&[("beta", &["b1"]), ("gamma", &["g1"])]),
+            held(&[("alpha", &[]), ("beta", &["b1"])]),
+        ] {
+            let err = run_from(&recipe, args.clone(), &source).unwrap_err();
+            assert!(
+                matches!(
+                    &err,
+                    RecipeError::MissingRequiredCorpus { recipe, corpus }
+                        if recipe == "demo.sources" && corpus == "alpha"
+                ),
+                "{err}"
+            );
+            assert!(err.to_string().contains("`alpha`"), "{err}");
+        }
+    }
+
+    /// A corpus that is held but cannot be read: never skipped.
+    struct Unreadable(&'static str);
+
+    impl RecipeCorpusSource for Unreadable {
+        fn fetch_corpus_hits(
+            &self,
+            corpus: &str,
+            _query: &str,
+            _max_hits: usize,
+        ) -> Result<Vec<RecipeCorpusHit>> {
+            if corpus == self.0 {
+                return Err(RecipeError::CorpusUnreadable {
+                    corpus: corpus.to_string(),
+                    reason: "the pack does not verify".into(),
+                });
+            }
+            held(&[("alpha", &["a1"]), ("beta", &["b1"])])
+                .remove(corpus)
+                .ok_or_else(|| RecipeError::CorpusNotInstalled {
+                    corpus: corpus.to_string(),
+                })
+        }
+    }
+
+    #[test]
+    fn a_corpus_that_is_held_but_unreadable_refuses_whether_required_or_optional() {
+        for broken in ["alpha", "beta"] {
+            let err = run_from(
+                &sources_recipe(),
+                json!({"topic": "x"}),
+                &Unreadable(broken),
+            )
+            .unwrap_err();
+            assert!(
+                matches!(&err, RecipeError::CorpusUnreadable { corpus, .. } if corpus == broken),
+                "{broken}: {err}"
+            );
+            let text = err.to_string();
+            assert!(
+                text.contains(&format!("`{broken}`")) && text.contains("does not verify"),
+                "{text}"
+            );
+        }
+    }
+
+    /// Records what the runner asked for, and in what order.
+    #[derive(Default)]
+    struct Recording {
+        asked: std::sync::Mutex<Vec<(String, String, usize)>>,
+    }
+
+    impl RecipeCorpusSource for Recording {
+        fn fetch_corpus_hits(
+            &self,
+            corpus: &str,
+            query: &str,
+            max_hits: usize,
+        ) -> Result<Vec<RecipeCorpusHit>> {
+            self.asked
+                .lock()
+                .unwrap()
+                .push((corpus.to_string(), query.to_string(), max_hits));
+            Ok(vec![hit(corpus, "r1", "T", "E", 0.5, &[])])
+        }
+    }
+
+    #[test]
+    fn the_runner_asks_required_then_optional_with_the_calls_free_text_as_the_query() {
+        let recipe = sources_recipe();
+        let source = Recording::default();
+        run_from(
+            &recipe,
+            json!({"topic": " agentic control ", "tags": ["a b", "c"], "length": "brief",
+                   "count": 3}),
+            &source,
+        )
+        .unwrap();
+        let asked = source.asked.lock().unwrap().clone();
+        let query = "agentic control a b c".to_string();
+        assert_eq!(
+            asked,
+            [
+                (
+                    "alpha".to_string(),
+                    query.clone(),
+                    MAX_SOURCE_HITS_PER_CORPUS
+                ),
+                ("beta".to_string(), query, MAX_SOURCE_HITS_PER_CORPUS),
+            ]
+        );
+
+        // A corpus named as both is asked once, as required: the optional entry
+        // does not turn a missing required corpus into a skipped one.
+        let both = PackRecipe::from_toml_str(
+            &SOURCES_RECIPE.replace("optional = [\"beta\"]", "optional = [\"alpha\", \"beta\"]"),
+        )
+        .unwrap();
+        let source = Recording::default();
+        run_from(&both, json!({"topic": "x"}), &source).unwrap();
+        let corpora: Vec<String> = source
+            .asked
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(c, _, _)| c.clone())
+            .collect();
+        assert_eq!(corpora, ["alpha", "beta"]);
+        let err = run_from(&both, json!({"topic": "x"}), &held(&[("beta", &["b1"])])).unwrap_err();
+        assert!(
+            matches!(err, RecipeError::MissingRequiredCorpus { .. }),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn a_source_is_not_asked_for_a_call_that_the_arguments_or_the_scope_refuse() {
+        let source = Recording::default();
+        let err = run_from(&sources_recipe(), json!({}), &source).unwrap_err();
+        assert!(matches!(err, RecipeError::InvalidArguments { .. }), "{err}");
+
+        let cyber = &sample_recipes().unwrap()[0];
+        let err = run_from(
+            cyber,
+            json!({"target": "api.example.com", "cwe": "CWE-918"}),
+            &source,
+        )
+        .unwrap_err();
+        assert!(matches!(err, RecipeError::ScopeRequired { .. }), "{err}");
+        assert!(source.asked.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn execute_lets_the_corpora_block_govern_hits_supplied_directly() {
+        let recipe = sources_recipe();
+        let args = json!({"topic": "x"});
+        let mut gamma = hit("gamma", "g1", "T", "E", 0.99, &[]);
+        gamma.licence_class = LicenceClass::Excluded;
+        let alpha = hit("alpha", "a1", "T", "E", 0.5, &[]);
+        let beta = hit("beta", "b1", "T", "E", 0.6, &[]);
+
+        // An undeclared corpus neither contributes nor trips the licence gate.
+        let report = run(&recipe, args.clone(), &[gamma.clone(), alpha, beta.clone()]).unwrap();
+        assert_eq!(items(&report), [pair("beta", "b1"), pair("alpha", "a1")]);
+
+        // Nor can it, or an optional corpus, stand in for the required one.
+        for hits in [vec![gamma], vec![beta]] {
+            let err = run(&recipe, args.clone(), &hits).unwrap_err();
+            assert!(
+                matches!(&err, RecipeError::MissingRequiredCorpus { corpus, .. } if corpus == "alpha"),
+                "{err}"
+            );
+        }
+    }
+
+    fn pinned_line(corpus: &str, id: &str, score: f64) -> String {
+        serde_json::to_string(&hit(corpus, id, "T", "E", score, &[])).unwrap()
+    }
+
+    #[test]
+    fn a_jsonl_dir_opens_only_the_corpora_the_recipe_names() {
+        let dir = tempfile::tempdir().unwrap();
+        let write = |name: &str, body: String| {
+            std::fs::write(dir.path().join(format!("{name}.jsonl")), body).unwrap()
+        };
+        write("alpha", format!("{}\n\n", pinned_line("alpha", "a1", 0.5)));
+        write("beta", pinned_line("beta", "b1", 0.6));
+        // Not in `[corpora]`, and not even valid: reading it would fail the call.
+        write("gamma", "{not json".to_string());
+        let source = JsonlCorpusDir::new(dir.path());
+        assert_eq!(source.dir(), dir.path());
+
+        let report = run_from(&sources_recipe(), json!({"topic": "x"}), &source).unwrap();
+        assert_eq!(items(&report), [pair("beta", "b1"), pair("alpha", "a1")]);
+
+        // No `alpha.jsonl`: the required corpus is missing, the optional one is not.
+        std::fs::remove_file(dir.path().join("alpha.jsonl")).unwrap();
+        let err = run_from(&sources_recipe(), json!({"topic": "x"}), &source).unwrap_err();
+        assert!(
+            matches!(&err, RecipeError::MissingRequiredCorpus { corpus, .. } if corpus == "alpha"),
+            "{err}"
+        );
+        // No `beta.jsonl`: only the optional corpus is missing.
+        write("alpha", pinned_line("alpha", "a1", 0.5));
+        std::fs::remove_file(dir.path().join("beta.jsonl")).unwrap();
+        let report = run_from(&sources_recipe(), json!({"topic": "x"}), &source).unwrap();
+        assert_eq!(items(&report), [pair("alpha", "a1")]);
+
+        // A snapshot that is present but wrong is not "absent", optional or not.
+        write("beta", pinned_line("alpha", "b1", 0.6));
+        let err = run_from(&sources_recipe(), json!({"topic": "x"}), &source).unwrap_err();
+        assert!(
+            matches!(&err, RecipeError::CorpusUnreadable { corpus, .. } if corpus == "beta"),
+            "{err}"
+        );
+        write("beta", "{not json".to_string());
+        let err = source.fetch_corpus_hits("beta", "", 10).unwrap_err();
+        assert!(err.to_string().contains("beta.jsonl:1"), "{err}");
+
+        // A corpus slug is a file name or it is refused, never joined into a path.
+        for slug in ["ns:corpus", ".hidden", "-lead", "../alpha"] {
+            let err = source.fetch_corpus_hits(slug, "", 10).unwrap_err();
+            assert!(
+                matches!(err, RecipeError::CorpusUnreadable { .. }),
+                "{slug}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_source_never_returns_more_than_max_hits_and_keeps_the_best_scored() {
+        let ids: Vec<String> = (0..6).map(|n| format!("r{n}")).collect();
+        let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+        let source = held(&[("alpha", &refs[..])]);
+
+        let top = source.fetch_corpus_hits("alpha", "", 2).unwrap();
+        let top: Vec<&str> = top.iter().map(|h| h.record_id.as_str()).collect();
+        assert_eq!(top, ["r0", "r1"]);
+        assert_eq!(source.fetch_corpus_hits("alpha", "", 100).unwrap().len(), 6);
+        assert!(matches!(
+            source.fetch_corpus_hits("gamma", "", 2),
+            Err(RecipeError::CorpusNotInstalled { corpus }) if corpus == "gamma"
+        ));
+    }
+
+    #[test]
+    fn a_chain_asks_each_source_until_one_holds_the_corpus() {
+        let chain = ChainedCorpusSource::new()
+            .then(held(&[("alpha", &["a1"])]))
+            .then(held(&[("alpha", &["shadowed"]), ("beta", &["b1"])]));
+
+        let report = run_from(&sources_recipe(), json!({"topic": "x"}), &chain).unwrap();
+        assert_eq!(items(&report), [pair("alpha", "a1"), pair("beta", "b1")]);
+        assert!(matches!(
+            chain.fetch_corpus_hits("gamma", "", 5),
+            Err(RecipeError::CorpusNotInstalled { .. })
+        ));
+
+        // A source that holds the corpus but cannot read it ends the chain: the
+        // next source does not paper over it.
+        let broken = ChainedCorpusSource::new()
+            .then(Unreadable("alpha"))
+            .then(held(&[("alpha", &["a1"])]));
+        let err = broken.fetch_corpus_hits("alpha", "", 5).unwrap_err();
+        assert!(matches!(err, RecipeError::CorpusUnreadable { .. }), "{err}");
     }
 }

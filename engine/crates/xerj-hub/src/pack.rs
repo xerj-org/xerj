@@ -232,11 +232,94 @@ fn read_and_verify_pack_bounded(
     // auto-pull packs are capped well below that cost (AUTO_PULL_MAX_BYTES).
     let archive_bytes = fs::read(archive).with_context(|| format!("read {}", archive.display()))?;
 
+    let (manifest, members) = verify_pack_bytes(
+        archive_bytes,
+        sig,
+        Some(expected_sha256),
+        pubkey_hex,
+        max_unpacked,
+    )?;
+
+    // 6. Every check passed — extract into dest.
+    extract_into(&members, dest)?;
+
+    Ok(manifest)
+}
+
+/// Largest archive [`read_verified_pack_records`] reads: the size the hub pulls
+/// without being asked ([`xerj_common::hub::AUTO_PULL_MAX_BYTES`]). The records
+/// are read into memory, so a pack past it is refused rather than loaded.
+pub const RECORDS_MAX_ARCHIVE_BYTES: u64 = xerj_common::hub::AUTO_PULL_MAX_BYTES;
+
+/// Largest decompressed tar [`read_verified_pack_records`] reads: a quarter of
+/// [`MAX_UNPACKED_BYTES`], since nothing is extracted and the snapshot files it
+/// carries are held in memory only to check `SHA256SUMS`.
+pub const RECORDS_MAX_UNPACKED_BYTES: u64 = MAX_UNPACKED_BYTES / 4;
+
+/// A verified pack's `pack.json`, `defs.jsonl` and `files.jsonl`, read from the
+/// archive without extracting it.
+#[derive(Debug, Clone)]
+pub struct PackRecords {
+    pub manifest: PackManifest,
+    pub defs: Vec<DefRecord>,
+    pub files: Vec<PackFileEntry>,
+}
+
+/// Verify the archive at `archive` against the detached signature in `sig` and
+/// `pubkey_hex`, and return its manifest, definitions and file inventory.
+///
+/// The checks are [`read_and_verify_pack`]'s, in the same order — signature,
+/// decompression bound, `format_version`, every `SHA256SUMS` line — except the
+/// catalogue's expected whole-archive sha256, which only a caller holding the
+/// catalogue has; the signature covers the same bytes. Nothing is written to
+/// disk. An unsigned, tampered, oversized or inconsistent pack is an `Err`.
+pub fn read_verified_pack_records(
+    archive: &Path,
+    sig: &Path,
+    pubkey_hex: &str,
+) -> Result<PackRecords> {
+    let len = fs::metadata(archive)
+        .with_context(|| format!("stat {}", archive.display()))?
+        .len();
+    if len > RECORDS_MAX_ARCHIVE_BYTES {
+        bail!(
+            "{} is {len} bytes; the largest pack read in memory is {RECORDS_MAX_ARCHIVE_BYTES}",
+            archive.display()
+        );
+    }
+    let archive_bytes = fs::read(archive).with_context(|| format!("read {}", archive.display()))?;
+    let (manifest, members) = verify_pack_bytes(
+        archive_bytes,
+        sig,
+        None,
+        pubkey_hex,
+        RECORDS_MAX_UNPACKED_BYTES,
+    )?;
+    let defs = parse_jsonl(&members, DEFS_JSONL)?;
+    let files = parse_jsonl(&members, FILES_JSONL)?;
+    Ok(PackRecords {
+        manifest,
+        defs,
+        files,
+    })
+}
+
+/// Verify an archive's bytes and load its members, writing nothing. `expected_sha256`
+/// is the catalogue's whole-archive hash, checked first when the caller has one.
+fn verify_pack_bytes(
+    archive_bytes: Vec<u8>,
+    sig: &Path,
+    expected_sha256: Option<&str>,
+    pubkey_hex: &str,
+    max_unpacked: u64,
+) -> Result<(PackManifest, BTreeMap<String, Vec<u8>>)> {
     // 1. Whole-archive sha256 — FIRST, before the signature.
-    let got = sha256_hex(&archive_bytes);
-    let want = expected_sha256.trim();
-    if !got.eq_ignore_ascii_case(want) {
-        bail!("pack sha256 mismatch: archive is {got}, expected {want}");
+    if let Some(want) = expected_sha256 {
+        let got = sha256_hex(&archive_bytes);
+        let want = want.trim();
+        if !got.eq_ignore_ascii_case(want) {
+            bail!("pack sha256 mismatch: archive is {got}, expected {want}");
+        }
     }
 
     // 2. Signature over the archive bytes.
@@ -265,16 +348,32 @@ fn read_and_verify_pack_bounded(
     // 5. Internal integrity: every SHA256SUMS line matches its member.
     verify_sha256sums(&members)?;
 
-    // 6. Every check passed — extract into dest.
-    extract_into(&members, dest)?;
+    Ok((manifest, members))
+}
 
-    Ok(manifest)
+/// One JSON object per line of the member `name`, blank lines skipped. An error
+/// names the member and the line.
+fn parse_jsonl<T: serde::de::DeserializeOwned>(
+    members: &BTreeMap<String, Vec<u8>>,
+    name: &str,
+) -> Result<Vec<T>> {
+    let raw = members
+        .get(name)
+        .with_context(|| format!("{name} missing from archive"))?;
+    let text = std::str::from_utf8(raw).with_context(|| format!("{name} is not UTF-8"))?;
+    text.lines()
+        .enumerate()
+        .filter(|(_, line)| !line.trim().is_empty())
+        .map(|(n, line)| {
+            serde_json::from_str(line).with_context(|| format!("{name} line {}", n + 1))
+        })
+        .collect()
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 /// `<archive>.sig` — the signature rides beside the archive, never inside it.
-fn sig_path_for(archive: &Path) -> PathBuf {
+pub(crate) fn sig_path_for(archive: &Path) -> PathBuf {
     let mut os = archive.as_os_str().to_os_string();
     os.push(".sig");
     PathBuf::from(os)
@@ -1028,6 +1127,59 @@ mod tests {
         let err = read_and_verify_pack(&out, &sig, &sha, &other_public, &dest).unwrap_err();
         assert!(err.to_string().contains("signature"), "{err:#}");
         assert!(dir_is_empty_or_absent(&dest));
+    }
+
+    #[test]
+    fn verified_records_are_read_from_the_archive_and_a_bad_pack_is_refused() {
+        let tmp = tempfile::tempdir().unwrap();
+        let snap = make_snapshot(tmp.path());
+        let out = tmp.path().join("pack.hubpack.tar.zst");
+        let (seed, public) = generate_keypair().unwrap();
+        write_pack(
+            &out,
+            &sample_manifest(),
+            &sample_defs(),
+            &sample_files(),
+            &snap,
+            &seed,
+        )
+        .unwrap();
+        let sig = sig_path_for(&out);
+
+        let records = read_verified_pack_records(&out, &sig, &public).unwrap();
+        assert_eq!(records.manifest.slug, "lz4");
+        assert_eq!(records.defs, sample_defs());
+        assert_eq!(records.files, sample_files());
+
+        // Another key, and a flipped byte: both are refused by the signature.
+        let (_, other_public) = generate_keypair().unwrap();
+        let err = read_verified_pack_records(&out, &sig, &other_public).unwrap_err();
+        assert!(err.to_string().contains("signature"), "{err:#}");
+        let good = fs::read(&out).unwrap();
+        let mut bad = good.clone();
+        let mid = bad.len() / 2;
+        bad[mid] ^= 0xff;
+        fs::write(&out, &bad).unwrap();
+        let err = read_verified_pack_records(&out, &sig, &public).unwrap_err();
+        assert!(err.to_string().contains("signature"), "{err:#}");
+
+        // A pack past the in-memory cap is refused before it is read.
+        fs::write(&out, &good).unwrap();
+        assert_eq!(
+            read_verified_pack_records(&out, &sig, &public)
+                .unwrap()
+                .defs
+                .len(),
+            2
+        );
+        let big = fs::File::options().write(true).open(&out).unwrap();
+        big.set_len(RECORDS_MAX_ARCHIVE_BYTES + 1).unwrap();
+        drop(big);
+        let err = read_verified_pack_records(&out, &sig, &public).unwrap_err();
+        assert!(
+            err.to_string().contains("largest pack read in memory"),
+            "{err:#}"
+        );
     }
 
     #[test]
