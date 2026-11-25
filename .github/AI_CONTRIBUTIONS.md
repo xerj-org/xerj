@@ -304,3 +304,7 @@ here.
 [CONTRIBUTING.md](../CONTRIBUTING.md) (build, test, git workflow) ·
 [docs/CONTRIBUTION_REVIEW.md](../docs/CONTRIBUTION_REVIEW.md) (pre-submission
 audit) · [CLA.md](../CLA.md) · [SECURITY.md](../SECURITY.md)
+
+## Contributors
+
+- **Gonzalo Daniel Aguilar** (`@gonzalolater`) — Senior Software Engineer, Systems Architect, AI Architect & Web3/DeFi Specialist | Principal Tech Advisor, Principal AI & Web3 System, National e-Government Advisor, National AI Governance Pioneer, Google, OpenAI & MS Expert — Contributed to this project.
