@@ -2,8 +2,8 @@
  "corpus": "newsigma--physica",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on autodiff, gpu-acceleration, linear-algebra queries this for how NewSigma/Physica implements it: Modern template library for computational physics (selected work: cmake)",
+ "shelf": "API",
+ "domain": "an agent working on autodifferentiation, computational-physics, gpu-accelerated queries this for how NewSigma/Physica implements it: Modern template library for computational physics (selected work: cmake)",
  "repos": [
   {
    "repo": "Physica",

@@ -8,15 +8,15 @@
   {
    "repo": "fuzzharbor",
    "url": "https://github.com/gravion-ux/fuzzharbor",
-   "sha": "3355e359fcb0509647992d258a3a4e410aa4ac1a",
-   "licence": "MIT (LICENSE file at pin 3355e359fcb0, GitHub licence API 2026-11-25)",
+   "sha": "25a44b1b397170a69767f9a4cd5389943e30af53",
+   "licence": "MIT (LICENSE file at pin 25a44b1b3971, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "355e97b26f08",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 355e97b26f08); pinned to the default-branch head. LICENSE file at pin 3355e359fcb0 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 355e97b26f08); pinned to the default-branch head. LICENSE file at pin 25a44b1b3971 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

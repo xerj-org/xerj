@@ -1,0 +1,23 @@
+{
+ "corpus": "trebronwayne--bluebird",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-tools, android-launcher-app, open-source queries this for how trebronwayne/bluebird implements it: Bluebird OS launcher simulator project for android (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "bluebird",
+   "url": "https://github.com/trebronwayne/bluebird",
+   "sha": "52189cac62bfca5391c4b461429cff0f76af0925",
+   "licence": "Apache-2.0 (LICENSE file at pin 52189cac62bf, GitHub licence API 2026-11-25)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T08:31Z",
+    "consent_receipt": "ed1b1f75e8db",
+    "note": "Inclusion consented by the commit author by email at 2026-11-25T08:31Z (receipt ed1b1f75e8db); selected commit 52189cac62bf: \"Localize\". LICENSE file at pin 52189cac62bf detected as Apache-2.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+   }
+  }
+ ]
+}

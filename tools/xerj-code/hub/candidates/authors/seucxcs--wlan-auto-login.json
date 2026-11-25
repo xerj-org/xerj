@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how SEUCXCS/wlan-auto-login implements it: SEUCXCS/wlan-auto-login (Rust) (selected work: packaging)",
+ "domain": "an agent working on Rust queries this for how SEUCXCS/wlan-auto-login implements it: \u81ea\u52a8\u767b\u5f55\u4e1c\u5357\u5927\u5b66\u6210\u8d24\u5b66\u9662\u6821\u56ed\u7f51 (selected work: packaging)",
  "repos": [
   {
    "repo": "wlan-auto-login",

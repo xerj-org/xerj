@@ -1,9 +1,9 @@
 {
- "corpus": "koundalvivek073-dotcom--studysync-ai",
+ "corpus": "vivek-koundal--studysync-ai",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how koundalvivek073-dotcom/StudySync-ai implements it: Studysync-ai is an AI-powered timetable and routine builder that transforms syllabus screenshots or PDFs into a hyper-personalized study sch (selected work: app/api, lib, app/upload)",
+ "domain": "an agent working on TypeScript queries this for how Vivek-Koundal/StudySync-ai implements it: Studysync-ai is an AI-powered timetable and routine builder that transforms syllabus screenshots or PDFs into a hyper-personalized study sch (selected work: app/api, lib, app/upload)",
  "repos": [
   {
    "repo": "StudySync-ai",
