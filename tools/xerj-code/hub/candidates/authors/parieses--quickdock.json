@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agent, clipboard-manager, command-palette queries this for how parieses/quickdock implements it: Windows launcher and local dev-environment manager - runtime version switching, AI agent with approvals, MCP server, plugins (selected work: internal/plugin, frontend, the project root)",
+ "domain": "an agent working on ai-agent, clipboard-manager, command-palette queries this for how parieses/quickdock implements it: \u5feb\u542f\u575e QuickDock \u2014 Windows \u684c\u9762\u6548\u7387\u5de5\u5177 / \u672c\u5730\u5f00\u53d1\u73af\u5883\u7ba1\u7406\u5668\uff1aruntime & PATH manager, AI agent, MCP server, command palette, clipboard, plugins. Go + Wails v3  (selected work: internal/plugin, frontend, the project root)",
  "repos": [
   {
    "repo": "quickdock",

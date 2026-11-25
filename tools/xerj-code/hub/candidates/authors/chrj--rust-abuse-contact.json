@@ -8,15 +8,15 @@
   {
    "repo": "rust-abuse-contact",
    "url": "https://github.com/chrj/rust-abuse-contact",
-   "sha": "c24bdc7f7c2244174272d20b71eab3bac498253a",
-   "licence": "MIT (LICENSE file at pin c24bdc7f7c22, GitHub licence API 2026-10-30)",
+   "sha": "d4479929fbfea89e226b240e9c231aa6d1fec9c8",
+   "licence": "MIT (LICENSE file at pin d4479929fbfe, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T22:51Z",
     "consent_receipt": "d21cd96a2845",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt d21cd96a2845); pinned to the default-branch head. LICENSE file at pin c24bdc7f7c22 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt d21cd96a2845); pinned to the default-branch head. LICENSE file at pin d4479929fbfe detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

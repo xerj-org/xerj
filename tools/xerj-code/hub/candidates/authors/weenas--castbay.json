@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on airplay, airplay-receiver, android queries this for how weenas/castbay implements it: \u6620\u6e7e CastBay: a free, open-source AirPlay and DLNA receiver for Android big screens \u2014 TVs, TV boxes, car displays and tablets. Screen mirrorin (selected work: app/src)",
+ "domain": "an agent working on airplay, airplay-receiver, android queries this for how weenas/castbay implements it: CastBay \u6620\u6e7e\u6295\u5c4f: a free, open-source AirPlay and DLNA receiver for Android big screens \u2014 TVs, TV boxes, car displays and tablets. Screen mirror (selected work: app/src)",
  "repos": [
   {
    "repo": "castbay",

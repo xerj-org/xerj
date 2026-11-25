@@ -8,15 +8,15 @@
   {
    "repo": "distributed-event-hub",
    "url": "https://github.com/paranik-jpg/distributed-event-hub",
-   "sha": "da3f3aafc5d44312949019bb2e7dee1a6faf911e",
-   "licence": "MIT (LICENSE file at pin da3f3aafc5d4, GitHub licence API 2026-11-24)",
+   "sha": "1bce17a7b45bfe0a8ed66e40eb65adbb760a0a2e",
+   "licence": "MIT (LICENSE file at pin 1bce17a7b45b, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T09:19Z",
     "consent_receipt": "a27246247aa6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:19Z (receipt a27246247aa6); pinned to the default-branch head. LICENSE file at pin da3f3aafc5d4 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:19Z (receipt a27246247aa6); pinned to the default-branch head. LICENSE file at pin 1bce17a7b45b detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

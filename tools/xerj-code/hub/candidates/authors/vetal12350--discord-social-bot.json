@@ -8,15 +8,15 @@
   {
    "repo": "Discord-Social-Bot",
    "url": "https://github.com/Vetal12350/Discord-Social-Bot",
-   "sha": "b6a1ffe4e6041975d288659064480cccfd8aac2e",
-   "licence": "MIT (LICENSE file at pin b6a1ffe4e604, GitHub licence API 2026-11-23)",
+   "sha": "4826d88f87a434de30a5bb91e9592e0b69a3bd35",
+   "licence": "MIT (LICENSE file at pin 4826d88f87a4, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T09:04Z",
     "consent_receipt": "c5db2cf905c1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T09:04Z (receipt c5db2cf905c1); selected commit b6a1ffe4e604: \"Publish Discord Social Bot v1 source and documentation\". LICENSE file at pin b6a1ffe4e604 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head b6a1ffe4e604 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T09:04Z (receipt c5db2cf905c1); selected commit 4826d88f87a4: \"Publish Discord Social Bot v1 source and documentation\". LICENSE file at pin 4826d88f87a4 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 4826d88f87a4 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

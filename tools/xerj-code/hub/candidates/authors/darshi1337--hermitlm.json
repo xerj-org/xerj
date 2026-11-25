@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-assistant, chatbot, llm queries this for how darshi1337/hermitlm implements it: A ~8M parameter LLM that talks like a tiny crab in an aquatic world. Runs in your browser, classifies intent in one forward pass (selected work: scripts, hermitlm, tests)",
+ "domain": "an agent working on ai-assistant, chatbot, llm queries this for how darshi1337/hermitlm implements it: A tiny crab-themed language model that runs in your browser and detects intent (selected work: scripts, hermitlm, tests)",
  "repos": [
   {
    "repo": "hermitlm",

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on 3d-modeling, brep, cad queries this for how tangency-labs/solidcraft implements it: SolidCraft: an open-source parametric 3D CAD application built in pure Rust. Desktop, web, and automation through MCP (selected work: crates/engine)",
+ "domain": "an agent working on 3d-modeling, brep, cad queries this for how tangency-labs/solidcraft implements it: SolidCraft: an open-source parametric 3D CAD application built in pure Rust. Desktop, web, and automation through MCP (selected work: crates/ui-egui)",
  "repos": [
   {
    "repo": "solidcraft",
    "url": "https://github.com/tangency-labs/solidcraft",
-   "sha": "b7eac9220b3d85f9ddce2bd917a5cd522f0b1871",
-   "licence": "author's permission (LICENSE at pin b7eac9220b3d: NOASSERTION; repository: Apache-2.0)",
+   "sha": "de7fabc3bc64fc119dfb9c30c9c066a7f2f08f03",
+   "licence": "author's permission (LICENSE at pin de7fabc3bc64: NOASSERTION; repository: Apache-2.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-17T14:10Z",
-    "consent_receipt": "c849b821fbb5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T14:10Z (receipt c849b821fbb5); selected commit b7eac9220b3d: \"inspect.silhouette: the outline of bodies seen from a view, as a mask\u2026\". LICENSE at pin b7eac9220b3d: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+    "at": "2026-10-24T19:40Z",
+    "consent_receipt": "44f533c977aa",
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T19:40Z (receipt 44f533c977aa); selected commit de7fabc3bc64: \"Preferences: a Plugins page lists installed plugin folders (#2718)\". LICENSE at pin de7fabc3bc64: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
    }
   }
  ]
