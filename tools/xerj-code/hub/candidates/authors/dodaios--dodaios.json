@@ -8,15 +8,15 @@
   {
    "repo": "Dodaios",
    "url": "https://github.com/Dodaios/Dodaios",
-   "sha": "76a7956635af7774e18eace736640656f38f9111",
-   "licence": "MIT (LICENSE file at pin 76a7956635af, GitHub licence API 2026-11-25)",
+   "sha": "d96e23f0ea1dd092048a114ae9a62c1e8240dbf3",
+   "licence": "MIT (LICENSE file at pin d96e23f0ea1d, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T22:30Z",
     "consent_receipt": "728fd48bf1c5",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T22:30Z (receipt 728fd48bf1c5); selected commit 76a7956635af: \"Fix clipboard file attachments, composer focus and sent-message rende\u2026\". LICENSE file at pin 76a7956635af detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 76a7956635af (contains the selected commit): the LICENSE at the selected commit was Apache-2.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Dodaios, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T22:30Z (receipt 728fd48bf1c5); selected commit d96e23f0ea1d: \"Fix clipboard file attachments, composer focus and sent-message rende\u2026\". LICENSE file at pin d96e23f0ea1d detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head d96e23f0ea1d (contains the selected commit): the LICENSE at the selected commit was Apache-2.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Dodaios, who has not added it."
    },
    "paths": [
     "dodaios/agent_chat",

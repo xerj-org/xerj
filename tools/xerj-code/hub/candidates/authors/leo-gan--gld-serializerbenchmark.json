@@ -8,15 +8,15 @@
   {
    "repo": "GLD.SerializerBenchmark",
    "url": "https://github.com/leo-gan/GLD.SerializerBenchmark",
-   "sha": "cd1588cc8c439a2f2967b18b76cd7efc74005187",
-   "licence": "MIT (LICENSE file at pin cd1588cc8c43, GitHub licence API 2026-11-25)",
+   "sha": "de3714a26b06e5bdf9d78c0b5680bafb46df4787",
+   "licence": "MIT (LICENSE file at pin de3714a26b06, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-05T23:52Z",
     "consent_receipt": "5a5386deb175",
-    "note": "Inclusion consented by the commit author by email at 2026-10-05T23:52Z (receipt 5a5386deb175); selected commit cd1588cc8c43: \"docs(theory): Phase 3A complete academic rewrite of 101 and 201 (#313)\". LICENSE file at pin cd1588cc8c43 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-05T23:52Z (receipt 5a5386deb175); selected commit de3714a26b06: \"docs: simplify reference docs, consolidate compliance stubs, and add \u2026\". LICENSE file at pin de3714a26b06 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]
