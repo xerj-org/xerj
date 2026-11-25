@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how agentfront/mcp-from-openapi implements it: Production-ready TypeScript library for converting OpenAPI specifications into MCP (Model Context Protocol) tool (selected work: src/__tests__, src)",
+ "domain": "an agent working on ai-agents, claude, function-calling queries this for how agentfront/mcp-from-openapi implements it: TypeScript library that converts Swagger 2.0 and OpenAPI 3.0, 3.1 and 3.2 specifications into MCP (Model Context Protocol) tool definitions, (selected work: src/__tests__, src)",
  "repos": [
   {
    "repo": "mcp-from-openapi",
