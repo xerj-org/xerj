@@ -58,11 +58,12 @@ use super::*;
 use crate::aggs::{
     apply_bucket_pipeline_ops, auto_date_offset_ms, auto_date_pick_interval, calendar_bucket_key,
     detect_fractional_digits, doc_count_weight, doc_matches_filter, extract_date_ms_values,
-    extract_field_values, extract_numeric, extract_numeric_values, format_histogram_key,
-    format_number_pattern, format_range_val, get_nested_field, interval_to_ms,
-    is_calendar_interval, java_double_str, matrix_stats_from_rows, next_calendar_bucket,
-    parse_date_ms, parse_offset_ms, render_date_format, render_iso_date, resolve_sibling_pipelines,
-    run_pipeline_agg, run_sampler, run_top_hits_with_total, typed_term_key,
+    extract_field_values, extract_numeric, extract_numeric_values, fixed_interval_is_calendar_only,
+    format_histogram_key, format_number_pattern, format_range_val, get_nested_field,
+    interval_to_ms, is_calendar_interval, java_double_str, matrix_stats_from_rows,
+    next_calendar_bucket, parse_date_ms, parse_offset_ms, render_date_format, render_iso_date,
+    resolve_sibling_pipelines, run_pipeline_agg, run_sampler, run_top_hits_with_total,
+    typed_term_key,
 };
 use crate::memtable::MemBoolPred;
 use serde_json::{json, Map, Value};
@@ -2733,7 +2734,13 @@ impl<'a> FastCtx<'a> {
         // min-doc-anchored grid offset (see `auto_date_offset_ms`); pass it to
         // the columnar date_histogram exactly like the brute path does.
         let offset_ms = auto_date_offset_ms(interval_label, interval_ms, min_ts);
-        let mut synth = json!({ "field": field, "fixed_interval": interval_label });
+        // The `1y` rung is a calendar year, not a 365-day fixed grid
+        // (same mapping as brute `run_auto_date_histogram`, #3344).
+        let mut synth = if interval_label == "1y" {
+            json!({ "field": field, "calendar_interval": interval_label })
+        } else {
+            json!({ "field": field, "fixed_interval": interval_label })
+        };
         if offset_ms != 0 {
             synth
                 .as_object_mut()
@@ -4849,14 +4856,24 @@ impl<'a> FastCtx<'a> {
             Ok(Some(ColKind::Keyword)) | Ok(Some(ColKind::Numeric)) | Ok(None) => {}
             _ => return None,
         }
+        let from_fixed = params
+            .get("fixed_interval")
+            .and_then(Value::as_str)
+            .is_some();
         let interval_str = params
             .get("fixed_interval")
             .or_else(|| params.get("calendar_interval"))
             .or_else(|| params.get("interval"))
             .and_then(Value::as_str)
             .unwrap_or("1d");
+        // A fixed interval using a calendar-only unit is rejected by the
+        // brute path (#3344); bail here so the request falls through to
+        // it and surfaces the error instead of silently bucketing.
+        if from_fixed && fixed_interval_is_calendar_only(interval_str) {
+            return None;
+        }
         let interval_ms = interval_to_ms(interval_str)?;
-        let use_calendar = is_calendar_interval(interval_str);
+        let use_calendar = !from_fixed && is_calendar_interval(interval_str);
         // Fixed-interval grid `offset` (e.g. "+3600000ms" from the
         // auto_date_histogram anchoring, or a user "+30m"): shift the grid by
         // `offset_ms`, exactly the brute `to_local`/`to_utc` pair.  Calendar
@@ -6577,6 +6594,74 @@ mod range_kw_tests {
         assert_eq!(empty["count"], 0);
         assert_eq!(empty["__xy_sigma__"], 3.0);
         assert_eq!(empty["variance"], Value::Null);
+    }
+
+    /// Columnar `exec_date_histogram` must bucket a fixed `1w` on the
+    /// epoch-anchored grid (Thursday start), not the Monday-start
+    /// calendar week, and `calendar_interval: 1w` must keep the Monday
+    /// start. Regression test for #3344.
+    #[tokio::test]
+    async fn date_histogram_fixed_interval_week_is_epoch_anchored() {
+        use xerj_storage::doc_values::NumericColumn;
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.path().to_str().unwrap().to_string();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("dh-test", xerj_common::types::Schema::empty())
+            .unwrap();
+        let idx = engine.get_index("dh-test").unwrap();
+        let bool_fields = std::collections::HashSet::new();
+        let mapped = mapped_fields(&["ts"]);
+        // One doc: Monday 2026-11-16T12:00:00Z (1794830400000).
+        let mut cols = std::collections::BTreeMap::new();
+        cols.insert(
+            "ts".to_string(),
+            Column::Numeric(NumericColumn::from_iter(
+                [1794830400000f64]
+                    .into_iter()
+                    .map(|v| Some(v.to_bits() as i64)),
+            )),
+        );
+        let seg = seg_with_cols(cols);
+        let ctx = FastCtx {
+            idx: &idx,
+            segs: vec![seg],
+            mem_docs: std::sync::OnceLock::new(),
+            needs_owned_mem: false,
+            bool_fields: &bool_fields,
+            mapped_fields: &mapped,
+            top_filter: None,
+            top_filter_query: None,
+            top_filter_mem_preds: None,
+            mem_filtered: std::sync::OnceLock::new(),
+            mem_live_gate: None,
+        };
+        let fixed = ctx
+            .exec_date_histogram(&json!({"field": "ts", "fixed_interval": "1w"}), None)
+            .expect("fixed 1w must be served by the fast path");
+        let buckets = fixed["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 1, "one bucket expected, got {fixed}");
+        assert_eq!(
+            buckets[0]["key"], 1794441600000i64,
+            "fixed 1w bucket must start Thu 2026-11-12, got {fixed}"
+        );
+        let calendar = ctx
+            .exec_date_histogram(&json!({"field": "ts", "calendar_interval": "1w"}), None)
+            .expect("calendar 1w must be served by the fast path");
+        let buckets = calendar["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 1, "one bucket expected, got {calendar}");
+        assert_eq!(
+            buckets[0]["key"], 1794787200000i64,
+            "calendar 1w bucket must start Mon 2026-11-16, got {calendar}"
+        );
+        // A fixed interval using a calendar-only unit bails to the brute
+        // path, which rejects it.
+        assert!(
+            ctx.exec_date_histogram(&json!({"field": "ts", "fixed_interval": "1M"}), None)
+                .is_none(),
+            "fixed 1M must bail to the brute path for rejection"
+        );
     }
 
     /// Canonical RFC3339 timestamps, 24 chars — the shape the query parser
