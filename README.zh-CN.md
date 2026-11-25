@@ -4,8 +4,9 @@
 
 <a href="https://trendshift.io/repositories/116361?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-116361" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/116361" alt="xerj-org%2Fxerj | Trendshift" width="250" height="55"/></a>
 
-[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md) | [العربية](./README.ar.md) | [Español](./README.es.md) | [한국어](./README.ko.md)
+[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md) | [العربية](./README.ar.md) | [Español](./README.es.md) | [한국어](./README.ko.md) | [فارسی](./README.fa.md)
 
+[![XERJ Query-1](https://img.shields.io/badge/XERJ%20Query--1-new%20in%20rc.101-ffc400?style=flat-square)](https://xerj.org/xerj-query-1)
 [![CI](https://img.shields.io/github/actions/workflow/status/xerj-org/xerj/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/xerj-org/xerj/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/xerj-org/xerj?style=flat-square&label=release)](https://github.com/xerj-org/xerj/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](./LICENSE)
@@ -20,12 +21,54 @@
 [![Agent memory](https://img.shields.io/badge/agent%20memory-%2F__memory-00b3a4?style=flat-square)](https://xerj.org/docs/recipes/agentic-memory.html)
 [![MCP](https://img.shields.io/badge/MCP-native-1f6feb?style=flat-square)](https://xerj.org/llms.txt)
 [![llms.txt](https://img.shields.io/badge/llms.txt-agent%20ready-6f42c1?style=flat-square)](https://xerj.org/llms.txt)
-[![ES-YAML conformance](https://img.shields.io/badge/ES--YAML%20conformance-1444%2F1454-brightgreen?style=flat-square)](https://xerj.org/benchmarks)
+[![ES-YAML conformance](https://img.shields.io/badge/ES--YAML%20conformance-0%20failed%20(1448%2F1458)-brightgreen?style=flat-square)](https://xerj.org/benchmarks)
 [![Single static binary](https://img.shields.io/badge/single%20static%20binary-no%20JVM-orange?style=flat-square)](https://xerj.org/docs/install.html)
 [![Default embedder](https://img.shields.io/badge/default%20embedder-lexical%2C%20offline-teal?style=flat-square)](https://xerj.org/docs/vectors.html)
 [![Neural](https://img.shields.io/badge/neural%20embedder-opt--in%2C%20downloads%20~90%20MB-9c6ade?style=flat-square)](https://xerj.org/docs/vectors.html)
 
 > 本文是 [英文 README](./README.md) 的简体中文译本；如有差异，以英文版为准。文中的测量数据、费用和示例输出均沿用原文及其引用记录，并非本次翻译重新实测的结果。
+
+## XERJ Query-1（rc.101 新增）
+
+大多数 AI 搜索在毫秒级找到文本，然后让语言模型写出答案。模型既决定了 RAG 答案的质量，也正是秒级延迟和每问题成本的来源。
+
+XERJ Query-1 走的是另一条路。它读取你的问题，写出一段简短程序（查这个、比较这些、数那些），再由引擎在你存入的事实上执行这段程序。查找和比较步骤会指向某条已存储的事实及其引用的原文片段；计数返回的是程序哈希，而不是被计数的记录。如果数据不足以给出答案，你会得到 `UNKNOWN`；如果两条事实互相矛盾，你会得到 `CONFLICT`。它运行在四个 CPU 核心上，完全离线，不需要构建嵌入向量，也不需要 GPU。
+
+| | XERJ Query-1 | 常见做法 | 测量条件 |
+|---|---|---|---|
+| 从提问到答案 | **220 毫秒**（p50） | Opus 5.5 写一份 RAG 答案需要 1.5 到 2.3 秒（每次调用的 API 时间，不计我们命令行客户端的启动时间），此前还要先做一次 0.8 到 106 毫秒的搜索 | 同样的 160 个问题，rc.101 发布版，4 个模型线程，笔记本 CPU |
+| 错误答案 | **160 题中 1 题**（124 题答对，35 题拒答） | 9 到 15 题（使用 Opus 5.5 的 RAG）、6 题（Opus 5.5 通读整个存储）、5 题（把每个问题的记录直接交给 Opus 5.5） | 我们自建的 160 题测试集，取自模型的开发集；XERJ Query-1 会拿到每个问题对应的记录 |
+| 每百万问题的成本 | **42 美元**的 CPU 费用 | 13,400 美元（RAG）到 694,000 美元（Opus 每题都重新通读整个存储，未使用缓存） | 同一测试，按 Opus 5.5 标价；CPU 按 AWS c7g 标价，共享 ARM 服务器上每题 4.1 CPU 秒（笔记本上 0.9 秒） |
+| 为 10 GB 文本建立搜索索引 | **17 分钟**（BM25，实测） | 用 bge-small 在 CPU 上生成嵌入估计需要 62 到 97 小时 | 英文维基百科（`wikimedia/wikipedia` 20231101.en，41 个文件中的前 22 个，3,299,578 篇文章）；XERJ Query-1 不使用这个索引 |
+| 更正一条事实 | **2.3 毫秒**（一次写入；下一次回答即采用） | 重新嵌入受影响的片段（bge-small 约 30 毫秒）；更换嵌入模型时还要重建整个存储（我们 5,000 条记录的测试存储耗时 19.6 秒） | rc.101 发布版，笔记本 |
+
+检索质量（R@k、nDCG@k）在 BEIR、SearchTome 和我们的 160 题测试上的结果、延迟拆分以及全部数据集见：[benchmarks/query-1-2026-11](./benchmarks/query-1-2026-11/README.md)。
+
+**仅随发布版二进制提供，不在公开构建中。** XERJ Query-1、`/_facts`、`--facts-model-dir` 和 `xerj_facts_ask` MCP 工具包含在发布的二进制程序中（rc.101 及之后），这些二进制由一棵私有代码树构建，其中加入了专有模型 crate。本仓库的源码不包含它们：用 `main` 构建的节点没有 `/_facts` 路由、没有 `--facts-model-dir` 参数，也没有 `xerj_facts_ask` 工具。
+
+模型默认关闭；不加参数时不存在 `/_facts` 路由，MCP 工具列表保持不变。rc.101 会在首次写入时把数据目录升级到 format 4，rc.100 之后将无法再打开它。目前尚未具备的能力（已实测）：求和与总计（求和问题可能返回成成员计数），以及大规模事实集（在 95,000 条事实的命名空间上，提问中位耗时 0.82 秒，20 个测试问题全部被拒答）。它比 LLM 更频繁地拒答。数字与注意事项：[博客文章](https://xerj.org/blog/xerj-query-ai-model)、[能力说明](./docs/XERJ_QUERY_1.md)。
+
+### 用模型试一试
+
+```sh
+curl -fsSL https://xerj.org/get | sh -s -- --with-model
+```
+验证：安装器最后会打印包含它解包出的模型目录的启动命令。
+
+```sh
+xerj --facts-model-dir ~/.local/share/xerj/model --insecure --data-dir ~/xerj-data &
+curl -s localhost:9200/_facts | grep -o '"state":"loaded"'
+```
+验证：输出 `"state":"loaded"`。启动后的最初几秒它不会输出任何内容，因为模型仍在加载（`"not_loaded"`）；稍后重试即可。
+
+写入一条事实并向它提问：[docs/MODEL_QUICKSTART.md](./docs/MODEL_QUICKSTART.md)。
+对于没有 shell 的智能体，同样的调用可以通过 HTTP 和 MCP 工具 `xerj_facts_ask` 完成；见 [llms.txt](https://xerj.org/llms.txt)。
+
+XERJ 是开放进行的研究。模型用捐赠的 GPU 时间训练；如果它对你有所帮助，[xerj.org/donate](https://xerj.org/donate) 会为下一代模型提供资金。引擎是开源的；模型以二进制包形式发布，其训练与评测数据尚未公开。
+
+---
+
+## 底层引擎
 
 XERJ 是一款受到社区信赖的本地 AI 搜索引擎，能自动为任意文件夹建立索引，让编程智能体直接检索所需代码，省去逐个读取文件消耗的 token。它的主要用途是参考现有实现来写代码（reference coding）：接到任务后，智能体下载与任务相关的开源仓库，建立索引，再查阅这些项目的解决方法。
 
@@ -48,9 +91,13 @@ xerj def "euler_to_rotationmatrix"               # go-to-definition: file:line +
 xerj gain                                        # what it did for you — counted, not estimated
 ```
 
+需要一次处理多个 ID 或问题时，使用 `xerj batch-search --input queries.json` 或 MCP 的 `xerj_batch_search`：[有序结果、引用和逐项错误](docs/recipes/batch-search.md)。
+
 把数据目录放在你将要 autoindex 的文件夹之外。内置忽略列表不包含 `data/`，因此在即将索引的目录树里使用 `--data-dir ./data` 会让节点把自己的存储也索引进去。
 
 `xerj init` 一条命令即可把 XERJ 接入 Claude Code 或 Cursor（MCP 与技能）；`search` 返回排序后的代码片段及 `file:line`，`def` 定位符号定义并显示签名，`gain` 显示实际统计的使用收益。
+
+启动时，`Data dir` 显示解析后的绝对路径，`Data source` 标明该路径来自命令行参数、所选配置文件还是默认值，`Data status` 说明本次启动是否创建了该目录。使用新目录可能让旧节点的索引或所有者账户看起来消失了：请用之前的 `--data-dir` 或 `--config` 重启。XERJ 不会自动发现或迁移其他数据目录。
 
 Windows 安装方法和手动检查安装的说明见[手动安装](#手动安装)。
 
@@ -205,6 +252,27 @@ curl localhost:9200/ax-orders/_search -H 'content-type: application/json' -d '{
 **2. 在本地获得同类回答。** `POST /v1/systemone` 和 `POST /_decide` 接受同样格式的问题，由 XERJ 在已标注的文档中查找最相似的样本并回答，例如根据已标记为垃圾邮件或正常邮件的消息作判断。数据不离开本机，也不需要密钥，但必须已有标注样本。原文记录的 AG News 测试使用了 120k 条标注样本，标签判断准确率为 92%。官方 `jev-reranker` Python 客户端可以直接连接 XERJ 节点（[测试](./benchmarks/systemone-gate)）。XERJ 使用自己的模型标识 `xerj-history-vote-1`；这是 XERJ 自己的实现，并非 Jev 服务。
 
 测量结果及复现方法见 [`benchmarks/beir-hybrid`](./benchmarks/beir-hybrid/results/2026-09-20-rerank-full-fiqa) 和 [`benchmarks/decisions-as-retrieval`](./benchmarks/decisions-as-retrieval)。
+
+## 基于自己的事实提问
+
+XERJ 发布版二进制包含 **XERJ Query-1**，一个基于你提供的事实回答问题的模型。它不在公开构建中：用本仓库源码构建的节点没有 `/_facts` 路由（模型 crate 是专有的，只随发布版二进制提供）。它默认关闭；用 `--facts-model-dir <DIR>` 启动节点即可开启。
+把文档和事实写入某个命名空间，然后用自然语言提问。引擎返回经过校验的答案：查找类问题携带它们使用的事实以及生成答案的程序；计数类问题携带程序哈希和第二个模型的一致性检查，但不携带被计数的记录。
+
+```sh
+# 写入一条事实
+curl -s localhost:9200/_facts/demo/_bulk -H 'content-type: application/json' -d '{
+  "documents":[{"doc_id":"d1","version":"v1","text":"Ana Bel is 170 cm tall."}],
+  "facts":[{"fact_id":"f1","subject":"Ana Bel","subject_id":"emp:1","relation":"height","kind":"number",
+            "value":"170","unit":"cm","doc_id":"d1","version":"v1","start":11,"end":14,"quote":"170"}]
+}'
+
+# 提问
+curl -s localhost:9200/_facts/demo/_ask -H 'content-type: application/json' \
+  -d '{"question":"How tall is Ana Bel?"}' | jq '{final_status,final_answer}'
+# {"final_status":"ANSWER","final_answer":"170 cm"}
+```
+
+如何选择：`_search` 用于对已索引文档做关键词和文本查找；`/_facts` + `_ask` 用于对以 subject / relation / value 形式写入的单条事实提问。模型**只在你写入的 `facts[]` 上作答**（`kind` 为 `text`、`date`、`number` 或 `boolean`；`version` 是字符串；`quote` 必须等于 `text[start:end]`）——只有文档而没有事实时会回答 `UNKNOWN`。XERJ Query-1 在 CPU 上运行，不需要 GPU，数据不离开本机。计数类问题（"柏林办公室有多少人？"）由精确执行器回答，前提是被计数对象的每条事实都带有稳定的 `subject_id`（`"emp:1"`）；缺少它时计数为 `INCOMPLETE`，答案为 `UNKNOWN`。执行器是精确的，但模型可能选错集合：在我们自己的复核中，一个"或"问题和一个"设备总数"问题都被当成了对错误集合的已验证计数。集合计数仅 rc.101 支持：数值阈值会拒答，而针对存储中没有事实的求和问题可能被当作成员计数返回。它与搜索用的嵌入模型是分开的模型。用 `curl -fsSL https://xerj.org/get | sh -s -- --with-model` 获取模型包，然后用 `xerj --facts-model-dir <dir> --data-dir <dir>` 启动节点（环境变量等价形式为 `XERJ_FACTS_MODEL_DIR=<dir>`）；模型是一个可替换的 `xerj-model-bundle-v1` 目录。验证：`curl -s localhost:9200/_facts | jq .model.state` 输出 `"loaded"`（启动后最初几秒会输出 `"not_loaded"`，因为模型正在预加载，请轮询）。在 XERJ Score v2 上，我们的私有开发评测（1,600 个问题，覆盖 MoMA、Tate、PyPI、OurAirports、USGS、NASA Exoplanet Archive 和 UCI Online Retail 的记录以及虚构记录，即模型训练所针对的分布），发布模型得分为 **90.29**，而 Opus 5.5 得分为 100。这不是在未见问题上的测试。七类能力及各自的验证示例见 [docs/XERJ_QUERY_1.md](./docs/XERJ_QUERY_1.md)，上手运行见 [docs/MODEL_QUICKSTART.md](./docs/MODEL_QUICKSTART.md)，完整契约见 [docs/FACTS_API.md](./docs/FACTS_API.md)。模型权重是发布资产，不属于本仓库源码。
 
 ## 通过 MCP 连接智能体
 
