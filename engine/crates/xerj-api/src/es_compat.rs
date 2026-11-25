@@ -12442,8 +12442,13 @@ fn search_task_panic_response(join_err: tokio::task::JoinError, index: &str) -> 
 
 #[cfg(test)]
 mod search_task_lifetime_tests {
-    use super::{search_task_panic_response, AbortOnDrop, TEST_PENDING_SEARCH_SIGNALS};
-    use axum::http::{Request, StatusCode};
+    use super::{
+        json, search_task_panic_response, AbortOnDrop, Value, TEST_PENDING_SEARCH_SIGNALS,
+    };
+    use axum::{
+        body::{to_bytes, Body},
+        http::{Request, StatusCode},
+    };
     use tower::ServiceExt;
 
     fn test_state() -> crate::state::AppState {
@@ -12595,6 +12600,145 @@ mod search_task_lifetime_tests {
         })
         .await
         .expect("aborting the request must abort all fan-out searches");
+    }
+
+    async fn post_json(
+        state: &crate::state::AppState,
+        method: &str,
+        path: &str,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        let response = crate::router::build_es_compat_router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .expect("request"),
+            )
+            .await
+            .expect("route response");
+        let status = response.status();
+        let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json = serde_json::from_slice(&bytes).unwrap_or_else(|error| {
+            panic!(
+                "{method} {path} returned non-JSON ({error}): {}",
+                String::from_utf8_lossy(&bytes)
+            )
+        });
+        (status, json)
+    }
+
+    /// #3332: `from` + `size` over a multi-index pattern must page the
+    /// merged hits, not each index. The fan-out used to hand every index
+    /// the caller's `from` unchanged and then apply `from`/`size` again
+    /// to the merged list, so `from=50,size=100` over 130 hits returned
+    /// 30 and `from=90` returned nothing.
+    #[tokio::test]
+    async fn multi_index_from_size_pages_merged_hits() {
+        let state = test_state();
+        // 130 docs numbered 0..129, split across two indices, so the
+        // merged page must draw from both.
+        for (index, range) in [("pg-a", 0..70), ("pg-b", 70..130)] {
+            let (status, body) = post_json(
+                &state,
+                "PUT",
+                &format!("/{index}"),
+                json!({"mappings": {"properties": {
+                    "n": {"type": "long"},
+                    "body": {"type": "text"},
+                }}}),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{body}");
+            for n in range {
+                let (status, body) = post_json(
+                    &state,
+                    "PUT",
+                    &format!("/{index}/_doc/doc-{n}"),
+                    json!({"n": n, "body": "DocId shared marker"}),
+                )
+                .await;
+                assert!(status.is_success(), "{body}");
+            }
+            state
+                .engine
+                .get_index(index)
+                .expect(index)
+                .refresh()
+                .await
+                .expect("refresh");
+        }
+
+        // (from, expected page length, first n, last n) for size=100.
+        for (from, len, first, last) in [
+            (0u64, 100usize, 0u64, 99u64),
+            (50, 80, 50, 129),
+            (90, 40, 90, 129),
+            (100, 30, 100, 129),
+            (120, 10, 120, 129),
+        ] {
+            let (status, resp) = post_json(
+                &state,
+                "POST",
+                "/pg-*/_search",
+                json!({
+                    "query": {"match_all": {}},
+                    "from": from,
+                    "size": 100,
+                    "sort": [{"n": "asc"}],
+                }),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "from={from}: {resp}");
+            assert_eq!(
+                resp["hits"]["total"]["value"].as_u64(),
+                Some(130),
+                "from={from}: {resp}"
+            );
+            let hits = resp["hits"]["hits"].as_array().expect("hits array");
+            assert_eq!(hits.len(), len, "from={from}: {resp}");
+            assert_eq!(
+                hits.first().unwrap()["_source"]["n"].as_u64(),
+                Some(first),
+                "from={from}: {resp}"
+            );
+            assert_eq!(
+                hits.last().unwrap()["_source"]["n"].as_u64(),
+                Some(last),
+                "from={from}: {resp}"
+            );
+        }
+
+        // Control: the same request on one concrete index pages correctly
+        // with or without the fix.
+        let (status, resp) = post_json(
+            &state,
+            "POST",
+            "/pg-a/_search",
+            json!({
+                "query": {"match_all": {}},
+                "from": 50,
+                "size": 100,
+                "sort": [{"n": "asc"}],
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+        assert_eq!(resp["hits"]["total"]["value"].as_u64(), Some(70), "{resp}");
+        let hits = resp["hits"]["hits"].as_array().expect("hits array");
+        assert_eq!(hits.len(), 20, "{resp}");
+        assert_eq!(
+            hits.first().unwrap()["_source"]["n"].as_u64(),
+            Some(50),
+            "{resp}"
+        );
+        assert_eq!(
+            hits.last().unwrap()["_source"]["n"].as_u64(),
+            Some(69),
+            "{resp}"
+        );
     }
 
     #[tokio::test]
@@ -19004,6 +19148,19 @@ async fn search_impl(
                 .saturating_add(req_clone.from)
                 .saturating_mul(4)
                 .max(100);
+            req_clone.from = 0;
+        } else if index_names.len() > 1 {
+            // Multi-index search (#3332): fetch the whole `from + size`
+            // window from each index and let the merge below cut the
+            // requested page out of the combined hits. Handing each index
+            // the caller's `from` dropped the first `from` hits per index,
+            // and the merge then applied `from` a second time, so
+            // `from=50,size=100` over 130 hits came back short or empty.
+            // Single-index searches keep the caller's window: the engine
+            // applies it once and the merge step is skipped there. This
+            // mirrors the cluster `fanout_search`, which sends each shard
+            // `from=0, size=from+size`.
+            req_clone.size = req_clone.from.saturating_add(req_clone.size);
             req_clone.from = 0;
         }
         // Per-index alias rewrite for collapse.field: if the declared
