@@ -47,8 +47,8 @@
 //!   start, `xerj hub pull`, the MCP hub cache)
 //! - [`hub_client_cache`] — the client/cache library for a hub-first MCP
 //!   runtime (#2760, #2769): signature- and digest-verified `.hubpack.tar.zst`
-//!   archives in a bounded, cross-process-locked disk cache. No binary calls it
-//!   yet
+//!   archives in a bounded, cross-process-locked disk cache. `xerj mcp`'s hub
+//!   tools use it when `XERJ_HUB_CACHE_DIR` is set and no node answers
 
 pub mod argv;
 pub mod calibration;

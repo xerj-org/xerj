@@ -24,7 +24,10 @@ tokio = { workspace = true }
 # HTTP client used to proxy every tool call to the running XERJ engine.
 # Inherits the workspace's default-features=false + rustls-tls config, so it
 # builds in the same offline/cross-compile matrix as the rest of the tree.
-reqwest = { workspace = true }
+# `blocking`: the hub-first path (src/hub/first.rs) hands the sync fetch
+# closures of `xerj_common::hub_client_cache` a blocking client, inside
+# `spawn_blocking`; `xerj-hub` already enables the same feature.
+reqwest = { workspace = true, features = ["blocking"] }
 # Same proxy matcher reqwest consults (`HTTP(S)_PROXY`, `ALL_PROXY`, `NO_PROXY`).
 # Used to name the proxy in a failure. The client still lets reqwest apply it.
 # Loopback targets never reach this: they are built with `no_proxy()` (#2379).

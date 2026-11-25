@@ -1,11 +1,15 @@
 //! The client/cache library for a hub-first MCP runtime (#2760, epic #2769).
 //!
-//! **Status: a library nothing calls yet.** No binary (`xerj mcp`, `xerj-server`)
-//! uses this module; wiring it into `xerj mcp` is the remaining part of #2760.
-//! What is here is the part that can be built and tested without a running node:
+//! **Status: wired into `xerj mcp`, opt-in.** `xerj-mcp`'s `xerj_hub_find`,
+//! `xerj_hub_def` and `xerj_hub_ask` (`src/hub/first.rs`) answer through this
+//! module when `XERJ_HUB_CACHE_DIR` (or `--hub-cache-dir`) is set and no node
+//! answers at the URL they proxy to; with a node answering, or the setting
+//! unset, they run the `xerj ask` flow as before. `xerj-server` does not use
+//! it. `docs/mcp-hub-mode.md` has the whole contract. This module is the part
+//! that needs no running node:
 //!
 //! 1. **Mode detection and routing ([`McpRuntimeMode`], [`HubFirstRouter`])**:
-//!    probe the local node within a startup budget ([`DEFAULT_PROBE_BUDGET_MS`]),
+//!    probe the local node within a fixed budget ([`DEFAULT_PROBE_BUDGET_MS`]),
 //!    say which tools need it, and refuse `xerj_hub_*` tools in a build with no
 //!    hub key, as `xerj mcp` does today.
 //! 2. **A verified, bounded disk cache ([`HubDiskCache`])** for the hub
@@ -274,6 +278,20 @@ fn parse_catalogue(bytes: &[u8]) -> Result<Catalogue, HubModeError> {
     Ok(catalogue)
 }
 
+/// True when a catalogue `generated_at` (RFC 3339) is older than the cached
+/// one's. An unparsable cached time cannot anchor a comparison, so it never
+/// blocks; an unparsable fetched time against a parsable cached one cannot be
+/// shown to be newer, so it is refused.
+fn is_rollback(fetched: &str, cached: &str) -> bool {
+    let Ok(cached) = chrono::DateTime::parse_from_rfc3339(cached.trim()) else {
+        return false;
+    };
+    match chrono::DateTime::parse_from_rfc3339(fetched.trim()) {
+        Ok(fetched) => fetched < cached,
+        Err(_) => true,
+    }
+}
+
 /// Verify that a [`Catalogue`] has a supported `format_version` and valid entries.
 pub fn validate_catalogue_format(catalogue: &Catalogue) -> Result<(), HubModeError> {
     if !catalogue_format_supported(catalogue.format_version) {
@@ -330,7 +348,8 @@ pub fn validate_pack_manifest_format(manifest: &PackManifest) -> Result<(), HubM
     Ok(())
 }
 
-/// Runtime mode detected by `xerj mcp` at session startup.
+/// Runtime mode `xerj mcp` detects for a hub tool call: it probes the node it
+/// proxies to each time, so a node started (or stopped) mid-session is noticed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "mode", rename_all = "snake_case")]
 pub enum McpRuntimeMode {
@@ -866,7 +885,7 @@ pub struct ResolvedCachedArtifact<T> {
 
 impl<T> ResolvedCachedArtifact<T> {
     /// One warning line per condition the caller must not hide.
-    fn warnings(&self, subject: &str) -> Vec<String> {
+    pub fn warnings(&self, subject: &str) -> Vec<String> {
         let mut out = Vec::new();
         if let Some(stale) = self.freshness.warning_line(subject) {
             out.push(match &self.refresh_error {
@@ -1056,6 +1075,17 @@ impl HubDiskCache {
         download: &SignedDownload,
         now_unix: u64,
     ) -> Result<Catalogue, HubModeError> {
+        let catalogue = self.verify_catalogue_download(download)?;
+        self.store_catalogue(download, now_unix)?;
+        Ok(catalogue)
+    }
+
+    /// The signature over the catalogue bytes, against the hub key, then the
+    /// format check and the parse.
+    fn verify_catalogue_download(
+        &self,
+        download: &SignedDownload,
+    ) -> Result<Catalogue, HubModeError> {
         let key = self.require_key()?;
         verify_ed25519_hex(&download.bytes, &download.signature_hex, key).map_err(|reason| {
             HubModeError::SignatureInvalid {
@@ -1063,7 +1093,15 @@ impl HubDiskCache {
                 reason,
             }
         })?;
-        let catalogue = parse_catalogue(&download.bytes)?;
+        parse_catalogue(&download.bytes)
+    }
+
+    /// Write verified catalogue bytes and their signature, and record them.
+    fn store_catalogue(
+        &self,
+        download: &SignedDownload,
+        now_unix: u64,
+    ) -> Result<(), HubModeError> {
         let sha256 = sha256_hex(&download.bytes);
         self.locked(|index| {
             write_file_durable(&self.root.join(CACHE_CATALOGUE_FILE), &download.bytes)?;
@@ -1080,8 +1118,7 @@ impl HubDiskCache {
                 dirty: true,
                 remove_after: Vec::new(),
             })
-        })?;
-        Ok(catalogue)
+        })
     }
 
     /// The cached catalogue, if one is recorded and still verifies.
@@ -1132,7 +1169,8 @@ impl HubDiskCache {
     /// rotation is picked up and a damaged entry repairs itself. Only a stale
     /// entry that still verifies is served when `fetch` itself fails, with
     /// [`ResolvedCachedArtifact::refresh_error`] set. Bytes `fetch` returns that
-    /// fail verification are an error, never a fallback.
+    /// fail verification, or that are an older catalogue than the cached one
+    /// (a rollback), are an error, never a fallback.
     pub fn get_or_fetch_catalogue<F>(
         &mut self,
         now_unix: u64,
@@ -1184,7 +1222,25 @@ impl HubDiskCache {
                 };
             }
         };
-        let value = self.put_catalogue(&downloaded, now_unix)?;
+        let value = self.verify_catalogue_download(&downloaded)?;
+        // A signature proves the hub made these bytes, not that they are its
+        // current catalogue: every catalogue the hub ever signed verifies for
+        // ever. A refresh that would go back in time (a replay from a mirror, a
+        // proxy or a `XERJ_HUB_URL` someone else chose) would walk every pin
+        // back, so it is refused, as `xerj hub sync` refuses it.
+        if let Some((cached, _)) = &stale {
+            if is_rollback(&value.generated_at, &cached.generated_at) {
+                return Err(HubModeError::IntegrityMismatch {
+                    slug: "catalogue".into(),
+                    reason: format!(
+                        "refusing a catalogue generated {} that is older than the cached one \
+                         ({}): a signed but older catalogue is a rollback, so the cache was kept",
+                        value.generated_at, cached.generated_at
+                    ),
+                });
+            }
+        }
+        self.store_catalogue(&downloaded, now_unix)?;
         self.network_fetches += 1;
         Ok(ResolvedCachedArtifact {
             value,
@@ -1620,13 +1676,29 @@ pub fn answer_from_pack(
     })
 }
 
+/// Whole days from a pin date (`YYYY-MM-DD`) to `now_unix`: 0 for a pin dated in
+/// the future or one that does not parse, as `xerj ask` reports it.
+pub fn pin_age_days(pin_date: &str, now_unix: u64) -> u32 {
+    let Ok(pin) = chrono::NaiveDate::parse_from_str(pin_date.trim(), "%Y-%m-%d") else {
+        return 0;
+    };
+    let Some(now) = i64::try_from(now_unix)
+        .ok()
+        .and_then(|secs| chrono::DateTime::from_timestamp(secs, 0))
+    else {
+        return 0;
+    };
+    u32::try_from((now.date_naive() - pin).num_days().max(0)).unwrap_or(u32::MAX)
+}
+
 /// Parameters for a hub corpus query executed by [`HubFirstRouter::query_corpus`].
 #[derive(Debug, Clone, Copy)]
 pub struct HubQueryRequest<'a> {
     pub slug: &'a str,
     pub query: &'a str,
     pub mode: AnswerMode,
-    pub age_days: u32,
+    /// Seconds since the Unix epoch. Drives staleness and the answer's
+    /// `age_days`, which is the days from the entry's `pin_date` to this time.
     pub now_unix: u64,
     /// Cap on the hits returned ([`DEFAULT_MAX_HITS`]).
     pub max_hits: usize,
@@ -1634,18 +1706,11 @@ pub struct HubQueryRequest<'a> {
 
 impl<'a> HubQueryRequest<'a> {
     /// A request capped at [`DEFAULT_MAX_HITS`].
-    pub fn new(
-        slug: &'a str,
-        query: &'a str,
-        mode: AnswerMode,
-        age_days: u32,
-        now_unix: u64,
-    ) -> Self {
+    pub fn new(slug: &'a str, query: &'a str, mode: AnswerMode, now_unix: u64) -> Self {
         Self {
             slug,
             query,
             mode,
-            age_days,
             now_unix,
             max_hits: DEFAULT_MAX_HITS,
         }
@@ -1700,10 +1765,14 @@ impl HubFirstRouter {
 
     /// List MCP tools and their availability in the current mode.
     ///
-    /// When no local node is running, `xerj mcp` still starts and lists the hub
-    /// tools as available while marking private-index node tools with a clear
-    /// notice explaining that a local node is required. The `xerj_hub_*` tools
-    /// are unavailable in a build with no hub key, as in `xerj mcp`.
+    /// When no local node is running, the hub tools are listed as available
+    /// while private-index node tools carry a notice that a local node is
+    /// required. The `xerj_hub_*` tools are unavailable in a build with no hub
+    /// key, as in `xerj mcp`.
+    ///
+    /// `xerj mcp` does not call this: it serves one `tools/list` in every mode,
+    /// and a node tool called with no node starts the node or answers with its
+    /// own "no node is listening" error.
     pub fn list_tools(&self) -> Vec<ToolAvailability> {
         let mut out = Vec::with_capacity(HUB_DIRECT_TOOLS.len() + LOCAL_NODE_TOOLS.len());
         for &tool in HUB_DIRECT_TOOLS {
@@ -1751,6 +1820,9 @@ impl HubFirstRouter {
     /// - Private-index node tools (`xerj_search`, `xerj_def`, `xerj_map`, …)
     ///   route to [`RouteTarget::LocalNode`] when a node is reachable, and
     ///   return [`HubModeError::LocalNodeRequired`] when in hub-only fallback.
+    ///
+    /// `xerj mcp` does not call this either; it decides per tool in
+    /// `xerj-mcp`'s `src/hub/first.rs`.
     pub fn route_tool(&self, tool_name: &str) -> Result<RouteTarget, HubModeError> {
         if HUB_DIRECT_TOOLS.contains(&tool_name) {
             if tool_name.starts_with("xerj_hub_") && !self.cache.can_verify() {
@@ -1807,7 +1879,6 @@ impl HubFirstRouter {
             slug,
             query,
             mode,
-            age_days,
             now_unix,
             max_hits,
         } = request;
@@ -1863,7 +1934,7 @@ impl HubFirstRouter {
             corpus: entry.slug.clone(),
             pin_sha: entry.pin_sha.clone(),
             pin_date: entry.pin_date.clone(),
-            age_days,
+            age_days: pin_age_days(&entry.pin_date, now_unix),
             licence_spdx: entry.licence_spdx.clone(),
             licence_class: entry.licence_class,
             answered_from: match pack_resolved.outcome {

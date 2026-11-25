@@ -416,7 +416,7 @@ fn a_real_hubpack_verifies_answers_and_the_second_call_is_served_from_disk() {
 
     let first = router
         .query_corpus(
-            HubQueryRequest::new("lz4", "LZ4_compress_default", AnswerMode::Def, 2, NOW),
+            HubQueryRequest::new("lz4", "LZ4_compress_default", AnswerMode::Def, NOW),
             || {
                 cat_fetches.set(cat_fetches.get() + 1);
                 Ok(cat.clone())
@@ -452,7 +452,7 @@ fn a_real_hubpack_verifies_answers_and_the_second_call_is_served_from_disk() {
 
     let second = router
         .query_corpus(
-            HubQueryRequest::new("lz4", "compress_default", AnswerMode::Def, 2, NOW + 10),
+            HubQueryRequest::new("lz4", "compress_default", AnswerMode::Def, NOW + 10),
             || panic!("the catalogue must not be re-fetched"),
             |_| panic!("the pack must not be re-fetched"),
         )
@@ -463,6 +463,54 @@ fn a_real_hubpack_verifies_answers_and_the_second_call_is_served_from_disk() {
     assert!(second.rendered.contains("answered from: local pack"));
     assert_eq!(router.cache().disk_hits(), 2);
     assert_eq!(router.cache().network_fetches(), 2);
+}
+
+#[test]
+fn the_answers_age_is_the_days_from_the_catalogue_pin_date_to_now() {
+    let at = |y, m, d| {
+        chrono::NaiveDate::from_ymd_opt(y, m, d)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp() as u64
+    };
+    assert_eq!(pin_age_days("2026-11-15", at(2026, 11, 25)), 10);
+    assert_eq!(pin_age_days("2026-11-15", at(2026, 11, 15)), 0);
+    assert_eq!(
+        pin_age_days("2026-11-15", at(2026, 11, 1)),
+        0,
+        "not negative"
+    );
+    assert_eq!(pin_age_days("not a date", at(2026, 11, 25)), 0);
+
+    let hub = TestHub::new(3);
+    let spec = Spec::new("lz4", &pin(1));
+    let archive = spec.archive();
+    let cat = hub.catalogue_download(&[entry_for(&spec, &archive)]);
+    let dir = tempfile::tempdir().unwrap();
+    let mut router = HubFirstRouter::new(
+        hub_only(),
+        hub.cache(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 3600),
+    );
+    let result = router
+        .query_corpus(
+            HubQueryRequest::new(
+                "lz4",
+                "LZ4_compress_default",
+                AnswerMode::Def,
+                at(2026, 11, 25),
+            ),
+            || Ok(cat.clone()),
+            |_| Ok(hub.download(&archive)),
+        )
+        .unwrap();
+    assert_eq!(result.answer.age_days, 10);
+    assert!(
+        result.rendered.contains("(10 days old)"),
+        "{}",
+        result.rendered
+    );
 }
 
 #[test]
@@ -604,6 +652,44 @@ fn a_stale_catalogue_is_refetched_so_a_pin_rotation_is_picked_up() {
     // The boundary is `now >= fetched_at + ttl`.
     assert!(Freshness::evaluate(100, 160, 60).is_stale());
     assert!(!Freshness::evaluate(100, 159, 60).is_stale());
+}
+
+/// A signature proves the hub made the bytes, not that they are its current
+/// catalogue: replaying an older signed one must not walk the pins back.
+#[test]
+fn a_signed_but_older_catalogue_is_a_rollback_and_is_refused() {
+    let hub = TestHub::new(1);
+    let spec = Spec::new("lz4", &pin(2));
+    let entry = entry_for(&spec, &spec.archive());
+    let newer = hub.catalogue_download(std::slice::from_ref(&entry));
+    let older = {
+        let mut catalogue = catalogue(vec![entry_for(&Spec::new("lz4", &pin(1)), &[0u8])]);
+        catalogue.generated_at = "2026-11-01T00:00:00Z".to_string();
+        hub.download(&serde_json::to_vec(&catalogue).unwrap())
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let mut cache = hub.cache(dir.path(), DEFAULT_MCP_CACHE_MAX_BYTES, 60);
+    cache.get_or_fetch_catalogue(0, || Ok(newer)).unwrap();
+
+    let err = cache
+        .get_or_fetch_catalogue(10_000, || Ok(older))
+        .unwrap_err();
+    assert!(
+        matches!(&err, HubModeError::IntegrityMismatch { slug, .. } if slug == "catalogue"),
+        "{err}"
+    );
+    assert!(
+        err.to_string().contains("older than the cached one"),
+        "{err}"
+    );
+
+    // The cache kept the newer catalogue: with the hub down it is the stale
+    // fallback, pin 2 and not the replayed pin 1.
+    let kept = cache
+        .get_or_fetch_catalogue(10_001, || Err(fetch_failure()))
+        .unwrap();
+    assert_eq!(kept.value.corpora[0].pin_sha, pin(2));
+    assert!(kept.refresh_error.is_some());
 }
 
 #[test]
@@ -1072,7 +1158,7 @@ fn max_hits_caps_the_output_and_marks_it_truncated() {
 
     // `sym` matches all 121 definitions; the default cap is 50 and the exact
     // match ranks first.
-    let r = ask(HubQueryRequest::new("big", "sym", AnswerMode::Def, 1, NOW));
+    let r = ask(HubQueryRequest::new("big", "sym", AnswerMode::Def, NOW));
     assert_eq!(r.answer.hits.len(), DEFAULT_MAX_HITS);
     assert!(r.answer.truncated);
     assert_eq!(r.answer.hits[0].file, "src/exact.c");
@@ -1082,26 +1168,20 @@ fn max_hits_caps_the_output_and_marks_it_truncated() {
         .iter()
         .any(|w| w.contains("truncated to the best 50 of 121 matches")));
 
-    let r = ask(HubQueryRequest::new("big", "sym", AnswerMode::Def, 1, NOW).with_max_hits(3));
+    let r = ask(HubQueryRequest::new("big", "sym", AnswerMode::Def, NOW).with_max_hits(3));
     assert_eq!(r.answer.hits.len(), 3);
     assert!(r.answer.truncated);
 
-    let r = ask(HubQueryRequest::new(
-        "big",
-        "sym_01",
-        AnswerMode::Def,
-        1,
-        NOW,
-    ));
+    let r = ask(HubQueryRequest::new("big", "sym_01", AnswerMode::Def, NOW));
     assert_eq!(r.answer.hits.len(), 10);
     assert!(!r.answer.truncated);
     assert!(r.answer.warnings.iter().all(|w| !w.contains("truncated")));
 
     // Files returned every file before; it is capped too.
-    let r = ask(HubQueryRequest::new("big", "", AnswerMode::Files, 1, NOW));
+    let r = ask(HubQueryRequest::new("big", "", AnswerMode::Files, NOW));
     assert_eq!(r.answer.hits.len(), 50);
     assert!(r.answer.truncated);
-    let r = ask(HubQueryRequest::new("big", "", AnswerMode::Files, 1, NOW).with_max_hits(0));
+    let r = ask(HubQueryRequest::new("big", "", AnswerMode::Files, NOW).with_max_hits(0));
     assert_eq!(r.answer.hits.len(), 1, "a cap of zero still answers");
 }
 
@@ -1116,7 +1196,7 @@ fn an_empty_definition_query_is_refused_before_any_io() {
     for query in ["", "   ", "\t\n"] {
         let err = router
             .query_corpus(
-                HubQueryRequest::new("lz4", query, AnswerMode::Def, 1, NOW),
+                HubQueryRequest::new("lz4", query, AnswerMode::Def, NOW),
                 || panic!("must not fetch the catalogue"),
                 |_| panic!("must not fetch the pack"),
             )
@@ -1143,7 +1223,6 @@ fn passage_questions_are_refused_loudly_because_a_pack_archive_holds_no_passages
                 "lz4",
                 "how does block compression work",
                 AnswerMode::How,
-                1,
                 NOW,
             ),
             || panic!("no network for a question it cannot answer"),
@@ -1196,7 +1275,7 @@ fn unknown_corpus_and_invalid_slugs_fail_loudly() {
 
     let err = router
         .query_corpus(
-            HubQueryRequest::new("nonexistent-corpus", "anything", AnswerMode::Def, 1, NOW),
+            HubQueryRequest::new("nonexistent-corpus", "anything", AnswerMode::Def, NOW),
             || Ok(hub.catalogue_download(&[entry])),
             |_| unreachable!("no pack fetch for an unknown corpus"),
         )
@@ -1217,7 +1296,7 @@ fn unknown_corpus_and_invalid_slugs_fail_loudly() {
     ] {
         let err = router
             .query_corpus(
-                HubQueryRequest::new(bad, "q", AnswerMode::Def, 1, NOW),
+                HubQueryRequest::new(bad, "q", AnswerMode::Def, NOW),
                 || panic!("no catalogue fetch for an invalid slug"),
                 |_| panic!("no pack fetch for an invalid slug"),
             )
@@ -1300,13 +1379,7 @@ fn excluded_corpora_are_never_fetched_and_approach_only_hits_carry_a_warning() {
 
     let err = router
         .query_corpus(
-            HubQueryRequest::new(
-                "proprietary",
-                "LZ4_compress_default",
-                AnswerMode::Def,
-                1,
-                NOW,
-            ),
+            HubQueryRequest::new("proprietary", "LZ4_compress_default", AnswerMode::Def, NOW),
             || Ok(cat.clone()),
             |_| panic!("an excluded pack must never be fetched"),
         )
@@ -1317,7 +1390,7 @@ fn excluded_corpora_are_never_fetched_and_approach_only_hits_carry_a_warning() {
 
     let ok = router
         .query_corpus(
-            HubQueryRequest::new("gpl-lib", "LZ4_compress_default", AnswerMode::Def, 1, NOW),
+            HubQueryRequest::new("gpl-lib", "LZ4_compress_default", AnswerMode::Def, NOW),
             || unreachable!("catalogue already cached"),
             |_| Ok(hub.download(&gpl_archive)),
         )

@@ -35,8 +35,9 @@ use xerj_common::hub::{
     CATALOGUE_FORMAT_VERSION,
 };
 
-/// Path of the catalogue under the hub's API root.
-const CATALOGUE_API_PATH: &str = "api/v1/catalogue.json";
+/// Path of the catalogue under the hub's API root. Public so the MCP hub-first
+/// path fetches the same URL `xerj hub sync` does.
+pub const CATALOGUE_API_PATH: &str = "api/v1/catalogue.json";
 /// The cached catalogue file name inside the cache dir.
 const CACHE_FILE: &str = "catalogue.json";
 /// Where the last response's ETag is stored for the conditional GET.

@@ -116,8 +116,8 @@ const NO_HOSTED_CLIENT: &str =
 const DEFAULT_K: usize = def::DEFAULT_K;
 /// Characters of a passage a How answer keeps (the `xerj code` default).
 const PASSAGE_WIDTH: usize = 800;
-/// Distinct files a Files answer lists at most.
-const FILES_K: usize = 10;
+/// Distinct files a Files answer lists at most (also the MCP hub-first default).
+pub const FILES_K: usize = 10;
 
 // ── request / outcome types ──────────────────────────────────────────────────
 
