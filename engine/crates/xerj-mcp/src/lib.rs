@@ -7403,6 +7403,38 @@ mod tests {
         assert!(help.contains("serves 3 Corpus Hub tools"), "{help}");
     }
 
+    /// #3219: the pack text `xerj init` writes may name only tools `xerj mcp`
+    /// lists, spelled as `tools/list` spells them, in a build with and
+    /// without a hub key.
+    #[test]
+    fn init_pack_tool_names_are_served_by_tools_list() {
+        for include_hub in [true, false] {
+            let served: Vec<String> = tool_specs_with(include_hub)
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|t| t["name"].as_str().unwrap().to_string())
+                .collect();
+            let named = xerj_autoindex::init::pack_tool_names(include_hub);
+            assert!(!named.is_empty());
+            for tool in &named {
+                assert!(
+                    tool.starts_with("xerj_") && !tool.contains('.'),
+                    "{tool} is not an xerj_* tool name"
+                );
+                assert!(
+                    served.iter().any(|name| name == tool),
+                    "init teaches {tool} (hub={include_hub}), which xerj mcp does not list"
+                );
+            }
+            assert_eq!(
+                named.iter().any(|tool| tool.starts_with("xerj_hub_")),
+                include_hub,
+                "{named:?}"
+            );
+        }
+    }
+
     /// #2285: Git Bash runs the `sh` installer, which writes `~/.local/bin`.
     /// `get.ps1` writes `%LOCALAPPDATA%\Programs\xerj`. Help that names only
     /// one of those sends the other install looking in the wrong place.
