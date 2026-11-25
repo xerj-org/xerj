@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on beam, consumer-groups, distributed-log queries this for how malachi-hq/malachi implements it: Open source distributed log storage. A reimplementation of LinkedIn's NorthGuard (selected work: test, lib/malachi)",
+ "domain": "an agent working on beam, consumer-groups, distributed-log queries this for how malachi-hq/malachi implements it: Open source distributed log storage in Elixir, an independent implementation inspired by the public design of LinkedIn's NorthGuard. Not aff (selected work: test, lib/malachi)",
  "repos": [
   {
    "repo": "malachi",

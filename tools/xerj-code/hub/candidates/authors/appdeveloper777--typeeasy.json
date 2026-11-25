@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on C queries this for how appdeveloper777/TypeEasy implements it: Lenguaje de programaci\u00f3n para crear APIs REST r\u00e1pido: servidor HTTP, JSON, SQL (MySQL/MariaDB, PostgreSQL, SQL Server, SQLite), JWT y WebSoc (selected work: tests, src, tools)",
+ "domain": "an agent working on C queries this for how appdeveloper777/TypeEasy implements it: Lenguaje de programaci\u00f3n para crear APIs REST r\u00e1pido: servidor HTTP, JSON/XML, SQL (MySQL/MariaDB, PostgreSQL, SQL Server, SQLite), JWT y We (selected work: tests, src, tools)",
  "repos": [
   {
    "repo": "TypeEasy",

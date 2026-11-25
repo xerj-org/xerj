@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on desktop-app, expense-tracker, local-first queries this for how germanricco/Nodus implements it: Local-first personal finance for Windows. Track accounts in pesos and dollars, budgets, recurring charges and investment returns, all in a s (selected work: src/nodus, tests)",
+ "domain": "an agent working on desktop-app, expense-tracker, local-first queries this for how germanricco/Nodus implements it: Local-first personal finance for Windows and Linux. Track accounts in pesos and dollars, budgets, recurring charges and investment returns,  (selected work: src/nodus, tests)",
  "repos": [
   {
    "repo": "Nodus",
