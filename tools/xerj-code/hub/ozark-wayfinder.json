@@ -1,0 +1,21 @@
+{
+ "corpus": "ozark-wayfinder",
+ "cloned_at": "2026-11-23T18:11:47Z",
+ "repos": [
+  {
+   "repo": "ozark-wayfinder",
+   "url": "https://github.com/nosliwhtes/ozark-wayfinder",
+   "licence": "MIT",
+   "sha": "2d018dc1936aab47389c0f058df22b0bfa58eccd",
+   "files": 55,
+   "bytes": 260971,
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "nosliwhtes",
+    "at": "2026-11-23",
+    "note": "LICENSE opened at pin: verbatim MIT, Copyright (c) 2026 Ozark Wayfinder contributors."
+   }
+  }
+ ]
+}
