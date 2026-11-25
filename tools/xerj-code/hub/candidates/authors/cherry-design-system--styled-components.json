@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on design-system, library, ui-components queries this for how cherry-design-system/styled-components implements it: \ud83c\udf52 Cherry is a design system for the modern web. Designed in Figma, built in React using Typescript. AI-ready (selected work: src/lib, src, the project root)",
+ "domain": "an agent working on design-system, library, ui-components queries this for how cherry-design-system/styled-components implements it: v1 (selected work: src/lib, src, the project root)",
  "repos": [
   {
    "repo": "styled-components",

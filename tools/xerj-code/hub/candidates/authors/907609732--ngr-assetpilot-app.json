@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on electron, image-search, local-ai queries this for how 907609732/NGR-AssetPilot-App implements it: NGR AssetPilot Windows \u684c\u9762\u5e94\u7528\uff1aAI \u8d44\u6e90\u547d\u540d\u3001\u672c\u5730\u76f8\u4f3c\u56fe\u641c\u7d22\u3001\u89c4\u8303\u68c0\u6d4b\u4e0e\u6279\u91cf\u5bfc\u51fa\u3002",
+ "domain": "an agent working on electron, image-search, local-ai queries this for how 907609732/NGR-AssetPilot-App implements it: NGR AssetPilot Windows \u684c\u9762\u5e94\u7528\uff1aAI \u8d44\u6e90\u547d\u540d\u3001\u672c\u5730\u76f8\u4f3c\u56fe\u641c\u7d22\u3001\u89c4\u8303\u68c0\u6d4b\u4e0e\u6279\u91cf\u5bfc\u51fa\u3002\u63d0\u5347\u6e38\u620f\u5f00\u53d1\u8fc7\u7a0b\u4e2d\u7684UI\u5236\u4f5c\u6548\u7387\uff0c\u51cf\u5c11\u754c\u9762\u91cd\u6784\u5de5\u4f5c\u91cf",
  "repos": [
   {
    "repo": "NGR-AssetPilot-App",

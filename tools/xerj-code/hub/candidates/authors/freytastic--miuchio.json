@@ -2,8 +2,8 @@
  "corpus": "freytastic--miuchio",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Dart queries this for how freytastic/miuchio implements it: E2ee collaborative album sharing app (selected work: client)",
+ "shelf": "WEB",
+ "domain": "an agent working on android, e2ee, e2ee-encryption queries this for how freytastic/miuchio implements it: A shared photo album for family and frens, end-to-end encrypted on your phone. iPhone and Android (selected work: client)",
  "repos": [
   {
    "repo": "miuchio",

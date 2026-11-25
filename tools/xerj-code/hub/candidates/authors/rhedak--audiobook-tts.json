@@ -8,15 +8,15 @@
   {
    "repo": "audiobook_tts",
    "url": "https://github.com/rhedak/audiobook_tts",
-   "sha": "4467f6b1dc0742c1338785181d2afcb81eb82ae9",
-   "licence": "MIT (LICENSE file at pin 4467f6b1dc07, GitHub licence API 2026-11-25)",
+   "sha": "954d29dff67bc80fa88578d03e433769aa775b7f",
+   "licence": "MIT (LICENSE file at pin 954d29dff67b, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T05:39Z",
     "consent_receipt": "7b042e5a4b70",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T05:39Z (receipt 7b042e5a4b70); pinned to the default-branch head. LICENSE file at pin 4467f6b1dc07 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T05:39Z (receipt 7b042e5a4b70); pinned to the default-branch head. LICENSE file at pin 954d29dff67b detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]
