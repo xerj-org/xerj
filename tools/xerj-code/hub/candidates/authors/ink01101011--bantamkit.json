@@ -1,0 +1,23 @@
+{
+ "corpus": "ink01101011--bantamkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, claude, claude-code queries this for how Ink01101011/bantamkit implements it: Persistent memory for coding agents: an MCP server for Claude Code, Claude Desktop, Cursor and VS Code Copilot. Install once from npm or PyP",
+ "repos": [
+  {
+   "repo": "bantamkit",
+   "url": "https://github.com/Ink01101011/bantamkit",
+   "sha": "50a0e48bb0c206596ebab636aead6174fb635577",
+   "licence": "MIT (LICENSE file at pin 50a0e48bb0c2, GitHub licence API 2026-11-25)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-25T03:42Z",
+    "consent_receipt": "849bc078bdc6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T03:42Z (receipt 849bc078bdc6); pinned to the default-branch head. LICENSE file at pin 50a0e48bb0c2 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+   }
+  }
+ ]
+}

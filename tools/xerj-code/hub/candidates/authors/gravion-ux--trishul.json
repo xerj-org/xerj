@@ -8,15 +8,15 @@
   {
    "repo": "TRISHUL",
    "url": "https://github.com/gravion-ux/TRISHUL",
-   "sha": "c2bf96f77064283cd2d037e79dd2605c680ac46e",
-   "licence": "MIT (LICENSE file at pin c2bf96f77064, GitHub licence API 2026-11-23)",
+   "sha": "c279de58a49d4343c4a957222c153c720592aa40",
+   "licence": "MIT (LICENSE file at pin c279de58a49d, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "59510def4f99",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 59510def4f99); pinned to the default-branch head. LICENSE file at pin c2bf96f77064 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 59510def4f99); pinned to the default-branch head. LICENSE file at pin c279de58a49d detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]

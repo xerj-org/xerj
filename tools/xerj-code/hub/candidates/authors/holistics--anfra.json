@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Go queries this for how holistics/anfra implements it: Open-source framework for building trusted custom BI apps. Built for coding agents (selected work: web)",
+ "domain": "an agent working on agent-framework, agent-skills, agentic-ai queries this for how holistics/anfra implements it: Open-source framework for building trusted custom BI apps. Built for coding agents (selected work: web)",
  "repos": [
   {
    "repo": "anfra",

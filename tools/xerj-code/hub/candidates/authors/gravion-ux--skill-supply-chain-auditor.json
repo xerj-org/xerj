@@ -8,15 +8,15 @@
   {
    "repo": "skill-supply-chain-auditor",
    "url": "https://github.com/gravion-ux/skill-supply-chain-auditor",
-   "sha": "0e5871ebcf2307a5a193e8b76bf321aec94039af",
-   "licence": "MIT (LICENSE file at pin 0e5871ebcf23, GitHub licence API 2026-11-22)",
+   "sha": "1dac3f6b718bb9930c3d2d4ac646a5b459a3f1ab",
+   "licence": "MIT (LICENSE file at pin 1dac3f6b718b, GitHub licence API 2026-11-25)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "b548c608d1c3",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt b548c608d1c3); pinned to the default-branch head. LICENSE file at pin 0e5871ebcf23 detected as MIT by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt b548c608d1c3); pinned to the default-branch head. LICENSE file at pin 1dac3f6b718b detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
    }
   }
  ]
