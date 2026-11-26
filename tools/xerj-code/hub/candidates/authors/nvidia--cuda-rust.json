@@ -8,15 +8,15 @@
   {
    "repo": "cuda-rust",
    "url": "https://github.com/NVIDIA/cuda-rust",
-   "sha": "d6bc946917378e8e875b5e307c0f18fa381777c9",
-   "licence": "Apache-2.0 (LICENSE file at pin d6bc94691737, GitHub licence API 2026-11-26)",
+   "sha": "e4d512f74cc6c1c5cb79c7ac2c681de8a2b8410f",
+   "licence": "Apache-2.0 (LICENSE file at pin e4d512f74cc6, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-17T17:25Z",
     "consent_receipt": "6d4550392cbd",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T17:25Z (receipt 6d4550392cbd); selected commit d6bc94691737: \"feat(examples): add image convolution example\". LICENSE file at pin d6bc94691737 detected as Apache-2.0 by the GitHub licence API on 2026-11-26; used under that licence with attribution. Pinned to head d6bc94691737 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NVIDIA, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T17:25Z (receipt 6d4550392cbd); selected commit e4d512f74cc6: \"feat(examples): add image convolution example\". LICENSE file at pin e4d512f74cc6 detected as Apache-2.0 by the GitHub licence API on 2026-11-26; used under that licence with attribution. Pinned to head e4d512f74cc6 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NVIDIA, who has not added it."
    },
    "paths": [
     "crates/dialect-mir/src/ops",

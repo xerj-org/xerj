@@ -8,15 +8,15 @@
   {
    "repo": "dsh-soul",
    "url": "https://github.com/Aliuyanfeng/dsh-soul",
-   "sha": "f191eab3e2b6e47c50c6a12c5be2791ad5cea138",
-   "licence": "MIT (LICENSE file at pin f191eab3e2b6, GitHub licence API 2026-11-24)",
+   "sha": "a30aac1e932c176c0a6878f28161c96697d4a931",
+   "licence": "MIT (LICENSE file at pin a30aac1e932c, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-12T05:58Z",
     "consent_receipt": "00857a21e560",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:58Z (receipt 00857a21e560); selected commit f191eab3e2b6: \"feat(soul): \u4eba\u8bbe\u9884\u8bbe\u53ea\u7ba1 Agent \u4eba\u683c\uff0c\u4e0d\u518d\u5305\u542b\u300c\u5173\u4e8e\u4f60\u300d\". LICENSE file at pin f191eab3e2b6 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution. Pinned to head f191eab3e2b6 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:58Z (receipt 00857a21e560); selected commit a30aac1e932c: \"feat(soul): \u4eba\u8bbe\u9884\u8bbe\u53ea\u7ba1 Agent \u4eba\u683c\uff0c\u4e0d\u518d\u5305\u542b\u300c\u5173\u4e8e\u4f60\u300d\". LICENSE file at pin a30aac1e932c detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution. Pinned to head a30aac1e932c (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

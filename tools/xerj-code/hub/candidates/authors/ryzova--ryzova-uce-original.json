@@ -1,9 +1,9 @@
 {
- "corpus": "ryzovatech--ryzova-uce-original",
+ "corpus": "ryzova--ryzova-uce-original",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on compatibility, dependency-management, developer-tools queries this for how RyzovaTech/Ryzova-UCE-Original implements it: UCE \u2014 Universal Compatibility Engine. An open-source, local-first tool for detecting software compatibility issues before deployment (selected work: src/lib, testing, scripts)",
+ "domain": "an agent working on compatibility, dependency-management, developer-tools queries this for how Ryzova/Ryzova-UCE-Original implements it: UCE \u2014 Universal Compatibility Engine. An open-source, local-first tool for detecting software compatibility issues before deployment (selected work: src/lib, testing, scripts)",
  "repos": [
   {
    "repo": "Ryzova-UCE-Original",

@@ -2,8 +2,8 @@
  "corpus": "allra-fintech--texio",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on ai-agents, cli, coding-agents queries this for how Allra-Fintech/texio implements it: Reliable Markdown operations for shell scripts and AI agents (selected work: scripts, launch)",
+ "shelf": "WRITE",
+ "domain": "an agent working on ai-agents, cli, coding-agents queries this for how Allra-Fintech/texio implements it: Safe, structure-aware Markdown CLI for AI agents. Extract and replace sections without rewriting entire files (selected work: scripts, launch)",
  "repos": [
   {
    "repo": "texio",

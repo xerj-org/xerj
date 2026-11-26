@@ -8,15 +8,15 @@
   {
    "repo": "svincolo",
    "url": "https://github.com/vitofico/svincolo",
-   "sha": "b1b453c9d8963dc704105f993f414cc05c7eaee5",
-   "licence": "Apache-2.0 (LICENSE file at pin b1b453c9d896, GitHub licence API 2026-11-24)",
+   "sha": "f8a010465cad6e915aecb9ae53488bd3994d6e80",
+   "licence": "Apache-2.0 (LICENSE file at pin f8a010465cad, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-24T10:44Z",
     "consent_receipt": "519e68e229f9",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T10:44Z (receipt 519e68e229f9); pinned to the default-branch head. LICENSE file at pin b1b453c9d896 detected as Apache-2.0 by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-24T10:44Z (receipt 519e68e229f9); pinned to the default-branch head. LICENSE file at pin f8a010465cad detected as Apache-2.0 by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]
