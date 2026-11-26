@@ -1051,6 +1051,7 @@ The model, its bundle and its serve rule are those of rc.102.
   setting above it does not raise that cap. `_async_search`,
   `_search/template` and `_msearch/template` do not read the setting yet.
 - The CSV extractor now caps one record at 16 MiB of decoded bytes (issue [#3201](https://github.com/xerj-org/xerj/issues/3201)). A quoted field may span newlines, so a single record could previously be as large as the whole input stream: the parser buffered it all before returning it. An oversize record is now counted as junk and extraction stops there, with the records before it still indexed; an oversize header row junks the file instead of failing it, so one hostile file cannot abort the whole autoindex run.
+- A boolean field in `query_string` matched nothing once combined with another clause (issue [#3171](https://github.com/xerj-org/xerj/issues/3171)). Two causes, both fixed: the lenient exemption that keeps a `match` from rewriting to a `term` applied to boolean fields as well as numeric ones, so every lenient boolean clause (and `query_string` is lenient by default) stayed a `match`; and the stored-doc scan's `match` predicate had no arm for a JSON boolean value, so it never matched there. `tag:red AND active:false` on the issue's 300-doc index now returns 41 (was 0), `NOT active:true` 163 (was 300), `active:false OR tag:red` 199 (was 77), on `_search` and `_count`, before and after `_flush`. The lenient exemption for numeric fields (#1284) is unchanged.
 
 ## [1.0.0-rc.102] - 2026-11-06
 
