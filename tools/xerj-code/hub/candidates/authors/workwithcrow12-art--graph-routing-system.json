@@ -2,8 +2,8 @@
  "corpus": "workwithcrow12-art--graph-routing-system",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on learning-project, maps, routing-algorithm queries this for how workwithcrow12-art/Graph-Routing-System implements it: Help you learn how Shortest Path Algorithm work (selected work: the project root)",
+ "shelf": "WEB",
+ "domain": "an agent working on learning-project, maps, routing-algorithm queries this for how workwithcrow12-art/Graph-Routing-System implements it: Local route planner & graph algorithm visualizer (Java 21, React, MapLibre, OpenStreetMap) with 8 algorithms, multi-modal routing, and Playw (selected work: the project root)",
  "repos": [
   {
    "repo": "Graph-Routing-System",

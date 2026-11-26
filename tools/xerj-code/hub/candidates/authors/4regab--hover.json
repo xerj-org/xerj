@@ -2,8 +2,8 @@
  "corpus": "4regab--hover",
  "cloned_at": null,
  "status": "draft",
- "shelf": "OPS",
- "domain": "an agent working on Go queries this for how 4regab/Hover implements it: opensource desktop app to monitor and give tasks to agents on your notch (selected work: internal/chat, internal/office, internal/ui)",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how 4regab/Hover implements it: agent workspace to monitor and give tasks to agents on your notch (selected work: internal/chat, internal/office, internal/ui)",
  "repos": [
   {
    "repo": "Hover",

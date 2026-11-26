@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, code-execution, isolation queries this for how victorperson999/Vestibule implements it: Vestibule - A kernel-isolated code-execution sandbox for AI agents, as an MCP server. Run untrusted/questionable agent code safely \u2014 local,  (selected work: tests, src/vestibule, the project root)",
+ "domain": "an agent working on ai-agents, code-execution, isolation queries this for how victorperson999/Vestibule implements it: Local, kernel-isolated code-execution sandbox for AI agents (MCP server). Run untrusted/questionable agent code safely \u2014 local, free, no clo (selected work: tests, src/vestibule, the project root)",
  "repos": [
   {
    "repo": "Vestibule",

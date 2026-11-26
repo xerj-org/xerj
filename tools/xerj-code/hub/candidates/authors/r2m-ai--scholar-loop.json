@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-research, autonomous-agents, llm-tools queries this for how r2m-ai/scholar-loop implements it: An autonomous AI scientist: a multi-agent loop over literature, experiments, self-critique and write-up, with deterministic guards against r (selected work: scholarloop, tests, engines)",
+ "domain": "an agent working on ai-research, autonomous-agents, llm-tools queries this for how r2m-ai/scholar-loop implements it: AI-assisted end-to-end research: the AI does the groundwork, you make the key decisions, and code checks every citation, number and claim (selected work: scholarloop, tests, engines)",
  "repos": [
   {
    "repo": "scholar-loop",
