@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how dariulone/cyberpunk-vr-port implements it: dariulone/cyberpunk-vr-port (C++) (selected work: include, externals, cmake)",
+ "domain": "an agent working on Rust queries this for how dariulone/cyberpunk-vr-port implements it: dariulone/cyberpunk-vr-port (Rust) (selected work: include, externals, cmake)",
  "repos": [
   {
    "repo": "cyberpunk-vr-port",

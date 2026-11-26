@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how mustafamm072/MedAugmentX implements it: Lightweight medical image augmentation library for AI training datasets (selected work: tests, medaugmentx, examples)",
+ "domain": "an agent working on computer-vision, ct-scan, data-augmentation queries this for how mustafamm072/MedAugmentX implements it: Clinically-aware data augmentation for medical imaging AI \u2014 MRI, CT, X-ray & tomosynthesis. Masks, landmarks and 3D spacing stay in sync; in (selected work: tests, medaugmentx, examples)",
  "repos": [
   {
    "repo": "MedAugmentX",
