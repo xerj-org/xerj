@@ -18360,96 +18360,20 @@ async fn search_impl(
         }
     }
 
-    // Apply alias filters: when any index_names entry is a filtered alias,
-    // AND the alias's `filter` clause with the user's query. ES applies
-    // these on the coordinating node so each underlying index sees the
-    // filter. The combined filter is also handed to run_aggs via the
-    // background corpus (covered by the query's filter path already).
-    {
-        // Built from the names as WRITTEN, not from `index_names`. Expanding
-        // an alias to its concrete members (#433) removes the alias name from
-        // that list, and this lookup matches on the alias name — so reading it
-        // from the expanded list silently dropped every filtered alias's
-        // filter. `global_with_aliases.yml` caught exactly that.
-        let mut alias_filters: Vec<Value> = Vec::new();
-        for name in &resolved_names_owned {
-            for entry in state.engine.aliases.iter() {
-                if entry.key() != name {
-                    continue;
-                }
-                for backing in entry.value().iter() {
-                    if let Some(meta) = state.engine.index_alias_metadata.get(backing) {
-                        if let Some(filter) = meta
-                            .get(name.as_str())
-                            .and_then(|v| v.get("filter"))
-                            .cloned()
-                        {
-                            alias_filters.push(filter);
-                        }
-                    }
-                }
-            }
-        }
-        if !alias_filters.is_empty() {
-            let original = body
-                .query
-                .clone()
-                .unwrap_or_else(|| json!({"match_all": {}}));
-            // ES semantics: alias filters are `filter` clauses (unscored,
-            // pre-filter applied before the main query). This matters for
-            // knn queries where `bool.filter` acts as a pre-filter but
-            // `bool.must` is a post-filter — see
-            // vectors/search.vectors/135_knn_query_nested_search_ivf.yml
-            // "pre-filtered on alias" (filter → 1 hit) vs. "post-filtered"
-            // (must → 0 hits).
-            body.query = Some(json!({
-                "bool": {
-                    "must": [original],
-                    "filter": alias_filters.clone(),
-                }
-            }));
-            // Inject the same filter as a default `background_filter` on
-            // every `significant_terms` / `significant_text` clause so
-            // their `bg_count` is computed against the alias-filtered
-            // background instead of the full index.
-            let combined = if alias_filters.len() == 1 {
-                alias_filters.into_iter().next().unwrap()
-            } else {
-                json!({"bool": {"must": alias_filters}})
-            };
-            fn inject_bg_filter(v: &mut Value, filter: &Value) {
-                match v {
-                    Value::Object(obj) => {
-                        for k in ["significant_terms", "significant_text"] {
-                            if let Some(body_obj) = obj.get_mut(k).and_then(|x| x.as_object_mut()) {
-                                if !body_obj.contains_key("background_filter") {
-                                    body_obj.insert("background_filter".into(), filter.clone());
-                                }
-                            }
-                        }
-                        let keys: Vec<String> = obj.keys().cloned().collect();
-                        for key in keys {
-                            if let Some(child) = obj.get_mut(&key) {
-                                inject_bg_filter(child, filter);
-                            }
-                        }
-                    }
-                    Value::Array(arr) => {
-                        for item in arr {
-                            inject_bg_filter(item, filter);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            if let Some(aggs) = body.aggs.as_mut() {
-                inject_bg_filter(aggs, &combined);
-            }
-            if let Some(aggs) = body.aggregations.as_mut() {
-                inject_bg_filter(aggs, &combined);
-            }
-        }
-    }
+    // Alias filters, one list per member (#3065). A filter belongs to the
+    // member it was declared on: ANDing every member's filter onto the
+    // shared query silently dropped the unfiltered members' documents (a
+    // two-member alias with a filter on one member answered only the
+    // filtered member's slice). Built from the names as WRITTEN, not from
+    // `index_names`. Expanding an alias to its concrete members (#433)
+    // removes the alias name from that list, and this lookup matches on the
+    // alias name — so reading it from the expanded list silently dropped
+    // every filtered alias's filter. `global_with_aliases.yml` caught
+    // exactly that. The filters are applied per member at the fan-out
+    // below, after the same terms-lookup and match-rewrite prep the user
+    // query gets.
+    let mut member_alias_filters =
+        collect_alias_filters_by_member(&state, resolved_names_owned.iter().map(String::as_str));
 
     // Resolve `terms` lookup clauses: `{"terms": {"<field>": {"index": I,
     // "id": D, "path": P}}}` → substitute with the concrete array of
@@ -18468,16 +18392,22 @@ async fn search_impl(
     if let Some(aggs) = body.aggregations.as_mut() {
         resolve_terms_lookups(aggs, &state).await;
     }
+    // Alias filters carry the same lookup clauses a user query can, and
+    // they used to be resolved as part of the combined query above.
+    for filters in member_alias_filters.values_mut() {
+        for filter in filters {
+            resolve_terms_lookups(filter, &state).await;
+        }
+    }
     // `index.max_terms_count`, counted on the resolved lookups above.
-    if let Some(reason) = find_terms_query_over_limit(
-        &[
-            body.query.as_ref(),
-            body.aggs.as_ref(),
-            body.aggregations.as_ref(),
-        ],
-        &state,
-        &index_names,
-    ) {
+    // Alias filters count too: they used to ride inside the combined query.
+    let mut limit_roots: Vec<Option<&Value>> = vec![
+        body.query.as_ref(),
+        body.aggs.as_ref(),
+        body.aggregations.as_ref(),
+    ];
+    limit_roots.extend(member_alias_filters.values().flatten().map(Some));
+    if let Some(reason) = find_terms_query_over_limit(&limit_roots, &state, &index_names) {
         return search_shard_validation_error(&reason);
     }
     // Rewrite `match` queries that target a keyword field into `term`
@@ -18666,6 +18596,19 @@ async fn search_impl(
             }
             if let Some(aggs) = body.aggregations.as_mut() {
                 rewrite(aggs, &keyword_fields, &split_kw_fields, &exact_value_fields);
+            }
+            // Alias filters are rewritten exactly like the user query: a
+            // `match` on a keyword field inside a filter is the same exact
+            // term the combined query used to produce.
+            for filters in member_alias_filters.values_mut() {
+                for filter in filters {
+                    rewrite(
+                        filter,
+                        &keyword_fields,
+                        &split_kw_fields,
+                        &exact_value_fields,
+                    );
+                }
             }
         }
     }
@@ -19162,6 +19105,19 @@ async fn search_impl(
     let participating_indices: Vec<String> = index_names.iter().map(|s| s.to_string()).collect();
     if let Some(q) = body.query.as_mut() {
         rewrite_unqueryable_exists(q, &state, &participating_indices);
+    }
+    // #3185 follow-up: the member filters get the same `exists` rewrite the
+    // user query gets. They used to sit inside `body.query`; now they are
+    // parsed separately, and without this a filter on an unqueryable field
+    // was answered from source instead of matching nothing. The field-alias
+    // rewrite is deliberately NOT repeated here: the engine resolves alias
+    // fields per index at execution time (`rewrite_query_aliases`), so a
+    // filter naming an alias field already behaves like the query (see
+    // `alias_filter_gets_query_rewrites.rs`).
+    for filters in member_alias_filters.values_mut() {
+        for filter in filters {
+            rewrite_unqueryable_exists(filter, &state, &participating_indices);
+        }
     }
 
     // Collect alias → target field name mappings from every
@@ -19819,6 +19775,19 @@ async fn search_impl(
     }
     let search_req = search_req;
 
+    // Parse each member's alias filter once, up front (#3065): a malformed
+    // filter is the same 400 the combined query used to produce at parse
+    // time, before any member is searched.
+    let mut parsed_alias_filters: HashMap<String, Vec<xerj_query::ast::QueryNode>> = HashMap::new();
+    for (member, filters) in &member_alias_filters {
+        match parse_alias_filters(filters) {
+            Ok(parsed) => {
+                parsed_alias_filters.insert(member.clone(), parsed);
+            }
+            Err(e) => return ApiError::new(e).into_response(),
+        }
+    }
+
     // Execute search on each index and merge results.
     let mut merged_hits: Vec<(String, xerj_query::executor::Hit)> = Vec::new(); // (index_name, hit)
 
@@ -19916,6 +19885,28 @@ async fn search_impl(
             .inc();
 
         let mut req_clone = search_req.clone();
+        // #3065: each member sees only its own alias filter, ANDed as a
+        // `filter` clause onto this member's copy of the request. The
+        // combined list used to ride in the shared query, so a filter
+        // declared on one member silently dropped the other members'
+        // documents. The `significant_terms` background filter is per
+        // member too: its `bg_count` is computed against the member's own
+        // filtered background, not the full index.
+        if let Some(filters) = parsed_alias_filters.get(*idx_name) {
+            let base =
+                std::mem::replace(&mut req_clone.query, xerj_query::ast::QueryNode::MatchAll);
+            req_clone.query = apply_alias_filters(base, filters);
+        }
+        if let Some(filters) = member_alias_filters.get(*idx_name) {
+            let combined = if filters.len() == 1 {
+                filters[0].clone()
+            } else {
+                json!({ "bool": { "must": filters } })
+            };
+            if let Some(aggs) = req_clone.aggs.as_mut() {
+                inject_alias_bg_filter(aggs, &combined);
+            }
+        }
         // PIT search: fetch more hits per-index so the post-merge PIT
         // filter can drop post-snapshot docs without starving the page.
         // Without this bump, size:1 + PIT would see a single hit get
@@ -28565,30 +28556,18 @@ pub async fn count_docs(
             }
             out
         };
-        // Alias filters, collected from the selector AS WRITTEN. Expanding an
-        // alias to its members and summing their raw document counts answers
-        // the unfiltered corpus — for a filtered alias that is not a smaller
-        // wrong answer than before, it is a LARGER one, and it made `_count`
-        // disagree with `_search` in the opposite direction. A filtered alias
-        // is the usual poor-man's document boundary, so the count has to be of
-        // what the alias exposes.
-        let mut alias_filters: Vec<Value> = Vec::new();
-        for part in index.split(',').map(str::trim) {
-            for entry in state.engine.aliases.iter() {
-                if entry.key() != part {
-                    continue;
-                }
-                for backing in entry.value().iter() {
-                    if let Some(meta) = state.engine.index_alias_metadata.get(backing) {
-                        if let Some(filter) = meta.get(part).and_then(|v| v.get("filter")).cloned()
-                        {
-                            alias_filters.push(filter);
-                        }
-                    }
-                }
-            }
-        }
-        let has_query = !alias_filters.is_empty()
+        // Alias filters, one list per member (#3065), collected from the
+        // selector AS WRITTEN. Expanding an alias to its members and summing
+        // their raw document counts answers the unfiltered corpus — for a
+        // filtered alias that is not a smaller wrong answer than before, it
+        // is a LARGER one, and it made `_count` disagree with `_search` in
+        // the opposite direction. A filtered alias is the usual poor-man's
+        // document boundary, so the count has to be of what the alias
+        // exposes — each member's own slice, not every member filtered by
+        // every other member's filter.
+        let member_alias_filters =
+            collect_alias_filters_by_member(&state, index.split(',').map(str::trim));
+        let has_query = !member_alias_filters.is_empty()
             || min_score.is_some()
             || body
                 .as_ref()
@@ -28627,11 +28606,11 @@ pub async fn count_docs(
                     .and_then(|b| b.get("query"))
                     .cloned()
                     .unwrap_or(json!({ "match_all": {} }));
-                if !alias_filters.is_empty() {
+                if let Some(filters) = member_alias_filters.get(ix_name) {
                     query_val = json!({
                         "bool": {
                             "must": [query_val],
-                            "filter": alias_filters.clone(),
+                            "filter": filters,
                         }
                     });
                 }
@@ -29002,10 +28981,10 @@ pub async fn mget_index(
             slots_by_index.entry(ix.as_str()).or_default().push(slot);
         }
         for (ix, slots) in slots_by_index {
-            let Ok((members, _filters)) = resolve_selector_with_filters(&state, ix).await else {
+            let Ok(members) = resolve_selector_with_filters(&state, ix).await else {
                 continue;
             };
-            let [(mname, midx)] = members.as_slice() else {
+            let [(mname, midx, _member_filters)] = members.as_slice() else {
                 continue;
             };
             let ids: Vec<&str> = slots.iter().map(|&s| entries[s].1.as_str()).collect();
@@ -29031,14 +29010,14 @@ pub async fn mget_index(
                 // `aliased.first()`, so a non-first member's doc reported
                 // `found:false` (class B).
                 let members = match resolve_selector_with_filters(&state, ix).await {
-                    Ok((m, _filters)) => m,
+                    Ok(m) => m,
                     Err(_) => {
                         docs.push(json!({ "_index": ix, "_id": id, "found": false }));
                         continue;
                     }
                 };
                 let mut hit = None;
-                for (mname, midx) in &members {
+                for (mname, midx, _) in &members {
                     if let Ok(Some(source)) = midx.get_document(id).await {
                         hit = Some((mname.clone(), midx.clone(), source));
                         break;
@@ -30684,6 +30663,101 @@ pub async fn get_aliases(State(state): State<AppState>) -> impl IntoResponse {
 // DELETE /{index}/_alias/{alias}
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Each alias member's `filter`, keyed by the concrete member index name
+/// (#3065). A filter belongs to the member it was declared on: collecting
+/// every member's filter into one list and ANDing it onto the query for all
+/// members silently drops documents from members that carry no filter (a
+/// two-member alias with a filter on one member answered only the filtered
+/// member's slice). Parts are the selector names as written, so an alias
+/// still resolves after expansion removed its name from the member list.
+fn collect_alias_filters_by_member<'a>(
+    state: &AppState,
+    parts: impl Iterator<Item = &'a str>,
+) -> HashMap<String, Vec<Value>> {
+    let mut by_member: HashMap<String, Vec<Value>> = HashMap::new();
+    for part in parts {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        if let Some(entry) = state.engine.aliases.get(part) {
+            for backing in entry.value().iter() {
+                if let Some(filter) = alias_filter_for(state, backing, part) {
+                    by_member.entry(backing.clone()).or_default().push(filter);
+                }
+            }
+        }
+    }
+    by_member
+}
+
+/// AND a member's alias filters onto a parsed query as `filter` clauses
+/// (#3065). ES semantics: alias filters are unscored pre-filters applied
+/// before the main query, so `bool.filter` (not `bool.must`) is the wrapper.
+/// This matters for knn queries, where `bool.filter` pre-filters and
+/// `bool.must` post-filters.
+fn apply_alias_filters(
+    base: xerj_query::ast::QueryNode,
+    filters: &[xerj_query::ast::QueryNode],
+) -> xerj_query::ast::QueryNode {
+    if filters.is_empty() {
+        return base;
+    }
+    xerj_query::ast::QueryNode::Bool {
+        must: vec![base],
+        should: vec![],
+        must_not: vec![],
+        filter: filters.to_vec(),
+        minimum_should_match: None,
+    }
+}
+
+/// Parse one member's alias filters into query nodes (#3065). A malformed
+/// filter is the same 400 the combined query used to produce at parse time,
+/// before any member is searched.
+fn parse_alias_filters(
+    filters: &[Value],
+) -> std::result::Result<Vec<xerj_query::ast::QueryNode>, xerj_common::XerjError> {
+    let mut parsed = Vec::with_capacity(filters.len());
+    for filter in filters {
+        parsed.push(
+            xerj_query::parse_query(filter)
+                .map_err(|e| xerj_common::XerjError::invalid_query(e.to_string()))?,
+        );
+    }
+    Ok(parsed)
+}
+
+/// Inject a filter as the default `background_filter` on every
+/// `significant_terms` / `significant_text` clause so their `bg_count` is
+/// computed against the alias-filtered background instead of the full index.
+/// Per member (#3065): each member's aggs see only its own filter.
+fn inject_alias_bg_filter(v: &mut Value, filter: &Value) {
+    match v {
+        Value::Object(obj) => {
+            for k in ["significant_terms", "significant_text"] {
+                if let Some(body_obj) = obj.get_mut(k).and_then(|x| x.as_object_mut()) {
+                    if !body_obj.contains_key("background_filter") {
+                        body_obj.insert("background_filter".into(), filter.clone());
+                    }
+                }
+            }
+            let keys: Vec<String> = obj.keys().cloned().collect();
+            for key in keys {
+                if let Some(child) = obj.get_mut(&key) {
+                    inject_alias_bg_filter(child, filter);
+                }
+            }
+        }
+        Value::Array(arr) => {
+            for item in arr {
+                inject_alias_bg_filter(item, filter);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Resolve an index spec (single name, comma list, wildcard, `_all`, `*`)
 /// into the concrete set of existing index names, in stable order.
 /// The single index-selector resolver (#451). Every endpoint that used to
@@ -30692,33 +30766,20 @@ pub async fn get_aliases(State(state): State<AppState>) -> impl IntoResponse {
 /// here instead, so all sites agree on what a selector means.
 ///
 /// Returns each concrete member the selector names (an alias expands to ALL its
-/// members, #433) paired with its `Arc<Index>`, plus any alias `filter` clauses
-/// to AND into a query — the same shape `resolve_by_query_targets` uses on the
-/// write path (#450). A missing name propagates `index_not_found`, matching
+/// members, #433) paired with its `Arc<Index>` and that member's own alias
+/// `filter` clauses (#3065) — a filter belongs to the member it was declared
+/// on, so the filters ride with their member instead of one combined list.
+/// A missing name propagates `index_not_found`, matching
 /// ES's default `ignore_unavailable=false`.
 async fn resolve_selector_with_filters(
     state: &AppState,
     spec: &str,
 ) -> std::result::Result<
-    (
-        Vec<(String, std::sync::Arc<xerj_engine::Index>)>,
-        Vec<Value>,
-    ),
+    Vec<(String, std::sync::Arc<xerj_engine::Index>, Vec<Value>)>,
     xerj_common::XerjError,
 > {
     let names = resolve_index_selector(state, spec).await;
-    let mut alias_filters: Vec<Value> = Vec::new();
-    for part in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
-        if let Some(entry) = state.engine.aliases.get(part) {
-            for backing in entry.value().iter() {
-                if let Some(meta) = state.engine.index_alias_metadata.get(backing) {
-                    if let Some(filter) = meta.get(part).and_then(|v| v.get("filter")).cloned() {
-                        alias_filters.push(filter);
-                    }
-                }
-            }
-        }
-    }
+    let by_member = collect_alias_filters_by_member(state, spec.split(','));
     let mut out = Vec::with_capacity(names.len());
     for name in &names {
         out.push((
@@ -30727,9 +30788,10 @@ async fn resolve_selector_with_filters(
                 .engine
                 .get_index(name)
                 .map_err(xerj_common::XerjError::from)?,
+            by_member.get(name).cloned().unwrap_or_default(),
         ));
     }
-    Ok((out, alias_filters))
+    Ok(out)
 }
 
 async fn resolve_index_selector(state: &AppState, spec: &str) -> Vec<String> {
@@ -35354,43 +35416,17 @@ async fn msearch_impl(
             }
         }
 
-        // AND in any alias `filter` before parsing (#451 class C). msearch
-        // resolved the alias to its members and searched them directly, never
-        // reading `index_alias_metadata`, so a filtered alias — the standard
-        // poor-man's document boundary — leaked the documents it exists to hide
-        // (`_search` through the same alias honours it). Gathered keyed on the
-        // written alias name, exactly as `search_impl` and
-        // `resolve_by_query_targets` do.
-        {
-            let mut alias_filters: Vec<Value> = Vec::new();
-            for part in index_name
-                .split(',')
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-            {
-                if let Some(entry) = state.engine.aliases.get(part) {
-                    for backing in entry.value().iter() {
-                        if let Some(meta) = state.engine.index_alias_metadata.get(backing) {
-                            if let Some(filter) =
-                                meta.get(part).and_then(|v| v.get("filter")).cloned()
-                            {
-                                alias_filters.push(filter);
-                            }
-                        }
-                    }
-                }
-            }
-            if !alias_filters.is_empty() {
-                let existing = effective_body.get("query").cloned();
-                let merged = match existing {
-                    None => json!({ "bool": { "filter": alias_filters } }),
-                    Some(q) => json!({ "bool": { "must": [q], "filter": alias_filters } }),
-                };
-                if let Some(obj) = effective_body.as_object_mut() {
-                    obj.insert("query".to_string(), merged);
-                }
-            }
-        }
+        // Alias filters, one list per member (#3065), ANDed in per member at
+        // the fan-out below. msearch resolved the alias to its members and
+        // searched them directly, never reading `index_alias_metadata`, so a
+        // filtered alias — the standard poor-man's document boundary — leaked
+        // the documents it exists to hide (`_search` through the same alias
+        // honours it). Gathered keyed on the written alias name, exactly as
+        // `search_impl` and `resolve_by_query_targets` do — but a filter
+        // belongs to the member it was declared on, so the combined list
+        // used to hide the other members' documents instead.
+        let member_alias_filters =
+            collect_alias_filters_by_member(&state, index_name.split(',').map(str::trim));
 
         // Strip _index constraints BEFORE parsing so downstream FTS
         // doesn't try to score on a metadata field.
@@ -35500,6 +35536,27 @@ async fn msearch_impl(
                 .collect()
         };
 
+        // #3065: each member's alias filter, parsed up front so a malformed
+        // filter fails this item the way a malformed query does. Collected
+        // into a `Result` first: a parse failure must skip the whole
+        // sub-request, and `continue` inside the per-member loop would only
+        // skip that member and then run the request unfiltered, adding a
+        // second response and leaking the documents the alias hides.
+        let parsed_alias_filters: HashMap<String, Vec<xerj_query::ast::QueryNode>> =
+            match member_alias_filters
+                .iter()
+                .map(|(member, filters)| {
+                    parse_alias_filters(filters).map(|parsed| (member.clone(), parsed))
+                })
+                .collect::<Result<HashMap<String, Vec<xerj_query::ast::QueryNode>>, _>>()
+            {
+                Ok(parsed) => parsed,
+                Err(e) => {
+                    responses.push(ApiError::new(e).into_value());
+                    continue;
+                }
+            };
+
         let mut merged_hits: Vec<(String, xerj_query::executor::Hit)> = Vec::new();
         let mut total_count: u64 = 0;
         let mut total_relation = "eq";
@@ -35536,7 +35593,17 @@ async fn msearch_impl(
                 search_req.timeout_ms = Some(left);
             }
             semantic_skips.note_attempt();
-            match idx.search(&search_req).await {
+            // #3065: this member's own alias filter only, ANDed onto a
+            // per-member copy of the request; members without a filter run
+            // the request as written.
+            let filtered_req = parsed_alias_filters.get(idx_name).map(|filters| {
+                let mut r = search_req.clone();
+                let base = std::mem::replace(&mut r.query, xerj_query::ast::QueryNode::MatchAll);
+                r.query = apply_alias_filters(base, filters);
+                r
+            });
+            let req_ref = filtered_req.as_ref().unwrap_or(&search_req);
+            match idx.search(req_ref).await {
                 Ok(result) => {
                     // #2497: a search that stopped at its deadline returns
                     // partial hits; the item says so instead of reading as
@@ -37576,41 +37643,33 @@ async fn resolve_by_query_targets(
     spec: &str,
     user_query: Value,
 ) -> std::result::Result<
-    (Vec<std::sync::Arc<xerj_engine::Index>>, Vec<String>, Value),
+    Vec<(std::sync::Arc<xerj_engine::Index>, String, Value)>,
     xerj_common::XerjError,
 > {
     let member_names = resolve_index_selector(state, spec).await;
 
     // Alias filters are keyed on the name AS WRITTEN (the alias, not its
-    // expanded members) — mirror `search_impl`'s alias-filter path exactly.
-    let mut alias_filters: Vec<Value> = Vec::new();
-    for part in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
-        if let Some(entry) = state.engine.aliases.get(part) {
-            for backing in entry.value().iter() {
-                if let Some(meta) = state.engine.index_alias_metadata.get(backing) {
-                    if let Some(filter) = meta.get(part).and_then(|v| v.get("filter")).cloned() {
-                        alias_filters.push(filter);
-                    }
-                }
-            }
-        }
-    }
-    let effective_query = if alias_filters.is_empty() {
-        user_query
-    } else {
-        json!({ "bool": { "must": [user_query], "filter": alias_filters } })
-    };
+    // expanded members) — mirror `search_impl`'s alias-filter path exactly —
+    // and each member gets only its OWN filter (#3065): ANDing every
+    // member's filter onto one shared query made a `_delete_by_query`
+    // through a partially filtered alias delete only the filtered member's
+    // slice. Each entry carries its member's effective query.
+    let member_alias_filters =
+        collect_alias_filters_by_member(state, spec.split(',').map(str::trim));
 
-    let mut indices = Vec::with_capacity(member_names.len());
+    let mut out = Vec::with_capacity(member_names.len());
     for name in &member_names {
-        indices.push(
-            state
-                .engine
-                .get_index(name)
-                .map_err(xerj_common::XerjError::from)?,
-        );
+        let idx = state
+            .engine
+            .get_index(name)
+            .map_err(xerj_common::XerjError::from)?;
+        let effective_query = match member_alias_filters.get(name) {
+            Some(filters) => json!({ "bool": { "must": [user_query.clone()], "filter": filters } }),
+            None => user_query.clone(),
+        };
+        out.push((idx, name.clone(), effective_query));
     }
-    Ok((indices, member_names, effective_query))
+    Ok(out)
 }
 
 /// Combine the per-member results of a fanned-out by-query into one response.
@@ -37753,29 +37812,32 @@ pub async fn delete_by_query(
     Query(params): Query<HashMap<String, String>>,
     Json(body): Json<DeleteByQueryBody>,
 ) -> impl IntoResponse {
-    // Fan the selector out to every member of a multi-index alias (#450), with
-    // any alias filter already ANDed into the query.
-    let (indices, index_names, effective_query) =
-        match resolve_by_query_targets(&state, &index, body.query.clone()).await {
-            Ok(t) => t,
-            Err(e) => return ApiError::new(e).into_response(),
-        };
+    // Fan the selector out to every member of a multi-index alias (#450), each
+    // with its own alias filter already ANDed into its query (#3065).
+    let targets = match resolve_by_query_targets(&state, &index, body.query.clone()).await {
+        Ok(t) => t,
+        Err(e) => return ApiError::new(e).into_response(),
+    };
 
-    // Validate the (alias-filter-ANDed) query once, up front, so a malformed
-    // body is an immediate 400 before a task is registered or any member is
-    // touched — the runner below re-parses per batch as the cursor advances.
+    // Validate each member's (alias-filter-ANDed) query once, up front, so a
+    // malformed body is an immediate 400 before a task is registered or any
+    // member is touched — the runner below re-parses per batch as the cursor
+    // advances.
     let scroll_size = body
         .scroll_size
         .unwrap_or(DEFAULT_BY_QUERY_SCROLL_SIZE)
         .clamp(1, 10_000) as usize;
-    let validation_body = json!({
-        "query": effective_query,
-        "size": scroll_size,
-        "from": 0,
-        "sort": [{ "_id": "asc" }],
-    });
-    if let Err(e) = xerj_query::parse_request(&validation_body) {
-        return ApiError::new(xerj_common::XerjError::invalid_query(e.to_string())).into_response();
+    for (_, _, query) in &targets {
+        let validation_body = json!({
+            "query": query,
+            "size": scroll_size,
+            "from": 0,
+            "sort": [{ "_id": "asc" }],
+        });
+        if let Err(e) = xerj_query::parse_request(&validation_body) {
+            return ApiError::new(xerj_common::XerjError::invalid_query(e.to_string()))
+                .into_response();
+        }
     }
 
     // ES defaults `wait_for_completion` to true (synchronous); only an
@@ -37787,8 +37849,14 @@ pub async fn delete_by_query(
     let handle = state.tasks.register("indices:data/write/delete/byquery");
 
     if state.engine.has_cluster() {
+        let index_names: Vec<String> = targets.iter().map(|(_, name, _)| name.clone()).collect();
+        let queries_by_index: HashMap<String, Value> = targets
+            .iter()
+            .map(|(_, name, query)| (name.clone(), query.clone()))
+            .collect();
         let parts = crate::cluster_shard::DeleteByQueryParts {
-            query: effective_query,
+            query: body.query.clone(),
+            queries_by_index,
             max_docs: body.max_docs,
             scroll_size,
         };
@@ -37806,7 +37874,6 @@ pub async fn delete_by_query(
         let task_key = handle.key().to_string();
         let spawned_key = task_key.clone();
         let tasks = state.tasks.clone();
-        let task_query = effective_query.clone();
         let task_max_docs = body.max_docs;
         // Detached, so no `index_guard` rule — and none is needed: the task
         // owns the already-authorized `Index` handles this request resolved,
@@ -37814,12 +37881,10 @@ pub async fn delete_by_query(
         // `xerj_engine::index_guard` for the contract a spawn that *can* reach
         // `Engine::get_index` has to follow instead.
         tokio::spawn(async move {
-            let mut results = Vec::with_capacity(indices.len());
-            for idx in indices {
-                results.push(
-                    pin_local_delete_by_query(idx, task_query.clone(), task_max_docs, scroll_size)
-                        .await,
-                );
+            let mut results = Vec::with_capacity(targets.len());
+            for (idx, _, query) in targets {
+                results
+                    .push(pin_local_delete_by_query(idx, query, task_max_docs, scroll_size).await);
             }
             tasks.complete(&spawned_key, aggregate_by_query_results(results, "deleted"));
             drop(handle);
@@ -37827,12 +37892,9 @@ pub async fn delete_by_query(
         return Json(json!({ "task": task_key })).into_response();
     }
 
-    let mut results = Vec::with_capacity(indices.len());
-    for idx in indices {
-        results.push(
-            pin_local_delete_by_query(idx, effective_query.clone(), body.max_docs, scroll_size)
-                .await,
-        );
+    let mut results = Vec::with_capacity(targets.len());
+    for (idx, _, query) in targets {
+        results.push(pin_local_delete_by_query(idx, query, body.max_docs, scroll_size).await);
     }
     drop(handle);
     by_query_response(aggregate_by_query_results(results, "deleted"))
@@ -38508,30 +38570,32 @@ pub async fn update_by_query(
     Json(body): Json<UpdateByQueryBody>,
 ) -> impl IntoResponse {
     let query_val = body.query.clone().unwrap_or(json!({ "match_all": {} }));
-    // Fan the selector out to every member of a multi-index alias (#450), with
-    // any alias filter already ANDed into the query.
-    let (indices, index_names, effective_query) =
-        match resolve_by_query_targets(&state, &index, query_val).await {
-            Ok(t) => t,
-            Err(e) => return ApiError::new(e).into_response(),
-        };
+    // Fan the selector out to every member of a multi-index alias (#450), each
+    // with its own alias filter already ANDed into its query (#3065).
+    let targets = match resolve_by_query_targets(&state, &index, query_val).await {
+        Ok(t) => t,
+        Err(e) => return ApiError::new(e).into_response(),
+    };
 
-    // Validate the (alias-filter-ANDed) query once, up front, so a malformed
-    // body is an immediate 400 before a task is registered or any member is
-    // touched — the runner below re-parses per batch as the cursor advances
-    // (#1022: same shape as `_delete_by_query`).
+    // Validate each member's (alias-filter-ANDed) query once, up front, so a
+    // malformed body is an immediate 400 before a task is registered or any
+    // member is touched — the runner below re-parses per batch as the cursor
+    // advances (#1022: same shape as `_delete_by_query`).
     let scroll_size = body
         .scroll_size
         .unwrap_or(DEFAULT_BY_QUERY_SCROLL_SIZE)
         .clamp(1, 10_000) as usize;
-    let validation_body = json!({
-        "query": effective_query,
-        "size": scroll_size,
-        "from": 0,
-        "sort": [{ "_id": "asc" }],
-    });
-    if let Err(e) = xerj_query::parse_request(&validation_body) {
-        return ApiError::new(xerj_common::XerjError::invalid_query(e.to_string())).into_response();
+    for (_, _, query) in &targets {
+        let validation_body = json!({
+            "query": query,
+            "size": scroll_size,
+            "from": 0,
+            "sort": [{ "_id": "asc" }],
+        });
+        if let Err(e) = xerj_query::parse_request(&validation_body) {
+            return ApiError::new(xerj_common::XerjError::invalid_query(e.to_string()))
+                .into_response();
+        }
     }
 
     // Optional painless script — when present, each matched hit's source is
@@ -38577,8 +38641,14 @@ pub async fn update_by_query(
     let handle = state.tasks.register("indices:data/write/update/byquery");
 
     if state.engine.has_cluster() {
+        let index_names: Vec<String> = targets.iter().map(|(_, name, _)| name.clone()).collect();
+        let queries_by_index: HashMap<String, Value> = targets
+            .iter()
+            .map(|(_, name, query)| (name.clone(), query.clone()))
+            .collect();
         let parts = crate::cluster_shard::UpdateByQueryParts {
-            query: effective_query,
+            query: body.query.clone().unwrap_or(json!({ "match_all": {} })),
+            queries_by_index,
             script,
             pipeline: pipeline_name,
             max_docs: body.max_docs,
@@ -38598,17 +38668,16 @@ pub async fn update_by_query(
         let task_key = handle.key().to_string();
         let spawned_key = task_key.clone();
         let tasks = state.tasks.clone();
-        let task_query = effective_query.clone();
         let task_max_docs = body.max_docs;
         // Same reasoning as the `_delete_by_query` spawn above: the task owns
         // the already-authorized `Index` handles and can reach no other index.
         tokio::spawn(async move {
-            let mut results = Vec::with_capacity(indices.len());
-            for idx in &indices {
+            let mut results = Vec::with_capacity(targets.len());
+            for (idx, _, query) in &targets {
                 results.push(
                     run_update_by_query(
                         idx,
-                        &task_query,
+                        query,
                         task_max_docs,
                         scroll_size,
                         script.clone(),
@@ -38623,12 +38692,12 @@ pub async fn update_by_query(
         return Json(json!({ "task": task_key })).into_response();
     }
 
-    let mut results = Vec::with_capacity(indices.len());
-    for idx in &indices {
+    let mut results = Vec::with_capacity(targets.len());
+    for (idx, _, query) in &targets {
         results.push(
             run_update_by_query(
                 idx,
-                &effective_query,
+                query,
                 body.max_docs,
                 scroll_size,
                 script.clone(),
@@ -39570,19 +39639,10 @@ pub async fn cat_count(
     // A filtered alias must count only the slice its filter admits (#451 class
     // C) — `stats().doc_count` is the whole backing index, so a filtered alias
     // leaked a count including the documents it exists to hide. Gathered keyed
-    // on the written alias name, as the other read paths do.
-    let mut alias_filters: Vec<Value> = Vec::new();
-    for part in index.split(',').map(str::trim).filter(|s| !s.is_empty()) {
-        if let Some(entry) = state.engine.aliases.get(part) {
-            for backing in entry.value().iter() {
-                if let Some(meta) = state.engine.index_alias_metadata.get(backing) {
-                    if let Some(filter) = meta.get(part).and_then(|v| v.get("filter")).cloned() {
-                        alias_filters.push(filter);
-                    }
-                }
-            }
-        }
-    }
+    // on the written alias name, as the other read paths do, one list per
+    // member (#3065): a filter belongs to the member it was declared on.
+    let member_alias_filters =
+        collect_alias_filters_by_member(&state, index.split(',').map(str::trim));
 
     let mut count: u64 = 0;
     for name in &names {
@@ -39595,14 +39655,12 @@ pub async fn cat_count(
             Ok(i) => i,
             Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
         };
-        if alias_filters.is_empty() {
-            count += idx.stats().await.doc_count;
-        } else {
-            // Count only the filter-admitted documents.
-            let filter_query = if alias_filters.len() == 1 {
-                alias_filters[0].clone()
+        if let Some(filters) = member_alias_filters.get(name) {
+            // Count only the filter-admitted documents of this member.
+            let filter_query = if filters.len() == 1 {
+                filters[0].clone()
             } else {
-                json!({ "bool": { "filter": alias_filters.clone() } })
+                json!({ "bool": { "filter": filters } })
             };
             let body = json!({ "query": filter_query, "size": 0, "track_total_hits": true });
             let req = match xerj_query::parse_request(&body) {
@@ -39616,6 +39674,8 @@ pub async fn cat_count(
                 Ok(res) => count += res.total.value,
                 Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
             }
+        } else {
+            count += idx.stats().await.doc_count;
         }
     }
 
@@ -44216,7 +44276,6 @@ async fn cat_segments_inner(
     // than 404ing, so an unknown selector is an empty listing.
     let members = resolve_selector_with_filters(&state, index)
         .await
-        .map(|(m, _filters)| m)
         .unwrap_or_default();
 
     let mut table = crate::cat::CatTable {
@@ -44239,7 +44298,7 @@ async fn cat_segments_inner(
         rows: Vec::new(),
     };
     let node_ip = "127.0.0.1";
-    for (idx_name, idx) in &members {
+    for (idx_name, idx, _) in &members {
         for seg in idx.segment_rows() {
             table.rows.push(vec![
                 crate::cat::CatCell::plain(idx_name.clone()),
@@ -46807,7 +46866,7 @@ async fn msearch_template_impl(
             .unwrap_or_else(|| "*".to_string());
 
         let params = tmpl_body.params.unwrap_or_default();
-        let mut search_body_val: Value = if let Some(source_val) = tmpl_body.source {
+        let search_body_val: Value = if let Some(source_val) = tmpl_body.source {
             let source_str = match &source_val {
                 Value::String(s) => s.clone(),
                 other => serde_json::to_string(other).unwrap_or_default(),
@@ -46854,39 +46913,13 @@ async fn msearch_template_impl(
             continue;
         }
 
-        // AND in any alias filter before parsing (#451 class C), same as
-        // `_msearch`: a filtered alias's document boundary must apply to the
-        // rendered template search too.
-        {
-            let mut alias_filters: Vec<Value> = Vec::new();
-            for part in index_name
-                .split(',')
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-            {
-                if let Some(entry) = state.engine.aliases.get(part) {
-                    for backing in entry.value().iter() {
-                        if let Some(meta) = state.engine.index_alias_metadata.get(backing) {
-                            if let Some(filter) =
-                                meta.get(part).and_then(|v| v.get("filter")).cloned()
-                            {
-                                alias_filters.push(filter);
-                            }
-                        }
-                    }
-                }
-            }
-            if !alias_filters.is_empty() {
-                let existing = search_body_val.get("query").cloned();
-                let merged = match existing {
-                    None => json!({ "bool": { "filter": alias_filters } }),
-                    Some(q) => json!({ "bool": { "must": [q], "filter": alias_filters } }),
-                };
-                if let Some(obj) = search_body_val.as_object_mut() {
-                    obj.insert("query".to_string(), merged);
-                }
-            }
-        }
+        // Alias filters, one list per member (#3065), ANDed in per member at
+        // the fan-out below, same as `_msearch`: a filtered alias's document
+        // boundary must apply to the rendered template search too — but a
+        // filter belongs to the member it was declared on, so the combined
+        // list used to hide the other members' documents instead.
+        let member_alias_filters =
+            collect_alias_filters_by_member(&state, index_name.split(',').map(str::trim));
 
         // Same request-time script guard as `_search`/`_msearch`, over the
         // same `GuardedField` set; the rendered template is user input and
@@ -46941,6 +46974,27 @@ async fn msearch_template_impl(
             }
         };
 
+        // #3065: each member's alias filter, parsed up front so a malformed
+        // filter fails this sub-request the way a malformed query does.
+        // Collected into a `Result` first: a parse failure must skip the
+        // whole sub-request, and `continue` inside the per-member loop would
+        // only skip that member and then run the request unfiltered, adding
+        // a second response and leaking the documents the alias hides.
+        let parsed_alias_filters: HashMap<String, Vec<xerj_query::ast::QueryNode>> =
+            match member_alias_filters
+                .iter()
+                .map(|(member, filters)| {
+                    parse_alias_filters(filters).map(|parsed| (member.clone(), parsed))
+                })
+                .collect::<Result<HashMap<String, Vec<xerj_query::ast::QueryNode>>, _>>()
+            {
+                Ok(parsed) => parsed,
+                Err(e) => {
+                    responses.push(ApiError::new(e).into_value());
+                    continue;
+                }
+            };
+
         let index_names: Vec<String> = if index_name == "*" || index_name == "_all" {
             state.engine.index_name_list()
         } else {
@@ -46976,7 +47030,17 @@ async fn msearch_template_impl(
                 }
             };
             semantic_skips.note_attempt();
-            match idx.search(&search_req).await {
+            // #3065: this member's own alias filter only, ANDed onto a
+            // per-member copy of the request; members without a filter run
+            // the request as written.
+            let filtered_req = parsed_alias_filters.get(idx_name).map(|filters| {
+                let mut r = search_req.clone();
+                let base = std::mem::replace(&mut r.query, xerj_query::ast::QueryNode::MatchAll);
+                r.query = apply_alias_filters(base, filters);
+                r
+            });
+            let req_ref = filtered_req.as_ref().unwrap_or(&search_req);
+            match idx.search(req_ref).await {
                 Ok(result) => {
                     if let Some(reason) = result.script_failure {
                         script_failure = Some(reason);
@@ -52365,20 +52429,28 @@ pub async fn eql_search(
     // Fan out to every member of a multi-index alias (#451 `_eql` arm):
     // eql_search used Engine::get_index -> aliased.first(), silently returning
     // only the first member's events. Search each member and merge the event
-    // lists, reporting the concrete member in `_index`. Resolve BEFORE building
-    // the request so any alias `filter` is ANDed into the query: a *filtered*
-    // alias is a document boundary (#451 class C, commit 170f41f2 closed this
-    // exact leak for _search/_msearch), so EQL must honour it too — fanning out
-    // unfiltered would leak the hidden members' rows.
-    let (members, filters) = match resolve_selector_with_filters(&state, &index).await {
-        Ok(t) => t,
+    // lists, reporting the concrete member in `_index`. Each member sees
+    // only its own alias `filter` (#3065): a *filtered* alias is a document
+    // boundary (#451 class C, commit 170f41f2 closed this exact leak for
+    // _search/_msearch), so EQL must honour it too — fanning out unfiltered
+    // would leak the hidden members' rows — but the filter of one member
+    // must not hide the other members' events either.
+    let members = match resolve_selector_with_filters(&state, &index).await {
+        Ok(m) => m,
         Err(e) => return ApiError::new(e).into_response(),
     };
-    let effective_query = if filters.is_empty() {
-        inner_query
-    } else {
-        json!({ "bool": { "must": [inner_query], "filter": filters } })
-    };
+    let mut parsed_alias_filters: HashMap<String, Vec<xerj_query::ast::QueryNode>> = HashMap::new();
+    for (mname, _, filters) in &members {
+        if filters.is_empty() {
+            continue;
+        }
+        match parse_alias_filters(filters) {
+            Ok(parsed) => {
+                parsed_alias_filters.insert(mname.clone(), parsed);
+            }
+            Err(e) => return ApiError::new(e).into_response(),
+        }
+    }
     // Sort each member ascending by the timestamp field: a member with more than
     // `size` matches must contribute its EARLIEST events to the merge, not its
     // top-scored ones, or the global-earliest page can miss them. `unmapped_type`
@@ -52392,7 +52464,7 @@ pub async fn eql_search(
         json!({ "order": "asc", "unmapped_type": "date" }),
     );
     let search_body = json!({
-        "query": effective_query,
+        "query": inner_query,
         "size": size,
         "from": 0,
         "sort": [Value::Object(ts_sort)],
@@ -52406,8 +52478,15 @@ pub async fn eql_search(
     };
     let mut events: Vec<Value> = Vec::new();
     let mut total: u64 = 0;
-    for (mname, midx) in &members {
-        match midx.search(&req).await {
+    for (mname, midx, _) in &members {
+        // #3065: this member's own alias filter only, ANDed as a `filter`
+        // clause onto this member's copy of the request.
+        let mut mreq = req.clone();
+        if let Some(filters) = parsed_alias_filters.get(mname) {
+            let base = std::mem::replace(&mut mreq.query, xerj_query::ast::QueryNode::MatchAll);
+            mreq.query = apply_alias_filters(base, filters);
+        }
+        match midx.search(&mreq).await {
             Ok(result) => {
                 total += result.total.value;
                 for h in result.hits {
@@ -52725,12 +52804,12 @@ pub async fn explain_doc(
     // actually holds it. `get_index` collapsed an alias to `aliased.first()`,
     // so a non-first member's doc reported `matched:false` / "document not
     // found" (class B).
-    let (members, _filters) = match resolve_selector_with_filters(&state, &index).await {
-        Ok(t) => t,
+    let members = match resolve_selector_with_filters(&state, &index).await {
+        Ok(m) => m,
         Err(e) => return ApiError::new(e).into_response(),
     };
     let mut resolved = None;
-    for (mname, midx) in &members {
+    for (mname, midx, _) in &members {
         match midx.get_document(&id).await {
             Ok(Some(s)) => {
                 resolved = Some((mname.clone(), midx.clone(), s));
@@ -55506,12 +55585,12 @@ pub async fn index_segments(
     // to every member (`get_index` collapsed it to `aliased.first()`, so
     // `_segments` reported one entry under the alias name). One `indices` entry
     // per concrete member; `_shards` counts one shard per member.
-    let (members, _filters) = match resolve_selector_with_filters(&state, &index).await {
-        Ok(t) => t,
+    let members = match resolve_selector_with_filters(&state, &index).await {
+        Ok(m) => m,
         Err(e) => return ApiError::new(e).into_response(),
     };
     let mut indices_map = serde_json::Map::new();
-    for (name, idx) in &members {
+    for (name, idx, _) in &members {
         let stats = idx.stats().await;
         let snap = idx.store_snapshot();
         let num_segments = snap.segments.len();

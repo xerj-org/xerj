@@ -1051,6 +1051,17 @@ The model, its bundle and its serve rule are those of rc.102.
   setting above it does not raise that cap. `_async_search`,
   `_search/template` and `_msearch/template` do not read the setting yet.
 - The CSV extractor now caps one record at 16 MiB of decoded bytes (issue [#3201](https://github.com/xerj-org/xerj/issues/3201)). A quoted field may span newlines, so a single record could previously be as large as the whole input stream: the parser buffered it all before returning it. An oversize record is now counted as junk and extraction stops there, with the records before it still indexed; an oversize header row junks the file instead of failing it, so one hostile file cannot abort the whole autoindex run.
+- An alias filter declared on one member no longer applies to every member:
+  `_search`, `_count`, `_msearch`, `_delete_by_query`, `_update_by_query`,
+  EQL and `_cat/count` now pair each member's filter with its own index, so
+  a partially filtered alias stops silently dropping the unfiltered members'
+  documents (#3065).
+- A malformed alias filter no longer lets `_msearch` / `_msearch/template`
+  run the sub-request unfiltered: the parse failure now fails that item
+  only, instead of adding a second response and leaking the documents the
+  alias hides. Alias filters also get the unqueryable-`exists` rewrite the
+  user query gets, so an `exists` filter on an `index: false` field with no
+  doc values matches nothing instead of matching from source (#3185).
 
 ## [1.0.0-rc.102] - 2026-11-06
 

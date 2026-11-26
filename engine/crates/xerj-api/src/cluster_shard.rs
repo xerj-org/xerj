@@ -2804,10 +2804,26 @@ pub(crate) async fn bulk_on_primaries(
 #[derive(Clone)]
 pub(crate) struct UpdateByQueryParts {
     pub query: Value,
+    /// One effective query per member index (#3065): each member's own
+    /// alias filter ANDed onto the user query. Empty when the coordinator
+    /// sent a single shared query (shard-side receipt, or no alias
+    /// involved); `query_for` falls back to `query` then.
+    pub queries_by_index: HashMap<String, Value>,
     pub script: Option<(String, Value)>,
     pub pipeline: Option<String>,
     pub max_docs: Option<u64>,
     pub scroll_size: usize,
+}
+
+impl UpdateByQueryParts {
+    /// The query to run against `index`: its own alias-filtered query when
+    /// the coordinator paired one (#3065), else the shared query.
+    pub(crate) fn query_for(&self, index: &str) -> Value {
+        self.queries_by_index
+            .get(index)
+            .cloned()
+            .unwrap_or_else(|| self.query.clone())
+    }
 }
 
 /// Box the per-index fan-out so it is not inlined into `update_by_query`.
@@ -2831,7 +2847,7 @@ fn update_by_query_op(
 ) -> ShardOp {
     ShardOp::UpdateByQuery {
         index: index.to_string(),
-        query_json: parts.query.to_string(),
+        query_json: parts.query_for(index).to_string(),
         script_source: parts.script.as_ref().map(|(source, _)| source.clone()),
         script_params_json: parts.script.as_ref().map(|(_, params)| params.to_string()),
         pipeline: parts.pipeline.clone(),
@@ -3054,7 +3070,7 @@ async fn apply_update_by_query_here(
         .map(|name| (std::sync::Arc::clone(&state.engine), name.clone()));
     let mut body = crate::es_compat::run_update_by_query_recorded_boxed(
         idx,
-        parts.query.clone(),
+        parts.query_for(index),
         max_docs,
         parts.scroll_size,
         parts.script.clone(),
@@ -3148,6 +3164,7 @@ async fn handle_update_by_query(
     });
     let parts = UpdateByQueryParts {
         query,
+        queries_by_index: HashMap::new(),
         script,
         pipeline,
         max_docs,
@@ -3248,8 +3265,24 @@ pub(crate) async fn update_by_query_on_primaries(
 #[derive(Clone)]
 pub(crate) struct DeleteByQueryParts {
     pub query: Value,
+    /// One effective query per member index (#3065): each member's own
+    /// alias filter ANDed onto the user query. Empty when the coordinator
+    /// sent a single shared query (shard-side receipt, or no alias
+    /// involved); `query_for` falls back to `query` then.
+    pub queries_by_index: HashMap<String, Value>,
     pub max_docs: Option<u64>,
     pub scroll_size: usize,
+}
+
+impl DeleteByQueryParts {
+    /// The query to run against `index`: its own alias-filtered query when
+    /// the coordinator paired one (#3065), else the shared query.
+    pub(crate) fn query_for(&self, index: &str) -> Value {
+        self.queries_by_index
+            .get(index)
+            .cloned()
+            .unwrap_or_else(|| self.query.clone())
+    }
 }
 
 /// Box the per-index fan-out so it is not inlined into `delete_by_query`.
@@ -3273,7 +3306,7 @@ fn delete_by_query_op(
 ) -> ShardOp {
     ShardOp::DeleteByQuery {
         index: index.to_string(),
-        query_json: parts.query.to_string(),
+        query_json: parts.query_for(index).to_string(),
         max_docs,
         scroll_size: parts.scroll_size as u64,
         check_only,
@@ -3384,7 +3417,7 @@ async fn apply_delete_by_query_here(
     let recorded = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let mut body = crate::es_compat::run_delete_by_query_recorded_boxed(
         idx,
-        parts.query.clone(),
+        parts.query_for(index),
         max_docs,
         parts.scroll_size,
         Some(std::sync::Arc::clone(&recorded)),
@@ -3465,6 +3498,7 @@ async fn handle_delete_by_query(
     };
     let parts = DeleteByQueryParts {
         query,
+        queries_by_index: HashMap::new(),
         max_docs,
         scroll_size: scroll_size.max(1) as usize,
     };
