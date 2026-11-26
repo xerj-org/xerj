@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on react, typescript, css queries this for how Aarav2709/Morrow implements it: Morrow is an open source, privacy first, offline workspace note taking app, presented as an alternative to Notion, and other apps! (selected work: src/app, electron, the project root)",
+ "domain": "an agent working on react, rust, kotlin queries this for how Aarav2709/Morrow implements it: Morrow is an open source, privacy first, offline workspace note taking app, presented as an alternative to Notion, and other apps! (selected work: src/app, electron, the project root)",
  "repos": [
   {
    "repo": "Morrow",

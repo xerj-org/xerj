@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on TypeScript queries this for how shashwatbikramsingh/StreamForge implements it: StreamForge is a real-time data engineering platform designed to ingest, process, validate, and analyze high-volume streaming events using P (selected work: consumer, tests, the project root)",
+ "domain": "an agent working on Python queries this for how shashwatbikramsingh/StreamForge implements it: StreamForge is a real-time data engineering platform designed to ingest, process, validate, and analyze high-volume streaming events using P (selected work: consumer, tests, the project root)",
  "repos": [
   {
    "repo": "StreamForge",

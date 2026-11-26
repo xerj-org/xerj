@@ -8,15 +8,15 @@
   {
    "repo": "obsidian-agent-deck",
    "url": "https://github.com/MatsuriMW/obsidian-agent-deck",
-   "sha": "d695edfad460737b79575c868b9786376c4cf033",
-   "licence": "Apache-2.0 (LICENSE file at pin d695edfad460, GitHub licence API 2026-11-26)",
+   "sha": "74cd6e578db35784916251212dacfae5bf8809a9",
+   "licence": "Apache-2.0 (LICENSE file at pin 74cd6e578db3, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-12T18:05Z",
     "consent_receipt": "d6e7217faca4",
-    "note": "Inclusion consented by the commit author by email at 2026-11-12T18:05Z (receipt d6e7217faca4); selected commit d695edfad460: \"1.3.0: \u914d\u7f6e\u81ea\u52a8\u8bb0\u65e5\u8bb0\u4e0e Codex CLI \u6a21\u578b\uff0c\u8865\u9f50\u4f1a\u8bdd\u8ffd\u8e2a\u548c\u6a21\u578b\u9009\u62e9\". LICENSE file at pin d695edfad460 detected as Apache-2.0 by the GitHub licence API on 2026-11-26; used under that licence with attribution. Pinned to head d695edfad460 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T18:05Z (receipt d6e7217faca4); selected commit 74cd6e578db3: \"1.3.0: \u914d\u7f6e\u81ea\u52a8\u8bb0\u65e5\u8bb0\u4e0e Codex CLI \u6a21\u578b\uff0c\u8865\u9f50\u4f1a\u8bdd\u8ffd\u8e2a\u548c\u6a21\u578b\u9009\u62e9\". LICENSE file at pin 74cd6e578db3 detected as Apache-2.0 by the GitHub licence API on 2026-11-26; used under that licence with attribution. Pinned to head 74cd6e578db3 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

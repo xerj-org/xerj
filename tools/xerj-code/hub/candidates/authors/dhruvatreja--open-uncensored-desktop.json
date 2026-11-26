@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how DhruvAtreja/open-uncensored-desktop implements it: Desktop agent for uncensored models: chat, or let it read, write and run code. From openuncensored.com (selected work: electron, src, the project root)",
+ "domain": "an agent working on JavaScript queries this for how DhruvAtreja/open-uncensored-desktop implements it: Desktop agent for uncensored models: chat, or let it read, write and run code. From openuncensored.com (selected work: electron, src, the project root)",
  "repos": [
   {
    "repo": "open-uncensored-desktop",

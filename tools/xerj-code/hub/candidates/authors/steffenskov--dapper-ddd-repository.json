@@ -8,15 +8,15 @@
   {
    "repo": "Dapper.DDD.Repository",
    "url": "https://github.com/steffenskov/Dapper.DDD.Repository",
-   "sha": "b74b6de97985966e71f0c317f1b459820551e1e4",
-   "licence": "MIT (LICENSE file at pin b74b6de97985, GitHub licence API 2026-11-23)",
+   "sha": "4a81c9bb0733aa72bbb21ba6c2d86ba38597f1be",
+   "licence": "MIT (LICENSE file at pin 4a81c9bb0733, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:41Z",
     "consent_receipt": "8a6dc58bc5a7",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt 8a6dc58bc5a7); pinned to the default-branch head. LICENSE file at pin b74b6de97985 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt 8a6dc58bc5a7); pinned to the default-branch head. LICENSE file at pin 4a81c9bb0733 detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]
