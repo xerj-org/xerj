@@ -8,15 +8,15 @@
   {
    "repo": "aegis",
    "url": "https://github.com/gravion-ux/aegis",
-   "sha": "b123f6c711e5423cf96ba3e37e547449de2b2cdf",
-   "licence": "MIT (LICENSE file at pin b123f6c711e5, GitHub licence API 2026-11-24)",
+   "sha": "6c4e4b13f88976c04ff2573f35c34e1a720dfc55",
+   "licence": "MIT (LICENSE file at pin 6c4e4b13f889, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "d94717c732a7",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt d94717c732a7); pinned to the default-branch head. LICENSE file at pin b123f6c711e5 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt d94717c732a7); pinned to the default-branch head. LICENSE file at pin 6c4e4b13f889 detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]

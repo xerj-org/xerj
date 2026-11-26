@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-video-editor, ai-agent, content-repurposing queries this for how zhouxiaoka/autoclip implements it: The open-source OpusClip alternative \u2014 local-first AI clipping & MCP server, zero subscriptions. AutoClip\uff5c\u4e00\u4e2a\u94fe\u63a5\uff0c\u4e00\u952e\u51fa\u7247\u3002\u5f00\u6e90 AI \u89c6\u9891\u526a\u8f91\u684c\u9762\u5de5\u5177\uff0c\u5c06\u64ad\u5ba2\u3001\u8bbf\u8c08\u3001\u8bfe\u7a0b (selected work: scripts)",
+ "domain": "an agent working on ai-video-editor, ai-agent, content-repurposing queries this for how zhouxiaoka/autoclip implements it: AutoClip\uff5cThe open-source OpusClip alternative \u2014 local-first AI clipping & MCP server, zero subscriptions. \u4e00\u4e2a\u94fe\u63a5\uff0c\u4e00\u952e\u51fa\u7247\u3002\u5f00\u6e90 AI \u89c6\u9891\u526a\u8f91\u684c\u9762\u5de5\u5177\uff0c\u5c06\u64ad\u5ba2\u3001\u8bbf\u8c08\u3001\u8bfe\u7a0b (selected work: scripts)",
  "repos": [
   {
    "repo": "autoclip",

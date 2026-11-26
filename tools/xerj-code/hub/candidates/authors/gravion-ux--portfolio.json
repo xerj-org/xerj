@@ -8,15 +8,15 @@
   {
    "repo": "portfolio",
    "url": "https://github.com/gravion-ux/portfolio",
-   "sha": "0c799d5f7f88b34043d6978ad7b28e130cb4a571",
-   "licence": "MIT (LICENSE file at pin 0c799d5f7f88, GitHub licence API 2026-11-26)",
+   "sha": "0d1c7a3823439454640845e964fd4034c48f71ec",
+   "licence": "MIT (LICENSE file at pin 0d1c7a382343, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "cf52405dc993",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt cf52405dc993); pinned to the default-branch head. LICENSE file at pin 0c799d5f7f88 detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt cf52405dc993); pinned to the default-branch head. LICENSE file at pin 0d1c7a382343 detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]

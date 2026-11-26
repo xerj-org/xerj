@@ -1,9 +1,9 @@
 {
- "corpus": "mda2av--httparena",
+ "corpus": "http-arena--httparena",
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on C# queries this for how MDA2AV/HttpArena implements it: The most complete HTTP open source benchmarking platform. Don't just say you're fast, prove it (selected work: frameworks)",
+ "domain": "an agent working on C# queries this for how http-arena/HttpArena implements it: The most complete HTTP open source benchmarking platform. Don't just say you're fast, prove it (selected work: frameworks)",
  "repos": [
   {
    "repo": "HttpArena",

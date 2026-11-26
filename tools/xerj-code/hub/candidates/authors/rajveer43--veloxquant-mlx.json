@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on kv, llm, mlx queries this for how rajveer43/VeloxQuant-MLX implements it: Fast KV-cache quantization for Apple Silicon (MLX) \u2014 43 research-adapted compression methods with Metal kernels (selected work: figures, benchmark_scripts, veloxquant_mlx)",
+ "domain": "an agent working on llm, mlx, quantization queries this for how rajveer43/VeloxQuant-MLX implements it: Fast KV-cache quantization for Apple Silicon (MLX) \u2014 43 research-adapted compression methods with Metal kernels (selected work: figures, benchmark_scripts, veloxquant_mlx)",
  "repos": [
   {
    "repo": "VeloxQuant-MLX",
