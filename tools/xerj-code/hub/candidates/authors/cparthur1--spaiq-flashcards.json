@@ -8,15 +8,15 @@
   {
    "repo": "Flashcards",
    "url": "https://github.com/cparthur1/Flashcards",
-   "sha": "54249a054186215cd6516a71505a7614150e83cc",
-   "licence": "GPL-2.0 (LICENSE file at pin 54249a054186, GitHub licence API 2026-11-25)",
+   "sha": "631d7c3e7d851fce0c22465979483f76e16e397d",
+   "licence": "GPL-2.0 (LICENSE file at pin 631d7c3e7d85, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "GPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-20T22:15Z",
     "consent_receipt": "b59eac8e5f9a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T22:15Z (receipt b59eac8e5f9a); selected commit 54249a054186: \"FEAT: dynamic messages throug out the day\". LICENSE file at pin 54249a054186 detected as GPL-2.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 54249a054186 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T22:15Z (receipt b59eac8e5f9a); selected commit 631d7c3e7d85: \"FEAT: dynamic messages throug out the day\". LICENSE file at pin 631d7c3e7d85 detected as GPL-2.0 by the GitHub licence API on 2026-11-26; used under that licence with attribution. Pinned to head 631d7c3e7d85 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

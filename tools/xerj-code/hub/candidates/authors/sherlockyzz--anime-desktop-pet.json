@@ -8,15 +8,15 @@
   {
    "repo": "anime-desktop-pet",
    "url": "https://github.com/SherlockYzz/anime-desktop-pet",
-   "sha": "d0d8dc217134298494e9353cadcdc5ab01c77313",
-   "licence": "MIT (LICENSE file at pin d0d8dc217134, GitHub licence API 2026-11-01)",
+   "sha": "f404f687be1a1adf7c1bb52a10b691eca8df8f61",
+   "licence": "MIT (LICENSE file at pin f404f687be1a, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T09:42Z",
     "consent_receipt": "3c6341c37a13",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:42Z (receipt 3c6341c37a13); pinned to the default-branch head. LICENSE file at pin d0d8dc217134 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:42Z (receipt 3c6341c37a13); pinned to the default-branch head. LICENSE file at pin f404f687be1a detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]

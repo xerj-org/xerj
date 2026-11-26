@@ -1,9 +1,9 @@
 {
- "corpus": "olafurjohannsson--kjarni",
+ "corpus": "kjarni-ai--kjarni",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on rust, classification, csharp queries this for how olafurjohannsson/kjarni implements it: Local embeddings, semantic search, classification, reranking, chat, speech to text, summarization, translation and image search for C#, Go,  (selected work: crates/kjarni-transformers, crates/kjarni-models, crates/kjarni)",
+ "domain": "an agent working on rust, classification, csharp queries this for how kjarni-ai/kjarni implements it: Local embeddings, semantic search, classification, reranking, chat, speech to text, summarization, translation and image search for C#, Go,  (selected work: crates/kjarni-transformers, crates/kjarni-models, crates/kjarni)",
  "repos": [
   {
    "repo": "kjarni",
