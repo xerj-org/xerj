@@ -8,7 +8,7 @@
 
 本路线图记录**已规划但尚未完全实现**的能力，使项目的公开表述对「今天已交付什么、接下来会有什么」保持诚实。各项状态以实际代码和对发布二进制发起真实 API 请求核实，而非愿望清单。
 
-最近一次审阅：2026-10-26（对照 `v1.0.0-rc.100` 与 `main`）。各项状态可追溯到 issue、已合并 PR、CHANGELOG 与一致性测试套件；自 2026-07-12 审阅沿用、未重新在线核实的条目会明确标注。英文原文中的这条审阅说明行由机器校验：若切出发布时未重新审阅该文件，`docs_capability_lists` 会使构建失败（issue #298——已于 2026-09-29 以放弃处理关闭；如今执行这一节奏的是机器检查，而非该 issue）。本轮是 rc.100 发布切版的滚动更新：切版时已对照在线跟踪器重新核实未解决缺陷短名单——**两项未解决**：#1122 与 #1170，窗口期内没有关闭任何一项。
+最近一次审阅：2026-11-23（对照 `v1.0.0-rc.105` 与 `main`）。各项状态可追溯到 issue、已合并 PR、CHANGELOG 与一致性测试套件；自 2026-07-12 审阅沿用、未重新在线核实的条目会明确标注。英文原文中的这条审阅说明行由机器校验：若切出发布时未重新审阅该文件，`docs_capability_lists` 会使构建失败（issue #298——已于 2026-09-29 以放弃处理关闭；如今执行这一节奏的是机器检查，而非该 issue）。本轮是 rc.105 发布切版的滚动更新：切版时已对照在线跟踪器重新核实未解决缺陷短名单——**两项未解决**：#1122 与 #1170，窗口期内没有关闭任何一项；下文的 1.0 功能短名单在同一天重新核对（#1788 与 #1792 在窗口期内关闭，#1789 与 #1791 在 rc.105 中有首批实现）；rc.105 的变更见 CHANGELOG。rc.104 切版的记录（rc.104 即 rc.103 加上 macOS 与 Windows 构建；其间未合并任何 PR）：短名单已于 2026-11-18 再次在线核对，#1122 与 #1170 仍未解决。rc.103 切版的记录：切版时已对照在线跟踪器重新核实未解决缺陷短名单——**两项未解决**：#1122 与 #1170，窗口期内没有关闭任何一项；rc.103 的变更见 CHANGELOG。rc.102 切版的记录：切版时同样两项未解决（2026-11-06）。rc.100 切版的记录按原样保留：
 rc.100 是一个性能版本。#1122 取得进展：autoindex 在有界内存内为大型文件夹做规划，并限制过长的数据集名称（PR
 [#2417](https://github.com/xerj-org/xerj/pull/2417)）；使用内置词法嵌入器的 `semantic_text`
 字段不再把向量写入存储的 `_source`（PR [#2471](https://github.com/xerj-org/xerj/pull/2471)）；
@@ -527,17 +527,17 @@ PR [#1112](https://github.com/xerj-org/xerj/pull/1112) 交付）；其同类 #10
 
 ### 1.0 功能短名单（2026-10-18 提交）
 
-以下是团队为 1.0 排序的十个功能请求，每个都在 v1.0.0 里程碑上提交为 issue，按排名顺序列出；它们是已规划工作，尚未交付，且每一项都遵循与上面各闸门相同的「实测或不予宣称」规则。
+以下是团队为 1.0 排序的十个功能请求，每个都在 v1.0.0 里程碑上提交为 issue，按排名顺序列出；除条目自带的状态行说明已交付外，它们都是已规划工作，每一项都遵循与上面各闸门相同的「实测或不予宣称」规则。
 
 1. 面向 Corpus Hub 的 MCP 服务器：[#1785](https://github.com/xerj-org/xerj/issues/1785)
 2. MCP 答案上的校准置信度，以及弃答和升级标志（建立在 #1063 之上；重测 #1108）：[#1786](https://github.com/xerj-org/xerj/issues/1786)
 3. 内置的智能体 A/B 基准，对照 grep（AgentQuery-Bench）：[#1787](https://github.com/xerj-org/xerj/issues/1787)
-4. `xerj code` 中的字段感知 BM25 与精确 ID 匹配（原型在 18 个语料上 nDCG@10 +0.065，尚未在发布二进制上测量）：[#1788](https://github.com/xerj-org/xerj/issues/1788)
-5. 版本固定的答案，附 file:line 引用与可追溯到证据的报告：[#1789](https://github.com/xerj-org/xerj/issues/1789)
+4. `xerj code` 中的字段感知 BM25 与精确 ID 匹配（原型在 18 个语料上 nDCG@10 +0.065，尚未在发布二进制上测量）：[#1788](https://github.com/xerj-org/xerj/issues/1788)。2026-11-22 关闭：标识符与精确 ID 通道在 rc.105 交付（PR #3367；留出的标识符问题从 0.2556 提升到 0.4856）；名称通道已放弃。
+5. 版本固定的答案，附 file:line 引用与可追溯到证据的报告：[#1789](https://github.com/xerj-org/xerj/issues/1789)。未解决；rc.105 有首批实现：`xerj trace <session.jsonl>`（PR #3442）。
 6. OpenAI 兼容端点背后的 schema 校验 JSON 输出：[#1790](https://github.com/xerj-org/xerj/issues/1790)
-7. 通过 MCP 提供符号与调用图查询：[#1791](https://github.com/xerj-org/xerj/issues/1791)
-8. 带有效期窗口的时态 as-of 查询（与 #1100 相关）：[#1792](https://github.com/xerj-org/xerj/issues/1792)
-9. 把过去的智能体会话索引为可搜索记忆：[#1793](https://github.com/xerj-org/xerj/issues/1793)
+7. 通过 MCP 提供符号与调用图查询：[#1791](https://github.com/xerj-org/xerj/issues/1791)。未解决；rc.105 有首批实现：`xerj_references`，词法级，尚非调用图（PR #3337）。
+8. 带有效期窗口的时态 as-of 查询（与 #1100 相关）：[#1792](https://github.com/xerj-org/xerj/issues/1792)。2026-11-21 关闭：记忆的 `valid_from` / `valid_to` 与 `_recall` 的 `as_of` 在 rc.105 交付（PR #3334）。
+9. 把过去的智能体会话索引为可搜索记忆：[#1793](https://github.com/xerj-org/xerj/issues/1793)。2026-10-29 已在跟踪器上标记为完成关闭；本轮未重新核实。
 10. 签名发布二进制（SignPath 或 Sigstore）：[#1794](https://github.com/xerj-org/xerj/issues/1794)
 
 ## 零 token 方向
