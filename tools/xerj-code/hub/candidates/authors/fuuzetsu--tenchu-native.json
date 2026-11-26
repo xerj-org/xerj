@@ -1,9 +1,9 @@
 {
- "corpus": "fuuzetsu--tenchu-shinobi-gaisen-pc",
+ "corpus": "fuuzetsu--tenchu-native",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how Fuuzetsu/tenchu-shinobi-gaisen-pc implements it: Native port of the Tenchu: Shinobi Gaisen PS1 game (selected work: crates/tenchu-pc, crates/tenchu-core)",
+ "domain": "an agent working on Rust queries this for how Fuuzetsu/tenchu-native implements it: Portable native Rust engine for Tenchu: Shinobi Gaisen and Tenchu 2, with faithful game logic and optional modern graphics (selected work: crates/tenchu-pc, crates/tenchu-core)",
  "repos": [
   {
    "repo": "tenchu-shinobi-gaisen-pc",

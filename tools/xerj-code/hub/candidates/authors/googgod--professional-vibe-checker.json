@@ -8,15 +8,15 @@
   {
    "repo": "Professional-Vibe-Checker",
    "url": "https://github.com/GoogGod/Professional-Vibe-Checker",
-   "sha": "ae529c7daa87af56bcbe4a00975ab1a9d51d6e0d",
-   "licence": "Unlicense (LICENSE file at pin ae529c7daa87, GitHub licence API 2026-11-23)",
+   "sha": "dfab52c350c815559f7a051f5639fc907bb6724d",
+   "licence": "Unlicense (LICENSE file at pin dfab52c350c8, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "Unlicense",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-27T21:31Z",
     "consent_receipt": "ed716bbbea0a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T21:31Z (receipt ed716bbbea0a); selected commit ae529c7daa87: \"feat: promote fresh lessons (11-24.11) - APK JNI final solution, MQTT\u2026\". LICENSE file at pin ae529c7daa87 detected as Unlicense by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T21:31Z (receipt ed716bbbea0a); selected commit dfab52c350c8: \"feat: lesson 2026-11-26 single-vuln fmtstr (RET alignment, bytewise %\u2026\". LICENSE file at pin dfab52c350c8 detected as Unlicense by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]

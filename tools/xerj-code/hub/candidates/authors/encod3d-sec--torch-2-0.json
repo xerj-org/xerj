@@ -1,9 +1,9 @@
 {
- "corpus": "encod3d-sec--ztorch",
+ "corpus": "encod3d-sec--torch-2-0",
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on bug-bounty, bugbounty, ctf queries this for how Encod3d-Sec/ZTORCH implements it: Custom Offensive harness for for GLM 5.3 - GLM-5.3-Flash based on Andrej Karpathy self-improving wiki idea (selected work: scripts, skills)",
+ "domain": "an agent working on bug-bounty, bugbounty, ctf queries this for how Encod3d-Sec/TORCH-2.0 implements it: Custom Offensive harness for for GLM 5.3 - GLM-5.3-Flash based on Andrej Karpathy self-improving wiki idea (selected work: scripts, skills)",
  "repos": [
   {
    "repo": "ZTORCH",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on af-xdp, cve, ebpf queries this for how NycolazSec/tcpcat implements it: Fast network scanner in Go with an eBPF/AF_XDP engine, service and OS detection, CVE correlation, and JSON/SARIF reports. Built for authoriz (selected work: internal/inventory, internal/explain, cmd/tcpcat)",
+ "domain": "an agent working on af-xdp, cve, ebpf queries this for how NycolazSec/tcpcat implements it: Know what your servers expose: tcpcat scans them from the outside, flags the services and real CVEs behind each open port, checks exposure r (selected work: internal/inventory, internal/explain, cmd/tcpcat)",
  "repos": [
   {
    "repo": "tcpcat",
