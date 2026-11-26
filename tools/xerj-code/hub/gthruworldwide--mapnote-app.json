@@ -1,0 +1,21 @@
+{
+  "corpus": "gthruworldwide--mapnote-app",
+  "cloned_at": "2026-11-26T13:06:41Z",
+  "own": true,
+  "repos": [
+    {
+      "repo": "MapNote-App",
+      "url": "https://github.com/Gthruworldwide/MapNote-App.git",
+      "licence": "MIT",
+      "sha": "8e15dd832f993d59d7755640445f2533d41a58bd",
+      "files": 744,
+      "bytes": 16821891,
+      "review": {
+        "licence": "MIT",
+        "verified_against": "LICENSE",
+        "attribution": "Copyright (c) 2026 Nader Adel Jahalla Hamza (Gthruworldwide)",
+        "notes": "First-party open-source Flutter repository verified directly against root LICENSE file at commit 8e15dd832f993d59d7755640445f2533d41a58bd."
+      }
+    }
+  ]
+}
