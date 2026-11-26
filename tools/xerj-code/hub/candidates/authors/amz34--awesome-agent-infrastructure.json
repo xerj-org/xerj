@@ -8,15 +8,15 @@
   {
    "repo": "awesome-agent-infrastructure",
    "url": "https://github.com/Amz34/awesome-agent-infrastructure",
-   "sha": "cb9e2f7426c38773c6300c89204c2afb29898043",
-   "licence": "author's permission (LICENSE at pin cb9e2f7426c3: NONE; repository: none)",
+   "sha": "750d7b0bc1b85dcd52f1b1a93455bb7409b4bec0",
+   "licence": "author's permission (LICENSE at pin 750d7b0bc1b8: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T10:21Z",
     "consent_receipt": "fa9b0543327d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt fa9b0543327d); pinned to the default-branch head. LICENSE at pin cb9e2f7426c3: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt fa9b0543327d); pinned to the default-branch head. LICENSE at pin 750d7b0bc1b8: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "kolommix--prism",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how kolommix/Prism implements it: bradar wat is dis but cooler (selected work: lib/features, windows, test)",
+ "repos": [
+  {
+   "repo": "Prism",
+   "url": "https://github.com/kolommix/Prism",
+   "sha": "6baa1f3756bb3f6ae78d04ed26e3983a800ca474",
+   "licence": "GPL-3.0 (LICENSE file at pin 6baa1f3756bb, GitHub licence API 2026-11-26)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-26T08:13Z",
+    "consent_receipt": "d4a03ea0f29f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-26T08:13Z (receipt d4a03ea0f29f); selected commit 6baa1f3756bb: \"Prism 1.2.3: imports save through yt-dlp, merged title bar, tray popu\u2026\". LICENSE file at pin 6baa1f3756bb detected as GPL-3.0 by the GitHub licence API on 2026-11-26; used under that licence with attribution."
+   }
+  }
+ ]
+}
