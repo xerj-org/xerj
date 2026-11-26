@@ -8,15 +8,15 @@
   {
    "repo": "nisavid.io",
    "url": "https://github.com/nisavid/nisavid.io",
-   "sha": "4ab03801807a9ff9e32eb323676e8e8c309f18b3",
-   "licence": "Unlicense (LICENSE file at pin 4ab03801807a, GitHub licence API 2026-11-25)",
+   "sha": "a97f3ddb6891c2cc2555d4ed61320d72e1aa3109",
+   "licence": "Unlicense (LICENSE file at pin a97f3ddb6891, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "Unlicense",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T21:16Z",
     "consent_receipt": "e2ddb63c6747",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt e2ddb63c6747); pinned to the default-branch head. LICENSE file at pin 4ab03801807a detected as Unlicense by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt e2ddb63c6747); pinned to the default-branch head. LICENSE file at pin a97f3ddb6891 detected as Unlicense by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]

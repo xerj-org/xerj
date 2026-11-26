@@ -8,15 +8,15 @@
   {
    "repo": "CodeHost",
    "url": "https://github.com/Arsh-Pathan/CodeHost",
-   "sha": "310322b328aa4b4d58db2262aabcb8c48593a7d0",
-   "licence": "MIT (LICENSE file at pin 310322b328aa, GitHub licence API 2026-11-25)",
+   "sha": "2087dcf4b373a630f29c1aa56832686c39f3e7e4",
+   "licence": "MIT (LICENSE file at pin 2087dcf4b373, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-19T07:13Z",
     "consent_receipt": "562af4839061",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T07:13Z (receipt 562af4839061); selected commit 310322b328aa: \"perf: optimize dashboard LCP with immediate h1 SSR, font display swap\u2026\". LICENSE file at pin 310322b328aa detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 310322b328aa (contains the selected commit): the LICENSE at the selected commit was Apache-2.0."
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T07:13Z (receipt 562af4839061); selected commit 2087dcf4b373: \"perf: optimize dashboard LCP with immediate h1 SSR, font display swap\u2026\". LICENSE file at pin 2087dcf4b373 detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution. Pinned to head 2087dcf4b373 (contains the selected commit): the LICENSE at the selected commit was Apache-2.0."
    }
   }
  ]

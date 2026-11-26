@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, ai-agents, automation queries this for how dss-time/repo-doctor-skills implements it: Bilingual cross-platform AI Skills framework\uff5c\u53cc\u8bed\u8de8\u5e73\u53f0 AI Skills \u5de5\u7a0b\u6846\u67b6 (selected work: scripts, the project root, plugins)",
+ "domain": "an agent working on ai-agents, claude-code-skills, code-review queries this for how dss-time/repo-doctor-skills implements it: AI coding guardrails with change tracking, PR verification receipts, and offline Skill linting. | AI \u7f16\u7a0b\u62a4\u680f\uff1a\u53d8\u66f4\u68c0\u67e5\u3001PR \u9a8c\u8bc1\u8bc1\u660e\u5305\u3001Skill \u79bb\u7ebf\u4f53\u68c0\u3002 (selected work: scripts, the project root, plugins)",
  "repos": [
   {
    "repo": "repo-doctor-skills",
