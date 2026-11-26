@@ -23,6 +23,7 @@ mod flock;
 pub mod lockfile;
 pub mod node;
 pub mod pack;
+pub mod recipe_source;
 pub mod router;
 pub mod sketch;
 pub mod sync;

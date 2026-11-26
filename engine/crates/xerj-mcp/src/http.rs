@@ -32,7 +32,9 @@
 //!    HTTP `tools/list` and `tools/call` cover only [`READ_ONLY_TOOLS`] unless
 //!    the server was started with `--allow-writes`. The published schema
 //!    (`landing/docs/agents/schemas/mcp-tools.json`) stays the full stdio
-//!    list: the filter is per transport, not a second tool list.
+//!    list: the filter is per transport, not a second tool list. Recipe tools
+//!    (`--recipe-dir`) are served either way: they read the operator's own
+//!    recipe and corpus files and change nothing.
 //!
 //! Reference: qdrant `src/common/auth/mod.rs:141-170` (Apache-2.0) reads the
 //! key from `Authorization: Bearer …` and compares with `ct_eq`, and keeps a
@@ -50,7 +52,10 @@ use axum::routing::any;
 use axum::Router;
 use serde_json::{json, Value};
 
-use crate::{handle_message, rpc_error, tool_specs, tool_text, Ctx};
+use crate::{
+    handle_message, hub_tools_served, rpc_error, tool_specs_with_recipes, tool_text, Ctx,
+    RecipeRegistry,
+};
 
 /// Default listen address: loopback, so a plain `xerj mcp --http` is reachable
 /// from this machine only.
@@ -222,7 +227,17 @@ fn refuse(status: StatusCode, message: impl Into<String>) -> Response {
 
 struct Shared {
     ctx: Ctx,
+    recipes: Arc<RecipeRegistry>,
     opts: HttpOptions,
+}
+
+impl Shared {
+    /// Whether the tool scope lets `tool` through: a read-only built-in, or a
+    /// recipe tool (it reads the operator's recipe and corpus files and changes
+    /// nothing), or anything with `--allow-writes`.
+    fn exposes(&self, tool: &str) -> bool {
+        self.opts.exposes(tool) || self.recipes.contains(tool)
+    }
 }
 
 /// One message under the HTTP tool scope; `None` when it needs no reply.
@@ -231,14 +246,14 @@ async fn handle_scoped(shared: &Shared, msg: Value) -> Option<Value> {
     match method {
         "tools/list" if !shared.opts.allow_writes => {
             let id = msg.get("id").cloned()?;
-            let tools: Vec<Value> = tool_specs()
+            let tools: Vec<Value> = tool_specs_with_recipes(hub_tools_served(), &shared.recipes)
                 .as_array()
                 .map(|all| {
                     all.iter()
                         .filter(|t| {
                             t.get("name")
                                 .and_then(Value::as_str)
-                                .is_some_and(|n| shared.opts.exposes(n))
+                                .is_some_and(|n| shared.exposes(n))
                         })
                         .cloned()
                         .collect()
@@ -251,7 +266,7 @@ async fn handle_scoped(shared: &Shared, msg: Value) -> Option<Value> {
                 .pointer("/params/name")
                 .and_then(Value::as_str)
                 .unwrap_or("");
-            if !shared.opts.exposes(name) && !name.is_empty() {
+            if !shared.exposes(name) && !name.is_empty() {
                 let id = msg.get("id").cloned()?;
                 let text = format!(
                     "`{name}` is not served over HTTP: this endpoint exposes read-only \
@@ -263,10 +278,10 @@ async fn handle_scoped(shared: &Shared, msg: Value) -> Option<Value> {
                     "jsonrpc": "2.0", "id": id, "result": tool_text(text, true),
                 }));
             }
-            handle_message(&shared.ctx, msg).await
+            handle_message(&shared.ctx, &shared.recipes, msg).await
         }
         "initialize" if !shared.opts.allow_writes => {
-            let mut reply = handle_message(&shared.ctx, msg).await?;
+            let mut reply = handle_message(&shared.ctx, &shared.recipes, msg).await?;
             if let Some(Value::String(s)) = reply.pointer_mut("/result/instructions") {
                 s.push_str(
                     " Over this HTTP endpoint only the read-only tools are served; \
@@ -275,7 +290,7 @@ async fn handle_scoped(shared: &Shared, msg: Value) -> Option<Value> {
             }
             Some(reply)
         }
-        _ => handle_message(&shared.ctx, msg).await,
+        _ => handle_message(&shared.ctx, &shared.recipes, msg).await,
     }
 }
 
@@ -377,8 +392,8 @@ async fn mcp_endpoint(
     }
 }
 
-fn router(ctx: Ctx, opts: HttpOptions) -> Router {
-    let shared = Arc::new(Shared { ctx, opts });
+fn router(ctx: Ctx, recipes: Arc<RecipeRegistry>, opts: HttpOptions) -> Router {
+    let shared = Arc::new(Shared { ctx, recipes, opts });
     Router::new()
         .route("/mcp", any(mcp_endpoint))
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
@@ -388,10 +403,11 @@ fn router(ctx: Ctx, opts: HttpOptions) -> Router {
 /// Serve `/mcp` on `listener` until the process is interrupted.
 pub(crate) async fn serve(
     ctx: Ctx,
+    recipes: Arc<RecipeRegistry>,
     listener: tokio::net::TcpListener,
     opts: HttpOptions,
 ) -> anyhow::Result<()> {
-    axum::serve(listener, router(ctx, opts))
+    axum::serve(listener, router(ctx, recipes, opts))
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;
         })
