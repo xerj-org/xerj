@@ -8,15 +8,15 @@
   {
    "repo": "ShaderCells",
    "url": "https://github.com/papadanku/ShaderCells",
-   "sha": "1a53d66a7107e54358cfee9251d827e98f5b860a",
-   "licence": "BSD-3-Clause (LICENSE file at pin 1a53d66a7107, GitHub licence API 2026-10-28)",
+   "sha": "ca30291a9131df625850a19ffcac2c6c05beb32b",
+   "licence": "BSD-3-Clause (LICENSE file at pin ca30291a9131, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "BSD-3-Clause",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:50Z",
     "consent_receipt": "4cd7c73cdcdd",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:50Z (receipt 4cd7c73cdcdd); pinned to the default-branch head. LICENSE file at pin 1a53d66a7107 detected as BSD-3-Clause by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:50Z (receipt 4cd7c73cdcdd); pinned to the default-branch head. LICENSE file at pin ca30291a9131 detected as BSD-3-Clause by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]

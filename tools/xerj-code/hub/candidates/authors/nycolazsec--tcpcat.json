@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on af-xdp, cve, ebpf queries this for how NycolazSec/tcpcat implements it: Know what your servers expose: tcpcat scans them from the outside, flags the services and real CVEs behind each open port, checks exposure r (selected work: internal/inventory, internal/explain, cmd/tcpcat)",
+ "domain": "an agent working on cve, ebpf, golang queries this for how NycolazSec/tcpcat implements it: Know what your servers expose. tcpcat scans them from the outside, and its offline AI explains each open port: what it is, why it matters, h (selected work: internal/inventory, internal/explain, cmd/tcpcat)",
  "repos": [
   {
    "repo": "tcpcat",

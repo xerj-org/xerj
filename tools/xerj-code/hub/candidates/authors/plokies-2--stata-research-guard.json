@@ -8,15 +8,15 @@
   {
    "repo": "stata-research-guard",
    "url": "https://github.com/Plokies-2/stata-research-guard",
-   "sha": "189a56c51b36cccf2a414cb5e3088d089af1c263",
-   "licence": "MIT (LICENSE file at pin 189a56c51b36, GitHub licence API 2026-11-25)",
+   "sha": "9716b5d4aeeded5060126fa81c198800c3db8e8d",
+   "licence": "MIT (LICENSE file at pin 9716b5d4aeed, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T03:33Z",
     "consent_receipt": "b9578bfd7874",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T03:33Z (receipt b9578bfd7874); selected commit 189a56c51b36: \"Refresh README with independent workflow examples\". LICENSE file at pin 189a56c51b36 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 189a56c51b36 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T03:33Z (receipt b9578bfd7874); selected commit 9716b5d4aeed: \"Refresh README with independent workflow examples\". LICENSE file at pin 9716b5d4aeed detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution. Pinned to head 9716b5d4aeed (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
