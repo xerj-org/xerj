@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on python3, raspberry-pi, robot queries this for how gopsc/mybot implements it: gopsc/mybot (Lua) (selected work: tests, pymybot, the project root)",
+ "domain": "an agent working on python3, raspberry-pi, robot queries this for how gopsc/mybot implements it: gopsc/mybot (Python) (selected work: tests, pymybot, the project root)",
  "repos": [
   {
    "repo": "mybot",

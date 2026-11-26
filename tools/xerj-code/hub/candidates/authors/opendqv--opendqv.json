@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "LAW",
- "domain": "an agent working on data-contracts, data-governance, data-quality queries this for how OpenDQV/OpenDQV implements it: Open-source, contract-driven data quality validation. Shift-left enforcement at the point of write \u2014 before data enters your pipeline (selected work: tests, opendqv, scripts)",
+ "domain": "an agent working on data-contracts, data-governance, data-quality queries this for how OpenDQV/OpenDQV implements it: OpenDQV Core \u2014 open-source (MIT), self-hosted, contract-driven data quality validation. Blocks bad records at the point of write. Managed ve (selected work: tests, opendqv, scripts)",
  "repos": [
   {
    "repo": "OpenDQV",

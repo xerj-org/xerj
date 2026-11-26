@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on lsp, lsp-server, php queries this for how PHPantom-dev/phpantom_lsp implements it: Fast PHP language server with deep type intelligence. Generics, Laravel, PHPStan annotations. Ready in an instant (selected work: tests, src/type_engine, src/diagnostics)",
+ "domain": "an agent working on lsp, lsp-server, php queries this for how PHPantom-dev/phpantom_lsp implements it: Fast PHP language server with deep type intelligence. Generics, frameworks, PHPStan annotations. Ready in an instant (selected work: tests, src/type_engine, src/diagnostics)",
  "repos": [
   {
    "repo": "phpantom_lsp",

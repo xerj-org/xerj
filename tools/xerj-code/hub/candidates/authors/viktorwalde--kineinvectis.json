@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on c, cpp, developer-tools queries this for how ViktorWalde/KineinVectis implements it: IDE open source para C, C++, Rust e Python no Linux. Editor, build, testes, Git e terminal; nova interface e foco em embarcados em desenvolv (selected work: crates/kinein-core, ui, scripts)",
+ "domain": "an agent working on c, cpp, developer-tools queries this for how ViktorWalde/KineinVectis implements it: Open-source, Linux-first IDE for C and C++, built for embedded, systems and IoT development (selected work: crates/kinein-core, ui, scripts)",
  "repos": [
   {
    "repo": "KineinVectis",

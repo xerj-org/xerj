@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on file-transfer, ftp-client, ftps queries this for how Smooveemaan/FTPeach implements it: A lightweight FTP, FTPS, SFTP and WebDAV client for Windows (selected work: src-tauri)",
+ "domain": "an agent working on file-transfer, ftp-client, ftps queries this for how Smooveemaan/FTPeach implements it: A desktop file transfer client for Windows, macOS, and Linux (selected work: src-tauri)",
  "repos": [
   {
    "repo": "FTPeach",
