@@ -8,15 +8,15 @@
   {
    "repo": "celery-manager",
    "url": "https://github.com/Pythondeveloper6/celery-manager",
-   "sha": "966abf7b287df9e4c1d4737556af2f5d8ad7bcc9",
-   "licence": "MIT (LICENSE file at pin 966abf7b287d, GitHub licence API 2026-11-23)",
+   "sha": "1cfb3294b6c13c71bde549075ddb63f4144a1f08",
+   "licence": "MIT (LICENSE file at pin 1cfb3294b6c1, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T05:16Z",
     "consent_receipt": "3463e43f56bc",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:16Z (receipt 3463e43f56bc); pinned to the default-branch head. LICENSE file at pin 966abf7b287d detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:16Z (receipt 3463e43f56bc); pinned to the default-branch head. LICENSE file at pin 1cfb3294b6c1 detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]

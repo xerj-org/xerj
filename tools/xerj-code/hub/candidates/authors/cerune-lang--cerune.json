@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on code-generation, compiler, compiler-design queries this for how Cerune-Lang/Cerune implements it: Cerune is a deliberately overengineered experimental programming language designed to make compiler transformations observable (selected work: tests, src/codegen, examples)",
+ "domain": "an agent working on code-generation, compiler, compiler-design queries this for how Cerune-Lang/Cerune implements it: Cerune is an experimental programming language designed to make compiler transformations observable (selected work: tests, src/codegen, examples)",
  "repos": [
   {
    "repo": "Cerune",

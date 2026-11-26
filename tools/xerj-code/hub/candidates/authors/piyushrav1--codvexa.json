@@ -1,9 +1,9 @@
 {
- "corpus": "piyushrav1--ai-question-generator-personal",
+ "corpus": "piyushrav1--codvexa",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how piyushrav1/ai-question-generator-personal implements it: piyushrav1/ai-question-generator-personal (TypeScript) (selected work: services, apps/api, packages/shared)",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how piyushrav1/codvexa implements it: piyushrav1/codvexa (TypeScript) (selected work: services, apps/api, packages/shared)",
  "repos": [
   {
    "repo": "question-generator-v.03",

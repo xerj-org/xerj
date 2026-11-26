@@ -1,9 +1,9 @@
 {
- "corpus": "yukonga--ghostlock-app",
+ "corpus": "lsposed--lsprivilege",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Kotlin queries this for how YuKongA/ghostlock-app implements it: YuKongA/ghostlock-app (Kotlin) (selected work: src/core, src, app)",
+ "domain": "an agent working on Kotlin queries this for how LSPosed/LSPrivilege implements it: LSPosed/LSPrivilege (Kotlin) (selected work: src/core, src, app)",
  "repos": [
   {
    "repo": "ghostlock-app",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how Anjub004/dot-lab implements it: An experimental always-on AI agent that plans, uses tools, maintains memory, executes multi-step tasks, and requests human approval when nee (selected work: app/memory)",
+ "domain": "an agent working on ai-agent, autonomous-agents, data-analysis queries this for how Anjub004/dot-lab implements it: An experimental always-on AI agent that plans, uses tools, maintains memory, executes multi-step tasks, and requests human approval when nee (selected work: app/memory)",
  "repos": [
   {
    "repo": "dot-lab",

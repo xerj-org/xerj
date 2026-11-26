@@ -1,0 +1,23 @@
+{
+ "corpus": "orkono--lecend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, claude-code-plugin, cli queries this for how orkono/lecend implements it: Session glossary for Claude Code: auto-captures short labels like W6, D4 or \"Karar 1\" and answers \"what did that mean?\" without spending mod",
+ "repos": [
+  {
+   "repo": "lecend",
+   "url": "https://github.com/orkono/lecend",
+   "sha": "34bef0a18f25a2bb23e8f33b1e4a1be23c1ec5fd",
+   "licence": "Apache-2.0 (LICENSE file at pin 34bef0a18f25, GitHub licence API 2026-11-26)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-26T10:23Z",
+    "consent_receipt": "e4ed0942192e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-26T10:23Z (receipt e4ed0942192e); pinned to the default-branch head. LICENSE file at pin 34bef0a18f25 detected as Apache-2.0 by the GitHub licence API on 2026-11-26; used under that licence with attribution."
+   }
+  }
+ ]
+}
