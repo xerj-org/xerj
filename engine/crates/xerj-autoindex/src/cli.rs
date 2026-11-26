@@ -40,6 +40,11 @@ pub struct IndexCfg {
     /// than ignored.
     pub endpoint_url: Option<String>,
     pub url: String,
+    /// `--ca-cert <file>` (or `XERJ_CA_CERT`): one PEM certificate to trust
+    /// as the only root for the node at `--url`, for a remote node serving
+    /// the self-signed certificate it minted on first start. Without it a
+    /// non-loopback node must present a certificate the system roots trust.
+    pub ca_cert: Option<PathBuf>,
     pub api_key: Option<String>,
     /// Set only when `api_key` was discovered on disk rather than supplied by
     /// the user, so completion hints can reference the file instead of
@@ -170,6 +175,9 @@ pub struct IndexCfg {
 pub struct MapCfg {
     pub report: Option<crate::map_report::Output>,
     pub url: String,
+    /// See [`IndexCfg::ca_cert`]: the same escape hatch for the node `map`
+    /// reads.
+    pub ca_cert: Option<PathBuf>,
     pub api_key: Option<String>,
     /// Explicit `--prefix` filter (`None` when the user did not pass `--prefix`,
     /// preserving the #971 multi-corpus view on a bare `autoindex map`).
@@ -191,6 +199,9 @@ pub struct MapCfg {
 #[derive(Debug, Clone)]
 pub struct StatusCfg {
     pub url: String,
+    /// See [`IndexCfg::ca_cert`]: the same escape hatch for the node
+    /// `status` probes.
+    pub ca_cert: Option<PathBuf>,
     pub api_key: Option<String>,
     pub prefix: String,
     pub state_dir: Option<PathBuf>,
@@ -370,6 +381,10 @@ pub fn help_text_with(feedback: bool) -> String {
          OPTIONS:\n\
          \x20\x20\x20\x20--url <U>            XERJ endpoint (default http://localhost:9200). XERJ_URL is ignored.\n\
          \x20\x20\x20\x20--api-key <K>        Authorization header (or env XERJ_API_KEY)\n\
+         \x20\x20\x20\x20--ca-cert <FILE>    trust only this PEM certificate for the node\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(or env XERJ_CA_CERT): for a remote node\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20serving the self-signed certificate it minted\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20on first start\n\
          \x20\x20\x20\x20--workers <N>        workers for BOTH phases — content hashing/sniffing and\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20indexing (default: every core, reduced if the memory\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20safe zone cannot pay for that many bulk buffers; a\n\
@@ -896,6 +911,14 @@ pub fn help_text_with(feedback: bool) -> String {
     )
 }
 
+/// Resolve `--ca-cert` / `XERJ_CA_CERT` to one path: the flag wins, the env
+/// var is the fallback, an empty env var counts as unset. Kept pure (the
+/// env value is passed in) so tests can pin the precedence without touching
+/// process environment, which other tests read concurrently.
+fn resolve_ca_cert(flag: Option<PathBuf>, env: Option<String>) -> Option<PathBuf> {
+    flag.or_else(|| env.filter(|s| !s.is_empty()).map(PathBuf::from))
+}
+
 /// A startup note for the case where `XERJ_URL` is set but the run did not pass
 /// `--url`. `autoindex` resolves its endpoint from `--url` only (default
 /// `http://localhost:9200`); `XERJ_URL` is honored by `xerj search` but not
@@ -1000,6 +1023,11 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     // actually passed and warn when XERJ_URL is set and it was not.
     let mut url_explicit = false;
     let mut api_key = std::env::var("XERJ_API_KEY").ok().filter(|s| !s.is_empty());
+    // `--ca-cert <file>`: a PEM certificate to trust as the only root for
+    // the node at `--url`. `XERJ_CA_CERT` is the fallback; the flag wins.
+    // Resolved after the loop (see `resolve_ca_cert`) so the env var is
+    // read once, not once per subcommand construction.
+    let mut ca_cert: Option<PathBuf> = None;
     // Set only when the key was discovered on disk, so output can reference the
     // file instead of echoing the secret.
     let mut api_key_file: Option<PathBuf> = None;
@@ -1098,6 +1126,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 url_explicit = true;
             }
             "--api-key" => api_key = it.next(),
+            "--ca-cert" => ca_cert = it.next().map(PathBuf::from),
             "--workers" => {
                 // Refused, not clamped: `--workers 0` used to become 1 and
                 // `--workers 100000` was taken at face value, both without a
@@ -1881,6 +1910,10 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         url_explicit,
     );
 
+    // `--ca-cert` wins over `XERJ_CA_CERT`; resolved once so index, map,
+    // and status trust the same certificate.
+    let ca_cert = resolve_ca_cert(ca_cert, std::env::var("XERJ_CA_CERT").ok());
+
     // --- object-storage watch routing ------------------------------------
     //
     // Three refusals, all of the same kind: a flag that is accepted and then
@@ -2213,6 +2246,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         (Some("map"), None) => Ok(Cmd::Map(MapCfg {
             report: report_output,
             url,
+            ca_cert: ca_cert.clone(),
             api_key,
             prefix: prefix_explicit.then_some(prefix),
             json,
@@ -2244,6 +2278,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         }
         (Some("status"), _) => Ok(Cmd::Status(StatusCfg {
             url,
+            ca_cert: ca_cert.clone(),
             api_key,
             prefix,
             state_dir,
@@ -2295,6 +2330,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 root,
                 endpoint_url,
                 url,
+                ca_cert: ca_cert.clone(),
                 api_key,
                 api_key_file,
                 workers: plan.index_workers,
@@ -2882,6 +2918,8 @@ mod tests {
             "and so must the default budget"
         );
         assert!(help.contains("--append-only"));
+        assert!(help.contains("--ca-cert"));
+        assert!(help.contains("XERJ_CA_CERT"));
         assert!(help.contains("exit 4") || help.contains("NEEDS A DECISION"));
     }
 
@@ -3054,6 +3092,66 @@ mod tests {
             cfg.xerj_url_note.is_none(),
             "an explicit --url means XERJ_URL was not ignored; no note"
         );
+    }
+
+    /// `--ca-cert` / `XERJ_CA_CERT`: the flag wins, the env var is the
+    /// fallback, an empty env var counts as unset, and the resolved path
+    /// reaches the index, map, and status configs.
+    #[test]
+    fn ca_cert_flag_wins_over_env_and_reaches_every_subcommand() {
+        use super::resolve_ca_cert as resolve;
+        use std::path::PathBuf;
+
+        assert_eq!(
+            resolve(
+                Some(PathBuf::from("/flag/node.pem")),
+                Some("/env/node.pem".into())
+            ),
+            Some(PathBuf::from("/flag/node.pem")),
+            "the flag wins over the env var"
+        );
+        assert_eq!(
+            resolve(None, Some("/env/node.pem".into())),
+            Some(PathBuf::from("/env/node.pem")),
+            "the env var is the fallback"
+        );
+        assert_eq!(
+            resolve(None, Some(String::new())),
+            None,
+            "an empty env var counts as unset"
+        );
+        assert_eq!(resolve(None, None), None, "nothing set: no CA cert");
+
+        let cfg = index(&["data", "--ca-cert", "/tmp/node.pem"]);
+        assert_eq!(cfg.ca_cert, Some(PathBuf::from("/tmp/node.pem")));
+        assert!(
+            index(&["data"]).ca_cert.is_none(),
+            "no flag and no XERJ_CA_CERT: no CA cert"
+        );
+
+        let map = match parse(vec![
+            "map".into(),
+            "--ca-cert".into(),
+            "/tmp/node.pem".into(),
+        ])
+        .unwrap()
+        {
+            Cmd::Map(cfg) => cfg,
+            other => panic!("expected map config, got {other:?}"),
+        };
+        assert_eq!(map.ca_cert, Some(PathBuf::from("/tmp/node.pem")));
+
+        let status = match parse(vec![
+            "status".into(),
+            "--ca-cert".into(),
+            "/tmp/node.pem".into(),
+        ])
+        .unwrap()
+        {
+            Cmd::Status(cfg) => cfg,
+            other => panic!("expected status config, got {other:?}"),
+        };
+        assert_eq!(status.ca_cert, Some(PathBuf::from("/tmp/node.pem")));
     }
 
     /// #240 §1/§2: `--workers` capped itself at 8 for no recorded reason and

@@ -599,6 +599,7 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
         root: cfg.root.clone(),
         endpoint_url: None,
         url: cfg.url.clone(),
+        ca_cert: None,
         api_key,
         // `brain` resolves its own credential (its data dir's admin.key) and
         // renders hints itself, so there is no discovered-file path to thread

@@ -231,12 +231,15 @@ fn prefixes_from_catalog_hits(v: &Value) -> Option<Vec<String>> {
 /// One catalog read. `None` on any failure, including a node that is not
 /// there: callers print nothing in that case.
 fn fetch_catalog_run_prefixes(url: &str, explicit_key: Option<&str>) -> Option<Vec<String>> {
-    let http = crate::esclient::node_blocking_builder(url)
-        .connect_timeout(CATALOG_HINT_CONNECT)
-        .timeout(CATALOG_HINT_TIMEOUT)
-        .danger_accept_invalid_certs(true)
-        .build()
-        .ok()?;
+    let http = crate::esclient::with_node_tls_policy(
+        crate::esclient::node_blocking_builder(url)
+            .connect_timeout(CATALOG_HINT_CONNECT)
+            .timeout(CATALOG_HINT_TIMEOUT),
+        url,
+        None,
+    )
+    .build()
+    .ok()?;
     let body = json!({
         "size": 200,
         "query": { "term": { "doc_kind": "run" } },

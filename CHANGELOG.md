@@ -1051,6 +1051,7 @@ The model, its bundle and its serve rule are those of rc.102.
   setting above it does not raise that cap. `_async_search`,
   `_search/template` and `_msearch/template` do not read the setting yet.
 - The CSV extractor now caps one record at 16 MiB of decoded bytes (issue [#3201](https://github.com/xerj-org/xerj/issues/3201)). A quoted field may span newlines, so a single record could previously be as large as the whole input stream: the parser buffered it all before returning it. An oversize record is now counted as junk and extraction stops there, with the records before it still indexed; an oversize header row junks the file instead of failing it, so one hostile file cannot abort the whole autoindex run.
+- Autoindex clients no longer accept any TLS certificate on non-loopback node URLs: the certificate bypass now applies only to loopback nodes, which mint a self-signed certificate on first start, and a non-loopback node must present a certificate the system roots trust. Before this, the bulk client sent the admin API key over a connection that accepted any certificate, so a man in the middle on a non-loopback node URL could read the key and every indexed document. (issue [#3195](https://github.com/xerj-org/xerj/issues/3195))
 
 ## [1.0.0-rc.102] - 2026-11-06
 
