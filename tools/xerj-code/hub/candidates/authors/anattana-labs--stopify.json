@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on cpp, drm, drm-bypass queries this for how Anattana-Labs/Stopify implements it: Stopify is a native Android client reverse-engineering Spotify's modern Web Player protocols and Dealer WebSocket pipeline. It unlocks direc (selected work: app/src, app)",
+ "domain": "an agent working on cpp, drm, drm-bypass queries this for how Anattana-Labs/Stopify implements it: Stopify is a native Android client reverse-engineering Spotify's modern Web Player protocols and Dealer WebSocket pipeline. It unlocks direc (selected work: app/src)",
  "repos": [
   {
    "repo": "Stopify",
    "url": "https://github.com/Anattana-Labs/Stopify",
-   "sha": "1311f35845baf881ff056f114e078e703c426214",
-   "licence": "MIT (LICENSE file at pin 1311f35845ba, GitHub licence API 2026-11-11)",
+   "sha": "dc4dc3cdd9826fe8694f79441cec120e605d170d",
+   "licence": "MIT (LICENSE file at pin dc4dc3cdd982, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-09T11:36Z",
-    "consent_receipt": "786082a8ddeb",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T11:36Z (receipt 786082a8ddeb); selected commit 1311f35845ba: \"Drop material-icons-extended (bundle only the 42 icons used), enable \u2026\". LICENSE file at pin 1311f35845ba detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Anattana-Labs, who has not added it."
+    "at": "2026-11-08T09:33Z",
+    "consent_receipt": "ddbfbc1e9ca2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T09:33Z (receipt ddbfbc1e9ca2); selected commit dc4dc3cdd982: \"Floating dock, new full player, more reliable playback\". LICENSE file at pin dc4dc3cdd982 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Anattana-Labs, who has not added it."
    },
    "paths": [
     "app"

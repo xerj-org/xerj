@@ -8,15 +8,15 @@
   {
    "repo": "zk-payroll-sdk",
    "url": "https://github.com/zkpayroll/zk-payroll-sdk",
-   "sha": "102972af66b6cdf077b7ec22ae5fb48f062a56fe",
-   "licence": "MIT (LICENSE file at pin 102972af66b6, GitHub licence API 2026-11-11)",
+   "sha": "716d48adbbb8ff65850d40c8f711d8719e6bdb09",
+   "licence": "MIT (LICENSE file at pin 716d48adbbb8, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-25T07:28Z",
-    "consent_receipt": "3fc951eb0435",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T07:28Z (receipt 3fc951eb0435); selected commit 102972af66b6: \"feat: harden replay safety, reserve auth, planner overlap, and stale \u2026\". LICENSE file at pin 102972af66b6 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @zkpayroll, who has not added it."
+    "at": "2026-10-12T06:54Z",
+    "consent_receipt": "587250e76c40",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T06:54Z (receipt 587250e76c40); selected commit 716d48adbbb8: \"feat: Add sdk treasury reserve release validation (#615) (#656)\". LICENSE file at pin 716d48adbbb8 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @zkpayroll, who has not added it."
    },
    "paths": [
     "docs",
