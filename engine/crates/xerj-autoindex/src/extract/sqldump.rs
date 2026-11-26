@@ -5,7 +5,9 @@
 //! records with `''`/backslash escapes, NULL, numbers, hex literals.
 //! One dataset (group) per table.
 
-use super::{sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink};
+use super::{
+    sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_FIELDS_PER_RECORD,
+};
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -52,6 +54,9 @@ pub fn extract(
     let mut cur_cols: Vec<String> = Vec::new();
     let mut cur_stmt = 0u64;
     let mut tuple_ord = 0u64;
+    // B5: one tuple's values are capped at MAX_FIELDS_PER_RECORD (see the
+    // two push sites below). A tuple with more values still parses to the
+    // end, the excess is dropped, so the lexer never desyncs.
     let mut values: Vec<Value> = Vec::new();
     let mut sval: Vec<u8> = Vec::new(); // current string value (raw bytes)
     let mut maybe_end = false; // saw closing ' — is it '' escape?
@@ -200,11 +205,25 @@ pub fn extract(
                     if maybe_end {
                         maybe_end = false;
                         if b == b'\'' {
-                            sval.push(b'\'');
+                            // B5: the quoted-string branch used to push
+                            // every byte with no length check, so one string
+                            // literal could be as large as the whole file.
+                            // Truncate at HEAD_CAP like the bare-token branch
+                            // already does, and keep consuming to the close
+                            // quote so the lexer stays in sync.
+                            if sval.len() < HEAD_CAP {
+                                sval.push(b'\'');
+                            }
                             i += 1;
                         } else {
                             // string finished; value complete. Reprocess b in InTuple.
-                            values.push(Value::String(take_utf8(&mut sval)));
+                            // B5: drop the value when the tuple is already at
+                            // the per-record field cap, but still drain sval
+                            // so the next value starts clean.
+                            let v = Value::String(take_utf8(&mut sval));
+                            if values.len() < MAX_FIELDS_PER_RECORD {
+                                values.push(v);
+                            }
                             state = St::InTuple;
                         }
                     } else if esc {
@@ -216,7 +235,9 @@ pub fn extract(
                             b'0' => 0u8,
                             other => other,
                         };
-                        sval.push(c);
+                        if sval.len() < HEAD_CAP {
+                            sval.push(c);
+                        }
                         i += 1;
                     } else {
                         match b {
@@ -231,7 +252,10 @@ pub fn extract(
                             _ => {
                                 // Raw byte — multibyte UTF-8 arrives byte-by-byte
                                 // and is decoded once, at value completion.
-                                sval.push(b);
+                                // B5: capped like the other two pushes above.
+                                if sval.len() < HEAD_CAP {
+                                    sval.push(b);
+                                }
                                 i += 1;
                             }
                         }
@@ -239,7 +263,11 @@ pub fn extract(
                 }
                 St::Bare => {
                     if matches!(b, b',' | b')') || b.is_ascii_whitespace() {
-                        values.push(bare_value(&take_utf8(&mut sval)));
+                        // B5: same per-tuple value cap as the quoted branch.
+                        let v = bare_value(&take_utf8(&mut sval));
+                        if values.len() < MAX_FIELDS_PER_RECORD {
+                            values.push(v);
+                        }
                         state = St::InTuple;
                         // reprocess delimiter in InTuple
                     } else {
@@ -519,6 +547,63 @@ INSERT INTO `users` (`id`,`name`) VALUES (3,'Cle, (weird)');
         assert!(recs[1].fields.get("note").is_none());
         assert_eq!(recs[2].fields["name"], serde_json::json!("Cle, (weird)"));
         assert_eq!(recs[0].group.as_deref(), Some("users"));
+    }
+
+    /// B5: one tuple may carry an unbounded number of values, and every one
+    /// is pushed into the per-tuple `values` Vec and then into the record's
+    /// field map. A single `INSERT ... VALUES (v1, v2, ...)` with millions
+    /// of values allocates millions of `Value`s for one record.
+    #[test]
+    fn one_tuple_with_more_values_than_the_field_cap_keeps_only_the_cap() {
+        let mut sql = String::from("INSERT INTO `t` VALUES (");
+        for i in 0..2000 {
+            if i > 0 {
+                sql.push(',');
+            }
+            sql.push_str(&i.to_string());
+        }
+        sql.push_str(");");
+        let dir = std::env::temp_dir().join("xerj-autoindex-test-sqldump-values-cap");
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("d.sql");
+        std::fs::write(&p, &sql).unwrap();
+        let mut recs = Vec::new();
+        let stats = extract(&p, false, None, &mut |r| {
+            recs.push(r);
+            true
+        })
+        .unwrap();
+        assert_eq!(stats.records, 1);
+        assert_eq!(
+            recs[0].fields.len(),
+            MAX_FIELDS_PER_RECORD,
+            "one tuple must not grow one record past the per-record field cap"
+        );
+    }
+
+    /// B5: the quoted-string branch of the lexer pushes every byte into
+    /// `sval` with no length check (the bare-token branch already caps at
+    /// `HEAD_CAP`), so one string literal can be as large as the whole file.
+    #[test]
+    fn one_quoted_string_value_is_capped_at_the_head_cap() {
+        let big = "x".repeat(2 * HEAD_CAP);
+        let sql = format!("INSERT INTO `t` VALUES ('{big}');");
+        let dir = std::env::temp_dir().join("xerj-autoindex-test-sqldump-sval-cap");
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("d.sql");
+        std::fs::write(&p, &sql).unwrap();
+        let mut recs = Vec::new();
+        let stats = extract(&p, false, None, &mut |r| {
+            recs.push(r);
+            true
+        })
+        .unwrap();
+        assert_eq!(stats.records, 1);
+        assert_eq!(
+            recs[0].fields["col_1"].as_str().unwrap().len(),
+            HEAD_CAP,
+            "one quoted value must not grow past the head cap"
+        );
     }
 }
 

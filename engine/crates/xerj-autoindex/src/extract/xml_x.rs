@@ -38,6 +38,16 @@ pub(super) fn resolve_general_ref(r: &BytesRef) -> Option<String> {
     quick_xml::escape::resolve_predefined_entity(&name).map(str::to_string)
 }
 
+/// Largest element depth the XML extractor tracks. `handle_open` clones the
+/// whole element stack and joins it into a key prefix on every start event,
+/// so with no depth bound a document nested N deep costs O(N) string work
+/// per event, O(N^2) for the document, and the record key itself grows with
+/// the depth. Past the cap the subtree is skipped (its events are consumed
+/// but nothing is pushed or captured) and the rest of the file still
+/// extracts. 128 is serde_json's default recursion limit and far past the
+/// nesting of real documents, which rarely exceed a few dozen levels.
+const MAX_XML_DEPTH: usize = 128;
+
 struct State {
     record_tag: Option<String>,
     capture: Option<Map<String, Value>>,
@@ -45,6 +55,11 @@ struct State {
     root_fields: Map<String, Value>,
     root_stack: Vec<String>,
     ordinal: u64,
+    /// Depth of the over-cap subtree currently being skipped, 0 when the
+    /// parse is inside the depth bound. A skipped subtree's start events
+    /// increment this and its end events decrement it, so the stacks are
+    /// never pushed or popped for it.
+    skipped: usize,
 }
 
 pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
@@ -71,35 +86,58 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
         root_fields: Map::new(),
         root_stack: Vec::new(),
         ordinal: 0,
+        skipped: 0,
     };
 
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => {
-                flush_text(&mut pending, &mut st);
-                handle_open(&e, false, &mut st);
+                if st.skipped > 0 {
+                    // Inside an over-cap subtree: count the nesting, drop
+                    // the text, push nothing.
+                    st.skipped += 1;
+                    pending.clear();
+                } else if current_depth(&st) >= MAX_XML_DEPTH {
+                    // B6: past the cap, skip this subtree rather than
+                    // cloning a stack that grows with the depth. The
+                    // pending text belongs to the parent, so flush it first.
+                    flush_text(&mut pending, &mut st);
+                    st.skipped = 1;
+                } else {
+                    flush_text(&mut pending, &mut st);
+                    handle_open(&e, false, &mut st);
+                }
             }
             Ok(Event::Empty(e)) => {
-                flush_text(&mut pending, &mut st);
-                if let Some(fields) = handle_open(&e, true, &mut st) {
-                    // `<record …/>` self-closing: complete record, no End event.
-                    if !fields.is_empty() {
-                        stats.records += 1;
-                        let loc = format!("e{}", st.ordinal);
-                        st.ordinal += 1;
-                        if !sink(RawRecord {
-                            fields,
-                            locator: loc,
-                            group: None,
-                            origin: FieldOrigin::Data,
-                        }) {
-                            return Ok(stats);
+                if st.skipped > 0 {
+                    pending.clear();
+                } else {
+                    flush_text(&mut pending, &mut st);
+                    if let Some(fields) = handle_open(&e, true, &mut st) {
+                        // `<record …/>` self-closing: complete record, no End event.
+                        if !fields.is_empty() {
+                            stats.records += 1;
+                            let loc = format!("e{}", st.ordinal);
+                            st.ordinal += 1;
+                            if !sink(RawRecord {
+                                fields,
+                                locator: loc,
+                                group: None,
+                                origin: FieldOrigin::Data,
+                            }) {
+                                return Ok(stats);
+                            }
                         }
                     }
                 }
             }
             Ok(Event::End(e)) => {
                 flush_text(&mut pending, &mut st);
+                if st.skipped > 0 {
+                    st.skipped -= 1;
+                    buf.clear();
+                    continue;
+                }
                 let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
                 if let Some(m) = st.capture.as_mut() {
                     if st.stack.is_empty() && st.record_tag.as_deref() == Some(name.as_str()) {
@@ -126,15 +164,21 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
                 }
             }
             Ok(Event::Text(t)) => {
-                push_text(&mut pending, &t.xml10_content().unwrap_or_default());
+                if st.skipped == 0 {
+                    push_text(&mut pending, &t.xml10_content().unwrap_or_default());
+                }
             }
             Ok(Event::GeneralRef(entity)) => {
-                if let Some(resolved) = resolve_general_ref(&entity) {
-                    push_text(&mut pending, &resolved);
+                if st.skipped == 0 {
+                    if let Some(resolved) = resolve_general_ref(&entity) {
+                        push_text(&mut pending, &resolved);
+                    }
                 }
             }
             Ok(Event::CData(t)) => {
-                push_text(&mut pending, &String::from_utf8_lossy(&t));
+                if st.skipped == 0 {
+                    push_text(&mut pending, &String::from_utf8_lossy(&t));
+                }
             }
             Ok(Event::Eof) => {
                 flush_text(&mut pending, &mut st);
@@ -162,6 +206,20 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
         });
     }
     Ok(stats)
+}
+
+/// Depth of the element stack a new child would extend: the record stack
+/// while a record is open, the root stack for a record-less document, zero
+/// while waiting for the record element (outer wrappers are not tracked, so
+/// they grow nothing).
+fn current_depth(st: &State) -> usize {
+    if st.capture.is_some() {
+        st.stack.len()
+    } else if st.record_tag.is_none() {
+        st.root_stack.len()
+    } else {
+        0
+    }
 }
 
 /// Returns Some(fields) when a self-closing record element completes
@@ -604,5 +662,57 @@ mod tests {
         assert_eq!(stats.records, 3, "only the elected tag emits records");
         assert_eq!(recs[0].fields["id"], serde_json::json!("1"));
         assert_eq!(recs[0].fields["v"], serde_json::json!("1"));
+    }
+
+    /// B6: `handle_open` clones the whole element stack and joins it into a
+    /// key prefix on EVERY start event, and `handle_text` joins it again per
+    /// text event. With no depth bound, a document nested N deep costs
+    /// O(N) string work per event, O(N^2) for the document, and the record
+    /// key itself grows with the depth. Keys must stay bounded. Every
+    /// nested element carries an attribute, so the record is non-empty and
+    /// the bound is exercised on real keys, not on an empty record.
+    #[test]
+    fn deeply_nested_elements_do_not_grow_record_keys_with_depth() {
+        let mut xml = String::from("<r>");
+        for _ in 0..2000 {
+            xml.push_str("<a n=\"1\">");
+        }
+        xml.push_str("<v>deep</v>");
+        for _ in 0..2000 {
+            xml.push_str("</a>");
+        }
+        xml.push_str("</r>");
+        let (_stats, recs) = run(&xml);
+        assert_eq!(recs.len(), 1);
+        assert_eq!(recs[0].fields["n"], serde_json::json!("1"));
+        for k in recs[0].fields.keys() {
+            assert!(
+                k.len() < 512,
+                "record key of {} chars grew with nesting depth: {k:?}",
+                k.len()
+            );
+        }
+    }
+
+    /// The depth cap must not eat ordinary nesting: a document nested well
+    /// under the cap still extracts its deepest text.
+    #[test]
+    fn nesting_under_the_cap_still_extracts_the_deepest_text() {
+        let mut xml = String::from("<r>");
+        for _ in 0..50 {
+            xml.push_str("<a>");
+        }
+        xml.push_str("<v>deep</v>");
+        for _ in 0..50 {
+            xml.push_str("</a>");
+        }
+        xml.push_str("</r>");
+        let (_stats, recs) = run(&xml);
+        assert_eq!(recs.len(), 1);
+        assert!(
+            recs[0].fields.values().any(|v| v == "deep"),
+            "the deepest text must still extract: {:?}",
+            recs[0].fields
+        );
     }
 }
