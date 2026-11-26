@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Go queries this for how cristiangirlea/harness implements it: hx: personal agent harness in Go (stdlib only). Runs coding tasks on its own Claude API loop or on installed agent CLIs, records every run,  (selected work: scripts, internal/watch, cmd/hrn)",
+ "domain": "an agent working on agent-harness, ai-agents, claude-code queries this for how cristiangirlea/harness implements it: hrn: one Go binary that runs coding agents (Claude Code, Codex, Gemini, opencode, agy or its own API loop) in their own git worktrees, recor (selected work: scripts, internal/watch, cmd/hrn)",
  "repos": [
   {
    "repo": "harness",

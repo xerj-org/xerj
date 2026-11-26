@@ -8,15 +8,15 @@
   {
    "repo": "dockweave",
    "url": "https://github.com/ananta888/dockweave",
-   "sha": "bee0b138af09fe9ac62ac3565f100a8cb72ea895",
-   "licence": "BSD-3-Clause (LICENSE file at pin bee0b138af09, GitHub licence API 2026-11-23)",
+   "sha": "03ea17998b775585a75418bc1160f2538d718f57",
+   "licence": "BSD-3-Clause (LICENSE file at pin 03ea17998b77, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "BSD-3-Clause",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-13T09:12Z",
     "consent_receipt": "e3634933b4d2",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T09:12Z (receipt e3634933b4d2); pinned to the default-branch head. LICENSE file at pin bee0b138af09 detected as BSD-3-Clause by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T09:12Z (receipt e3634933b4d2); pinned to the default-branch head. LICENSE file at pin 03ea17998b77 detected as BSD-3-Clause by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]

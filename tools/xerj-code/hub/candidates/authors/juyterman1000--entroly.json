@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, claude-code, mcp queries this for how juyterman1000/entroly implements it: Cut AI context cost without trusting the compressor. Every reduction is reversible, byte-exact recoverable, and carries an auditable receipt (selected work: entroly, tests)",
+ "domain": "an agent working on ai-agents, claude-code, mcp queries this for how juyterman1000/entroly implements it: Local-first AI efficiency layer for coding agents and LLM apps. Budget and recover context, verify outputs against source, and resume work a (selected work: entroly, tests)",
  "repos": [
   {
    "repo": "entroly",

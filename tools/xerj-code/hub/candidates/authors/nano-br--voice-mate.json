@@ -2,8 +2,8 @@
  "corpus": "nano-br--voice-mate",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on clipboard, cuda, faster-whisper queries this for how nano-br/voice-mate implements it: Voice assistant for Windows: press a hotkey, speak, and the transcription lands in your clipboard. Local Whisper with GPU acceleration. http (selected work: tests, app/companion, app/setup)",
+ "shelf": "AI",
+ "domain": "an agent working on cuda, faster-whisper, speech-to-text queries this for how nano-br/voice-mate implements it: Personal voice assistant for Claude Code and Claude Desktop. Speak, and it finds, reads, messages, watches and starts your Claude conversati (selected work: tests, app/companion, app/setup)",
  "repos": [
   {
    "repo": "voice-mate",

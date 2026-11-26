@@ -8,15 +8,15 @@
   {
    "repo": "e4steam",
    "url": "https://github.com/Kamilhik/e4steam",
-   "sha": "e5e240c65af86afb43097a0d9ac3bb1360448b26",
-   "licence": "Apache-2.0 (LICENSE file at pin e5e240c65af8, GitHub licence API 2026-11-22)",
+   "sha": "43bb138fe4deca291ac06e4cbf952ec010717768",
+   "licence": "Apache-2.0 (LICENSE file at pin 43bb138fe4de, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T05:52Z",
     "consent_receipt": "803c89184287",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T05:52Z (receipt 803c89184287); pinned to the default-branch head. LICENSE file at pin e5e240c65af8 detected as Apache-2.0 by the GitHub licence API on 2026-11-22; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T05:52Z (receipt 803c89184287); pinned to the default-branch head. LICENSE file at pin 43bb138fe4de detected as Apache-2.0 by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]
