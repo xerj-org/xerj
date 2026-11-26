@@ -8,15 +8,15 @@
   {
    "repo": "redline",
    "url": "https://github.com/Pythondeveloper6/redline",
-   "sha": "1f11a00a778820e3dc1475fd1b89ef175681f579",
-   "licence": "MIT (LICENSE file at pin 1f11a00a7788, GitHub licence API 2026-11-23)",
+   "sha": "bd4e55d455e5a5769a49595546046ca21bb53717",
+   "licence": "MIT (LICENSE file at pin bd4e55d455e5, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T05:16Z",
     "consent_receipt": "3d18f44f32d0",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:16Z (receipt 3d18f44f32d0); pinned to the default-branch head. LICENSE file at pin 1f11a00a7788 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:16Z (receipt 3d18f44f32d0); pinned to the default-branch head. LICENSE file at pin bd4e55d455e5 detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]

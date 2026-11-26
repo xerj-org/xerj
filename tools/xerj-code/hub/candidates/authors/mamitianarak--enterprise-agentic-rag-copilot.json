@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how MamitianaRak/enterprise-agentic-rag-copilot implements it: MamitianaRak/enterprise-agentic-rag-copilot (Python) (selected work: app/core, tests, app/rag)",
+ "domain": "an agent working on agentic-rag, ai-agents, fastapi queries this for how MamitianaRak/enterprise-agentic-rag-copilot implements it: Multi-domain agentic RAG copilot (HR, IT support, CloudOps incidents): one LangGraph workflow per domain, cited and self-checked answers. Fa (selected work: app/core, tests, app/rag)",
  "repos": [
   {
    "repo": "enterprise-agentic-rag-copilot",
