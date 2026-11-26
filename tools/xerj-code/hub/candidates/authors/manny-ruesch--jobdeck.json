@@ -1,9 +1,9 @@
 {
- "corpus": "manny-ruesch--remote-job-hunter",
+ "corpus": "manny-ruesch--jobdeck",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agent, ai-job-search, applicant-tracking-system queries this for how manny-ruesch/remote-job-hunter implements it: Open-source AI job search agent & local Command Center: scan 51+ ATS boards, score offers (API or Zero-API-Key manual mode), tailor 1-page A (selected work: rjh, tests, dashboard)",
+ "domain": "an agent working on ats, fastapi, job-search queries this for how manny-ruesch/jobdeck implements it: Private local job-search command center: direct ATS scanning, anti-ghost detection, Zero-API-Key LLM scoring, and native ATS PDF resumes (selected work: rjh, tests, dashboard)",
  "repos": [
   {
    "repo": "remote-job-hunter",
