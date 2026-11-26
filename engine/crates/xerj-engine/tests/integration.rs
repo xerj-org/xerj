@@ -6874,6 +6874,202 @@ async fn builtin_english_default_survives_flush() {
 /// to the declared analyzer — the pre-fix split is preserved, the decision
 /// is recorded so it cannot flip later, and the memtable keeps the declared
 /// default exactly as pre-#937.
+
+// ── #3308: a per-field analyzer must be honoured, an unknown one rejected ──
+//
+// #937 fixed only the index-default rows: a per-field `analyzer` on a text
+// field was accepted, echoed back by `_mapping`, and never applied (the
+// segment writer, the memtable and the query projection all analysed with
+// the index default or `standard`), and an unknown analyzer name was
+// accepted at mapping time without an error.
+
+/// Schema helper: one text field carrying a per-field analyzer.
+fn per_field_analyzer_schema(field: &str, analyzer: &str) -> Schema {
+    let mut schema = Schema::empty();
+    let mut fc = FieldConfig::new(field, FieldType::Text);
+    fc.options.analyzer = Some(analyzer.to_string());
+    schema.add_field(fc).unwrap();
+    schema
+}
+
+/// Row A of #3308: `analyzer: english` on one text field stems that field
+/// before AND after a flush, while a sibling text field without one keeps
+/// the standard analysis; `_analyze` with the field returns stemmed tokens.
+#[tokio::test]
+async fn per_field_english_analyzer_survives_flush() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    let mut schema = per_field_analyzer_schema("title", "english");
+    schema
+        .add_field(FieldConfig::new("body", FieldType::Text))
+        .unwrap();
+    engine
+        .create_index_with_settings("pf_english", schema, Value::Null)
+        .unwrap();
+    let idx = engine.get_index("pf_english").unwrap();
+
+    let hits = |field: &str, q: &str| {
+        let idx = idx.clone();
+        let (field, q) = (field.to_string(), q.to_string());
+        async move {
+            idx.search(&make_search(json!({"match": {field: q}})))
+                .await
+                .unwrap()
+                .total
+                .value
+        }
+    };
+
+    idx.index_document(
+        Some("1".into()),
+        json!({ "title": "running dogs", "body": "running dogs" }),
+    )
+    .await
+    .unwrap();
+    // Memtable: `runs` stems to `run` on `title` only.
+    assert_eq!(hits("title", "runs").await, 1, "stemming before the flush");
+    assert_eq!(
+        hits("body", "runs").await,
+        0,
+        "the sibling field without a per-field analyzer keeps standard analysis"
+    );
+
+    // `_analyze` with the field runs the field's analyzer, not the default.
+    let (name, tokens) = idx
+        .analyze(None, Some("title"), "running dogs")
+        .await
+        .unwrap();
+    assert_eq!(name, "english", "_analyze names the field's analyzer");
+    let texts: Vec<&str> = tokens.iter().map(|t| t.text.as_str()).collect();
+    assert_eq!(
+        texts,
+        vec!["run", "dog"],
+        "_analyze stems with the field's analyzer"
+    );
+
+    idx.flush().await.unwrap();
+    // Pre-#3308 the segment was written and queried with `standard`, so
+    // `runs` stopped matching here.
+    assert_eq!(
+        hits("title", "runs").await,
+        1,
+        "stemming survives the flush"
+    );
+    assert_eq!(
+        hits("body", "runs").await,
+        0,
+        "the sibling field stays standard after the flush"
+    );
+
+    // A second document indexed AFTER the flush joins the stemmed space.
+    // Its `body` reads "running", not "runs": under the standard analysis
+    // the sibling keeps, `runs` still matches nothing there, which is what
+    // distinguishes the sibling staying standard from it being stemmed too.
+    idx.index_document(
+        Some("2".into()),
+        json!({ "title": "more runs here", "body": "more running here" }),
+    )
+    .await
+    .unwrap();
+    idx.flush().await.unwrap();
+    assert_eq!(
+        hits("title", "runs").await,
+        2,
+        "a document indexed after the flush is analysed with the field's analyzer too"
+    );
+    assert_eq!(hits("body", "runs").await, 0);
+}
+
+/// Row B of #3308: an unknown analyzer name is refused at create time,
+/// with a 400-class invalid-mapping error, instead of being accepted and
+/// echoed back by `_mapping`.
+#[tokio::test]
+async fn per_field_unknown_analyzer_rejected_at_create() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    let err = engine
+        .create_index_with_settings(
+            "pf_bad",
+            per_field_analyzer_schema("title", "nope"),
+            Value::Null,
+        )
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("unknown analyzer [nope]"),
+        "create must refuse an unknown per-field analyzer, got: {err}"
+    );
+}
+
+/// Row C of #3308: the same refusal on the mapping-update path
+/// (`PUT /{index}/_mapping` → `add_fields`).
+#[tokio::test]
+async fn per_field_unknown_analyzer_rejected_on_put_mapping() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine
+        .create_index_with_settings("pf_bad_put", Schema::empty(), Value::Null)
+        .unwrap();
+    let idx = engine.get_index("pf_bad_put").unwrap();
+    let mut bad = FieldConfig::new("title", FieldType::Text);
+    bad.options.analyzer = Some("nope".to_string());
+    let err = idx.add_fields(vec![bad]).await.unwrap_err();
+    assert!(
+        err.to_string().contains("unknown analyzer [nope]"),
+        "PUT _mapping must refuse an unknown per-field analyzer, got: {err}"
+    );
+}
+
+/// Control: with no per-field analyzer the index default still rules, and
+/// without either the field stays on `standard`.
+#[tokio::test]
+async fn per_field_absent_keeps_index_default() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    // Index default `english`, field without its own analyzer.
+    let settings = json!({
+        "analysis": { "analyzer": { "default": { "type": "english" } } }
+    });
+    let mut default_schema = Schema::empty();
+    default_schema
+        .add_field(FieldConfig::new("plain", FieldType::Text))
+        .unwrap();
+    engine
+        .create_index_with_settings("pf_default", default_schema, settings.clone())
+        .unwrap();
+    // A second index: no default, no per-field analyzer, so standard.
+    let mut plain_schema = Schema::empty();
+    plain_schema
+        .add_field(FieldConfig::new("t", FieldType::Text))
+        .unwrap();
+    engine
+        .create_index_with_settings("pf_standard", plain_schema, Value::Null)
+        .unwrap();
+
+    let idx = engine.get_index("pf_default").unwrap();
+    idx.index_document(Some("1".into()), json!({ "plain": "running dogs" }))
+        .await
+        .unwrap();
+    idx.flush().await.unwrap();
+    let hits = idx
+        .search(&make_search(json!({"match": {"plain": "runs"}})))
+        .await
+        .unwrap();
+    assert_eq!(hits.total.value, 1, "the index default still applies");
+
+    let idx2 = engine.get_index("pf_standard").unwrap();
+    idx2.index_document(Some("1".into()), json!({ "t": "running dogs" }))
+        .await
+        .unwrap();
+    idx2.flush().await.unwrap();
+    let hits2 = idx2
+        .search(&make_search(json!({"match": {"t": "runs"}})))
+        .await
+        .unwrap();
+    assert_eq!(
+        hits2.total.value, 0,
+        "with neither a per-field nor a default analyzer the field stays standard"
+    );
+}
 #[tokio::test]
 async fn pre_937_index_with_documents_keeps_its_standard_segments() {
     let dir = TempDir::new().unwrap();

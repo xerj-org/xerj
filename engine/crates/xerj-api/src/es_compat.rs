@@ -2391,6 +2391,45 @@ mod runtime_field_type_tests {
         );
     }
 
+    // #3308: an unknown per-field analyzer is refused at mapping time
+    // with a 400, not accepted and silently ignored.
+    #[tokio::test]
+    async fn create_index_rejects_unknown_per_field_analyzer_over_http() {
+        let router = crate::router::build_es_compat_router(test_state());
+        let response = router
+            .oneshot(
+                Request::put("/pf-unknown-analyzer")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({"mappings": {"properties": {
+                            "title": {"type": "text", "analyzer": "nope"}
+                        }}})
+                        .to_string(),
+                    ))
+                    .expect("request"),
+            )
+            .await
+            .expect("create response");
+        let status = response.status();
+        let bytes = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("response bytes");
+        let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "unknown per-field analyzer is rejected at mapping time; got {status} {body}"
+        );
+        assert_eq!(body["error"]["type"], "mapper_parsing_exception", "{body}");
+        assert!(
+            body["error"]["reason"]
+                .as_str()
+                .unwrap_or("")
+                .contains("unknown analyzer [nope]"),
+            "{body}"
+        );
+    }
+
     #[tokio::test]
     async fn create_index_warns_when_semantic_text_asks_for_another_embedder() {
         let router = crate::router::build_es_compat_router(test_state());
@@ -25941,6 +25980,30 @@ fn es_properties_to_fields(
             .and_then(Value::as_bool)
             .unwrap_or(true);
 
+        // #3308: `analyzer`: a per-field analyzer on a text field. The
+        // name was accepted and echoed back by `GET _mapping` since
+        // forever, but never read: the segment writer, the memtable and
+        // the query projection all analysed with the index default or
+        // `standard`. Record the declared name on the field so the engine
+        // can honour it. An unknown name is refused by the engine against
+        // the live registry (create / `PUT _mapping`), which is the only
+        // place the custom analyzers of this index exist, so this parser
+        // cannot know them yet.
+        //
+        // Only text fields take an analyzer. Other types keep the
+        // historical leniency: `token_count` legitimately declares one
+        // in ES and this build maps it to `Object`, so rejecting here
+        // would break the conformance suite for a type with no per-field
+        // analysis at all.
+        if let Some(analyzer) = field_def.get("analyzer") {
+            let name = analyzer.as_str().ok_or_else(|| {
+                format!("analyzer for field [{field_name}] must be a string, got {analyzer}")
+            })?;
+            if native_type == FieldType::Text {
+                fc.options.analyzer = Some(name.to_string());
+            }
+        }
+
         // Handle copy_to: store the target field in a special null_value marker.
         if let Some(copy_target) = field_def.get("copy_to").and_then(Value::as_str) {
             fc.options.null_value = Some(Value::String(format!("__copy_to__:{}", copy_target)));
@@ -27376,6 +27439,12 @@ pub fn schema_to_es_properties(schema: &Schema) -> serde_json::Map<String, Value
         // #3513: a keyword a dynamic template gave a normalizer.
         if let Some(n) = &field.options.normalizer {
             field_obj.insert("normalizer".to_string(), Value::String(n.name.clone()));
+        }
+        // #3308: render a declared per-field analyzer so a schema-derived
+        // mapping round-trips (explicit mappings are echoed from the stored
+        // blob instead, so they never needed this).
+        if let Some(a) = &field.options.analyzer {
+            field_obj.insert("analyzer".to_string(), Value::String(a.clone()));
         }
         if !field.fields.is_empty() {
             let sub_schema = Schema {
