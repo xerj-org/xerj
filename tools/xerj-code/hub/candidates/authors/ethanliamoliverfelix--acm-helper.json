@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how EthanLiamOliverFelix/ACM-Helper implements it: \u4e3aACMer\u6253\u9020\u7684\u4e00\u4f53\u5316\u5237\u9898\u5e73\u53f0\u3002 (selected work: src-tauri, src/stores, src/components)",
+ "domain": "an agent working on TypeScript queries this for how EthanLiamOliverFelix/ACM-Helper implements it: \u4e3aACMer\u6253\u9020\u7684\u4e00\u4f53\u5316\u5237\u9898\u5e73\u53f0\u3002 (selected work: src-tauri, src/stores, src/components)",
  "repos": [
   {
    "repo": "ACM-Helper",

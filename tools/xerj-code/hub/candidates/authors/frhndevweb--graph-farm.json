@@ -8,15 +8,15 @@
   {
    "repo": "graph-farm",
    "url": "https://github.com/frhndevweb/graph-farm",
-   "sha": "9af338f9f94dbaab9986fae0d3171264630e0f7a",
-   "licence": "MIT (LICENSE file at pin 9af338f9f94d, GitHub licence API 2026-11-26)",
+   "sha": "504118e62e6f16243a2453ad7a2fe3e5db8fdccb",
+   "licence": "MIT (LICENSE file at pin 504118e62e6f, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-16T00:56Z",
     "consent_receipt": "d920eb9a43f9",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt d920eb9a43f9); pinned to the default-branch head. LICENSE file at pin 9af338f9f94d detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt d920eb9a43f9); pinned to the default-branch head. LICENSE file at pin 504118e62e6f detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]

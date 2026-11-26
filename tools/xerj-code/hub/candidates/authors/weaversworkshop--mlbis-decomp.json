@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how weaversworkshop/mlbis-decomp implements it: Matching decompilation of Mario & Luigi: Bowser's Inside Story (NDS) (selected work: arm9, progress, tools)",
+ "domain": "an agent working on C queries this for how weaversworkshop/mlbis-decomp implements it: Matching decompilation of Mario & Luigi: Bowser's Inside Story (NDS) (selected work: arm9, progress, tools)",
  "repos": [
   {
    "repo": "mlbis-decomp",
