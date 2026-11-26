@@ -1,9 +1,9 @@
 {
- "corpus": "clawproject--theclawrepo",
+ "corpus": "auroratecno--theclawrepo",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on ai, bot, whatsapp queries this for how ClawProject/TheClawRepo implements it: The official Claw Repo (selected work: src, src/tools, the project root)",
+ "domain": "an agent working on ai, bot, whatsapp queries this for how AuroraTecno/TheClawRepo implements it: The official Claw Repo (selected work: src, src/tools, the project root)",
  "repos": [
   {
    "repo": "TheClawRepo",
