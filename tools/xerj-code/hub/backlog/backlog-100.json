@@ -13764,7 +13764,7 @@
   },
   {
    "cat": "AI",
-   "domain": "An agent building an AI study tutor queries this for long-term learner memory: tracking real study and mistake history, predicting forgetting (half-life or FSRS), syncing notes via Google Drive/Gmail without extra servers, and pulling read-only Anki progress.",
+   "domain": "An agent building an AI study tutor for exam prep queries this for long-term learner memory: tracking real study and mistake history, predicting forgetting (half-life or FSRS), syncing notes via Google Drive/Gmail without extra servers, and pulling read-only Anki progress.",
    "lane": "A",
    "refresh": "pinned",
    "slug": "wysking--postgrad-study-engine",
@@ -13781,10 +13781,11 @@
      "agents",
      "memory",
      "ai-tutor",
+     "exam-prep",
+     "kaoyan",
      "spaced-repetition",
      "fsrs",
-     "anki",
-     "python"
+     "anki"
     ]
    }
   },
