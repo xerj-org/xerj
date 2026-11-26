@@ -3226,6 +3226,88 @@ fn simple_glob_matches(pat: &[u8], txt: &[u8]) -> bool {
     p == pat.len()
 }
 
+/// Wall-clock ceiling for the Painless work one scripted bulk update item
+/// may do, mirroring the 30 s `_update` / `_update_by_query` budget in
+/// `xerj-api`. It bounds the item, not the whole bulk request: every
+/// statement in the script gets its own fresh slice without a deadline in
+/// scope, so one document would still be an unbounded amount of work.
+const SCRIPTED_BULK_UPDATE_BUDGET_MS: u64 = 30_000;
+
+/// Run one scripted `_bulk` `update` item (#3462).
+///
+/// Routes through `Index::transform_document_serialized`, the same
+/// publication-guarded path `_update` uses, so the script evaluates against
+/// the current source under the per-id write lock and a script fault is a
+/// per-item 400, never a silent 200 `noop`.
+///
+/// ES semantics carried over from `_update`: an existing document is
+/// mutated in place and answers `updated`, even when the script leaves the
+/// source unchanged (a scripted write is never a noop); a missing document
+/// with an upsert is created from that body, and with `scripted_upsert:
+/// true` the script runs over the body first; a missing document with no
+/// upsert is a per-item 404, as for a plain update. A `doc` in the same
+/// body is ignored while a script is present, exactly as `_update` ignores
+/// it.
+#[allow(clippy::too_many_arguments)]
+async fn execute_scripted_bulk_update(
+    idx: &crate::index::Index,
+    index: &str,
+    id: &str,
+    script_val: &Value,
+    doc: Option<Value>,
+    upsert: Option<Value>,
+    doc_as_upsert: bool,
+    scripted_upsert: bool,
+) -> Result<IndexResponse> {
+    let invalid =
+        |reason: String| crate::EngineError::Common(xerj_common::XerjError::invalid_query(reason));
+    let (src, params) = crate::update_script::extract_update_script(script_val);
+    if src.is_empty() {
+        return Err(invalid("script source is required".to_string()));
+    }
+    // The creation body for a missing document: `upsert`, or `doc` when
+    // `doc_as_upsert` is set, the same fallback `_update` applies.
+    let upsert_body = upsert.or_else(|| if doc_as_upsert { doc } else { None });
+    // `scripted_upsert: true` runs the script over the upsert body when the
+    // document is missing. Only pre-apply it when the document is actually
+    // missing: on an existing document the transform below runs the script
+    // against the stored source, and pre-applying here would evaluate it a
+    // second time and could fault on a body the request never uses.
+    let upsert_for_create = match idx.get_document(id).await? {
+        None if scripted_upsert => match upsert_body {
+            Some(mut seeded) => {
+                crate::update_script::apply_painless_update(&mut seeded, &src, &params)
+                    .map_err(invalid)?;
+                Some(seeded)
+            }
+            None => None,
+        },
+        _ => upsert_body,
+    };
+    let deadline = std::time::Instant::now()
+        + std::time::Duration::from_millis(SCRIPTED_BULK_UPDATE_BUDGET_MS);
+    let (transformed, fault) =
+        crate::painless::with_script_fault_capture(crate::painless::with_script_deadline(
+            deadline,
+            idx.transform_document_serialized(id, upsert_for_create, move |mut current| {
+                crate::update_script::apply_painless_update(&mut current, &src, &params)?;
+                Ok::<_, String>(current)
+            }),
+        ))
+        .await;
+    if let Some(reason) = fault {
+        return Err(invalid(reason));
+    }
+    match transformed {
+        Ok(Ok(Some(outcome))) => Ok(outcome.response),
+        Ok(Ok(None)) => Err(crate::EngineError::Common(
+            xerj_common::XerjError::document_not_found(id, index),
+        )),
+        Ok(Err(error)) => Err(invalid(error)),
+        Err(error) => Err(error),
+    }
+}
+
 // Per-item bulk execution needs all 8 pieces of action metadata (target,
 // id, body, CAS pair, routing); grouping them into a struct would just
 // reshuffle the same fields, so allow the arg count here.
@@ -3278,6 +3360,11 @@ async fn execute_bulk_action(
         }
         "update" => {
             // Partial update: merge `doc` fields into the existing document.
+            // A `script` body takes the scripted path instead (#3462): the
+            // same `transform_document_serialized` route `_update` uses, so
+            // a scripted bulk update mutates the document instead of
+            // answering a 200 `noop` with the script never evaluated. As in
+            // `_update`, a script wins over a `doc` in the same body.
             let idx = engine.get_or_create_index(index)?;
             let id = doc_id.ok_or_else(|| {
                 crate::EngineError::Common(xerj_common::XerjError::invalid_query(
@@ -3292,6 +3379,24 @@ async fn execute_bulk_action(
                 .get("doc_as_upsert")
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
+
+            if let Some(script_val) = body_val.get("script") {
+                let scripted_upsert = body_val
+                    .get("scripted_upsert")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                return execute_scripted_bulk_update(
+                    &idx,
+                    index,
+                    &id,
+                    script_val,
+                    partial,
+                    upsert,
+                    doc_as_upsert,
+                    scripted_upsert,
+                )
+                .await;
+            }
 
             match idx
                 .update_document_with_upsert(&id, partial, upsert, doc_as_upsert)
@@ -4236,6 +4341,161 @@ mod lone_surrogate_tests {
         let index = engine.get_index(name).unwrap();
         index.refresh().await.unwrap();
         assert_eq!(index.live_doc_count(), (TOTAL - bad_positions.len()) as u64);
+    }
+}
+
+#[cfg(test)]
+mod scripted_bulk_update_tests {
+    use super::*;
+    use tempfile::TempDir;
+    use xerj_common::config::Config;
+    use xerj_common::types::Schema;
+
+    fn scripted_engine(name: &str) -> (TempDir, Engine) {
+        let dir = TempDir::new().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = Engine::new(config).unwrap();
+        engine.create_index(name, Schema::empty()).unwrap();
+        (dir, engine)
+    }
+
+    async fn get_n(engine: &Engine, index: &str, id: &str) -> Option<i64> {
+        let idx = engine.get_index(index).unwrap();
+        idx.refresh().await.unwrap();
+        idx.get_document(id)
+            .await
+            .unwrap()
+            .and_then(|doc| doc.get("n").and_then(Value::as_i64))
+    }
+
+    /// Issue #3462: a `_bulk` `update` carrying `script` used to answer a
+    /// 200 `noop` with the script never evaluated and the document
+    /// unchanged. The script must run and the item must answer `updated`.
+    #[tokio::test]
+    async fn scripted_bulk_update_increments_existing_document() {
+        let name = "issue-3462-scripted-update";
+        let (_dir, engine) = scripted_engine(name);
+        let seed = format!("{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"1\"}}}}\n{{\"n\":1}}\n");
+        let seeded = process_bulk(&engine, None, &seed).await;
+        assert!(!seeded.errors);
+        assert_eq!(get_n(&engine, name, "1").await, Some(1));
+
+        let body = format!(
+            "{{\"update\":{{\"_index\":\"{name}\",\"_id\":\"1\"}}}}\n\
+             {{\"script\":{{\"source\":\"ctx._source.n += 1\",\"lang\":\"painless\"}}}}\n"
+        );
+        let result = process_bulk(&engine, None, &body).await;
+        assert!(!result.errors, "scripted update must not error: {result:?}");
+        assert_eq!(result.items.len(), 1);
+        assert_eq!(result.items[0].status, 200);
+        assert_eq!(result.items[0].result.as_deref(), Some("updated"));
+        assert_eq!(get_n(&engine, name, "1").await, Some(2));
+    }
+
+    /// A script the interpreter rejects is a per-item 400, not a silent
+    /// noop, and its neighbours in the same batch still run.
+    #[tokio::test]
+    async fn script_fault_is_a_per_item_error() {
+        let name = "issue-3462-script-fault";
+        let (_dir, engine) = scripted_engine(name);
+        let seed = format!(
+            "{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"1\"}}}}\n{{\"n\":1}}\n\
+             {{\"index\":{{\"_index\":\"{name}\",\"_id\":\"2\"}}}}\n{{\"n\":10}}\n"
+        );
+        assert!(!process_bulk(&engine, None, &seed).await.errors);
+
+        let body = format!(
+            "{{\"update\":{{\"_index\":\"{name}\",\"_id\":\"1\"}}}}\n\
+             {{\"script\":{{\"source\":\"nonsense();\",\"lang\":\"painless\"}}}}\n\
+             {{\"update\":{{\"_index\":\"{name}\",\"_id\":\"2\"}}}}\n\
+             {{\"script\":{{\"source\":\"ctx._source.n += 1\",\"lang\":\"painless\"}}}}\n"
+        );
+        let result = process_bulk(&engine, None, &body).await;
+        assert!(result.errors);
+        assert_eq!(result.items.len(), 2);
+        assert_eq!(result.items[0].status, 400);
+        assert!(
+            result.items[0]
+                .error
+                .as_deref()
+                .unwrap_or_default()
+                .contains("unsupported update script statement"),
+            "the per-item error should name the rejected statement: {:?}",
+            result.items[0].error,
+        );
+        assert_eq!(result.items[1].status, 200);
+        assert_eq!(result.items[1].result.as_deref(), Some("updated"));
+        assert_eq!(get_n(&engine, name, "1").await, Some(1));
+        assert_eq!(get_n(&engine, name, "2").await, Some(11));
+    }
+
+    /// `scripted_upsert: true` runs the script over the upsert body when
+    /// the document is missing, mirroring `_update`.
+    #[tokio::test]
+    async fn scripted_upsert_runs_script_over_upsert_on_missing_document() {
+        let name = "issue-3462-scripted-upsert";
+        let (_dir, engine) = scripted_engine(name);
+        let body = format!(
+            "{{\"update\":{{\"_index\":\"{name}\",\"_id\":\"9\"}}}}\n\
+             {{\"script\":{{\"source\":\"ctx._source.n += 1\",\"lang\":\"painless\"}},\
+             \"upsert\":{{\"n\":1}},\"scripted_upsert\":true}}\n"
+        );
+        let result = process_bulk(&engine, None, &body).await;
+        assert!(!result.errors, "scripted upsert must not error: {result:?}");
+        assert_eq!(result.items[0].status, 201);
+        assert_eq!(result.items[0].result.as_deref(), Some("created"));
+        assert_eq!(get_n(&engine, name, "9").await, Some(2));
+    }
+
+    /// The ES default (`scripted_upsert: false`) still creates the upsert
+    /// body as-is, without running the script over it.
+    #[tokio::test]
+    async fn upsert_without_scripted_upsert_is_created_unscripted() {
+        let name = "issue-3462-upsert-default";
+        let (_dir, engine) = scripted_engine(name);
+        let body = format!(
+            "{{\"update\":{{\"_index\":\"{name}\",\"_id\":\"9\"}}}}\n\
+             {{\"script\":{{\"source\":\"ctx._source.n += 1\",\"lang\":\"painless\"}},\
+             \"upsert\":{{\"n\":1}}}}\n"
+        );
+        let result = process_bulk(&engine, None, &body).await;
+        assert!(!result.errors, "upsert create must not error: {result:?}");
+        assert_eq!(result.items[0].status, 201);
+        assert_eq!(result.items[0].result.as_deref(), Some("created"));
+        assert_eq!(get_n(&engine, name, "9").await, Some(1));
+    }
+
+    /// A scripted update of a missing document with no upsert is a
+    /// per-item 404, as for a plain update.
+    #[tokio::test]
+    async fn scripted_update_of_missing_document_without_upsert_is_404() {
+        let name = "issue-3462-scripted-missing";
+        let (_dir, engine) = scripted_engine(name);
+        let body = format!(
+            "{{\"update\":{{\"_index\":\"{name}\",\"_id\":\"9\"}}}}\n\
+             {{\"script\":{{\"source\":\"ctx._source.n += 1\",\"lang\":\"painless\"}}}}\n"
+        );
+        let result = process_bulk(&engine, None, &body).await;
+        assert!(result.errors);
+        assert_eq!(result.items[0].status, 404);
+    }
+
+    /// An empty script source is a per-item 400, not a noop.
+    #[tokio::test]
+    async fn empty_script_source_is_a_per_item_error() {
+        let name = "issue-3462-empty-script";
+        let (_dir, engine) = scripted_engine(name);
+        let seed = format!("{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"1\"}}}}\n{{\"n\":1}}\n");
+        assert!(!process_bulk(&engine, None, &seed).await.errors);
+        let body = format!(
+            "{{\"update\":{{\"_index\":\"{name}\",\"_id\":\"1\"}}}}\n\
+             {{\"script\":{{\"source\":\"  \",\"lang\":\"painless\"}}}}\n"
+        );
+        let result = process_bulk(&engine, None, &body).await;
+        assert!(result.errors);
+        assert_eq!(result.items[0].status, 400);
+        assert_eq!(get_n(&engine, name, "1").await, Some(1));
     }
 }
 
