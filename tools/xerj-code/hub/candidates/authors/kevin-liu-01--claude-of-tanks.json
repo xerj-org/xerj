@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on 3d-game, browser-game, claude queries this for how Kevin-Liu-01/Claude-of-Tanks implements it: A World of Tanks-style armored combat simulator built directly with Three.js and Vite: 311 vehicles, 33 destructible battlefields, and 14 mo (selected work: src/ui, tools)",
+ "domain": "an agent working on 3d-game, browser-game, claude queries this for how Kevin-Liu-01/Claude-of-Tanks implements it: A World of Tanks-style armored combat simulator built directly with Three.js and Vite: 311 vehicles, 33 destructible battlefields, and 15 mo (selected work: src/ui, tools)",
  "repos": [
   {
    "repo": "Claude-of-Tanks",

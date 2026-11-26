@@ -2,8 +2,8 @@
  "corpus": "seraphinadx--ansichat",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Go queries this for how SeraphinaDX/AnsiChat implements it: SeraphinaDX/AnsiChat (Go) (selected work: internal/sysinfo, cmd/copperline-gui, internal/version)",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how SeraphinaDX/AnsiChat implements it: AnsiChat is a modern terminal IRC client written in Go. It combines an old-school chat protocol with a comfortable TUI, including mouse supp (selected work: internal/sysinfo, cmd/copperline-gui, internal/version)",
  "repos": [
   {
    "repo": "AnsiChat",

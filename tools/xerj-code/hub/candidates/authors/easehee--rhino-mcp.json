@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on archtecture queries this for how EaseHee/rhino-mcp implements it: MCP Server for Rhino and Grasshopper (selected work: src/rhino_mcp, tests, rhino_plugin)",
+ "domain": "an agent working on Python queries this for how EaseHee/rhino-mcp implements it: MCP Server for Rhino and Grasshopper (selected work: src/rhino_mcp, tests, rhino_plugin)",
  "repos": [
   {
    "repo": "rhino-mcp",

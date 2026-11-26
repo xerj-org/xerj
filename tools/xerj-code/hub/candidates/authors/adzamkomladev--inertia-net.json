@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on aspnetcore, dotnet, fastendpoints queries this for how adzamkomladev/Inertia.Net implements it: Inertia.js v3 server adapter for ASP.NET Core (.NET 10): Minimal APIs, MVC and FastEndpoints. Native AOT ready (selected work: tests, src/Inertia.Net, the project root)",
+ "domain": "an agent working on aspnetcore, dotnet, fastendpoints queries this for how adzamkomladev/Inertia.Net implements it: Inertia.js v3 server adapter for ASP.NET Core on .NET 10 and .NET 11. Ship React, Vue or Svelte views from Minimal APIs, MVC or FastEndpoint (selected work: tests, src/Inertia.Net, the project root)",
  "repos": [
   {
    "repo": "Inertia.Net",
