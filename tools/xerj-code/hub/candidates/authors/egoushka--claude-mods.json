@@ -8,15 +8,15 @@
   {
    "repo": "claude-mods",
    "url": "https://github.com/Egoushka/claude-mods",
-   "sha": "cc353e8de89990df0e2b6a1d0112f381ef06b572",
-   "licence": "MIT (LICENSE file at pin cc353e8de899, GitHub licence API 2026-11-25)",
+   "sha": "0e0c342188050dc30feb123a1869419b8d80a222",
+   "licence": "MIT (LICENSE file at pin 0e0c34218805, GitHub licence API 2026-11-26)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "3602fbabe3ce",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 3602fbabe3ce); pinned to the default-branch head. LICENSE file at pin cc353e8de899 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 3602fbabe3ce); pinned to the default-branch head. LICENSE file at pin 0e0c34218805 detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
    }
   }
  ]

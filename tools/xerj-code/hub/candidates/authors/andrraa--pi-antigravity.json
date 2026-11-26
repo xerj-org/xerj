@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agent, antigravity, claude queries this for how andrraa/pi-antigravity implements it: Multi-account Antigravity & Google Cloud Code provider extension for Pi Coding Agent (selected work: test, src/account, the project root)",
+ "domain": "an agent working on antigravity, multi-account, pi-coding-agent queries this for how andrraa/pi-antigravity implements it: Multi-account Antigravity and Google Cloud Code provider extension for Pi Coding Agent (selected work: test, src/account, the project root)",
  "repos": [
   {
    "repo": "pi-antigravity",

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-os, linux, skill queries this for how agentic-os-org/ANOLISA implements it: ANOLISA (Agentic Nexus Operating Layer & Interface System Architecture) | Agentic OS with runtime, security, observability, and Tokenless re (selected work: src/agentsight)",
+ "domain": "an agent working on agentic-os, linux, skill queries this for how agentic-os-org/ANOLISA implements it: ANOLISA (Agentic Nexus Operating Layer & Interface System Architecture) | Agentic OS with runtime, security, observability, and Tokenless re (selected work: src/tokenless)",
  "repos": [
   {
    "repo": "ANOLISA",
    "url": "https://github.com/agentic-os-org/ANOLISA",
-   "sha": "c54e33c7b4bb30204a59cb07f73da6884862bff5",
-   "licence": "Apache-2.0 (LICENSE file at pin c54e33c7b4bb, GitHub licence API 2026-10-24)",
+   "sha": "29ac681011bb74e7e7408cdfc28a5efbe6ee5220",
+   "licence": "Apache-2.0 (LICENSE file at pin 29ac681011bb, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-15T01:54Z",
-    "consent_receipt": "e2713df9c57b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T01:54Z (receipt e2713df9c57b); selected commit c54e33c7b4bb: \"feat(sight): default the dashboard to Agent Health\". LICENSE file at pin c54e33c7b4bb detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @agentic-os-org, who has not added it."
+    "at": "2026-10-24T02:58Z",
+    "consent_receipt": "c29e42ffdc15",
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T02:58Z (receipt c29e42ffdc15); selected commit 29ac681011bb: \"fix(tokenless)!: replace live OpenClaw output\". LICENSE file at pin 29ac681011bb detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @agentic-os-org, who has not added it."
    },
    "paths": [
     "docs/user-guide/en/token-saving/tokenless",
