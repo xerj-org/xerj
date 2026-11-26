@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how promptingcompany/clay-bench implements it: A benchmark for AI coding agents on go-to-market data tasks with Clay (selected work: tasks, the project root)",
+ "domain": "an agent working on benchmark, clay, harbor queries this for how promptingcompany/clay-bench implements it: A benchmark for AI coding agents on go-to-market data tasks with Clay (selected work: tasks, the project root)",
  "repos": [
   {
    "repo": "clay-bench",

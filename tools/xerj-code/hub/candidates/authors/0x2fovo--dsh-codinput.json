@@ -1,9 +1,9 @@
 {
- "corpus": "witherwithwinter--dsh-codinput",
+ "corpus": "0x2fovo--dsh-codinput",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on codemirror, codemirror6, deepseek queries this for how Witherwithwinter/DSH-Codinput implements it: \u628a DeepSeek Harness \u7684\u804a\u5929\u8f93\u5165\u6846\uff0c\u6362\u6210\u7f16\u8f91\u5668\u5f0f\u7684\u8f93\u5165\u9762\u677f\u3002| An editor-style input panel, right where the DeepSeek Harness chat composer used to be (selected work: src/client, lib, the project root)",
+ "domain": "an agent working on codemirror, codemirror6, deepseek queries this for how 0x2fovo/DSH-Codinput implements it: \u628a DeepSeek Harness \u7684\u804a\u5929\u8f93\u5165\u6846\uff0c\u6362\u6210\u7f16\u8f91\u5668\u5f0f\u7684\u8f93\u5165\u9762\u677f\u3002| An editor-style input panel, right where the DeepSeek Harness chat composer used to be (selected work: src/client, lib, the project root)",
  "repos": [
   {
    "repo": "DSH-Codinput",

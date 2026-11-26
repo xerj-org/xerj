@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on hangul, input-method, korean queries this for how uiwwsw/virtual-keyboard implements it: A React virtual keyboard with Hangul composition, English input, custom keypads and native input selection (selected work: src, src/components, scripts)",
+ "domain": "an agent working on hangul, input-method, korean queries this for how uiwwsw/virtual-keyboard implements it: React on-screen keyboard component: Korean two-set composition via es-hangul, English, number and phone keypads, custom layouts (selected work: src, src/components, scripts)",
  "repos": [
   {
    "repo": "virtual-keyboard",
