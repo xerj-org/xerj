@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-ai, ai-agent, monaw queries this for how kailiang0120/monaw implements it: Open-source AI desktop assistant for Windows with computer use, browser automation, MCP tools, local memory, and scheduled tasks. Supports C (selected work: backend)",
+ "domain": "an agent working on agentic-ai, ai-agent, monaw queries this for how kailiang0120/monaw implements it: An Open-source AI Agent for Windows. An alternative of Codex, Antigravity, etc (selected work: backend)",
  "repos": [
   {
    "repo": "monaw",

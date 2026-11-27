@@ -8,15 +8,15 @@
   {
    "repo": "adva-wiki",
    "url": "https://github.com/mountain/adva-wiki",
-   "sha": "1def4ac2be4b1956c8f6ea26979ac605ece0111d",
-   "licence": "author's permission (LICENSE at pin 1def4ac2be4b: NONE; repository: none)",
+   "sha": "2126339b4ff660958c7480bdf93da6d92ebe50c4",
+   "licence": "author's permission (LICENSE at pin 2126339b4ff6: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T11:31Z",
     "consent_receipt": "d0e141fffaf4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt d0e141fffaf4); pinned to the default-branch head. LICENSE at pin 1def4ac2be4b: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt d0e141fffaf4); pinned to the default-branch head. LICENSE at pin 2126339b4ff6: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

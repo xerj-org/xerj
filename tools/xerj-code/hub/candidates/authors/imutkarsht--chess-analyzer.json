@@ -8,15 +8,15 @@
   {
    "repo": "Chess_analyzer",
    "url": "https://github.com/imutkarsht/Chess_analyzer",
-   "sha": "e0f5fee1b6d550cd6168dda40ec9de8021739463",
-   "licence": "GPL-3.0 (LICENSE file at pin e0f5fee1b6d5, GitHub licence API 2026-11-26)",
+   "sha": "a7909245951d59b8de59b6bfa8983a8973550461",
+   "licence": "GPL-3.0 (LICENSE file at pin a7909245951d, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-07T01:20Z",
     "consent_receipt": "d68582defba9",
-    "note": "Inclusion consented by the commit author by email at 2026-11-07T01:20Z (receipt d68582defba9); selected commit e0f5fee1b6d5: \"refactor(accuracy): rewrite accuracy maths as an original implementation\". LICENSE file at pin e0f5fee1b6d5 detected as GPL-3.0 by the GitHub licence API on 2026-11-26; used under that licence with attribution. Pinned to head e0f5fee1b6d5 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T01:20Z (receipt d68582defba9); selected commit a7909245951d: \"refactor(accuracy): rewrite accuracy maths as an original implementation\". LICENSE file at pin a7909245951d detected as GPL-3.0 by the GitHub licence API on 2026-11-27; used under that licence with attribution. Pinned to head a7909245951d (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

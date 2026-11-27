@@ -2,8 +2,8 @@
  "corpus": "saadshabir--ztap",
  "cloned_at": null,
  "status": "draft",
- "shelf": "OPS",
- "domain": "an agent working on container-networking, ebpf, golang queries this for how saadshabir/ZTAP implements it: Experimental Linux node agent for Kubernetes NetworkPolicy enforcement using per-container eBPF, with offline policy validation and live flo (selected work: tools, the project root)",
+ "shelf": "NET",
+ "domain": "an agent working on container-networking, ebpf, golang queries this for how saadshabir/ZTAP implements it: Experimental Linux node agent that uses per-container eBPF to enforce Kubernetes NetworkPolicy rules for IPv4 TCP and UDP traffic. Exports a (selected work: tools, the project root)",
  "repos": [
   {
    "repo": "ZTAP",

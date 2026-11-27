@@ -8,15 +8,15 @@
   {
    "repo": "ping",
    "url": "https://github.com/chrj/ping",
-   "sha": "499d8ba349d1ff7ca5f60de2016a8bd2fb4ffd0a",
-   "licence": "MIT (LICENSE file at pin 499d8ba349d1, GitHub licence API 2026-11-12)",
+   "sha": "8d9ea1a8e5b7c05791658e21df6f8d3c10abf9de",
+   "licence": "MIT (LICENSE file at pin 8d9ea1a8e5b7, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T22:51Z",
     "consent_receipt": "20943afde081",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 20943afde081); pinned to the default-branch head. LICENSE file at pin 499d8ba349d1 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 20943afde081); pinned to the default-branch head. LICENSE file at pin 8d9ea1a8e5b7 detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution."
    }
   }
  ]
