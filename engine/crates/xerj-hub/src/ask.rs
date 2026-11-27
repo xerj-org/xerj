@@ -116,8 +116,8 @@ const NO_HOSTED_CLIENT: &str =
 const DEFAULT_K: usize = def::DEFAULT_K;
 /// Characters of a passage a How answer keeps (the `xerj code` default).
 const PASSAGE_WIDTH: usize = 800;
-/// Distinct files a Files answer lists at most.
-const FILES_K: usize = 10;
+/// Distinct files a Files answer lists at most (also the MCP hub-first default).
+pub const FILES_K: usize = 10;
 
 // ── request / outcome types ──────────────────────────────────────────────────
 
@@ -444,12 +444,10 @@ pub fn printable(s: &str) -> String {
     out.trim().to_string()
 }
 
-/// `approach-only licence (<spdx>): read, do not copy`.
+/// `approach-only licence (<spdx>): read, do not copy`
+/// ([`xerj_common::hub::approach_only_warning`]).
 pub fn approach_only_warning(spdx: &str) -> String {
-    format!(
-        "approach-only licence ({}): read, do not copy",
-        if spdx.is_empty() { "unknown" } else { spdx }
-    )
+    xerj_common::hub::approach_only_warning(spdx)
 }
 
 fn push_unique(list: &mut Vec<String>, line: String) {

@@ -43,6 +43,12 @@
 //!   returns
 //! - [`hub`]     — Corpus Hub v2 shared types: the catalogue, pack manifest,
 //!   definition record, and the [`hub::Answer`] every surface renders (#1374)
+//! - [`flock`]   — the cross-process advisory file lock the hub takes (node
+//!   start, `xerj hub pull`, the MCP hub cache)
+//! - [`hub_client_cache`] — the client/cache library for a hub-first MCP
+//!   runtime (#2760, #2769): signature- and digest-verified `.hubpack.tar.zst`
+//!   archives in a bounded, cross-process-locked disk cache. `xerj mcp`'s hub
+//!   tools use it when `XERJ_HUB_CACHE_DIR` is set and no node answers
 
 pub mod argv;
 pub mod calibration;
@@ -56,9 +62,11 @@ pub mod error;
 pub mod feedback;
 pub mod field_coercion;
 pub mod field_report;
+pub mod flock;
 pub mod fsio;
 pub mod home;
 pub mod hub;
+pub mod hub_client_cache;
 pub mod hub_evidence;
 pub mod localauth;
 pub mod localnode;

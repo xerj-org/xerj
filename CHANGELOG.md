@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `xerj mcp` answers hub questions with no node running (Refs #2760, #2769).
+  **Opt-in:** set `XERJ_HUB_CACHE_DIR` (or `--hub-cache-dir <DIR>`, an absolute
+  path). With it set and no node answering at the proxied URL, `xerj_hub_def`,
+  `xerj_hub_find` and `xerj_hub_ask` (definition or file-list question that
+  names a `corpus`) fetch the signed hub catalogue and the signed
+  `.hubpack.tar.zst` pack once (at most 50 MB, `XERJ_HUB_URL`, default
+  `https://hub.xerj.org`), verify them (sha256 against the catalogue, ed25519
+  signature against the hub key, `SHA256SUMS`, format version) and keep them in a
+  bounded LRU disk cache; the next call for the corpus is served from disk, and
+  every answer reports which (`_meta["xerj.org/hub_first"]`:
+  `cache_outcome`, `network_fetches`, `disk_hits`). Unknown corpus, an
+  unsupported catalogue or pack format, a tampered pack, a rolled-back catalogue
+  and an unreachable hub are tool errors, never an empty answer. With a node
+  answering, or with the setting unset, the hub tools run the `xerj ask` flow
+  exactly as before and a tool call still never downloads. Passage (`how`)
+  questions and a `xerj_hub_ask` with no `corpus` stay with that flow. See
+  `docs/mcp-hub-mode.md`; the end-to-end test is
+  `engine/crates/xerj-mcp/tests/hub_no_node_e2e.rs`.
+- Add `xerj_common::hub_client_cache`, the library behind it: a verified,
+  bounded disk cache for the signed hub catalogue and real `.hubpack.tar.zst`
+  packs, with a default budget of `DISK_BUDGET_BYTES`. A stale or damaged entry
+  is re-fetched, an index shared by several processes is updated under the
+  `cache.lock` file lock, and node-free answers (definition lookup and file
+  list) are capped at `max_hits`. The cross-process file lock moves from
+  `xerj-hub` to `xerj_common::flock` so both share it; its behaviour is
+  unchanged.
+
 ## [1.0.0-rc.105] - 2026-11-23
 
 <!-- notes-exempt: #3341 #3343 (CLA signatures, .contributors only) -->

@@ -44,7 +44,7 @@
 //! | `xerj_corpus_feedback` | `POST /api/corpus-feedback` (hub.xerj.org) | rate a hub corpus after using it (its Agent score); sends by default; `xerj_hub_ask` / `xerj_hub_def` also send an automatic review |
 //! | `xerj_map`             | `POST /autoindex-catalog/_search`     | per-index field map from the autoindex catalog (#1055) |
 //! | `xerj_sources`         | `GET/PUT/DELETE /_xerj/sources/{name}` | live database sources: list, status, connect (snapshot then real-time stream), delete |
-//! | `xerj_hub_find` / `xerj_hub_def` / `xerj_hub_ask` | the `xerj ask` flow (`src/hub.rs`) | which hub corpus answers; one definition; one question — from local packs, never downloading |
+//! | `xerj_hub_find` / `xerj_hub_def` / `xerj_hub_ask` | the `xerj ask` flow (`src/hub.rs`); with `XERJ_HUB_CACHE_DIR` and no node, the hub disk cache (`src/hub/first.rs`) | which hub corpus answers; one definition; one question — from local packs, never downloading unless that cache is turned on |
 //!
 //! ## Honesty notes (must match the engine, never oversell)
 //!
@@ -76,6 +76,12 @@
 //!   `http://localhost:9200`.
 //! * `XERJ_AUTH` — optional; if set, sent verbatim as the `Authorization`
 //!   header on every proxied request (e.g. `ApiKey <token>`).
+//! * `XERJ_HUB_CACHE_DIR` — optional; an absolute directory that turns on
+//!   hub-first mode (#2760): with no node answering at `XERJ_URL`, the
+//!   `xerj_hub_*` tools answer through a bounded disk cache of the signed hub
+//!   catalogue and packs, fetched from `XERJ_HUB_URL` (default
+//!   `https://hub.xerj.org`) once. Flag form: `--hub-cache-dir`. Unset, the hub
+//!   tools never download.
 //!
 //! When neither `XERJ_AUTH` nor `--auth` is given **and** the target is
 //! loopback, the server falls back to the admin key a local node wrote for
@@ -183,6 +189,14 @@ OPTIONS:
                     or the port a local node recorded when :9200 is closed.
     --no-autostart  Do not start the local node when nothing answers at a
                     loopback URL. Env: XERJ_NO_AUTOSTART=1
+    --hub-cache-dir <DIR>
+                    Hub-first mode: with no node answering at the URL above,
+                    xerj_hub_find, xerj_hub_def and xerj_hub_ask (def/files
+                    with a corpus) fetch the signed hub catalogue and pack once
+                    (at most 50 MB) into this bounded disk cache and answer
+                    from it; a node that answers is used as before. Absolute
+                    path. Off by default: hub tools never download.
+                    Env: XERJ_HUB_CACHE_DIR (the hub: XERJ_HUB_URL)
     --auth <VALUE>  Authorization header sent verbatim on every proxied
                     request (e.g. 'ApiKey <token>'). Overrides XERJ_AUTH.
     --http          Serve MCP over Streamable HTTP (spec 2025-06-18) instead
@@ -219,6 +233,8 @@ ENVIRONMENT:
     XERJ_URL        Same as --url
     XERJ_AUTH       Same as --auth
     XERJ_NO_AUTOSTART=1  Same as --no-autostart
+    XERJ_HUB_CACHE_DIR  Same as --hub-cache-dir
+    XERJ_HUB_URL    The hub the hub tools fetch from. Default https://hub.xerj.org
     XERJ_MCP_TOKEN  Bearer token for --http (--token-file wins)
 
 MCP CLIENT CONFIG (Claude Desktop, IDE agents, any mcpServers-shaped config):
@@ -322,7 +338,10 @@ fn tools_paragraph(include_hub: bool) -> String {
              this machine (a tool call never downloads one; it names the `xerj hub pull`\n\
              line instead), from the catalogue already cached (never fetched; with none\n\
              cached they say to run `xerj hub sync`). Like `xerj ask`, they use the node above when it answers and\n\
-             otherwise the automatic hub node.\n",
+             otherwise the automatic hub node. The one exception is opt-in: with\n\
+             --hub-cache-dir set and no node answering, a definition or file-list\n\
+             question is answered through a bounded, verified disk cache that fetches the\n\
+             signed catalogue and pack once.\n",
             n = hub.len(),
             list = hub.join(", "),
         ));
@@ -389,6 +408,7 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
     let mut token_file: Option<String> = None;
     let mut allow_writes = false;
     let mut allowed_origins: Vec<String> = Vec::new();
+    let mut hub_cache_dir: Option<String> = None;
 
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -405,6 +425,13 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
             "-V" | "--version" => {
                 println!("xerj-mcp {}", env!("CARGO_PKG_VERSION"));
                 return Ok(());
+            }
+            "--hub-cache-dir" => {
+                hub_cache_dir = Some(
+                    it.next()
+                        .ok_or_else(|| anyhow::anyhow!("--hub-cache-dir requires a directory"))?
+                        .clone(),
+                );
             }
             "--url" => {
                 url_override = Some(
@@ -464,6 +491,8 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
             }
         }
     }
+    // Hub-first mode (#2760): a setting that cannot work stops the server here.
+    hub::configure(hub_cache_dir)?;
     let http_setup = if http_mode {
         let addr: std::net::SocketAddr = bind
             .as_deref()

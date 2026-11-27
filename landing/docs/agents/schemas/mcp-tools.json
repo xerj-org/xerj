@@ -1122,7 +1122,7 @@
     },
     {
       "name": "xerj_hub_find",
-      "description": "Discover which hub corpora can answer a question. Each candidate names the upstream repo (owner/name) and a one-line description of what that pack is, plus its pin, licence and whether the pack is already on this machine — not passages; ask one with xerj_hub_ask. A query that names a different project of the same slug (fabric.js vs the pack's repo) is reported as a different project instead of a silent match. A question that names a project no corpus covers is no_coverage (index it locally with xerj autoindex, then xerj code or xerj search); that is not an ambiguous tie. Routed exactly as `xerj ask` routes: your project's dependencies, the signed catalogue's term sketches, and the exact symbol a definition question names (offline: reads the catalogue `xerj hub sync` cached and never fetches it; this build has no hosted search). Excluded-licence corpora are never listed.",
+      "description": "Discover which hub corpora can answer a question. Each candidate names the upstream repo (owner/name) and a one-line description of what that pack is, plus its pin, licence and whether the pack is already on this machine — not passages; ask one with xerj_hub_ask. A query that names a different project of the same slug (fabric.js vs the pack's repo) is reported as a different project instead of a silent match. A question that names a project no corpus covers is no_coverage (index it locally with xerj autoindex, then xerj code or xerj search); that is not an ambiguous tie. Routed exactly as `xerj ask` routes: your project's dependencies, the signed catalogue's term sketches, and the exact symbol a definition question names (offline: reads the catalogue `xerj hub sync` cached and never fetches it, unless the operator set XERJ_HUB_CACHE_DIR and no node is reachable: then it reads the signed catalogue from that cache and fetches it when missing or a day old; this build has no hosted search). Excluded-licence corpora are never listed.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1144,7 +1144,7 @@
     },
     {
       "name": "xerj_hub_def",
-      "description": "Look up one definition in a named hub corpus: its kind, signature, file:line, and the literal value for a const/macro/define. Returns an Answer in def mode (no passages). Same as `xerj ask --corpus <slug> --def <SYMBOL>`: answered from the local pack; a corpus not on this machine is never downloaded by this tool — the answer says which `xerj hub pull` line fetches it. Approach-only corpora carry a read-do-not-copy warning on every hit.",
+      "description": "Look up one definition in a named hub corpus: its kind, signature, file:line, and the literal value for a const/macro/define. Returns an Answer in def mode (no passages). Same as `xerj ask --corpus <slug> --def <SYMBOL>`: answered from the local pack; a corpus not on this machine is never downloaded by this tool — the answer says which `xerj hub pull` line fetches it — unless the operator set XERJ_HUB_CACHE_DIR and no node is reachable: then the signed pack (at most 50 MB) is fetched once into that bounded disk cache and later calls are answered from disk. Approach-only corpora carry a read-do-not-copy warning on every hit.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1198,7 +1198,7 @@
     },
     {
       "name": "xerj_hub_ask",
-      "description": "Ask a hub corpus a question in one turn — no clone, no local indexing. Local packs first, hosted second, exactly like `xerj ask`. The corpus is optional (routed by the offline sketch when omitted) and is always named in the answer; when more than one corpus fits, the candidates come back and you re-ask with `corpus`. When no corpus covers the topic, the result says so and points at local indexing instead of asking you to pick a corpus. Never downloads a pack: a corpus not on this machine is answered with the `xerj hub pull` line to run, and never fetches the catalogue: with none cached it says to run `xerj hub sync`. Result text is the hub rendering (corpus, pin date, licence, file:line); structured content is the Answer JSON.",
+      "description": "Ask a hub corpus a question in one turn — no clone, no local indexing. Local packs first, hosted second, exactly like `xerj ask`. The corpus is optional (routed by the offline sketch when omitted) and is always named in the answer; when more than one corpus fits, the candidates come back and you re-ask with `corpus`. When no corpus covers the topic, the result says so and points at local indexing instead of asking you to pick a corpus. Never downloads a pack: a corpus not on this machine is answered with the `xerj hub pull` line to run, and never fetches the catalogue: with none cached it says to run `xerj hub sync`. The one exception is set by the operator: with XERJ_HUB_CACHE_DIR set and no node reachable, a def or files question that names `corpus` fetches the signed pack once into a bounded disk cache and is answered from it (a files question filters by path fragment there); passage questions still need a node. Result text is the hub rendering (corpus, pin date, licence, file:line); structured content is the Answer JSON.",
       "inputSchema": {
         "type": "object",
         "properties": {

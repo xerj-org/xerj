@@ -17,18 +17,26 @@
 //! The tool result text is the §1 rendering with the flow's notices on top (MCP
 //! has no stderr); the structured content is the [`xerj_hub::Answer`] JSON.
 //!
-//! One difference, on purpose: a tool call never downloads a pack. The flow
-//! runs with `no_fetch`, so a corpus that is not on this machine is answered
-//! with the `xerj hub pull <slug>` line instead — a tool call cannot start a
-//! download, and so cannot trigger the pull's least-recently-used eviction (a
-//! delete) behind an agent's back. Excluded corpora are never pulled or served
-//! by the flow itself; approach-only answers carry the licence warning on every
-//! hit.
+//! One difference, on purpose: by default a tool call never downloads a pack.
+//! The flow runs with `no_fetch`, so a corpus that is not on this machine is
+//! answered with the `xerj hub pull <slug>` line instead — a tool call cannot
+//! start a download, and so cannot trigger the pull's least-recently-used
+//! eviction (a delete) behind an agent's back. Excluded corpora are never
+//! pulled or served by the flow itself; approach-only answers carry the licence
+//! warning on every hit.
 //!
 //! Nor does a tool call fetch the catalogue: the tools read the copy `xerj hub
 //! sync` (or any CLI `xerj ask` / `xerj hub pull`) cached, however old, and
 //! never block on the hub's 10 s/30 s fetch timeouts inside an agent's turn.
 //! With no cached copy the tool says to run `xerj hub sync`.
+//!
+//! The one exception is opt-in (#2760): with `XERJ_HUB_CACHE_DIR` (or
+//! `--hub-cache-dir`) set and no node reachable, [`first`] answers a definition
+//! or file-list question through the bounded, verified hub disk cache,
+//! fetching the signed catalogue and pack once. Without that setting, or with
+//! a node answering, nothing in [`first`] runs.
+
+mod first;
 
 use serde_json::{json, Value};
 use xerj_common::hub_evidence::AnswerEvidence;
@@ -38,6 +46,33 @@ use xerj_hub::ask::{
 use xerj_hub::node::NodeLauncher;
 
 use crate::{tool_text, Ctx};
+
+/// Apply `--hub-cache-dir` (when given) and check the hub-first configuration
+/// the environment names, so a setting that cannot work stops the server at
+/// startup instead of failing every tool call. Says on stderr when hub-first
+/// mode is on.
+pub(crate) fn configure(flag: Option<String>) -> anyhow::Result<()> {
+    if let Some(dir) = flag {
+        first::set_cache_dir_flag(&dir);
+    }
+    if let Some(cfg) = first::Config::from_process().map_err(anyhow::Error::msg)? {
+        if crate::hub_tools_served() {
+            eprintln!(
+                "xerj-mcp: hub-first mode is on: with no node answering at the proxied URL, \
+                 xerj_hub_find/def/ask answer through the hub disk cache at {} (hub: {})",
+                cfg.cache_dir.display(),
+                cfg.hub_url
+            );
+        } else {
+            eprintln!(
+                "xerj-mcp: {} is set, but this build has no hub signing key, so the xerj_hub_* \
+                 tools are not served",
+                first::CACHE_DIR_ENV
+            );
+        }
+    }
+    Ok(())
+}
 
 /// The longest question or symbol a tool takes — the hosted routes' limit.
 pub const MAX_INPUT_BYTES: usize = 512;
@@ -61,7 +96,9 @@ pub fn specs() -> Vec<Value> {
                  (index it locally with xerj autoindex, then xerj code or xerj search); that is not \
                  an ambiguous tie. Routed exactly as `xerj ask` routes: your project's dependencies, ",
                 "the signed catalogue's term sketches, and the exact symbol a definition question ",
-                "names (offline: reads the catalogue `xerj hub sync` cached and never fetches it; ",
+                "names (offline: reads the catalogue `xerj hub sync` cached and never fetches it, ",
+                "unless the operator set XERJ_HUB_CACHE_DIR and no node is reachable: then it reads ",
+                "the signed catalogue from that cache and fetches it when missing or a day old; ",
                 "this build has no hosted search). Excluded-licence corpora are never listed."),
             "inputSchema": {
                 "type": "object",
@@ -89,7 +126,10 @@ pub fn specs() -> Vec<Value> {
                 "the literal value for a const/macro/define. Returns an Answer in def mode (no ",
                 "passages). Same as `xerj ask --corpus <slug> --def <SYMBOL>`: answered from the ",
                 "local pack; a corpus not on this machine is never downloaded by this tool — the ",
-                "answer says which `xerj hub pull` line fetches it. Approach-only corpora carry a ",
+                "answer says which `xerj hub pull` line fetches it — unless the operator set ",
+                "XERJ_HUB_CACHE_DIR and no node is reachable: then the signed pack (at most 50 MB) ",
+                "is fetched once into that bounded disk cache and later calls are answered from ",
+                "disk. Approach-only corpora carry a ",
                 "read-do-not-copy warning on every hit."),
             "inputSchema": {
                 "type": "object",
@@ -118,7 +158,11 @@ pub fn specs() -> Vec<Value> {
                  asking you to pick a corpus. Never ",
                 "downloads a pack: a corpus not on this machine is answered with the `xerj hub ",
                 "pull` line to run, and never fetches the catalogue: with none cached it says to run ",
-                "`xerj hub sync`. Result text is the hub rendering (corpus, pin date, licence, ",
+                "`xerj hub sync`. The one exception is set by the operator: with XERJ_HUB_CACHE_DIR ",
+                "set and no node reachable, a def or files question that names `corpus` fetches the ",
+                "signed pack once into a bounded disk cache and is answered from it (a files ",
+                "question filters by path fragment there); passage questions still need a node. ",
+                "Result text is the hub rendering (corpus, pin date, licence, ",
                 "file:line); structured content is the Answer JSON."),
             "inputSchema": {
                 "type": "object",
@@ -192,7 +236,7 @@ fn evidence_arg(args: &Value) -> Result<Option<EvidenceRequest>, String> {
 /// Dispatch one `xerj_hub_*` call; `None` when `name` is not a hub tool.
 pub async fn call(ctx: &Ctx, name: &str, args: &Value) -> Option<Value> {
     let result = match name {
-        "xerj_hub_find" => find(args).await,
+        "xerj_hub_find" => find(ctx, args).await,
         "xerj_hub_def" => def(ctx, args).await,
         "xerj_hub_ask" => ask_tool(ctx, args).await,
         _ => return None,
@@ -254,9 +298,12 @@ fn int_arg(args: &Value, key: &str, max: u64) -> Result<Option<u64>, String> {
 
 // ── the tools ────────────────────────────────────────────────────────────────
 
-async fn find(args: &Value) -> Result<Value, String> {
+async fn find(ctx: &Ctx, args: &Value) -> Result<Value, String> {
     let question = text_arg(args, "question")?;
     let k = int_arg(args, "k", FIND_MAX_K as u64)?.map_or(FIND_DEFAULT_K, |n| n as usize);
+    if let Some(active) = first::active(ctx, None).await? {
+        return first::find(active, question, k).await;
+    }
     let found = tokio::task::spawn_blocking(move || ask::run_find(&question, k))
         .await
         .map_err(|e| format!("join error: {e}"))??;
@@ -272,6 +319,10 @@ async fn def(ctx: &Ctx, args: &Value) -> Result<Value, String> {
     let symbol = text_arg(args, "symbol")?;
     let k = int_arg(args, "k", MAX_K)?;
     let evidence = evidence_arg(args)?;
+    if let Some(active) = first::active(ctx, Some(&slug)).await? {
+        let query = first::Query::def(&slug, &symbol, k.map(|n| n as usize));
+        return first::answer(active, query, symbol, None, evidence).await;
+    }
     let mut a = AskArgs::new(symbol.clone());
     a.corpus = Some(slug);
     a.mode = ModeRequest::Def(symbol);
@@ -301,6 +352,14 @@ async fn ask_tool(ctx: &Ctx, args: &Value) -> Result<Value, String> {
     };
     let max_tokens = int_arg(args, "max_tokens", MAX_TOKENS_CAP)?;
     let evidence = evidence_arg(args)?;
+    match first::plan_ask(ctx, &question, corpus.as_deref(), &mode).await? {
+        first::AskPlan::Flow => {}
+        first::AskPlan::NeedsCorpus(message) => return Err(message),
+        first::AskPlan::HubFirst(active, query) => {
+            let max_tokens = max_tokens.map(|n| n as usize);
+            return first::answer(active, query, question, max_tokens, evidence).await;
+        }
+    }
     let mut a = AskArgs::new(question);
     a.corpus = corpus;
     a.mode = mode;
