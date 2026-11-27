@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how edwinontiveros/CHIP8 implements it: CHIP8 implemented in C++17 (selected work: the project root, include, src/app)",
+ "domain": "an agent working on chip-8, chip8, chip8-emulator queries this for how edwinontiveros/CHIP8 implements it: CHIP8 implemented in C++20 (selected work: the project root, include, src/app)",
  "repos": [
   {
    "repo": "CHIP8",

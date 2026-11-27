@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on academic-research, ai-agents, citation-management queries this for how WenyuChiou/research-hub implements it: AI-operable research workspace for Zotero, Obsidian, and NotebookLM. Use any two, or all three, through CLI, MCP, REST, and dashboard (selected work: src/research_hub, tests)",
+ "domain": "an agent working on academic-research, ai-agents, citation-management queries this for how WenyuChiou/research-hub implements it: Local-first, evidence-grounded research workstation connecting AI agents (Claude, Codex, Gemini) with Zotero, Obsidian, NotebookLM, and huma (selected work: src/research_hub, tests)",
  "repos": [
   {
    "repo": "research-hub",
