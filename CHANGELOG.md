@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Deterministic `cyber.exploitability` analysis in
+  `xerj_common::cyber_exploitability` (Refs #2774, #2767, #2769): reachability
+  from declared entry points to an indexed sink (reachable, not-reachable, or
+  unknown; never guessed), configuration/authentication/version preconditions,
+  and a non-weaponized PoC strategy outline. Every report echoes the
+  `ScopeGuard` work order and a safety-scope note, sealed with RFC 8785 JCS.
+
 ## [1.0.0-rc.105] - 2026-11-23
 
 <!-- notes-exempt: #3341 #3343 (CLA signatures, .contributors only) -->
