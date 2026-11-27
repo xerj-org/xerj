@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on emr, llm, zero-trust queries this for how Yasou13/MESA implements it: An asynchronous memory engine for enterprise AI agents, statistically minimizing hallucinations via dual-LLM consensus (selected work: tests, mesa_storage, mesa_memory)",
+ "domain": "an agent working on llm, zero-trust, agent-memory queries this for how Yasou13/MESA implements it: Local-first, source-linked evidence engine for documents and AI agents. Hybrid search (BM25 + vectors) with exact citations (document, revis (selected work: tests, mesa_storage, mesa_memory)",
  "repos": [
   {
    "repo": "MESA",
