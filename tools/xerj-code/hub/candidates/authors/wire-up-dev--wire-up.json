@@ -2,8 +2,8 @@
  "corpus": "wire-up-dev--wire-up",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on PHP queries this for how wire-up-dev/wire-up implements it: An open-source, self-updating CMS built on Laravel and Livewire (selected work: tests, resources, app/Enums)",
+ "shelf": "AI",
+ "domain": "an agent working on cms, laravel, laravel-cms queries this for how wire-up-dev/wire-up implements it: Wire Up CMS: an open-source, self-hosted Laravel CMS that updates itself, with a built-in MCP server for AI agents (selected work: tests, resources, app/Enums)",
  "repos": [
   {
    "repo": "wire-up",
