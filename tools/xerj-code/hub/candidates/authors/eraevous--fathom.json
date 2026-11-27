@@ -8,15 +8,15 @@
   {
    "repo": "Fathom",
    "url": "https://github.com/eraevous/Fathom",
-   "sha": "85982701bfc53357cec622921e769c96749a2b55",
-   "licence": "MIT (LICENSE file at pin 85982701bfc5, GitHub licence API 2026-11-27)",
+   "sha": "893bd563362183e7bca9156b1d5eea8e06fcd4dc",
+   "licence": "MIT (LICENSE file at pin 893bd5633621, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T16:41Z",
     "consent_receipt": "fb4aafd28983",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T16:41Z (receipt fb4aafd28983); pinned to the default-branch head. LICENSE file at pin 85982701bfc5 detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T16:41Z (receipt fb4aafd28983); pinned to the default-branch head. LICENSE file at pin 893bd5633621 detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution."
    }
   }
  ]

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agents, ai, ai-agents queries this for how ahmadrosid/nakama implements it: The AI workspace where teams share agents, skills and automations that the whole company builds on (selected work: apps/server, packages/db)",
+ "domain": "an agent working on agents, ai, ai-agents queries this for how ahmadrosid/nakama implements it: The AI workspace where teams share agents, skills and automations that the whole company builds on (selected work: apps/web)",
  "repos": [
   {
    "repo": "nakama",
    "url": "https://github.com/ahmadrosid/nakama",
-   "sha": "551ada6daff3b0683fdaa988116ef365bc1be54c",
-   "licence": "MIT (LICENSE file at pin 551ada6daff3, GitHub licence API 2026-11-02)",
+   "sha": "4d3b7110c887052f550c563f5ebbe76b7fa8941b",
+   "licence": "MIT (LICENSE file at pin 4d3b7110c887, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-01T22:13Z",
-    "consent_receipt": "ab174a38f6e2",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T22:13Z (receipt ab174a38f6e2); selected commit 551ada6daff3: \"feat(automation): resume interrupted runs from last saved tool step a\u2026\". LICENSE file at pin 551ada6daff3 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ahmadrosid, who has not added it."
+    "at": "2026-11-17T11:19Z",
+    "consent_receipt": "f6733384e6c8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-17T11:19Z (receipt f6733384e6c8); selected commit 4d3b7110c887: \"fix(web): fix phone-width UI on agent tabs and setup wizard (#2477)\". LICENSE file at pin 4d3b7110c887 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ahmadrosid, who has not added it."
    },
    "paths": [
     "apps/server/src",
