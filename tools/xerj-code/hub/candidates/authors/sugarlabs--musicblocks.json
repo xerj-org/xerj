@@ -8,15 +8,15 @@
   {
    "repo": "musicblocks",
    "url": "https://github.com/sugarlabs/musicblocks",
-   "sha": "4f1211ae71f4b003792c0c5271abe5464903154a",
-   "licence": "AGPL-3.0 (LICENSE file at pin 4f1211ae71f4, GitHub licence API 2026-11-21)",
+   "sha": "a82a79d205e529f376479262236204050b6b5533",
+   "licence": "AGPL-3.0 (LICENSE file at pin a82a79d205e5, GitHub licence API 2026-10-26)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
-    "at": "2026-11-20T10:04Z",
-    "consent_receipt": "fa1995a3c7c3",
-    "note": "Inclusion consented by the commit author by email at 2026-11-20T10:04Z (receipt fa1995a3c7c3); selected commit 4f1211ae71f4: \"fix: custom pitch pie menu rotation (#9274)\". LICENSE file at pin 4f1211ae71f4 detected as AGPL-3.0 by the GitHub licence API on 2026-11-21; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sugarlabs, who has not added it."
+    "at": "2026-10-26T14:30Z",
+    "consent_receipt": "f7311eadbfe8",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T14:30Z (receipt f7311eadbfe8); selected commit a82a79d205e5: \"feat: add JSON and .scl export/import to the temperament widget (#9029)\". LICENSE file at pin a82a79d205e5 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sugarlabs, who has not added it."
    },
    "paths": [
     "js"
