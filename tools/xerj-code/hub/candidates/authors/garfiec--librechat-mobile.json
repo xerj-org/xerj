@@ -8,15 +8,15 @@
   {
    "repo": "Librechat-Mobile",
    "url": "https://github.com/garfiec/Librechat-Mobile",
-   "sha": "40512e3385fe6df3649ea259a0f9dc30d06d6ecb",
-   "licence": "Apache-2.0 (LICENSE file at pin 40512e3385fe, GitHub licence API 2026-11-25)",
+   "sha": "12e3d65188d61c616ae9886aaefec778b4d24b09",
+   "licence": "Apache-2.0 (LICENSE file at pin 12e3d65188d6, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-26T11:54Z",
     "consent_receipt": "d0608b74c22e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T11:54Z (receipt d0608b74c22e); selected commit 40512e3385fe: \"fix(chat): preserve model spec selection on enforced-spec servers (#557)\". LICENSE file at pin 40512e3385fe detected as Apache-2.0 by the GitHub licence API on 2026-11-25; used under that licence with attribution. Pinned to head 40512e3385fe (contains the selected commit): the LICENSE at the selected commit was MIT. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @garfiec, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T11:54Z (receipt d0608b74c22e); selected commit 12e3d65188d6: \"fix(chat): preserve model spec selection on enforced-spec servers (#557)\". LICENSE file at pin 12e3d65188d6 detected as Apache-2.0 by the GitHub licence API on 2026-11-27; used under that licence with attribution. Pinned to head 12e3d65188d6 (contains the selected commit): the LICENSE at the selected commit was MIT. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @garfiec, who has not added it."
    },
    "paths": [
     "core/data/schemas/com.garfiec.librechat.core.data.db.LibreChatDatabase",

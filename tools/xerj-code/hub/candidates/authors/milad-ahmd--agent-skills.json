@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how milad-ahmd/agent-skills implements it: \ud83e\uddf0 67 Agent Skills: roast your commits, find your bus factor, dev wrapped, resolve merge conflicts, guardrail your agent, TDD, catch AI slop. (selected work: skills, scripts, the project root)",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how milad-ahmd/agent-skills implements it: \ud83e\uddf0 71 tested Agent Skills for Claude Code, Cursor, Codex and Cline: review PRs, resolve merge conflicts, find dead code, guardrail your agent (selected work: skills, scripts, the project root)",
  "repos": [
   {
    "repo": "agent-skills",

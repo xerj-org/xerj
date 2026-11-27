@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WRITE",
- "domain": "an agent working on cran, dependency-graph, i18n queries this for how sebollin/bigbang implements it: \ud83c\udf0c bigbang \u2014 create custom R metapackages from local packages. Builds tidyverse-style metapackages from local R package archives (.tar.gz/.zi (selected work: R, tests, man)",
+ "domain": "an agent working on cran, dependency-graph, i18n queries this for how sebollin/bigbang implements it: Bundle your team's R packages into one metapackage that knows its own installation order. No component repository required. By default, inst (selected work: R, tests, man)",
  "repos": [
   {
    "repo": "bigbang",

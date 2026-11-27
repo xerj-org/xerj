@@ -1,9 +1,9 @@
 {
- "corpus": "joseph-matteo-scorsone--avionix",
+ "corpus": "scorsone-enterprises--avionix",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on C++ queries this for how Joseph-Matteo-Scorsone/Avionix implements it: Modern C++ performance TUI (selected work: core/entity, tests, the project root)",
+ "domain": "an agent working on C++ queries this for how Scorsone-Enterprises/Avionix implements it: Modern C++ performance TUI (selected work: core/entity, tests, the project root)",
  "repos": [
   {
    "repo": "Avionix",
