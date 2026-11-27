@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Java queries this for how fabiozagaria/expense-tracker-api implements it: Expense Tracker \u2014 REST API Spring Boot con JWT, refresh token e PostgreSQL (selected work: src/main, the project root)",
+ "domain": "an agent working on Java queries this for how fabiozagaria/expense-tracker-api implements it: Spring Boot REST API for tracking personal expenses and income in PostgreSQL, with paginated search, financial summaries, email verification (selected work: src/main, the project root)",
  "repos": [
   {
    "repo": "expense-tracker-api",

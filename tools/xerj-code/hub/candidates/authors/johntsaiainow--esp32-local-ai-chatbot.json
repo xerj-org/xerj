@@ -2,8 +2,8 @@
  "corpus": "johntsaiainow--esp32-local-ai-chatbot",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on Python queries this for how johntsaiainow/ESP32-Local-Ai-Chatbot implements it: ESP32 Local Ai Chatbot (selected work: tests, host, the project root)",
+ "shelf": "OPS",
+ "domain": "an agent working on embedded, esp32-s3, firmware queries this for how johntsaiainow/ESP32-Local-Ai-Chatbot implements it: Osiris: ESP32-S3 voice assistant with standalone cloud and host-assisted modes, plus a desktop edition (selected work: tests, host, the project root)",
  "repos": [
   {
    "repo": "ESP32-Local-Ai-Chatbot",
