@@ -1,0 +1,30 @@
+{
+ "corpus": "tsnxjs--tsnx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how tsnxjs/tsnx implements it: A Web API framework and project system for Node.js, bringing explicit routing, dependency injection, and application hosting into one connec (selected work: packages/testing, packages/web, packages/hosting)",
+ "repos": [
+  {
+   "repo": "tsnx",
+   "url": "https://github.com/tsnxjs/tsnx",
+   "sha": "ba7b7eb820d763551296abf4eb9acecba3c52d0d",
+   "licence": "MIT (LICENSE file at pin ba7b7eb820d7, GitHub licence API 2026-11-27)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-27T07:51Z",
+    "consent_receipt": "a3272e122e6d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-27T07:51Z (receipt a3272e122e6d); selected commit ba7b7eb820d7: \"feat(testing): integrate @tsnx/testing with WebApplicationFactory, DI\u2026\". LICENSE file at pin ba7b7eb820d7 detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tsnxjs, who has not added it."
+   },
+   "paths": [
+    "apps/docs/src/lib",
+    "packages/hosting-abstractions/src/di",
+    "packages/hosting/src/di",
+    "packages/testing",
+    "packages/web/src/app"
+   ]
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on acp, agent-client-protocol, ai queries this for how jim60105/AIr-Friends implements it: Your AIr friends custom chatbot with integrated shell and skills. Powered by ACP AI agents. (Deno) (selected work: tests, src/core)",
+ "domain": "an agent working on acp, agent-client-protocol, ai queries this for how jim60105/AIr-Friends implements it: Your AIr friends custom chatbot with integrated shell and skills. Powered by ACP AI agents. (Bun) (selected work: tests, src/core)",
  "repos": [
   {
    "repo": "AIr-Friends",

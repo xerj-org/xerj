@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-tools, allure, allure-testops queries this for how iampopovich/allure-testops-mcp implements it: MCP Server for Allure TestOps (selected work: src, tests, src/tools)",
+ "domain": "an agent working on ai-tools, allure, allure-testops queries this for how iampopovich/allure-testops-mcp implements it: MCP server for Allure TestOps: lets AI assistants work with test cases, launches, test results and test plans (selected work: src, tests, src/tools)",
  "repos": [
   {
    "repo": "allure-testops-mcp",
