@@ -8,15 +8,15 @@
   {
    "repo": "sacrysty",
    "url": "https://github.com/nisavid/sacrysty",
-   "sha": "4752e7f8dc60193b715f0089e07342f8692280e5",
-   "licence": "Apache-2.0 (LICENSE file at pin 4752e7f8dc60, GitHub licence API 2026-11-23)",
+   "sha": "ca0166dac8716ea22ce0b84c7bb7945d6fb99d04",
+   "licence": "Apache-2.0 (LICENSE file at pin ca0166dac871, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T21:16Z",
     "consent_receipt": "7c1c061b047e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt 7c1c061b047e); pinned to the default-branch head. LICENSE file at pin 4752e7f8dc60 detected as Apache-2.0 by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt 7c1c061b047e); pinned to the default-branch head. LICENSE file at pin ca0166dac871 detected as Apache-2.0 by the GitHub licence API on 2026-11-27; used under that licence with attribution."
    }
   }
  ]

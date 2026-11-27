@@ -8,15 +8,15 @@
   {
    "repo": "bantamkit",
    "url": "https://github.com/Ink01101011/bantamkit",
-   "sha": "a705c5e8e61ca72360886d0f71f4bf1068f48881",
-   "licence": "MIT (LICENSE file at pin a705c5e8e61c, GitHub licence API 2026-11-27)",
+   "sha": "70ebd8fa16ef63eec5f7df3b911235eec196ad84",
+   "licence": "MIT (LICENSE file at pin 70ebd8fa16ef, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-25T03:42Z",
     "consent_receipt": "849bc078bdc6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T03:42Z (receipt 849bc078bdc6); pinned to the default-branch head. LICENSE file at pin a705c5e8e61c detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-25T03:42Z (receipt 849bc078bdc6); pinned to the default-branch head. LICENSE file at pin 70ebd8fa16ef detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution."
    }
   }
  ]

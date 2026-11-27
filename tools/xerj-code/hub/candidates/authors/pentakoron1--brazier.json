@@ -2,8 +2,8 @@
  "corpus": "pentakoron1--brazier",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Dart queries this for how pentakoron1/brazier implements it: Cross platform app that helps keeping track of your purchases, as well as budget planning by converting single purchases to monthly subscrip (selected work: lib/l10n, lib/widgets, lib)",
+ "shelf": "WEB",
+ "domain": "an agent working on mobile-app, open-source, personal-finance queries this for how pentakoron1/brazier implements it: Find out what your purchases and subscriptions really cost per month of use. Private, offline, open source Android app built with Flutter (selected work: lib/l10n, lib/widgets, lib)",
  "repos": [
   {
    "repo": "brazier",

@@ -2,8 +2,8 @@
  "corpus": "garretpatten--system-scripts",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on automation, tmux, backup queries this for how garretpatten/system-scripts implements it: Personal macOS/Linux automation: back up GitHub, GitLab, Notion, Obsidian, calendars, and tasks; clone and sync repositories; flatten nested (selected work: github, the project root, backups)",
+ "shelf": "SEC",
+ "domain": "an agent working on automation, tmux, bash queries this for how garretpatten/system-scripts implements it: Personal macOS/Linux automation: GitHub security reports, repository clone/sync utilities, Google Takeout export flattening, runtime package (selected work: github, the project root, backups)",
  "repos": [
   {
    "repo": "system-scripts",

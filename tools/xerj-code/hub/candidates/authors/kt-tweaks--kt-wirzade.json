@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on customization, dotnet, optimization queries this for how KT-TWEAKS/KT-WIRZADE implements it: Motor de playbooks para otimiza\u00e7\u00e3o, desbloqueio e personaliza\u00e7\u00e3o do Windows 10/11 \u2014 fork expandido do AME Wizard com rollback por sess\u00e3o e a (selected work: KTWirzade.GUI, KTWirzade.Shared, KTWirzade.CLI)",
+ "domain": "an agent working on windows, wpf, apbx queries this for how KT-TWEAKS/KT-WIRZADE implements it: Aplicativo aberto para criar, validar e executar playbooks APBX no Windows 10/11 (selected work: KTWirzade.GUI, KTWirzade.Shared, KTWirzade.CLI)",
  "repos": [
   {
    "repo": "KT-WIRZADE",
