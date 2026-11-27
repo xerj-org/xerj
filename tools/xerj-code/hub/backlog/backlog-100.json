@@ -13764,7 +13764,7 @@
   },
   {
    "cat": "AI",
-   "domain": "an agent working on evidence-based study support queries this for idempotent learning records, diagnosis admission, memory fitting and budgeted prerequisite scheduling",
+   "domain": "An agent building an AI study tutor for exam prep queries this for long-term learner memory: tracking real study and mistake history, predicting forgetting (half-life or FSRS), syncing notes via Google Drive/Gmail without extra servers, and pulling read-only Anki progress.",
    "lane": "A",
    "refresh": "pinned",
    "slug": "wysking--postgrad-study-engine",
@@ -13774,7 +13774,20 @@
      "url": "https://github.com/wysking/postgrad-study-engine"
     }
    ],
-   "status": "live"
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "agents",
+     "memory",
+     "ai-tutor",
+     "exam-prep",
+     "kaoyan",
+     "spaced-repetition",
+     "fsrs",
+     "anki"
+    ]
+   }
   },
   {"cat": "AI", "domain": "an agent building paid, verifiable services queries this for production patterns: x402 payment verification, A2A inboxes, Ed25519 signed receipts, deterministic guardrails, streaming recall, anti-SSRF and rate limiting — distilled from a live sovereign node (mesh-01.com)", "lane": "A", "refresh": "pinned", "slug": "mesh-patterns", "sources": [{"licence_hint": "MIT; reviewed at pin, see manifest review", "url": "https://github.com/autobanco-frd/mesh-patterns"}], "status": "live", "tags": {"region": "GLOBAL", "topics": ["agent-infrastructure", "x402", "a2a", "ed25519", "payments", "guardrails"]}},
   {"cat": "AI", "domain": "an agent writing or maintaining Claude Code artifacts queries this for how to author prompts, Agent Skills, subagents and output styles: routing metadata that makes a skill activate, what belongs in a skill body against its references, subagent frontmatter and system prompts, output-style voice and rules, and a terseness pass for prompts that drifted", "lane": "A", "refresh": "pinned", "slug": "xobotyi--cc-foundry-ai-helpers", "sources": [{"licence_hint": "MIT; first-party, reviewed at pin, see manifest review", "url": "https://github.com/xobotyi/cc-foundry"}], "status": "live", "tags": {"region": "GLOBAL", "topics": ["claude-code", "agent-skills", "prompt-engineering", "subagents", "output-styles"]}},
