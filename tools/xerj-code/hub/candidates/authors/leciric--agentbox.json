@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, claude-code, codex queries this for how leciric/agentbox implements it: Devin-style that run on your own machine: each agent gets its own Linux machine, desktop and branch, directed by a lead chat. Claude Code, C (selected work: scripts, internal/hostvm, internal/agent)",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how leciric/agentbox implements it: Open-source app that runs a team of AI coding agents on your own computer. Each agent gets its own Linux machine, branch, desktop and browse (selected work: scripts, internal/hostvm, internal/agent)",
  "repos": [
   {
    "repo": "agentbox",

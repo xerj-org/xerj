@@ -8,15 +8,15 @@
   {
    "repo": "NGR-AssetPilot-App",
    "url": "https://github.com/907609732/NGR-AssetPilot-App",
-   "sha": "66d37a90cce033b223597c260825ac885220876b",
-   "licence": "MIT (LICENSE file at pin 66d37a90cce0, GitHub licence API 2026-11-26)",
+   "sha": "0c7d04cf0ccca0252c04435b7b76f9f91e702940",
+   "licence": "MIT (LICENSE file at pin 0c7d04cf0ccc, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T08:36Z",
     "consent_receipt": "9be2c43c341f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 9be2c43c341f); pinned to the default-branch head. LICENSE file at pin 66d37a90cce0 detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 9be2c43c341f); pinned to the default-branch head. LICENSE file at pin 0c7d04cf0ccc detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution."
    }
   }
  ]

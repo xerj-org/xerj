@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on database, fusion, tokamak queries this for how VEST-Tokamak/vaft implements it: A standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research, with full implementation on the VE (selected work: vaft, test)",
+ "domain": "an agent working on database, fusion, tokamak queries this for how VEST-Tokamak/vaft implements it: A unified framework for machine-generic fusion research built on the IMAS data standard and guided by FAIR principles, initially developed f (selected work: vaft, test)",
  "repos": [
   {
    "repo": "vaft",
