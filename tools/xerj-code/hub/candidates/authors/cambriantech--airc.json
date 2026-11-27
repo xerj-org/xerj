@@ -8,15 +8,15 @@
   {
    "repo": "airc",
    "url": "https://github.com/CambrianTech/airc",
-   "sha": "4f4ac4bfc2b3505197fc74075ca21813695a0a34",
-   "licence": "MIT (LICENSE file at pin 4f4ac4bfc2b3, GitHub licence API 2026-11-27)",
+   "sha": "1f37fcf5f668f9b8dd1c9b8a02f2dd469c354bdc",
+   "licence": "MIT (LICENSE file at pin 1f37fcf5f668, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-08T19:22Z",
     "consent_receipt": "c05107252679",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T19:22Z (receipt c05107252679); selected commit 4f4ac4bfc2b3: \"Test addressed IPC owner recreation and preserve refusal provenance (\u2026\". LICENSE file at pin 4f4ac4bfc2b3 detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution. Pinned to head 4f4ac4bfc2b3 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @CambrianTech, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T19:22Z (receipt c05107252679); selected commit 1f37fcf5f668: \"Test addressed IPC owner recreation and preserve refusal provenance (\u2026\". LICENSE file at pin 1f37fcf5f668 detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution. Pinned to head 1f37fcf5f668 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @CambrianTech, who has not added it."
    },
    "paths": [
     "crates/airc-cli/src",
