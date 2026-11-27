@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on ebook-reader, kindle, koreader queries this for how voantony/koreader-library-gui implements it: Kindle-style library for KOReader: cover grid, search as you type, filters, Collections and Genres, Authors, Series, and a Library item in t (selected work: spec, library.koplugin)",
+ "domain": "an agent working on ebook-reader, kindle, koreader queries this for how voantony/koreader-library-gui implements it: Kindle-style library for KOReader: cover grid, search as you type, filters, Collections and Genres, Authors, Series, an optional Reading log (selected work: spec, library.koplugin)",
  "repos": [
   {
    "repo": "koreader-library-gui",

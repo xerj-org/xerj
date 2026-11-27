@@ -8,15 +8,15 @@
   {
    "repo": "systools",
    "url": "https://github.com/nisavid/systools",
-   "sha": "0f85a1da3516b59fda49b6fa657caf72400c9ac4",
-   "licence": "MIT (LICENSE file at pin 0f85a1da3516, GitHub licence API 2026-11-25)",
+   "sha": "8747e86664f7d7d62e7f13f7f113615059515d5d",
+   "licence": "MIT (LICENSE file at pin 8747e86664f7, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T21:16Z",
     "consent_receipt": "4039f27664ee",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt 4039f27664ee); pinned to the default-branch head. LICENSE file at pin 0f85a1da3516 detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt 4039f27664ee); pinned to the default-branch head. LICENSE file at pin 8747e86664f7 detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution."
    }
   }
  ]

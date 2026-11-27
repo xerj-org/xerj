@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on database, mysql, orm queries this for how mohamadzoh/tideorm implements it: Developer-Friendly Rust ORM (selected work: src/query, tests, src/internal)",
+ "domain": "an agent working on database, mysql, orm queries this for how mohamadzoh/tideorm implements it: Async ActiveRecord ORM for Rust: your structs are the models, relations are fields, and typed queries catch mistakes at compile time. Postgr (selected work: src/query, tests, src/internal)",
  "repos": [
   {
    "repo": "tideorm",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Dart queries this for how marceliodes/kawi implements it: Multiplatform e-book reader with offline, natural TTS (selected work: lib/features, test)",
+ "domain": "an agent working on Dart queries this for how marceliodes/kawi implements it: Modern e-book reader with offline, natural TTS (selected work: lib/features, test)",
  "repos": [
   {
    "repo": "kawi",

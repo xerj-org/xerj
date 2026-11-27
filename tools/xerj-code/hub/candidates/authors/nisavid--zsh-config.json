@@ -8,15 +8,15 @@
   {
    "repo": "zsh-config",
    "url": "https://github.com/nisavid/zsh-config",
-   "sha": "301231c66a8291b03fcfd922fd56c0950c6b90aa",
-   "licence": "Unlicense (LICENSE file at pin 301231c66a82, GitHub licence API 2026-11-27)",
+   "sha": "59954b1a0d73966a73aed7e164686cac77b8b90c",
+   "licence": "Unlicense (LICENSE file at pin 59954b1a0d73, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "Unlicense",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T21:16Z",
     "consent_receipt": "e47782922cd6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt e47782922cd6); pinned to the default-branch head. LICENSE file at pin 301231c66a82 detected as Unlicense by the GitHub licence API on 2026-11-27; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt e47782922cd6); pinned to the default-branch head. LICENSE file at pin 59954b1a0d73 detected as Unlicense by the GitHub licence API on 2026-11-27; used under that licence with attribution."
    }
   }
  ]

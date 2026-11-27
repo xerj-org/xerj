@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skill, chess, neo4j queries this for how JunENSAI/ChessGraph-MCP implements it: Building a chess Agentic setup that bridges the gap between deterministic game-tree calculation and semantic coaching. Permit the agent to a (selected work: backend, ui, chess_mcp)",
+ "domain": "an agent working on agent-skill, chess, neo4j queries this for how JunENSAI/ChessGraph-MCP implements it: Personal chess coaching with Claude: read-only MCP servers over my games (PostgreSQL), a position graph (Neo4j) and Stockfish, shipped as a  (selected work: backend, ui, chess_mcp)",
  "repos": [
   {
    "repo": "ChessGraph-MCP",
