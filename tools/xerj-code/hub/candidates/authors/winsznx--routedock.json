@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on micropayments, mpp, payment-channels queries this for how winsznx/routedock implements it: Unified payment execution layer for Stellar x402, MPP charge, MPP session behind one client.pay() call (selected work: packages/nulth-sdk, packages/sdk)",
+ "domain": "an agent working on micropayments, mpp, payment-channels queries this for how winsznx/routedock implements it: Unified payment execution layer for Stellar x402, MPP charge, MPP session behind one client.pay() call (selected work: packages/sdk, apps/provider-b)",
  "repos": [
   {
    "repo": "routedock",
    "url": "https://github.com/winsznx/routedock",
-   "sha": "98fc671b25d858010a5bc52c451b936852028be7",
-   "licence": "MIT (LICENSE file at pin 98fc671b25d8, GitHub licence API 2026-10-24)",
+   "sha": "5a8337ad3f5a236bdf0f3997a12bfe38281d98d5",
+   "licence": "MIT (LICENSE file at pin 5a8337ad3f5a, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-17T02:17Z",
-    "consent_receipt": "e6e5c973d0a3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T02:17Z (receipt e6e5c973d0a3); selected commit 98fc671b25d8: \"fix(nulth): verify auth entry matches payment context before signing\". LICENSE file at pin 98fc671b25d8 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @winsznx, who has not added it."
+    "at": "2026-11-02T06:14Z",
+    "consent_receipt": "588130010d88",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T06:14Z (receipt 588130010d88); selected commit 5a8337ad3f5a: \"fix(sdk): floor the hono DELETE close at the highest stored voucher (\u2026\". LICENSE file at pin 5a8337ad3f5a detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @winsznx, who has not added it."
    },
    "paths": [
     ".changeset",

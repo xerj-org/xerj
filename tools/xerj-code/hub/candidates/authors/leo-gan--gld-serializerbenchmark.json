@@ -8,15 +8,15 @@
   {
    "repo": "GLD.SerializerBenchmark",
    "url": "https://github.com/leo-gan/GLD.SerializerBenchmark",
-   "sha": "5e011f9f5807f62442a462a6cb9b6cd079b3739f",
-   "licence": "MIT (LICENSE file at pin 5e011f9f5807, GitHub licence API 2026-11-26)",
+   "sha": "9a43058b3747ea9cbb11793b600a4e5cd65465cc",
+   "licence": "MIT (LICENSE file at pin 9a43058b3747, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-05T23:52Z",
     "consent_receipt": "5a5386deb175",
-    "note": "Inclusion consented by the commit author by email at 2026-10-05T23:52Z (receipt 5a5386deb175); selected commit 5e011f9f5807: \"docs: simplify Benchmarks and Languages into academic specifications \u2026\". LICENSE file at pin 5e011f9f5807 detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-05T23:52Z (receipt 5a5386deb175); selected commit 9a43058b3747: \"perf: upgrade all 9 gld-kiln-* adapters to 0.2.1 and publish full-sui\u2026\". LICENSE file at pin 9a43058b3747 detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution."
    }
   }
  ]
