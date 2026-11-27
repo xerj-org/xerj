@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on censorship-circumvention, cli, nodejs queries this for how Diercohen/windscout implements it: Find which Windscribe locations and protocols actually work from your network, ranked by speed (selected work: src, src/tui, test)",
+ "domain": "an agent working on censorship-circumvention, cli, nodejs queries this for how DierCohen/windscout implements it: Find which Windscribe locations and protocols actually work from your network, ranked by speed (selected work: src, src/tui, test)",
  "repos": [
   {
    "repo": "windscout",
