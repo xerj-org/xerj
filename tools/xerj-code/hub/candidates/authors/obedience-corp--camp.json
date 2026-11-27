@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, ai-agents, ai-tools queries this for how Obedience-Corp/camp implements it: AI Workspace and context management (selected work: internal/project, internal/sync, internal/git)",
+ "domain": "an agent working on ai, ai-agents, ai-tools queries this for how Obedience-Corp/camp implements it: Shared agent workspacs and memory (selected work: internal/project, internal/sync, internal/git)",
  "repos": [
   {
    "repo": "camp",

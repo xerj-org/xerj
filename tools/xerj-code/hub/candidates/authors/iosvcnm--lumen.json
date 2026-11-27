@@ -2,8 +2,8 @@
  "corpus": "iosvcnm--lumen",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on brightness, cpp, ddc-ci queries this for how iosvcnm/lumen implements it: \u539f\u751f Windows \u663e\u793a\u5668\u4eae\u5ea6\u8c03\u8282\u5de5\u5177\u300aLumen\u300b (selected work: src, tools, the project root)",
+ "shelf": "OPS",
+ "domain": "an agent working on brightness, cpp, ddc-ci queries this for how iosvcnm/lumen implements it: \u539f\u751f Windows \u663e\u793a\u5668\u4eae\u5ea6\u8c03\u8282\u5de5\u5177\u300aLumen\u300bNative Windows monitor brightness adjustment tool \"Lumen\" (selected work: src, tools, the project root)",
  "repos": [
   {
    "repo": "lumen",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on calendar, email, email-client queries this for how c9dev/penguin-mail implements it: Mail and calendar for Linux and macOS. Gmail and IMAP accounts, Google Calendar, contacts, OpenPGP and S/MIME. GTK4 and libadwaita, written  (selected work: app/src, packaging)",
+ "domain": "an agent working on calendar, email, email-client queries this for how c9dev/penguin-mail implements it: Mail and calendar for Linux, macOS and Windows. Gmail and IMAP accounts, Google Calendar, contacts, OpenPGP and S/MIME. GTK4 and libadwaita, (selected work: app/src, packaging)",
  "repos": [
   {
    "repo": "penguin-mail",
