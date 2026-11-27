@@ -1,0 +1,23 @@
+{
+ "corpus": "etkind--evidomo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how EtkinD/evidomo implements it: Evidence for every home \u2014 verified, source-linked listing packs for real estate agents. Built for the Meta Global AI Developer Hackathon (selected work: apps/api, the project root, apps/web)",
+ "repos": [
+  {
+   "repo": "evidomo",
+   "url": "https://github.com/EtkinD/evidomo",
+   "sha": "2b45e9338dfb0ed3a7e9d13bdbd963839bb3c65f",
+   "licence": "Apache-2.0 (LICENSE file at pin 2b45e9338dfb, GitHub licence API 2026-11-27)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-27T11:10Z",
+    "consent_receipt": "7b75c5400671",
+    "note": "Inclusion consented by the commit author by email at 2026-11-27T11:10Z (receipt 7b75c5400671); selected commit 2b45e9338dfb: \"build: scaffold npm workspaces with web, api and shared packages\". LICENSE file at pin 2b45e9338dfb detected as Apache-2.0 by the GitHub licence API on 2026-11-27; used under that licence with attribution. Pinned to head 2b45e9338dfb (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

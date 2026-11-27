@@ -8,15 +8,15 @@
   {
    "repo": "GPGPU-DataSetFilter",
    "url": "https://github.com/LaMitaOne/GPGPU-DataSetFilter",
-   "sha": "cc474f67a0b81f0d20e2a1cbf2c934d3777264b6",
-   "licence": "MIT (LICENSE file at pin cc474f67a0b8, GitHub licence API 2026-11-26)",
+   "sha": "98d684a3280462663505651fbcfd9deb88189fa9",
+   "licence": "MIT (LICENSE file at pin 98d684a32804, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T18:06Z",
     "consent_receipt": "ca80a6382fc8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt ca80a6382fc8); pinned to the default-branch head. LICENSE file at pin cc474f67a0b8 detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt ca80a6382fc8); pinned to the default-branch head. LICENSE file at pin 98d684a32804 detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution."
    }
   }
  ]
