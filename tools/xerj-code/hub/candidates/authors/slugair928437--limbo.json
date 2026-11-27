@@ -1,0 +1,26 @@
+{
+ "corpus": "slugair928437--limbo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how SlugAir928437/limbo implements it: Limbo is a QEMU-based emulator for Android. It currently supports x86_64, aarch64, and ia-64 emulation for Intel x86 and ARM android devices (selected work: limbo-app)",
+ "repos": [
+  {
+   "repo": "limbo",
+   "url": "https://github.com/SlugAir928437/limbo",
+   "sha": "8f7f9d7e289992e9bcc1d833b468a597fa5fbab0",
+   "licence": "GPL-3.0 (LICENSE file at pin 8f7f9d7e2899, GitHub licence API 2026-11-27)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-27T11:50Z",
+    "consent_receipt": "ce10b00f952d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-27T11:50Z (receipt ce10b00f952d); selected commit 8f7f9d7e2899: \"fix(VRR): \u4fee\u590d\u663e\u793a\u94b3\u56de 33Hz \u7684\u95ee\u9898\". LICENSE file at pin 8f7f9d7e2899 detected as GPL-3.0 by the GitHub licence API on 2026-11-27; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @SlugAir928437, who has not added it."
+   },
+   "paths": [
+    "limbo-app/src/main/jni"
+   ]
+  }
+ ]
+}

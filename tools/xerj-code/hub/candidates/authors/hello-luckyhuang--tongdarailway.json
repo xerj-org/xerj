@@ -1,0 +1,23 @@
+{
+ "corpus": "hello-luckyhuang--tongdarailway",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how Hello-LuckyHuang/TongDaRailway implements it: The TongDaRailway Mod (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "TongDaRailway",
+   "url": "https://github.com/Hello-LuckyHuang/TongDaRailway",
+   "sha": "7b023fc2fe8c2a31594a5a43bd5a62dce7566b65",
+   "licence": "GPL-3.0 (LICENSE file at pin 7b023fc2fe8c, GitHub licence API 2026-11-27)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-27T10:22Z",
+    "consent_receipt": "ce950f127872",
+    "note": "Inclusion consented by the commit author by email at 2026-11-27T10:22Z (receipt ce950f127872); selected commit 7b023fc2fe8c: \"Improve track connection\". LICENSE file at pin 7b023fc2fe8c detected as GPL-3.0 by the GitHub licence API on 2026-11-27; used under that licence with attribution."
+   }
+  }
+ ]
+}

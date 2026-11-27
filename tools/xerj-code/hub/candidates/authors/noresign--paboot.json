@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agent, android, claude-code queries this for how noResign/paboot implements it: Personal Agent Boot: Build your personal agent for coding, socializing, and daily life. Memory, knowledge, group chats, tools, and skills. M (selected work: ios)",
+ "domain": "an agent working on ai-agent, android, claude-code queries this for how noResign/paboot implements it: Build your personal agent for coding, socializing, and daily life. Memory, knowledge, group chats, tools, and skills. Multi-agent, multi-mod (selected work: ios)",
  "repos": [
   {
    "repo": "paboot",

@@ -1,0 +1,23 @@
+{
+ "corpus": "abrahdev--karter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cars, driving, self-hosted queries this for how abrahdev/karter implements it: Track your vehicle's fuel, maintenance, and service intervals \u2014 all offline, no account needed (selected work: mobile)",
+ "repos": [
+  {
+   "repo": "karter",
+   "url": "https://github.com/abrahdev/karter",
+   "sha": "f5ae5b5f4a269d367492b178d1c0bf4510ddae4c",
+   "licence": "AGPL-3.0 (LICENSE file at pin f5ae5b5f4a26, GitHub licence API 2026-11-27)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-27T11:38Z",
+    "consent_receipt": "26e491e2c16f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-27T11:38Z (receipt 26e491e2c16f); selected commit f5ae5b5f4a26: \"feat(onboarding): rich walkthrough and first-run coach marks (#109)\". LICENSE file at pin f5ae5b5f4a26 detected as AGPL-3.0 by the GitHub licence API on 2026-11-27; used under that licence with attribution."
+   }
+  }
+ ]
+}
