@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C# queries this for how MrScautHD/Sparkle implements it: A fast, Cross-platform .NET 10 C# 14 game engine (selected work: src/Sparkle, src/Sparkle.Test)",
+ "domain": "an agent working on C# queries this for how MrScautHD/Sparkle implements it: A fast, Cross-platform .NET 11 C# 15 game engine (selected work: src/Sparkle, src/Sparkle.Test)",
  "repos": [
   {
    "repo": "Sparkle",

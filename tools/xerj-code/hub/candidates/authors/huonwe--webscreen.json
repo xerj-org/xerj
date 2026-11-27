@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on android, mirroring, streaming queries this for how huonwe/webscreen implements it: Stream Android, Linux, and any GameStream devices in your browser (selected work: sdriver, webservice, streamAgent)",
+ "domain": "an agent working on android, mirroring, streaming queries this for how huonwe/webscreen implements it: Stream Android, GameStream (Sunshine/Wolf), Linux Desktops, and RK3588 HDMI-in from a single self-hosted Go binary \u2014 supercharged with clien (selected work: sdriver, webservice, streamAgent)",
  "repos": [
   {
    "repo": "webscreen",

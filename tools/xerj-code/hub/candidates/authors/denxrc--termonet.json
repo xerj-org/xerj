@@ -8,15 +8,15 @@
   {
    "repo": "termonet",
    "url": "https://github.com/Denxrc/termonet",
-   "sha": "df981ab7e8acc68f1f64dbde8de3b7c157769a41",
-   "licence": "MIT (LICENSE file at pin df981ab7e8ac, GitHub licence API 2026-11-26)",
+   "sha": "eadc48e6febb917cd5cf649be0ba8af17312535d",
+   "licence": "MIT (LICENSE file at pin eadc48e6febb, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-09T08:07Z",
     "consent_receipt": "b797bddcab70",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T08:07Z (receipt b797bddcab70); selected commit df981ab7e8ac: \"feat(v0.3.0): manual wallpaper path input in TUI, tilde expansion, an\u2026\". LICENSE file at pin df981ab7e8ac detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution. Pinned to head df981ab7e8ac (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T08:07Z (receipt b797bddcab70); selected commit eadc48e6febb: \"feat(v0.3.0): manual wallpaper path input in TUI, tilde expansion, an\u2026\". LICENSE file at pin eadc48e6febb detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution. Pinned to head eadc48e6febb (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

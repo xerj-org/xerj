@@ -8,15 +8,15 @@
   {
    "repo": "win-bt-audio-receiver",
    "url": "https://github.com/NakunaruZeno/win-bt-audio-receiver",
-   "sha": "3d7bb5da43a65b62485a743d353a5ac96d449ed6",
-   "licence": "MIT (LICENSE file at pin 3d7bb5da43a6, GitHub licence API 2026-11-26)",
+   "sha": "f72417e074bebd6960704541435476324e118e39",
+   "licence": "MIT (LICENSE file at pin f72417e074be, GitHub licence API 2026-11-27)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T12:24Z",
     "consent_receipt": "9af1e55bcb59",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T12:24Z (receipt 9af1e55bcb59); pinned to the default-branch head. LICENSE file at pin 3d7bb5da43a6 detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T12:24Z (receipt 9af1e55bcb59); pinned to the default-branch head. LICENSE file at pin f72417e074be detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution."
    }
   }
  ]

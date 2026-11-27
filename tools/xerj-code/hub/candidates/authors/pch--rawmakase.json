@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on photography, raw-editor, linux-desktop queries this for how pch/rawmakase implements it: \ud83d\udcf8 Free, fast, Lightroom-compatible RAW photo editor for Linux, macOS, and Windows (selected work: src/develop, src/app, src)",
+ "domain": "an agent working on photography, raw-editor, linux-desktop queries this for how pch/rawmakase implements it: \ud83d\udcf8 Free and fast RAW photo editor for Linux, macOS, and Windows (selected work: src/develop, src/app, src)",
  "repos": [
   {
    "repo": "rawmakase",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on atmosphere, firmware-tools, hekate queries this for how slankka/nx-fs-utf8 implements it: A firmware \"KIP\" to unlock Switch FileSystem to read/write and enumerate UTF-8 CJK file names (selected work: test_program)",
+ "domain": "an agent working on atmosphere, firmware-tools, hekate queries this for how slankka/nx-fs-utf8 implements it: Switch\u4e2d\u6587\u8def\u5f84\u8865\u4e01 A firmware \"KIP\" to unlock Switch FileSystem to read/write and enumerate UTF-8 CJK file names (selected work: test_program)",
  "repos": [
   {
    "repo": "nx-fs-utf8",

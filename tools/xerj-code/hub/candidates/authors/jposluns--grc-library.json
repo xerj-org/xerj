@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-coding-assistant, ai-governance, ai-security queries this for how jposluns/grc_library implements it: A documentation library for governance, risk, compliance, cybersecurity, privacy, resilience, AI assurance, and operational control practice (selected work: tests, tools)",
+ "domain": "an agent working on ai-audit, ai-coding, ai-coding-assistant queries this for how jposluns/grc_library implements it: A documentation library for governance, risk, compliance, cybersecurity, privacy, resilience, AI assurance, and operational control practice (selected work: tests, tools)",
  "repos": [
   {
    "repo": "grc_library",

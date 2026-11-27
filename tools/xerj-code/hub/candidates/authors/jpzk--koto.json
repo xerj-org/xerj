@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent, agent-orchestration, agentic-workflow queries this for how jpzk/koto implements it: koto is a microVM-based agent sandbox harness using Firecracker and that has the TUI and gRPC interface you always wanted (selected work: daemon)",
+ "domain": "an agent working on agent, agent-orchestration, agentic-workflow queries this for how jpzk/koto implements it: koto is a microVM-based agent sandbox orchestrator using Firecracker and that has the TUI and gRPC interface you always wanted (selected work: daemon)",
  "repos": [
   {
    "repo": "koto",

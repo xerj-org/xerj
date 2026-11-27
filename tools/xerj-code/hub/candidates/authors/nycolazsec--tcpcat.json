@@ -8,15 +8,15 @@
   {
    "repo": "tcpcat",
    "url": "https://github.com/NycolazSec/tcpcat",
-   "sha": "80a6b5f02dab9cd8e5f8578003185dd6f6229444",
-   "licence": "author's permission (LICENSE at pin 80a6b5f02dab: NOASSERTION; repository: AGPL-3.0)",
+   "sha": "e7935ad2907533d32156c252a50902796c36f77d",
+   "licence": "AGPL-3.0 (LICENSE file at pin e7935ad29075, GitHub licence API 2026-11-27)",
    "review": {
-    "spdx": "NOASSERTION",
+    "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-10T20:56Z",
     "consent_receipt": "c7c1b7ad6796",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T20:56Z (receipt c7c1b7ad6796); selected commit 80a6b5f02dab: \"feat: explain exposure by joining a host inventory with an outside scan\". LICENSE at pin 80a6b5f02dab: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T20:56Z (receipt c7c1b7ad6796); selected commit e7935ad29075: \"feat: explain exposure by joining a host inventory with an outside scan\". LICENSE file at pin e7935ad29075 detected as AGPL-3.0 by the GitHub licence API on 2026-11-27; used under that licence with attribution. Pinned to head e7935ad29075 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]
