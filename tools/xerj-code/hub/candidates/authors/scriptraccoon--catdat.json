@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on category-theory, database, mathematics queries this for how ScriptRaccoon/CatDat implements it: A comprehensive and searchable database of categories and their properties (selected work: shared, database, src/routes)",
+ "domain": "an agent working on category-theory, database, mathematics queries this for how ScriptRaccoon/CatDat implements it: A comprehensive and searchable database of categorical structures and their properties (selected work: shared, database, src/routes)",
  "repos": [
   {
    "repo": "CatDat",
