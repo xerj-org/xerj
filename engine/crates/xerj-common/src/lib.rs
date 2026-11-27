@@ -49,6 +49,7 @@ pub mod calibration;
 pub mod code_query;
 pub mod config;
 pub mod corpus_feedback;
+pub mod cyber_blackbox;
 pub mod cyber_scope;
 pub mod disk_hint;
 pub mod document_limit;
