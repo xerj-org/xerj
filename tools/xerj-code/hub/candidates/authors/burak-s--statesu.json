@@ -8,15 +8,15 @@
   {
    "repo": "statesu",
    "url": "https://github.com/burak-s/statesu",
-   "sha": "dda8e2735f7bdc15102c814fc854dbb60f7b0d7e",
-   "licence": "MIT (LICENSE file at pin dda8e2735f7b, GitHub licence API 2026-11-28)",
+   "sha": "42ff34ca2ca0ea6419d7ede7e41753850cd29661",
+   "licence": "MIT (LICENSE file at pin 42ff34ca2ca0, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-03T07:46Z",
     "consent_receipt": "4d39965e605a",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T07:46Z (receipt 4d39965e605a); selected commit dda8e2735f7b: \"Add Playwright browser security tests and CI gate\". LICENSE file at pin dda8e2735f7b detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution. Pinned to head dda8e2735f7b (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T07:46Z (receipt 4d39965e605a); selected commit 42ff34ca2ca0: \"Add Playwright browser security tests and CI gate\". LICENSE file at pin 42ff34ca2ca0 detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution. Pinned to head 42ff34ca2ca0 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
    }
   }
  ]

@@ -2,8 +2,8 @@
  "corpus": "allenreder--not-boring-notch",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on apple-music, dynamic-island, file-shelf queries this for how AllenReder/not-boring-notch implements it: A modern, high-performance notch companion for macOS \u2014 Liquid Glass, media controls, calendar, file shelf, and an HTTP reminder channel for  (selected work: NotBoringNotch, Tests, NotBoringNotch.xcodeproj)",
+ "shelf": "AI",
+ "domain": "an agent working on apple-music, dynamic-island, file-shelf queries this for how AllenReder/not-boring-notch implements it: Shows your Claude Code, Codex, pi and OpenCode sessions on the MacBook notch, working or waiting for you, one click back. Also music with ly (selected work: NotBoringNotch, Tests, NotBoringNotch.xcodeproj)",
  "repos": [
   {
    "repo": "not-boring-notch",

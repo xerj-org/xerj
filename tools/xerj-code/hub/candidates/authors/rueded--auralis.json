@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Kotlin queries this for how Rueded/AURALIS implements it: Auralis \u97f3\u6f9c - A high-fidelity local music player for Android built with Jetpack Compose. Features true bit-depth/sample-rate detection (bypas (selected work: app/src)",
+ "domain": "an agent working on android, android-auto, bit-perfect queries this for how Rueded/AURALIS implements it: A USB bit-perfect lossless music player for Android. Bypasses the system mixer on Android 14+, shows the real sample rate and bit depth, wit (selected work: app/src)",
  "repos": [
   {
    "repo": "AURALIS",

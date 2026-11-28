@@ -8,15 +8,15 @@
   {
    "repo": "ac-pro-engineer",
    "url": "https://github.com/Rgosh/ac-pro-engineer",
-   "sha": "ebc9db77940985e75cfe5be566f795e73e2557cc",
-   "licence": "author's permission (LICENSE at pin ebc9db779409: NOASSERTION; repository: AGPL-3.0)",
+   "sha": "987c9fb77fe054d50943d00bdbd02a7d65c80444",
+   "licence": "author's permission (LICENSE at pin 987c9fb77fe0: NOASSERTION; repository: AGPL-3.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T20:33Z",
     "consent_receipt": "3219f5691341",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:33Z (receipt 3219f5691341); pinned to the default-branch head. LICENSE at pin ebc9db779409: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:33Z (receipt 3219f5691341); pinned to the default-branch head. LICENSE at pin 987c9fb77fe0: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution."
    }
   }
  ]
