@@ -8,15 +8,15 @@
   {
    "repo": "Armada",
    "url": "https://github.com/jchristn/Armada",
-   "sha": "2397b47b917a735984c1aa3683dd52d351789826",
-   "licence": "MIT (LICENSE file at pin 2397b47b917a, GitHub licence API 2026-11-28)",
+   "sha": "6568fb544384742a78c25aa5d38d803f637b02f3",
+   "licence": "MIT (LICENSE file at pin 6568fb544384, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "6bf4ee83c63b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt 6bf4ee83c63b); pinned to the default-branch head. LICENSE file at pin 2397b47b917a detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt 6bf4ee83c63b); pinned to the default-branch head. LICENSE file at pin 6568fb544384 detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]

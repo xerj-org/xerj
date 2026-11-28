@@ -8,15 +8,15 @@
   {
    "repo": "KeyRouter",
    "url": "https://github.com/Yash-Awasthi/KeyRouter",
-   "sha": "e973ff1799d5ff0f3eafb072f5ba56fd54630751",
-   "licence": "MIT (LICENSE file at pin e973ff1799d5, GitHub licence API 2026-11-24)",
+   "sha": "b43cfa027b7ed545cf6eb859efc9d3793dfc14ea",
+   "licence": "MIT (LICENSE file at pin b43cfa027b7e, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:25Z",
     "consent_receipt": "17433ca58bc5",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:25Z (receipt 17433ca58bc5); pinned to the default-branch head. LICENSE file at pin e973ff1799d5 detected as MIT by the GitHub licence API on 2026-11-24; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:25Z (receipt 17433ca58bc5); pinned to the default-branch head. LICENSE file at pin b43cfa027b7e detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]

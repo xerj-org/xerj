@@ -8,15 +8,15 @@
   {
    "repo": "FinScrape",
    "url": "https://github.com/Yash-Awasthi/FinScrape",
-   "sha": "ae861ae9cf1908dd070d9dac683189c7010c7133",
-   "licence": "MIT (LICENSE file at pin ae861ae9cf19, GitHub licence API 2026-11-23)",
+   "sha": "bd61260c569870d78118e850e553980c20566ab5",
+   "licence": "MIT (LICENSE file at pin bd61260c5698, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:25Z",
     "consent_receipt": "5fd00ff402a1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:25Z (receipt 5fd00ff402a1); pinned to the default-branch head. LICENSE file at pin ae861ae9cf19 detected as MIT by the GitHub licence API on 2026-11-23; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:25Z (receipt 5fd00ff402a1); pinned to the default-branch head. LICENSE file at pin bd61260c5698 detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]

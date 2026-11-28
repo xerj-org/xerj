@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Shell queries this for how AtomGradient/PingAgent implements it: Let Codex and Claude Code ping each other (selected work: bin, tests, the project root)",
+ "domain": "an agent working on Shell queries this for how AtomGradient/PingAgent implements it: Let Code Agents ping with each other (selected work: bin, tests, the project root)",
  "repos": [
   {
    "repo": "PingAgent",
