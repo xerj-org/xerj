@@ -8,7 +8,7 @@
   {
    "repo": "aetheris-platform",
    "url": "https://github.com/teldigi5-wq/aetheris-platform",
-   "sha": "908ac0a52b8c912af31195e60e7403cc6b61e691",
+   "sha": "2835d207d672b65b5b4ac75f29b8868dd1afafda",
    "licence": "Apache-2.0 (LICENSE file at pin 908ac0a52b8c, GitHub licence API 2026-10-26)",
    "review": {
     "spdx": "Apache-2.0",
@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-19T08:35Z",
     "consent_receipt": "60b7605bbda3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T08:35Z (receipt 60b7605bbda3); selected commit 908ac0a52b8c: \"Syntra Desktop v0.4: add sanitized diagnostics and recovery\". LICENSE file at pin 908ac0a52b8c detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T08:35Z (receipt 60b7605bbda3); selected commit 908ac0a52b8c: \"Syntra Desktop v0.4: add sanitized diagnostics and recovery\". LICENSE file at pin 908ac0a52b8c detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Re-pinned to 2835d207d672 and scoped to apps/syntra-desktop at the author's request (email 2026-11-28)."
+   },
+   "paths": [
+    "apps/syntra-desktop"
+   ]
   }
  ]
 }
