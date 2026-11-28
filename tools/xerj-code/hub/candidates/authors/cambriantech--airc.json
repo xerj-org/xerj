@@ -8,15 +8,15 @@
   {
    "repo": "airc",
    "url": "https://github.com/CambrianTech/airc",
-   "sha": "e841e5431ab6420fbbdf14b25fd385dedcde22d7",
-   "licence": "MIT (LICENSE file at pin e841e5431ab6, GitHub licence API 2026-11-28)",
+   "sha": "8be1c7d32091113a1f9e5ecb5a295cdb8b165c50",
+   "licence": "MIT (LICENSE file at pin 8be1c7d32091, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-08T19:22Z",
     "consent_receipt": "c05107252679",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T19:22Z (receipt c05107252679); selected commit e841e5431ab6: \"Test addressed IPC owner recreation and preserve refusal provenance (\u2026\". LICENSE file at pin e841e5431ab6 detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution. Pinned to head e841e5431ab6 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @CambrianTech, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T19:22Z (receipt c05107252679); selected commit 8be1c7d32091: \"Test addressed IPC owner recreation and preserve refusal provenance (\u2026\". LICENSE file at pin 8be1c7d32091 detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution. Pinned to head 8be1c7d32091 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @CambrianTech, who has not added it."
    },
    "paths": [
     "crates/airc-cli/src",

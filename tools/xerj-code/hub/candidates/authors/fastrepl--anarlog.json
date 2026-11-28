@@ -2,8 +2,8 @@
  "corpus": "fastrepl--anarlog",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on local-first, notetaking, open-source queries this for how fastrepl/anarlog implements it: Open source Granola AI Alternative (selected work: apps/desktop, plugins, packages/editor)",
+ "shelf": "AI",
+ "domain": "an agent working on local-first, notetaking, open-source queries this for how fastrepl/anarlog implements it: Open-source, local-first AI notepad for private meetings. Bot-free, local SQLite, BYOK & native Rust/GPUI alternative to Granola (selected work: apps/desktop, plugins, packages/editor)",
  "repos": [
   {
    "repo": "anarlog",

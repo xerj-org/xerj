@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, litestar, llm queries this for how hexanomicon/lychd implements it: An LLM-animated daemon bound to Systemd. Forges intelligent agents using Litestar, Pydantic AI & Graph, displayed on a Svelte frontend. Supp (selected work: clients, tests, src/lychd)",
+ "domain": "an agent working on ai-agents, litestar, llm queries this for how hexanomicon/lychd implements it: A self-hosted LLM-animated daemon for AI agents, local models, and persistent workflows. Use the Altar web interface on Linux, macOS, and Wi (selected work: clients, tests, src/lychd)",
  "repos": [
   {
    "repo": "lychd",

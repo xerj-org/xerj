@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how DavidKang/magi implements it: DavidKang/magi (Python) (selected work: tests, magi, scripts)",
+ "domain": "an agent working on cli, github, homebrew queries this for how DavidKang/magi implements it: A terminal app that puts a team's GitHub PRs and Jira epics on one screen (selected work: tests, magi, scripts)",
  "repos": [
   {
    "repo": "magi",

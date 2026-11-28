@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on desktop-app, electron-app, flac queries this for how zyw0815/Qrip implements it: Desktop GUI for Qobuz hi\u2011res / lossless music downloader. Built on streamrip | Electron + React + FastAPI (selected work: electron, python, dist-electron)",
+ "domain": "an agent working on desktop-app, electron-app, flac queries this for how zyw0815/Qrip implements it: Desktop GUI for Qobuz hi\u2011res / lossless music downloader (Qobuz\u4e0b\u8f7d\u5668). Built on streamrip | Electron + React + FastAPI (selected work: electron, python, dist-electron)",
  "repos": [
   {
    "repo": "Qrip",
