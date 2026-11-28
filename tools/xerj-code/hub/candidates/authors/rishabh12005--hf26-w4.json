@@ -1,9 +1,9 @@
 {
- "corpus": "rishabh12005--ghost-machine",
+ "corpus": "rishabh12005--hf26-w4",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on render, superbase queries this for how RISHABH12005/Ghost-Machine implements it: Build something spooky, or something that honors the past in the spirit of D\u00eda de los Muertos, with open-weight models or open-source AI (selected work: src/app, src/components, src/lib)",
+ "domain": "an agent working on render, superbase queries this for how RISHABH12005/HF26-W4 implements it: Build something spooky, or something that honors the past in the spirit of D\u00eda de los Muertos, with open-weight models or open-source AI (selected work: src/app, src/components, src/lib)",
  "repos": [
   {
    "repo": "Ghost-Machine",

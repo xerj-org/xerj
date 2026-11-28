@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on csharp, dotnet, familyisland queries this for how Gruuuubik/FamilyIslandHelper.Api implements it: API for game FamilyIsland (selected work: FamilyIslandHelper.Api, FamilyIslandHelper.Api.UnitTests)",
+ "domain": "an agent working on dotnet, familyisland, api queries this for how Gruuuubik/FamilyIslandHelper.Api implements it: API for game FamilyIsland (selected work: FamilyIslandHelper.Api, FamilyIslandHelper.Api.UnitTests)",
  "repos": [
   {
    "repo": "FamilyIslandHelper.Api",

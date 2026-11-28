@@ -1,9 +1,9 @@
 {
- "corpus": "gaftherman--angelscript-lsp",
+ "corpus": "angelscript-tools--angelscript-lsp",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on angelscript, angelscript-examples, angelscript-lang queries this for how Gaftherman/angelscript-lsp implements it: Language server and VS Code extension for AngelScript: diagnostics, completion, hover, refactoring and debugging (selected work: server)",
+ "domain": "an agent working on angelscript, angelscript-examples, angelscript-lang queries this for how angelscript-tools/angelscript-lsp implements it: Language server and VS Code extension for AngelScript: diagnostics, completion, hover, refactoring and debugging (selected work: server)",
  "repos": [
   {
    "repo": "angelscript-lsp",
