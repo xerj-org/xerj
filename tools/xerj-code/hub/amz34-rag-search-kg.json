@@ -1,0 +1,66 @@
+{
+  "corpus": "amz34-rag-search-kg",
+  "cloned_at": "2026-11-28T06:09:39Z",
+  "repos": [
+    {
+      "repo": "ultra-agentic-rag",
+      "url": "https://github.com/Amz34/ultra-agentic-rag",
+      "licence": "MIT",
+      "sha": "7f1585be5e461178d307a7cbd83719e6c7e1bfd0",
+      "files": 24,
+      "bytes": 145741,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 7f1585b; confirmed MIT, (c) 2026 Aamir Malik / Az. consultancy. Hierarchical tree navigation & CRAG evaluation."
+      }
+    },
+    {
+      "repo": "wire-pid-kg",
+      "url": "https://github.com/Amz34/wire-pid-kg",
+      "licence": "MIT",
+      "sha": "6d1b406ffd3e3c3612a370cda6ad41e553344d6a",
+      "files": 50,
+      "bytes": 5357261,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 6d1b406; confirmed MIT, (c) 2026 Aamir Malik / Az. consultancy. Wire-native P&ID engineering knowledge graph."
+      }
+    },
+    {
+      "repo": "deep-research-engine",
+      "url": "https://github.com/Amz34/deep-research-engine",
+      "licence": "MIT",
+      "sha": "7c2ad159afaf406d6c242bf278d6f8719d912f03",
+      "files": 19,
+      "bytes": 334083,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 7c2ad15; confirmed MIT, (c) 2026 Aamir Malik / Az. consultancy. Recursive multi-angle research engine."
+      }
+    },
+    {
+      "repo": "realtime-rag-engine",
+      "url": "https://github.com/Amz34/realtime-rag-engine",
+      "licence": "NONE-FOUND",
+      "sha": "0c9a894f8ba11c99b166707ff80bd9068ee23ee4",
+      "files": 16,
+      "bytes": 590011,
+      "review": {
+        "spdx": "Apache-2.0",
+        "use": "approach-only",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "detector found no loose LICENSE file (badge states Apache-2.0); marked approach-only for architecture and diff-streaming patterns."
+      }
+    }
+  ]
+}
