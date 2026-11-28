@@ -8,15 +8,15 @@
   {
    "repo": "MindGate-AI",
    "url": "https://github.com/shubhamdhoke502/MindGate-AI",
-   "sha": "aaadde249b4b7da216e939f90a69f5efe73bc053",
-   "licence": "MIT (LICENSE file at pin aaadde249b4b, GitHub licence API 2026-11-27)",
+   "sha": "5057b3b0878e6f7a9daa779d0706d42e003de7ca",
+   "licence": "MIT (LICENSE file at pin 5057b3b0878e, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-27T11:02Z",
     "consent_receipt": "9be773c56c92",
-    "note": "Inclusion consented by the commit author by email at 2026-11-27T11:02Z (receipt 9be773c56c92); selected commit aaadde249b4b: \"all files commit\". LICENSE file at pin aaadde249b4b detected as MIT by the GitHub licence API on 2026-11-27; used under that licence with attribution. Pinned to head aaadde249b4b (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-27T11:02Z (receipt 9be773c56c92); selected commit 5057b3b0878e: \"all files commit\". LICENSE file at pin 5057b3b0878e detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution. Pinned to head 5057b3b0878e (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

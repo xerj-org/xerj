@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how emilioSp/pi-maestro implements it: Pi extension to manage a spec driven multiagent development workflow (selected work: src/tools, extensions, src/workflow)",
+ "domain": "an agent working on ai-agents, ai-coding, developer-tools queries this for how emilioSp/pi-maestro implements it: Pi extension to manage a spec driven multiagent development workflow (selected work: src/tools, extensions, src/workflow)",
  "repos": [
   {
    "repo": "pi-maestro",

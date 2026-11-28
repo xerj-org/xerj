@@ -8,15 +8,15 @@
   {
    "repo": "context-bridge",
    "url": "https://github.com/gravion-ux/context-bridge",
-   "sha": "a27599e9fc4e68da8ef316a2e52b7a983156d8d2",
-   "licence": "MIT (LICENSE file at pin a27599e9fc4e, GitHub licence API 2026-11-26)",
+   "sha": "b8db7ea6c611ae7d0e5311db4ed3a0f3e8856466",
+   "licence": "MIT (LICENSE file at pin b8db7ea6c611, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "b078bb7a215c",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt b078bb7a215c); pinned to the default-branch head. LICENSE file at pin a27599e9fc4e detected as MIT by the GitHub licence API on 2026-11-26; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt b078bb7a215c); pinned to the default-branch head. LICENSE file at pin b8db7ea6c611 detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]

@@ -8,15 +8,15 @@
   {
    "repo": "accessweave",
    "url": "https://github.com/gravion-ux/accessweave",
-   "sha": "c5aa1b1e1f5f5b775bff77754fbe483222d28ac3",
-   "licence": "MIT (LICENSE file at pin c5aa1b1e1f5f, GitHub licence API 2026-11-25)",
+   "sha": "5cf95c9b1641012739d3b4acfe1ff16e51387615",
+   "licence": "MIT (LICENSE file at pin 5cf95c9b1641, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "9ec8d6fd9b82",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 9ec8d6fd9b82); pinned to the default-branch head. LICENSE file at pin c5aa1b1e1f5f detected as MIT by the GitHub licence API on 2026-11-25; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 9ec8d6fd9b82); pinned to the default-branch head. LICENSE file at pin 5cf95c9b1641 detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]

@@ -8,15 +8,15 @@
   {
    "repo": "pipelines",
    "url": "https://github.com/nisavid/pipelines",
-   "sha": "d557999731d46dee0ce883630faa36e552add7fd",
-   "licence": "author's permission (LICENSE at pin d557999731d4: NONE; repository: none)",
+   "sha": "16e2b29a59cf25c13943aaa74fa16363090af465",
+   "licence": "author's permission (LICENSE at pin 16e2b29a59cf: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T21:16Z",
     "consent_receipt": "e8834fafd06e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt e8834fafd06e); pinned to the default-branch head. LICENSE at pin d557999731d4: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt e8834fafd06e); pinned to the default-branch head. LICENSE at pin 16e2b29a59cf: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
