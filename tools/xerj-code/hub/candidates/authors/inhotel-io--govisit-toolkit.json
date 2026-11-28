@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, claude-code, codex queries this for how inhotel-io/govisit-toolkit implements it: Portable GoVisit Agent Skills for Claude Code, Codex, GitHub Copilot, Cursor and compatible assistants, with native plugins and travel integ (selected work: tools)",
+ "domain": "an agent working on agent-skills, claude-code, codex queries this for how inhotel-io/govisit-toolkit implements it: AI agent tools and skills for travel and hospitality. Discover destinations, places, and experiences, answer visitor questions, and find boo (selected work: tools)",
  "repos": [
   {
    "repo": "govisit-toolkit",
