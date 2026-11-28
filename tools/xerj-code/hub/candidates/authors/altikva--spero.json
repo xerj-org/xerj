@@ -8,15 +8,15 @@
   {
    "repo": "spero",
    "url": "https://github.com/altikva/spero",
-   "sha": "4152356b16b55bae316e053bafbfd8cb2e655ff8",
-   "licence": "Apache-2.0 (LICENSE file at pin 4152356b16b5, GitHub licence API 2026-11-28)",
+   "sha": "2bdc3343694ff62ebd561c496c87b2ce8c838d08",
+   "licence": "Apache-2.0 (LICENSE file at pin 2bdc3343694f, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-08T13:55Z",
     "consent_receipt": "ec86454692f2",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T13:55Z (receipt ec86454692f2); selected commit 4152356b16b5: \"Reload the policy in a running spero watch (#46)\". LICENSE file at pin 4152356b16b5 detected as Apache-2.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution. Pinned to head 4152356b16b5 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @altikva, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T13:55Z (receipt ec86454692f2); selected commit 2bdc3343694f: \"Reload the policy in a running spero watch (#46)\". LICENSE file at pin 2bdc3343694f detected as Apache-2.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution. Pinned to head 2bdc3343694f (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @altikva, who has not added it."
    },
    "paths": [
     "src/spero",
