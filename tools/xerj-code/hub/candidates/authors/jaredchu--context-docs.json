@@ -8,15 +8,15 @@
   {
    "repo": "context-docs",
    "url": "https://github.com/jaredchu/context-docs",
-   "sha": "0988c2521f030f2faea3498187cf978168382119",
-   "licence": "MIT (LICENSE file at pin 0988c2521f03, GitHub licence API 2026-11-28)",
+   "sha": "c32af94f0228a629165beb9738dc22bb3af20ae6",
+   "licence": "MIT (LICENSE file at pin c32af94f0228, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T13:09Z",
     "consent_receipt": "38f94c54e49f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T13:09Z (receipt 38f94c54e49f); pinned to the default-branch head. LICENSE file at pin 0988c2521f03 detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T13:09Z (receipt 38f94c54e49f); pinned to the default-branch head. LICENSE file at pin c32af94f0228 detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]

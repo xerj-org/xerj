@@ -8,15 +8,15 @@
   {
    "repo": "baicodex",
    "url": "https://github.com/mubai0122/baicodex",
-   "sha": "874099834593e144c6f06119ac8a523e61985818",
-   "licence": "AGPL-3.0 (LICENSE file at pin 874099834593, GitHub licence API 2026-11-27)",
+   "sha": "8dde2c798ae7ddece1ce5151b356e9a75f88779f",
+   "licence": "AGPL-3.0 (LICENSE file at pin 8dde2c798ae7, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-26T17:38Z",
     "consent_receipt": "9d54c63f7e07",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T17:38Z (receipt 9d54c63f7e07); selected commit 874099834593: \"\u4e00\u952e\u6fc0\u6d3b\u65e0\u969c\u788d\uff1aShizuku/Root \u5199 secure \u8bbe\u7f6e\uff0c\u786e\u8ba4\u5f39\u7a97+\u8fdb\u5ea6+\u6210\u529f\u9875\uff0c\u53ef\u52fe\u9009\u6bcf\u6b21\u8fdb\u5165\u81ea\u52a8\u6fc0\u6d3b\uff0c\u5361\u7247\u4e0e\u5f15\u5bfc\u9875\u63a5\u5165\". LICENSE file at pin 874099834593 detected as AGPL-3.0 by the GitHub licence API on 2026-11-27; used under that licence with attribution. Pinned to head 874099834593 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T17:38Z (receipt 9d54c63f7e07); selected commit 8dde2c798ae7: \"\u4e00\u952e\u6fc0\u6d3b\u65e0\u969c\u788d\uff1aShizuku/Root \u5199 secure \u8bbe\u7f6e\uff0c\u786e\u8ba4\u5f39\u7a97+\u8fdb\u5ea6+\u6210\u529f\u9875\uff0c\u53ef\u52fe\u9009\u6bcf\u6b21\u8fdb\u5165\u81ea\u52a8\u6fc0\u6d3b\uff0c\u5361\u7247\u4e0e\u5f15\u5bfc\u9875\u63a5\u5165\". LICENSE file at pin 8dde2c798ae7 detected as AGPL-3.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution. Pinned to head 8dde2c798ae7 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
    }
   }
  ]
