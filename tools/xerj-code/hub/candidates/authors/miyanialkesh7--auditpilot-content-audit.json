@@ -1,0 +1,23 @@
+{
+ "corpus": "miyanialkesh7--auditpilot-content-audit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on PHP queries this for how miyanialkesh7/auditpilot-content-audit implements it: Site Inspector helps website owners, agencies, and developers identify content quality issues across pages, posts, custom post types, WooCom",
+ "repos": [
+  {
+   "repo": "auditpilot-content-audit",
+   "url": "https://github.com/miyanialkesh7/auditpilot-content-audit",
+   "sha": "221f5cb9ba2804205b7258ca7b89f4d3168f96a2",
+   "licence": "author's permission (LICENSE at pin 221f5cb9ba28: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-28T08:12Z",
+    "consent_receipt": "42423b6f67a7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-28T08:12Z (receipt 42423b6f67a7); pinned to the default-branch head. LICENSE at pin 221f5cb9ba28: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

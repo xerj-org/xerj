@@ -8,15 +8,15 @@
   {
    "repo": "RISC-VInjection",
    "url": "https://github.com/Yash-Awasthi/RISC-VInjection",
-   "sha": "d8045a26ca9e565035efc76235d5000ccc108042",
-   "licence": "author's permission (LICENSE at pin d8045a26ca9e: NONE; repository: none)",
+   "sha": "bcc195b83023bc0d4b37d687bc24e93dd590b320",
+   "licence": "GPL-3.0 (LICENSE file at pin bcc195b83023, GitHub licence API 2026-11-28)",
    "review": {
-    "spdx": "NONE",
-    "use": "adapt-with-attribution",
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T22:25Z",
     "consent_receipt": "364baf1f39f2",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:25Z (receipt 364baf1f39f2); pinned to the default-branch head. LICENSE at pin d8045a26ca9e: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:25Z (receipt 364baf1f39f2); pinned to the default-branch head. LICENSE file at pin bcc195b83023 detected as GPL-3.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]

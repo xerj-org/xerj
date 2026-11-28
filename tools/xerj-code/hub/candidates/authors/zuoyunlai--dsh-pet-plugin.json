@@ -8,15 +8,15 @@
   {
    "repo": "dsh-pet-plugin",
    "url": "https://github.com/zuoyunlai/dsh-pet-plugin",
-   "sha": "13d518206742ea29189a36695c9522cb4777186a",
-   "licence": "MIT (LICENSE file at pin 13d518206742, GitHub licence API 2026-11-21)",
+   "sha": "9687fbabc75e287fdd254b1b9846acf35097748b",
+   "licence": "MIT (LICENSE file at pin 9687fbabc75e, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-21T04:34Z",
     "consent_receipt": "201ef0706902",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-21T04:34Z (receipt 201ef0706902); pinned to the default-branch head. LICENSE file at pin 13d518206742 detected as MIT by the GitHub licence API on 2026-11-21; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-21T04:34Z (receipt 201ef0706902); pinned to the default-branch head. LICENSE file at pin 9687fbabc75e detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]
