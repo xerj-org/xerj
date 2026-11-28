@@ -8,15 +8,15 @@
   {
    "repo": "vastgrid",
    "url": "https://github.com/yhay81/vastgrid",
-   "sha": "dcc2dec8373e62800f223073ae44c34e14816f41",
-   "licence": "MIT (LICENSE file at pin dcc2dec8373e, GitHub licence API 2026-11-28)",
+   "sha": "833cb956c1102161de110c6c0acb4cc56d5c0fa0",
+   "licence": "MIT (LICENSE file at pin 833cb956c110, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-17T22:08Z",
     "consent_receipt": "5609d5f37c3a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt 5609d5f37c3a); pinned to the default-branch head. LICENSE file at pin dcc2dec8373e detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt 5609d5f37c3a); pinned to the default-branch head. LICENSE file at pin 833cb956c110 detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]

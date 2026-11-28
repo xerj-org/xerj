@@ -8,15 +8,15 @@
   {
    "repo": "cerbere-AG",
    "url": "https://github.com/chrismsmr-celcom/cerbere-AG",
-   "sha": "9d83d9c06d00fd800127b6b5d0a4efa7e64b0c0b",
-   "licence": "Apache-2.0 (LICENSE file at pin 9d83d9c06d00, GitHub licence API 2026-11-28)",
+   "sha": "5c3c39ce5db34d164fb14a152b6e7a7832df94cb",
+   "licence": "Apache-2.0 (LICENSE file at pin 5c3c39ce5db3, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-10T05:41Z",
     "consent_receipt": "410e55819a9f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T05:41Z (receipt 410e55819a9f); selected commit 9d83d9c06d00: \"fix:deploy.sh without rollback and AGENTGUARD_WHITELIST_FAIL_MODE=ope\u2026\". LICENSE file at pin 9d83d9c06d00 detected as Apache-2.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution. Pinned to head 9d83d9c06d00 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T05:41Z (receipt 410e55819a9f); selected commit 5c3c39ce5db3: \"fix:deploy.sh without rollback and AGENTGUARD_WHITELIST_FAIL_MODE=ope\u2026\". LICENSE file at pin 5c3c39ce5db3 detected as Apache-2.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution. Pinned to head 5c3c39ce5db3 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]
