@@ -1,0 +1,21 @@
+{
+  "corpus": "akv-cache-engine",
+  "cloned_at": "2026-11-28T05:53:36Z",
+  "repos": [
+    {
+      "repo": "akv-cache-engine",
+      "url": "https://github.com/Amz34/akv-cache-engine",
+      "licence": "MIT",
+      "sha": "a572d8984478b253c9968e842e9b0e3b82359f28",
+      "files": 6,
+      "bytes": 15478,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit a572d89; confirmed MIT, (c) 2026 Aamir Malik / Az. consultancy. Pure reference implementation of static prefix pinning, rolling drop, and KV cache economics."
+      }
+    }
+  ]
+}
