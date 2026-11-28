@@ -2,8 +2,8 @@
  "corpus": "rain-kl--openflare",
  "cloned_at": null,
  "status": "draft",
- "shelf": "SEC",
- "domain": "an agent working on cdn, network, reverse-proxy queries this for how Rain-kl/OpenFlare implements it: Next-Gen Distributed Reverse Proxy & Edge Security Gateway (selected work: frontend, internal/apps, the project root)",
+ "shelf": "NET",
+ "domain": "an agent working on cdn, network, reverse-proxy queries this for how Rain-kl/OpenFlare implements it: Distributed Reverse Proxy, Edge Security Gateway, and Authoritative SmartDNS (selected work: frontend, internal/apps, the project root)",
  "repos": [
   {
    "repo": "OpenFlare",
