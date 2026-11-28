@@ -8,15 +8,15 @@
   {
    "repo": "SystemicRisk",
    "url": "https://github.com/TommasoBelluzzo/SystemicRisk",
-   "sha": "932eff54007a9fc3714873f41e8df58aa1cb00fd",
-   "licence": "Apache-2.0 (LICENSE file at pin 932eff54007a, GitHub licence API 2026-11-12)",
+   "sha": "5158aacd042c4df66d1e893fb130a9000af22ac9",
+   "licence": "Apache-2.0 (LICENSE file at pin 5158aacd042c, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T22:48Z",
     "consent_receipt": "0f847b8f914f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:48Z (receipt 0f847b8f914f); pinned to the default-branch head. LICENSE file at pin 932eff54007a detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:48Z (receipt 0f847b8f914f); pinned to the default-branch head. LICENSE file at pin 5158aacd042c detected as Apache-2.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]

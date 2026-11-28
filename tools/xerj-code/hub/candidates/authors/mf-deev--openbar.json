@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, claude-code, codex queries this for how MF-DEEV/Openbar implements it: The Dynamic Island for your AI agents. Claude Code, Codex and more in your Mac's notch, plus a full menu bar toolkit (selected work: windows)",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how MF-DEEV/OpenBar implements it: The Dynamic Island for your AI agents. Claude Code, Codex and more in your Mac's notch, plus a full menu bar toolkit (selected work: windows)",
  "repos": [
   {
    "repo": "Openbar",
