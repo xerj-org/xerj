@@ -1,0 +1,96 @@
+{
+  "corpus": "amz34-agent-mesh",
+  "cloned_at": "2026-11-28T06:13:53Z",
+  "repos": [
+    {
+      "repo": "aone-teammate-mesh",
+      "url": "https://github.com/Amz34/aone-teammate-mesh",
+      "licence": "MIT",
+      "sha": "a1f1e78d751328b4ac9efa8e3ed4d209fbc22cf7",
+      "files": 23,
+      "bytes": 81980,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit a1f1e78; confirmed MIT, (c) 2026 Aamir Malik / Az. consultancy. Persistent coworker runtime & SQLite memory."
+      }
+    },
+    {
+      "repo": "agent-substrate",
+      "url": "https://github.com/Amz34/agent-substrate",
+      "licence": "Apache-2.0",
+      "sha": "56d039c1f59ed79cd7f5e520646c40669d25bd44",
+      "files": 73,
+      "bytes": 597468,
+      "review": {
+        "spdx": "Apache-2.0",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 56d039c; confirmed Apache-2.0. Zero-trust sandboxing runtime."
+      }
+    },
+    {
+      "repo": "agentic-infra-mesh",
+      "url": "https://github.com/Amz34/agentic-infra-mesh",
+      "licence": "MIT",
+      "sha": "8d28ad25a60a3715262f51c3fa74579af849f72e",
+      "files": 13,
+      "bytes": 108875,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 8d28ad2; confirmed MIT. Multi-agent REA-EGM infrastructure mesh."
+      }
+    },
+    {
+      "repo": "modern-web-enterprise-mesh",
+      "url": "https://github.com/Amz34/modern-web-enterprise-mesh",
+      "licence": "MIT",
+      "sha": "6796adeb418d6e50a306251067a246796d0d7a22",
+      "files": 10,
+      "bytes": 125727,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 6796ade; confirmed MIT. AST scanner & web guidance."
+      }
+    },
+    {
+      "repo": "ultra-rate-limit-mesh",
+      "url": "https://github.com/Amz34/ultra-rate-limit-mesh",
+      "licence": "MIT",
+      "sha": "0733a0ee92649e8021ccddf4103eebf7bbbc0df2",
+      "files": 26,
+      "bytes": 177947,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 0733a0e; confirmed MIT. Distributed 5-algorithm rate limiter."
+      }
+    },
+    {
+      "repo": "nod-whatsapp-mesh",
+      "url": "https://github.com/Amz34/nod-whatsapp-mesh",
+      "licence": "Apache-2.0",
+      "sha": "099c421f13aab6a26617a7d4f09b719bc41d619a",
+      "files": 14,
+      "bytes": 343141,
+      "review": {
+        "spdx": "Apache-2.0",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 099c421; confirmed Apache-2.0. Baileys transport & poll approval mesh."
+      }
+    }
+  ]
+}

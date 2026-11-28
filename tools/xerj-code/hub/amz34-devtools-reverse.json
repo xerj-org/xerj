@@ -1,0 +1,96 @@
+{
+  "corpus": "amz34-devtools-reverse",
+  "cloned_at": "2026-11-28T06:14:31Z",
+  "repos": [
+    {
+      "repo": "rekit",
+      "url": "https://github.com/Amz34/rekit",
+      "licence": "MIT",
+      "sha": "1535a769cdddc7e21517559e5a79aacc48d87cf6",
+      "files": 42,
+      "bytes": 1239038,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 1535a76; confirmed MIT. Reverse-engineering CLI + FastMCP server."
+      }
+    },
+    {
+      "repo": "infra-purge-debugger",
+      "url": "https://github.com/Amz34/infra-purge-debugger",
+      "licence": "MIT",
+      "sha": "bc6b7476de51d6ae737fddf586c4d512f99118c6",
+      "files": 13,
+      "bytes": 43593,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit bc6b747; confirmed MIT. Chromium CDP probe & AST purge verifier."
+      }
+    },
+    {
+      "repo": "cron-stabilizer",
+      "url": "https://github.com/Amz34/cron-stabilizer",
+      "licence": "MIT",
+      "sha": "4265d801ed6169d5228cc66fc70a05a3af67ba3a",
+      "files": 10,
+      "bytes": 21085,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 4265d80; confirmed MIT. SRE fleet automation stabilizer."
+      }
+    },
+    {
+      "repo": "craas-action",
+      "url": "https://github.com/Amz34/craas-action",
+      "licence": "MIT",
+      "sha": "b2b284b6bde331d95a994b29b9b4b6496c381be6",
+      "files": 11,
+      "bytes": 269060,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit b2b284b; confirmed MIT. Autonomous GitHub Action for code repair."
+      }
+    },
+    {
+      "repo": "cartowire-engine",
+      "url": "https://github.com/Amz34/cartowire-engine",
+      "licence": "Apache-2.0",
+      "sha": "f1248e2ded699c6a53cad3b7f08abfbd802f586d",
+      "files": 34,
+      "bytes": 956972,
+      "review": {
+        "spdx": "Apache-2.0",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit f1248e2; confirmed Apache-2.0. Protobuf spatial engine."
+      }
+    },
+    {
+      "repo": "ultra-fde-mesh",
+      "url": "https://github.com/Amz34/ultra-fde-mesh",
+      "licence": "MIT",
+      "sha": "ca4213ec1629102388bf287677090a7821f9a0ec",
+      "files": 22,
+      "bytes": 193184,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit ca4213e; confirmed MIT. FDE delivery substrate."
+      }
+    }
+  ]
+}

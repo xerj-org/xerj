@@ -1,0 +1,51 @@
+{
+  "corpus": "amz34-web-engines",
+  "cloned_at": "2026-11-28T06:14:53Z",
+  "repos": [
+    {
+      "repo": "Amz34.github.io",
+      "url": "https://github.com/Amz34/Amz34.github.io",
+      "licence": "MIT",
+      "sha": "3d528e1a374cf891f38ee13831a0478ba393002a",
+      "files": 221,
+      "bytes": 82489464,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 3d528e1; confirmed MIT. Multi-agent showcase & static architecture."
+      }
+    },
+    {
+      "repo": "diskopt",
+      "url": "https://github.com/Amz34/diskopt",
+      "licence": "MIT",
+      "sha": "fdcc5ca50ceb75a28d0efffd04b18ca31f0f38f0",
+      "files": 11,
+      "bytes": 24659,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit fdcc5ca; confirmed MIT. Storage optimization & disk cleaner."
+      }
+    },
+    {
+      "repo": "talentproof-protocol",
+      "url": "https://github.com/Amz34/talentproof-protocol",
+      "licence": "Apache-2.0",
+      "sha": "2810cbb50723fbae2b2de5646a964c60d435873a",
+      "files": 21,
+      "bytes": 64214,
+      "review": {
+        "spdx": "Apache-2.0",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 2810cbb; confirmed Apache-2.0. Developer cryptographic proof attestation."
+      }
+    }
+  ]
+}
