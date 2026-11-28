@@ -8,15 +8,15 @@
   {
    "repo": "MapControl",
    "url": "https://github.com/berkpekatik/MapControl",
-   "sha": "0b320b559a7557638979fa1fb1725c3052db4ebb",
-   "licence": "Apache-2.0 (LICENSE file at pin 0b320b559a75, GitHub licence API 2026-11-27)",
+   "sha": "b4cf14d47cabd5b13e413207455b828632cbd130",
+   "licence": "Apache-2.0 (LICENSE file at pin b4cf14d47cab, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-08T01:47Z",
     "consent_receipt": "42e8315f9d07",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T01:47Z (receipt 42e8315f9d07); selected commit 0b320b559a75: \"Enhance DMS face recognition and seat memory integration. Update DmsF\u2026\". LICENSE file at pin 0b320b559a75 detected as Apache-2.0 by the GitHub licence API on 2026-11-27; used under that licence with attribution. Pinned to head 0b320b559a75 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T01:47Z (receipt 42e8315f9d07); selected commit b4cf14d47cab: \"Enhance DMS face recognition and seat memory integration. Update DmsF\u2026\". LICENSE file at pin b4cf14d47cab detected as Apache-2.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution. Pinned to head b4cf14d47cab (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

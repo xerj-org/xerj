@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on csharp, forum, front-end queries this for how Ansherly/CC98-Desktop implements it: \u6d59\u6c5f\u5927\u5b66\u6821\u5185\u8bba\u575b CC98 \u7684Windows 11\u684c\u9762\u5ba2\u6237\u7aef,\u57fa\u4e8eWin UI3\u6784\u5efa\u3002 (selected work: Kernel, Controls, tools)",
+ "domain": "an agent working on csharp, forum, front-end queries this for how Ansherly/CC98-Desktop implements it: \u6d59\u6c5f\u5927\u5b66\u6821\u5185\u8bba\u575b CC98 \u7684Windows 11\u684c\u9762\u5ba2\u6237\u7aef,\u57fa\u4e8eWinUI\u6784\u5efa\u3002 (selected work: Kernel, Controls, tools)",
  "repos": [
   {
    "repo": "CC98-Desktop",

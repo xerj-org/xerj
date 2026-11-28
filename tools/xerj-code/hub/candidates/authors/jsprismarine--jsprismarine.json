@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on javascript, mcbe, minecraft queries this for how JSPrismarine/JSPrismarine implements it: Dedicated Minecraft Bedrock Edition server written in TypeScript (selected work: packages/prismarine)",
+ "domain": "an agent working on javascript, mcbe, minecraft queries this for how JSPrismarine/JSPrismarine implements it: Dedicated Minecraft Bedrock and Java Edition server written in TypeScript (selected work: packages/prismarine)",
  "repos": [
   {
    "repo": "JSPrismarine",

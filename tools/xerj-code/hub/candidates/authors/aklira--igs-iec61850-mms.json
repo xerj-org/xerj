@@ -1,0 +1,23 @@
+{
+ "corpus": "aklira--igs-iec61850-mms",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Rust queries this for how aklira/igs-iec61850-mms implements it: Industrial-grade IEC 61850 MMS protocol stack implementation for SCADA and telecontrol (selected work: crates/igs-iec61850-mms, bench, crates/igs-iec61850-mms-core)",
+ "repos": [
+  {
+   "repo": "igs-iec61850-mms",
+   "url": "https://github.com/aklira/igs-iec61850-mms",
+   "sha": "851b82a90f1e825e2edccae00fba04807cf0c1c5",
+   "licence": "Apache-2.0 (LICENSE file at pin 851b82a90f1e, GitHub licence API 2026-11-28)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-28T17:20Z",
+    "consent_receipt": "befa46309cfa",
+    "note": "Inclusion consented by the commit author by email at 2026-11-28T17:20Z (receipt befa46309cfa); selected commit 851b82a90f1e: \"D6: the reference reporting client receives the reports of our server\". LICENSE file at pin 851b82a90f1e detected as Apache-2.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution."
+   }
+  }
+ ]
+}

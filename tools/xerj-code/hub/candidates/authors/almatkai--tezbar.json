@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how almatkai/Tezbar implements it: Tezbar is a high-performance, lightweight Spotlight alternative for macOS that blends the best of Raycast with the power of an integrated AI (selected work: src-tauri)",
+ "domain": "an agent working on Rust queries this for how almatkai/Tezbar implements it: Tezbar is a high-performance, lightweight Spotlight alternative for macOS that blends the best of Raycast with the power of an integrated AI (selected work: src-tauri)",
  "repos": [
   {
    "repo": "Tezbar",

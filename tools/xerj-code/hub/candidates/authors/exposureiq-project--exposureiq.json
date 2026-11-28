@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how ExposureIQ-Project/ExposureIQ implements it: ExposureIQ discovers and tracks your external attack surface (subdomains, ports, services), diffs scans to show what changed, and generates  (selected work: tests, exposureiq)",
+ "domain": "an agent working on ai-assisted, asm, attack-surface-management queries this for how ExposureIQ-Project/ExposureIQ implements it: Open-source attack surface management: discover subdomains, ports and services, diff scans, and generate HTML/PDF/DOCX reports with optional (selected work: tests, exposureiq)",
  "repos": [
   {
    "repo": "ExposureIQ",
