@@ -8,15 +8,15 @@
   {
    "repo": "pdf-translation-viewer",
    "url": "https://github.com/yhay81/pdf-translation-viewer",
-   "sha": "ef149e7e344c265805a4e87d6a25e2aa095e3013",
-   "licence": "MIT (LICENSE file at pin ef149e7e344c, GitHub licence API 2026-11-18)",
+   "sha": "8b49299a8c4cd77a9b4c06e2fbaa9b19c94e0ab1",
+   "licence": "MIT (LICENSE file at pin 8b49299a8c4c, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-17T22:08Z",
     "consent_receipt": "06c1aefd4d01",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt 06c1aefd4d01); pinned to the default-branch head. LICENSE file at pin ef149e7e344c detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt 06c1aefd4d01); pinned to the default-branch head. LICENSE file at pin 8b49299a8c4c detected as MIT by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]

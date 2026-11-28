@@ -8,15 +8,15 @@
   {
    "repo": "9routerx",
    "url": "https://github.com/yanstd888/9routerx",
-   "sha": "bf2f7d1d6e9473f77de2da5c8ef5d2ae1df2399d",
-   "licence": "author's permission (LICENSE at pin bf2f7d1d6e94: NOASSERTION; repository: NOASSERTION)",
+   "sha": "b9b8175cd74214f13fb19949111026f7f46352a0",
+   "licence": "author's permission (LICENSE at pin b9b8175cd742: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T16:48Z",
     "consent_receipt": "47269655cd14",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T16:48Z (receipt 47269655cd14); pinned to the default-branch head. LICENSE at pin bf2f7d1d6e94: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T16:48Z (receipt 47269655cd14); pinned to the default-branch head. LICENSE at pin b9b8175cd742: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on chroma, hid, keyboard queries this for how Ar4ikov/openrazer-win implements it: OpenRazer for Windows 10/11 \u2014 Razer keyboard, mouse and mousepad control in user space. No Synapse, no kernel driver, no dependencies. 267 d (selected work: tests, openrazer_win, studio)",
+ "domain": "an agent working on chroma, hid, keyboard queries this for how Ar4ikov/openrazer-win implements it: OpenRazer for Windows 10/11 \u2014 Razer keyboard, mouse and mousepad control in user space. No Synapse, no kernel driver, no dependencies. 295 d (selected work: tests, openrazer_win, studio)",
  "repos": [
   {
    "repo": "openrazer-win",

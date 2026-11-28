@@ -1,9 +1,9 @@
 {
- "corpus": "kimtoma--autoontology",
+ "corpus": "kimtoma--ontology",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on apache-ossie, fastapi, knowledge-graph queries this for how kimtoma/AutoOntology implements it: Turn structured and unstructured enterprise data into one ontology with NVIDIA Auto Ontology, Apache Ossie and the Open Knowledge Format (MI (selected work: autoontology, tests, ui)",
+ "domain": "an agent working on apache-ossie, fastapi, knowledge-graph queries this for how kimtoma/ontology implements it: Turn structured and unstructured enterprise data into one actionable ontology on NVIDIA Auto Ontology, Apache Ossie and the Open Knowledge F (selected work: autoontology, tests, ui)",
  "repos": [
   {
    "repo": "AutoOntology",

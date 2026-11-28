@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on Rust queries this for how Mxqius/ForceConnect implements it: A modern, lightweight Windows utility for managing system DNS settings with ease. Built from the ground up with a redesigned interface, impr (selected work: src/features, src/design, src/app)",
+ "domain": "an agent working on dns, dns-changer, dns-lookup queries this for how Mxqius/ForceConnect implements it: A modern, lightweight Windows utility for managing system DNS settings with ease. Built from the ground up with a redesigned interface, impr (selected work: src/features, src/design, src/app)",
  "repos": [
   {
    "repo": "ForceConnect",
