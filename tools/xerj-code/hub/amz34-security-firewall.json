@@ -1,0 +1,96 @@
+{
+  "corpus": "amz34-security-firewall",
+  "cloned_at": "2026-11-28T06:14:09Z",
+  "repos": [
+    {
+      "repo": "mcp-zero-trust-firewall",
+      "url": "https://github.com/Amz34/mcp-zero-trust-firewall",
+      "licence": "MIT",
+      "sha": "55905131514ece6d26ac16d31362ac61da66b0f1",
+      "files": 30,
+      "bytes": 123321,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 5590513; confirmed MIT. MCP prompt injection firewall & context isolation."
+      }
+    },
+    {
+      "repo": "zeroegress",
+      "url": "https://github.com/Amz34/zeroegress",
+      "licence": "MIT",
+      "sha": "6182ab72e68ebc75d2b7a94bdfc5425a02efadbd",
+      "files": 27,
+      "bytes": 223389,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 6182ab7; confirmed MIT. Local-only confidential document socket egress defense."
+      }
+    },
+    {
+      "repo": "parity-guard",
+      "url": "https://github.com/Amz34/parity-guard",
+      "licence": "MIT",
+      "sha": "0b774d01e52648e076677e5499a97a92319a1476",
+      "files": 21,
+      "bytes": 363300,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 0b774d0; confirmed MIT. Behavioral parity and differential testing engine."
+      }
+    },
+    {
+      "repo": "fast-vault-bridge",
+      "url": "https://github.com/Amz34/fast-vault-bridge",
+      "licence": "MIT",
+      "sha": "eb6a7645c5d20129f322ae5f4d5ca17537c89dbb",
+      "files": 20,
+      "bytes": 193496,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit eb6a764; confirmed MIT. Multi-core Zstandard streaming archiver."
+      }
+    },
+    {
+      "repo": "ghostvault",
+      "url": "https://github.com/Amz34/ghostvault",
+      "licence": "MIT",
+      "sha": "58f7297769f23b9bf76c599b31b150c37901c7a4",
+      "files": 8,
+      "bytes": 47250,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 58f7297; confirmed MIT. Zero-loss cloud archiver."
+      }
+    },
+    {
+      "repo": "enterprise-n8n-mesh",
+      "url": "https://github.com/Amz34/enterprise-n8n-mesh",
+      "licence": "Apache-2.0",
+      "sha": "14585a1378aabd9db6d9cadf8bb070cbc482c0f4",
+      "files": 30,
+      "bytes": 383137,
+      "review": {
+        "spdx": "Apache-2.0",
+        "use": "adapt-with-attribution",
+        "by": "@Amz34",
+        "at": "2026-11-28",
+        "note": "opened LICENSE at commit 14585a1; confirmed Apache-2.0. High-availability n8n queue mesh."
+      }
+    }
+  ]
+}
