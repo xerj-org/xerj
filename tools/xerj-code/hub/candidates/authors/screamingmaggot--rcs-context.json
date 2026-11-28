@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on context-management, deepseek-harness, dsh queries this for how ScreamingMaggot/rcs-context implements it: DeepSeek Harness (DSH) \u63d2\u4ef6\u5305\uff1a\u628a\u5de5\u5177\u8f93\u51fa\u4e0e\u6a21\u578b\u56de\u590d\u6298\u53e0\u6210\u53ef\u5c55\u5f00\u7684\u6458\u8981\uff0c\u628a\u4f1a\u8bdd\u4e8b\u5b9e\u6c89\u6dc0\u6210\u5e26\u8bc1\u636e\u7684\u5916\u90e8\u8bb0\u5fc6\u3002\u5b9e\u6d4b 12 \u4e2a\u957f\u4f1a\u8bdd\u628a 50 MB \u4e0a\u4e0b\u6587\u538b\u5230 0.96 MB\uff0852\u00d7\uff09\uff0c\u4e0a\u4e0b\u6587\u5360\u7528\u4e2d\u4f4d 7.8%\u3002\u517c\u5bb9 DSH 0.1.5-rc.2 ~ 0.2.2- (selected work: web, tests, contextinjector-webui)",
+ "domain": "an agent working on context-management, deepseek-harness, dsh queries this for how ScreamingMaggot/rcs-context implements it: DeepSeek Harness \u63d2\u4ef6\u5305\uff1a\u5b9e\u6d4b\u9010\u6298\u538b\u7f29 4.39\u00d7\uff0c1M \u539f\u751f\u7a97\u53e3\u7b49\u6548\u7ea6 4.39M \u539f\u59cb\u4e0a\u4e0b\u6587\uff1b\u539f\u6587\u53ef\u5c55\u5f00\u3001\u5931\u8d25\u65e0\u635f\u56de\u9000\u3002\u652f\u6301\u5916\u7f6e\u63a8\u7406\u3001\u8f6c\u5f55\u65e5\u5fd7\u4e0e\u5e26\u8bc1\u636e\u7684\u5916\u90e8\u8bb0\u5fc6\u3002\u5b89\u88c5\uff1adsh plugin --profile web add rcs-context\u3002 (selected work: web, tests, contextinjector-webui)",
  "repos": [
   {
    "repo": "rcs-context",

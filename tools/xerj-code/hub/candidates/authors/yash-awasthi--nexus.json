@@ -8,15 +8,15 @@
   {
    "repo": "Nexus",
    "url": "https://github.com/Yash-Awasthi/Nexus",
-   "sha": "5a17405520f23be8cf01d587a5a743ce45c7ff34",
-   "licence": "author's permission (LICENSE at pin 5a17405520f2: NOASSERTION; repository: NOASSERTION)",
+   "sha": "3a92fb9d846d6f443aeb478d5e09da2a36571fa2",
+   "licence": "author's permission (LICENSE at pin 3a92fb9d846d: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:25Z",
     "consent_receipt": "0f9c912cac63",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:25Z (receipt 0f9c912cac63); pinned to the default-branch head. LICENSE at pin 5a17405520f2: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:25Z (receipt 0f9c912cac63); pinned to the default-branch head. LICENSE at pin 3a92fb9d846d: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

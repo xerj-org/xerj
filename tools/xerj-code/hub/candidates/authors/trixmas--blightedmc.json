@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on java, minecraft, minecraft-plugin queries this for how Trixmas/BlightedMC implements it: Advanced SMP Plugin with custom mobs, items, crafting, forging system and more to make Minecraft Vanilla Challenging. Open source (selected work: bedrock)",
+ "domain": "an agent working on java, minecraft, minecraft-plugin queries this for how Trixmas/BlightedMC implements it: SMP Plugin with the manifestation of the Blight Corruption making vanilla survival MORE challenging (selected work: bedrock)",
  "repos": [
   {
    "repo": "BlightedMC",

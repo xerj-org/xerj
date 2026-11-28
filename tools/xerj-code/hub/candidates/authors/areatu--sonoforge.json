@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "HEALTH",
- "domain": "an agent working on Python queries this for how areatu/SonoForge implements it: Open-source cross-platform echocardiography analysis suite \u2014 DICOM/JPEG/MP4 & PACS (DICOMweb/DIMSE) support, ASE measurements, AI contours,  (selected work: src/echo_personal_tool, tests)",
+ "domain": "an agent working on Python queries this for how areatu/SonoForge implements it: Open-source cross-platform US/echocardiography analysis suite \u2014 DICOM/JPEG/MP4 & PACS (DICOMweb/DIMSE) support, ASE measurements, AI contour (selected work: src/echo_personal_tool, tests)",
  "repos": [
   {
    "repo": "SonoForge",

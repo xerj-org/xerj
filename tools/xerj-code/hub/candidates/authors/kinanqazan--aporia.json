@@ -2,8 +2,8 @@
  "corpus": "kinanqazan--aporia",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Svelte queries this for how Kinanqazan/Aporia implements it: Notion like App (selected work: src/routes, src, src/lib)",
+ "shelf": "AI",
+ "domain": "an agent working on note-taking, notes-app, notion queries this for how Kinanqazan/Aporia implements it: debloated, faster and better looking Notion like App for Browser and Phone (selected work: src/routes, src, src/lib)",
  "repos": [
   {
    "repo": "Aporia",

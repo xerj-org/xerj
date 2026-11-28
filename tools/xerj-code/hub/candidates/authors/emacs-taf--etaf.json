@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on emacs, framework, reactive queries this for how emacs-taf/etaf implements it: [READ ONLY] Core projection from emacs-taf/emacs-taf: 15 ETAF framework, extension, installer and reference-manual packages (selected work: lisp, tests, the project root)",
+ "domain": "an agent working on emacs, framework, reactive queries this for how emacs-taf/etaf implements it: [READ ONLY] Core projection from emacs-taf/emacs-taf: ETAF framework, extension, installer and reference-manual packages (selected work: lisp, tests, the project root)",
  "repos": [
   {
    "repo": "etaf",
