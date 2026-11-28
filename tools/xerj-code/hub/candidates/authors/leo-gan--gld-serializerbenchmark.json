@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "LAW",
- "domain": "an agent working on serializer, c-sharp, python queries this for how leo-gan/GLD.SerializerBenchmark implements it: Serialization benchmarks (14 languages, ~20 standards, ~400 serializers), Compliance tests, Serialization 101\u2013401 courses (selected work: c, go, c-sharp)",
+ "domain": "an agent working on serializer, c-sharp, python queries this for how leo-gan/GLD.SerializerBenchmark implements it: Serialization benchmarks (14 languages, ~30 standards, ~400 serializers), Compliance tests, Serialization 101\u2013401 courses (selected work: c, go, c-sharp)",
  "repos": [
   {
    "repo": "GLD.SerializerBenchmark",

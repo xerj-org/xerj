@@ -8,15 +8,15 @@
   {
    "repo": "D_AI",
    "url": "https://github.com/amroquqa99-art/D_AI",
-   "sha": "85392b18cb10ac847a14ae9e2b5b1c624ae37031",
-   "licence": "GPL-3.0 (LICENSE file at pin 85392b18cb10, GitHub licence API 2026-11-11)",
+   "sha": "ca120605577108df1462a6a4069c4399b7e4ed5f",
+   "licence": "GPL-3.0 (LICENSE file at pin ca1206055771, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-29T19:36Z",
     "consent_receipt": "fdba7c239e66",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:36Z (receipt fdba7c239e66); pinned to the default-branch head. LICENSE file at pin 85392b18cb10 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:36Z (receipt fdba7c239e66); pinned to the default-branch head. LICENSE file at pin ca1206055771 detected as GPL-3.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]

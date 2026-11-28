@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on financial-analysis, network-analysis, risk-analysis queries this for how TommasoBelluzzo/SystemicRisk implements it: A framework for financial systemic risk valuation and analysis",
+ "domain": "an agent working on financial-analysis, risk-analysis, risk-models queries this for how TommasoBelluzzo/SystemicRisk implements it: A MATLAB framework for measuring, analyzing, and monitoring financial systemic risk",
  "repos": [
   {
    "repo": "SystemicRisk",
    "url": "https://github.com/TommasoBelluzzo/SystemicRisk",
-   "sha": "bdf9bdb49dee4e14060aa2240e1e4b278e8ab260",
-   "licence": "Apache-2.0 (LICENSE file at pin bdf9bdb49dee, GitHub licence API 2026-11-28)",
+   "sha": "9a9654c954fc30ef94bc6451095a4e86b899ace2",
+   "licence": "Apache-2.0 (LICENSE file at pin 9a9654c954fc, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T22:48Z",
     "consent_receipt": "0f847b8f914f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:48Z (receipt 0f847b8f914f); pinned to the default-branch head. LICENSE file at pin bdf9bdb49dee detected as Apache-2.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:48Z (receipt 0f847b8f914f); pinned to the default-branch head. LICENSE file at pin 9a9654c954fc detected as Apache-2.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution."
    }
   }
  ]

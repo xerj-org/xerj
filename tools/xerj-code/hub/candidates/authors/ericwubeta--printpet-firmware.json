@@ -8,15 +8,15 @@
   {
    "repo": "ai-passport-bambu-monitor",
    "url": "https://github.com/ericwubeta/ai-passport-bambu-monitor",
-   "sha": "f426f791a034f858caed6c02cdddb5cf8bbfc2ad",
-   "licence": "MPL-2.0 (LICENSE file at pin f426f791a034, GitHub licence API 2026-11-23)",
+   "sha": "22e8d635b744637b0d2c0362cab8d9ab84d4b7cf",
+   "licence": "MPL-2.0 (LICENSE file at pin 22e8d635b744, GitHub licence API 2026-11-28)",
    "review": {
     "spdx": "MPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-25T11:39Z",
     "consent_receipt": "4753597de918",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T11:39Z (receipt 4753597de918); selected commit f426f791a034: \"feat(wifi): scan-and-pick provisioning with 3 saved networks\". LICENSE file at pin f426f791a034 detected as MPL-2.0 by the GitHub licence API on 2026-11-23; used under that licence with attribution. Pinned to head f426f791a034 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T11:39Z (receipt 4753597de918); selected commit 22e8d635b744: \"feat(wifi): scan-and-pick provisioning with 3 saved networks\". LICENSE file at pin 22e8d635b744 detected as MPL-2.0 by the GitHub licence API on 2026-11-28; used under that licence with attribution. Pinned to head 22e8d635b744 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]
